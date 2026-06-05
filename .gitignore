@@ -1,0 +1,57 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+*.pdb
+*.dll.config
+
+# Visual Studio IDE state
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# ReSharper / Rider
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet packages (regenerate with `nuget restore`)
+packages/
+
+# Velopack release output (uploaded to GitHub Releases by scripts/release.ps1, not committed)
+Releases/
+
+# Test / coverage output
+TestResults/
+[Cc]overage*/
+
+# BenchmarkDotNet per-run output (logs, reports, artifacts)
+BenchmarkDotNet.Artifacts/
+
+# OS noise
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Emacs temp / backup / autosave / lock
+*~
+\#*\#
+.\#*
+TAGS
+*.elc
+
+# Personal-default overrides — author-specific values that the runtime layer reads
+# from %LocalAppData%\TargetPlanner\personal-defaults.json. The committed source
+# only ships ship-safe placeholders; this defensive gate stops a stray copy from
+# ever ending up in the repo.
+personal-defaults.json
+
+# Claude Code: keep per-developer state out (permission allowlist,
+# scheduled-task locks, output-style overrides) but include shared
+# project skills / agents / commands / settings so they ride along with
+# the repo. settings.local.json holds the user-local permissions.
+.claude/settings.local.json
+

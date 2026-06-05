@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj" />
+  <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj" />
+  <Project Path="TargetCatalogManager.csproj" />
+</Solution>
