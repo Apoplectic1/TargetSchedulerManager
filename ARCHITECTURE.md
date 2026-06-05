@@ -26,12 +26,14 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
   `ITableMapper<T>` mappers, embedded idempotent `schema.sql` (**no migration framework** — the catalog is fully
   derived and rebuildable), `SchemaManager` (WAL / foreign_keys / busy_timeout), `CatalogStore` (CRUD +
   `WriteCatalog`), `GuidBlob`, the `Scan/` image-library scanner, the `Build/` reconciler (`TargetResolver` +
-  `CatalogBuilder` + `CatalogBuildReport`), and the hardened read-only `TargetSchedulerReader`. Pure-managed
+  `CatalogBuilder` + `CatalogBuildReport`), the `Reconcile/` goal-vs-actual layer (`Reconciler` +
+  `CatalogStore.GetReconciliation`), and the hardened read-only `TargetSchedulerReader`. Pure-managed
   (Microsoft.Data.Sqlite + Astronomy.XISF). **Every consumer references this**, not the TCM app — TCM is the
   writer, the library is the contract.
 - **`TargetCatalogManager`** (this app):
   - **Headless build (Phase 1–2, shipped)** — `Program.cs` console host: `tcm [--catalog --library --ts
-    --tolerance]` runs `CatalogBuilder.BuildAsync` and prints the reconciliation report. Cross-repo
+    --tolerance]` runs `CatalogBuilder.BuildAsync` and prints the reconciliation report + the goal-vs-actual
+    summary. Cross-repo
     `ProjectReference` to `Astronomy.Catalog` (local disk is source of truth).
   - **Maintenance UI (Phase 3, WinUI 3)** — CRUD over `CatalogStore`, scan trigger, goal-vs-actual view; hosts
     the migrated XFM scheduler tree. Sits on the same `CatalogBuilder`.
