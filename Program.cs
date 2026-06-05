@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Astronomy.Catalog;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Schema;
 
 namespace TargetCatalogManager;
@@ -55,7 +56,38 @@ internal static class Program
 
         PrintReport(report, sw.Elapsed);
         PrintReadBack(catalog);
+        PrintReconciliation(catalog);
         return 0;
+    }
+
+    private static void PrintReconciliation(string catalog)
+    {
+        using CatalogStore store = CatalogStore.OpenReadOnly(catalog);
+        List<TargetReconciliation> planned =
+            [.. store.GetReconciliation().Where(r => r.TotalDesired > 0)];
+
+        int complete = planned.Count(r => r.Status == ReconcileStatus.Complete);
+        int inProgress = planned.Count(r => r.Status == ReconcileStatus.InProgress);
+        int notStarted = planned.Count(r => r.Status == ReconcileStatus.NotStarted);
+        int desired = planned.Sum(r => r.TotalDesired);
+        int remaining = planned.Sum(r => r.TotalRemaining);
+
+        Console.WriteLine();
+        Console.WriteLine("goal vs actual (Combined: Light + Stars vs desired):");
+        Console.WriteLine($"  planned targets : {planned.Count}  (complete {complete} / in-progress {inProgress} / not-started {notStarted})");
+        Console.WriteLine($"  frames          : {desired - remaining}/{desired} done, {remaining} remaining");
+        Console.WriteLine("  in-progress targets (most frames remaining):");
+        foreach (TargetReconciliation r in planned
+            .Where(r => r.Status == ReconcileStatus.InProgress)
+            .OrderByDescending(r => r.TotalRemaining)
+            .Take(10))
+        {
+            string perFilter = string.Join("  ", r.Filters
+                .Where(f => f.DesiredCount > 0)
+                .Select(f => $"{f.Filter} {f.AcquiredCount}/{f.DesiredCount}{(f.Status == ReconcileStatus.Complete ? "*" : "")}"));
+            string name = r.Name.Length <= 26 ? r.Name : r.Name[..26];
+            Console.WriteLine($"    {name,-26} {r.FractionComplete * 100,3:0}%  rem {r.TotalRemaining,4}  [{perFilter}]");
+        }
     }
 
     private static void PrintReport(CatalogBuildReport r, TimeSpan elapsed)
