@@ -58,9 +58,30 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
 - **Concurrency:** TCM is the single writer; WAL is on so consumers read without blocking. (WAL is unhappy over
   network shares — relevant if a consumer runs on another PC.)
 - **TS interop:** read-only today (`TargetSchedulerReader`, opened `Mode=ReadOnly` + busy-timeout, explicit
-  column lists, schema-version aware). Write-back/reconciliation is Phase 4; the live TS DB likely lives on the
-  imaging PC (cross-machine).
+  column lists, schema-version aware). Write-back is Phase 4 (designed, not built — see below). All TS interop
+  (read *and* write) is a **stop-gap** until IS/ISP reads `Catalog.db` directly; the live TS DB likely lives on
+  the imaging PC (cross-machine), so write-back operates on a local copy.
 - **Reuse:** the scan is `Astronomy.Catalog.Scan.ImageLibraryScanner` (on `Astronomy.XISF`'s header reader); the
   SQLite mapper pattern came from XFM.
+
+## TS write-back (Phase 4 — designed, not built)
+
+`TargetSchedulerWriter` pushes disk-derived counts back into TS so its planner reflects ACTUAL. It is a
+**stop-gap** until IS/ISP consumes `Catalog.db` directly, so it stays minimal and cleanly deletable. Load-bearing
+invariants (full spec in `ROADMAP.md` Phase 4):
+
+- **Disk is master, one-way.** Write-back only ever flows ACTUAL → TS, never the reverse; conflicts overwrite the
+  TS value up or down.
+- **Counts only, cached columns only.** Sets `exposureplan.acquired` *and* `.accepted` = disk count; touches no
+  `acquiredimage` rows. TS never recomputes counts from images, so the cached columns are authoritative (its own
+  Database-Manager UI hand-edits them) — that is why a column write suffices and survives.
+- **`(target, filter, purpose)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming convention,
+  symmetric across disk directories and TS templates — so the main/Stars two-plan split resolves without guessing
+  (the disk inventory can't separate same-purpose plans by exposure, hence the purpose axis carries it).
+- **Duplicates → manual.** ≥2 plans collapsing onto one `(target,filter,purpose)` — a same-purpose multi-plan or a
+  dup-fold target — are reported, never written; they need user intervention in TS.
+- **Safe by construction.** Operates on a local DB copy with hard guards (open-connection sidecars, schema
+  version), dry-run by default, backup + transaction + read-back verify before commit. A fresh re-scan each run
+  means it can never push stale numbers.
 
 This supersedes the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and IS becomes a consumer.

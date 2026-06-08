@@ -2,7 +2,7 @@
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-06-04)
+## Status — pick up here (2026-06-08)
 
 Phases 1–2 are **done and working on real data**. The headless host (`tcm`) rebuilds `Catalog.db` from the image
 library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-actual in ~1s:
@@ -18,14 +18,15 @@ All logic lives in the shared `Astronomy.Catalog` library (42 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
-**▶ Recommended next — Phase 4: `TargetSchedulerWriter` (write reconciled disk counts back into TS).**
-Reconciliation already computes the true per-(target,filter) actuals, and TS's own `acquired_count` is badly
-stale (Wizard: TS said 0 H, disk has 140). Every catalog row retains `imported_from_ts_guid`, so the writer maps
-catalog → exact TS rows. (Alternative: Phase 3 WinUI first, if you'd rather see it before write-back.)
+**▶ Next — Phase 4: `TargetSchedulerWriter` (design resolved 2026-06-08, not yet built).** The full write-back
+design is settled — see Phase 4 below. It writes disk-derived counts back into TS so its planner stops over/under-
+scheduling (TS's own `acquired` is badly stale: Wizard said 0 H, disk has 140). TS read+write is a **stop-gap**
+until IS/ISP reads `Catalog.db` directly, so the writer stays minimal and cleanly deletable at Phase 5.
+(Alternative: Phase 3 WinUI first, if you'd rather see it before write-back.)
 
-Known wrinkle to revisit: when two TS targets fold onto one disk target (the `M27`/`Dumbell` dup), their plans
-**accumulate**, doubling that target's goals. Faithful to the duplicated TS state and flagged in the report;
-cleaning the TS dup fixes it on rebuild. A "merge duplicate goals: sum vs max" option is possible if common.
+Dup-fold goals (`M27`/`Dumbell`): two TS targets folding onto one disk target still **accumulate** plans (doubling
+goals) — faithful to TS, flagged in the report, fixed by cleaning the TS dup. Phase-4 write-back sends such
+duplicates to its **manual bucket** (reports, never writes) per disk-is-master.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
@@ -60,10 +61,31 @@ cleaning the TS dup fixes it on rebuild. A "merge duplicate goals: sum vs max" o
   `GetReconciliation`.
 - Migrate XFM's Target Scheduler tab (`MainForm/TargetScheduler.*` + `CustomTreeView`) into TCM.
 
-## Phase 4 — Reconcile / write back to TS  ◀ recommended next
+## Phase 4 — Write back to TS  ◀ designed 2026-06-08, not yet built
 
-- `TargetSchedulerWriter`: write reconciled disk-derived counts (and plan edits) back into TS via the retained
-  `imported_from_ts_guid` provenance. Handle TS on the imaging PC (cross-machine; WAL share caveat).
+`TargetSchedulerWriter` (in `Astronomy.Catalog/TargetScheduler/`, mirroring the Reader) writes disk-derived counts
+back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/ISP reads `Catalog.db` directly —
+minimal surface, cleanly deletable at Phase 5. Design resolved via grill-me (2026-06-08):
+
+- **Scope:** counts only — no `desired` edits, no two-way sync.
+- **What's written:** cached columns only — `exposureplan.acquired` *and* `.accepted`, both set = disk count
+  (disk = post-cull "kept" = accepted-equivalent), so TS halts scheduling under any grading mode. **No**
+  synthesized `acquiredimage` rows — TS never recomputes counts from them; its own Database-Manager UI hand-edits
+  these columns (confirmed `SchedulerDatabaseContext.cs` / `TargetViewVM.cs`).
+- **Conflict:** **disk wins** — overwrite up or down (ACTUAL is master). No clamp to `desired` (over-shoot >100% OK).
+- **Mapping key — `(target, filter, purpose)`:** purpose ∈ {Light, Stars} from the `"Stars "` prefix, identical on
+  disk dir names *and* TS template names (`B300`→Light, `Stars B`→Stars). Light plan ← `LightCount`, Stars plan ←
+  `StarsCount`. **Never** the `Combined` sum. Resolves 126/127 multi-plan RGB pairs in the snapshot.
+- **Manual bucket (report, never write):** genuine duplicates — ≥2 plans on one `(target,filter,purpose)` (1 case:
+  `tid 52` H) and dup-fold targets (`M27`/`Dumbell`). One detector: group catalog plans by `(target,filter,purpose)`;
+  >1 ⇒ manual.
+- **Safety:** local-copy only; refuse on `-wal`/`-shm`/`-journal` sidecar or `user_version ≠ 24`; dry-run default,
+  `--apply` to commit; timestamped backup; transaction + read-back verify.
+- **Source:** fresh re-scan each run (`tcm writeback`, ~1 s, self-contained — can't push stale numbers).
+- **Surface:** library = pure mechanism (compute diff plan + apply transactionally); TCM `Program.cs` = dry-run
+  print + `--apply` gate + manual report. Add Writer tests against a fixture TS db.
+- **Write key:** catalog `exposure_plan.imported_from_ts_guid` already holds the TS `exposureplan.Id` (integer PK)
+  → direct `UPDATE exposureplan SET acquired=?, accepted=? WHERE Id=?`.
 
 ## Phase 5 — Consumer cutover
 
