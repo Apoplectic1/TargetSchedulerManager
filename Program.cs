@@ -3,7 +3,7 @@ using System.Globalization;
 using Astronomy.Catalog;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Reconcile;
-using Astronomy.Catalog.Schema;
+using Astronomy.Catalog.TargetScheduler;
 
 namespace TargetCatalogManager;
 
@@ -23,14 +23,19 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0].Equals("writeback", StringComparison.OrdinalIgnoreCase))
+            return await WriteBack(args);
+        return await BuildAndReport(args);
+    }
+
+    /// <summary>Default verb: rebuild Catalog.db and print the reconciliation + goal-vs-actual report.</summary>
+    private static async Task<int> BuildAndReport(string[] args)
+    {
         Dictionary<string, string> opts = ParseArgs(args);
         string catalog = opts.GetValueOrDefault("catalog", DefaultCatalog);
         string library = opts.GetValueOrDefault("library", DefaultLibrary);
         string tsDb = opts.GetValueOrDefault("ts", DefaultTs);
-        ResolveOptions resolve = opts.TryGetValue("tolerance", out string? tol)
-            && double.TryParse(tol, NumberStyles.Float, CultureInfo.InvariantCulture, out double deg)
-            ? new ResolveOptions(deg)
-            : ResolveOptions.Default;
+        ResolveOptions resolve = ParseTolerance(opts);
 
         if (!Directory.Exists(library))
         {
@@ -60,6 +65,78 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>
+    /// <c>writeback</c> verb: fresh-rebuild the catalog, then push disk-derived counts into the <b>local</b> TS
+    /// copy so its planner reflects ACTUAL. Dry-run by default; pass <c>--apply</c> to commit. Refuses a
+    /// version-mismatched or apparently-open db. Never touches the live imaging-PC database.
+    /// </summary>
+    private static async Task<int> WriteBack(string[] args)
+    {
+        Dictionary<string, string> opts = ParseArgs(args);
+        string catalog = opts.GetValueOrDefault("catalog", DefaultCatalog);
+        string library = opts.GetValueOrDefault("library", DefaultLibrary);
+        string tsDb = opts.GetValueOrDefault("ts", DefaultTs);
+        bool apply = args.Any(a => a.Equals("--apply", StringComparison.OrdinalIgnoreCase));
+        ResolveOptions resolve = ParseTolerance(opts);
+
+        if (!Directory.Exists(library))
+        {
+            Console.Error.WriteLine($"image library root not found: {library}");
+            return 1;
+        }
+        if (!File.Exists(tsDb))
+        {
+            Console.Error.WriteLine($"Target Scheduler database not found: {tsDb}");
+            return 1;
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(catalog)!);
+
+        Console.WriteLine($"writeback {(apply ? "(APPLY)" : "(dry-run - pass --apply to commit)")}");
+        Console.WriteLine($"  library  : {library}");
+        Console.WriteLine($"  TS db    : {tsDb}  (local copy - never the live imaging-PC db)");
+        Console.WriteLine($"  tolerance: {resolve.MatchToleranceDegrees:0.00} deg");
+        Console.WriteLine();
+
+        // Fresh re-scan so we never push stale numbers.
+        CatalogBuildReport report = await CatalogBuilder.BuildAsync(catalog, library, tsDb, resolve);
+
+        WriteBackPlan plan;
+        using (CatalogStore store = CatalogStore.OpenReadOnly(catalog))
+            plan = WriteBackPlanner.Plan(
+                store.GetTargets(), store.GetExposurePlans(), store.GetExposureTemplates(),
+                store.GetInventoryFilters(), report);
+
+        using TargetSchedulerWriter writer = new(tsDb);
+        if (writer.SchemaUserVersion != TargetSchedulerWriter.RequiredUserVersion)
+        {
+            Console.Error.WriteLine(
+                $"refusing: TS user_version {writer.SchemaUserVersion} != required {TargetSchedulerWriter.RequiredUserVersion}");
+            return 1;
+        }
+        if (writer.HasOpenSidecar)
+        {
+            Console.Error.WriteLine(
+                "refusing: TS db has a -wal/-shm/-journal sidecar (may be open). Close NINA / copy a fresh snapshot.");
+            return 1;
+        }
+        if (writer.IsReadOnly)
+        {
+            Console.Error.WriteLine(
+                "refusing: TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot.");
+            return 1;
+        }
+
+        WriteBackResult result = writer.Execute(plan, apply);
+        PrintWriteBack(plan, result, apply);
+        return result.VerifyFailures.Count == 0 ? 0 : 1;
+    }
+
+    private static ResolveOptions ParseTolerance(Dictionary<string, string> opts) =>
+        opts.TryGetValue("tolerance", out string? tol)
+            && double.TryParse(tol, NumberStyles.Float, CultureInfo.InvariantCulture, out double deg)
+            ? new ResolveOptions(deg)
+            : ResolveOptions.Default;
+
     private static void PrintReconciliation(string catalog)
     {
         using CatalogStore store = CatalogStore.OpenReadOnly(catalog);
@@ -87,6 +164,59 @@ internal static class Program
                 .Select(f => $"{f.Filter} {f.AcquiredCount}/{f.DesiredCount}{(f.Status == ReconcileStatus.Complete ? "*" : "")}"));
             string name = r.Name.Length <= 26 ? r.Name : r.Name[..26];
             Console.WriteLine($"    {name,-26} {r.FractionComplete * 100,3:0}%  rem {r.TotalRemaining,4}  [{perFilter}]");
+        }
+    }
+
+    private static void PrintWriteBack(WriteBackPlan plan, WriteBackResult result, bool apply)
+    {
+        List<WriteBackChange> effective = [.. result.Changes.Where(c => !c.IsNoOp)];
+        int decreases = effective.Count(c => c.IsDecrease);
+        int noOps = result.Changes.Count - effective.Count;
+
+        foreach (WriteBackChange c in effective
+            .OrderByDescending(c => c.IsDecrease)
+            .ThenBy(c => c.TargetName, StringComparer.OrdinalIgnoreCase))
+        {
+            string name = c.TargetName.Length <= 26 ? c.TargetName : c.TargetName[..26];
+            string flag = c.IsDecrease ? "  <- DECREASE" : "";
+            Console.WriteLine($"  {name,-26} {c.Filter,-2} {c.Purpose,-5}  acq/acc {c.OldAcquired}/{c.OldAccepted} -> {c.NewCount}{flag}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"writes: {effective.Count}  (decreases {decreases}, no-ops {noOps})   " +
+            $"manual: {plan.Manual.Count}   needs-reconciliation: {plan.NeedsReconciliation.Count}   " +
+            $"ignored-missing: {plan.IgnoredMissing}");
+
+        if (plan.Manual.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("manual reconciliation (NOT written - resolve by hand in TS):");
+            foreach (ManualGroup g in plan.Manual)
+            {
+                Console.WriteLine($"  {g.TargetName}  {g.Filter} {g.Purpose}  disk={g.DiskCount}  ({g.Reason})");
+                foreach (ManualPlan p in g.Plans)
+                    Console.WriteLine($"      ts#{p.TsExposurePlanId}  acq/acc {p.CatalogAcquired}/{p.CatalogAccepted}  desired {p.Desired}");
+            }
+        }
+
+        if (plan.NeedsReconciliation.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("needs reconciliation (TS target issues surfaced):");
+            foreach (ReconcileNote n in plan.NeedsReconciliation)
+                Console.WriteLine($"  {n.Kind,-12} '{n.TargetName}'  {n.Detail}");
+        }
+
+        Console.WriteLine();
+        if (!apply)
+            Console.WriteLine($"dry-run - nothing written. Re-run with --apply to commit {effective.Count} change(s).");
+        else if (result.VerifyFailures.Count == 0)
+            Console.WriteLine($"applied {plan.Writes.Count} plan(s) ({effective.Count} changed, {decreases} decreased); read-back verify OK.");
+        else
+        {
+            Console.WriteLine($"applied with {result.VerifyFailures.Count} VERIFY FAILURE(S):");
+            foreach (WriteBackVerifyFailure f in result.VerifyFailures)
+                Console.WriteLine($"  ts#{f.TsExposurePlanId}: expected {f.Expected}, got acq/acc {f.ActualAcquired}/{f.ActualAccepted}");
         }
     }
 
