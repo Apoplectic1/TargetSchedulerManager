@@ -12,21 +12,24 @@ library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-ac
 - **goal vs actual:** 101 planned targets (6 complete / 33 in-progress / 62 not-started), **8221 / 30088 frames
   done**, 21867 remaining.
 
-All logic lives in the shared `Astronomy.Catalog` library (42 tests, 0 warnings). The TCM project itself is just
+All logic lives in the shared `Astronomy.Catalog` library (58 tests, 0 warnings). The TCM project itself is just
 `Program.cs` (the headless host) so far — **no UI yet**. Run it: `tcm` (override `--catalog --library --ts
 --tolerance`). DB at `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`. Match tolerance is **0.5°**
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
-**▶ Next — Phase 4: `TargetSchedulerWriter` (design resolved 2026-06-08, not yet built).** The full write-back
-design is settled — see Phase 4 below. It writes disk-derived counts back into TS so its planner stops over/under-
-scheduling (TS's own `acquired` is badly stale: Wizard said 0 H, disk has 140). TS read+write is a **stop-gap**
-until IS/ISP reads `Catalog.db` directly, so the writer stays minimal and cleanly deletable at Phase 5.
-(Alternative: Phase 3 WinUI first, if you'd rather see it before write-back.)
+**▶ Phase 4 — `TargetSchedulerWriter` — DONE (built 2026-06-08).** `tcm writeback [--apply]` fresh-rebuilds the
+catalog, then pushes disk-derived counts into a **local** TS copy (dry-run by default). Validated on real data:
+**182 plans written / 13 held for manual / 92 ignored-missing**, the motivating case `Sh2-142 Wizard H 0 → 140` is
+fixed, re-apply idempotent. Details in Phase 4 below.
 
-Dup-fold goals (`M27`/`Dumbell`): two TS targets folding onto one disk target still **accumulate** plans (doubling
-goals) — faithful to TS, flagged in the report, fixed by cleaning the TS dup. Phase-4 write-back sends such
-duplicates to its **manual bucket** (reports, never writes) per disk-is-master.
+**▶ Recommended next — Phase 3 (WinUI maintenance UI) or Phase 5 (consumer cutover).** TS read+write is a
+**stop-gap** until IS/ISP reads `Catalog.db` directly.
+
+Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
+(`M27`/`Dumbell`: two TS targets onto one disk target, plans accumulate) and **identity conflicts** (name-mismatch
+/ ambiguous coord match, e.g. `CygnusLoop P3` ↔ `NGC 6995` — auto-writing a false-positive match would zero a real
+TS target's counts).
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
@@ -61,11 +64,12 @@ duplicates to its **manual bucket** (reports, never writes) per disk-is-master.
   `GetReconciliation`.
 - Migrate XFM's Target Scheduler tab (`MainForm/TargetScheduler.*` + `CustomTreeView`) into TCM.
 
-## Phase 4 — Write back to TS  ◀ designed 2026-06-08, not yet built
+## Phase 4 — Write back to TS  ✅ DONE (built 2026-06-08)
 
 `TargetSchedulerWriter` (in `Astronomy.Catalog/TargetScheduler/`, mirroring the Reader) writes disk-derived counts
 back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/ISP reads `Catalog.db` directly —
-minimal surface, cleanly deletable at Phase 5. Design resolved via grill-me (2026-06-08):
+minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
+tests). Verb: `tcm writeback [--apply]` (dry-run default).
 
 - **Scope:** counts only — no `desired` edits, no two-way sync.
 - **What's written:** cached columns only — `exposureplan.acquired` *and* `.accepted`, both set = disk count
@@ -76,16 +80,22 @@ minimal surface, cleanly deletable at Phase 5. Design resolved via grill-me (202
 - **Mapping key — `(target, filter, purpose)`:** purpose ∈ {Light, Stars} from the `"Stars "` prefix, identical on
   disk dir names *and* TS template names (`B300`→Light, `Stars B`→Stars). Light plan ← `LightCount`, Stars plan ←
   `StarsCount`. **Never** the `Combined` sum. Resolves 126/127 multi-plan RGB pairs in the snapshot.
-- **Manual bucket (report, never write):** genuine duplicates — ≥2 plans on one `(target,filter,purpose)` (1 case:
-  `tid 52` H) and dup-fold targets (`M27`/`Dumbell`). One detector: group catalog plans by `(target,filter,purpose)`;
-  >1 ⇒ manual.
-- **Safety:** local-copy only; refuse on `-wal`/`-shm`/`-journal` sidecar or `user_version ≠ 24`; dry-run default,
-  `--apply` to commit; timestamped backup; transaction + read-back verify.
+- **Manual bucket (presented with full info, never auto-written):** ≥2 plans on one `(target,filter,purpose)`
+  (same-purpose multi-plan, or a dup-fold of two TS targets onto one disk target — `M27`/`Dumbell`), **and**
+  identity conflicts — the whole flagged target is held when its match is a name-mismatch or ambiguous coord match
+  (e.g. `CygnusLoop P3` ↔ `NGC 6995`), so a false-positive match can't zero a real TS target's counts.
+- **Safety:** local-copy only; **no backups** (both DBs are recreatable); refuse on `-wal`/`-shm`/`-journal`
+  sidecar, `user_version ≠ 24`, or a read-only db file; dry-run default, `--apply` to commit; one transaction +
+  read-back verify. Writer uses a **private** SQLite cache so it doesn't inherit the build-reader's read-only
+  shared cache (`SQLITE_READONLY` otherwise).
 - **Source:** fresh re-scan each run (`tcm writeback`, ~1 s, self-contained — can't push stale numbers).
-- **Surface:** library = pure mechanism (compute diff plan + apply transactionally); TCM `Program.cs` = dry-run
-  print + `--apply` gate + manual report. Add Writer tests against a fixture TS db.
+- **Surface:** `FilterPurposeClassifier` (shared `"Stars "` rule) + `WriteBackPlanner` (pure) + `WriteBackPlan`
+  records + `TargetSchedulerWriter` (thin I/O); TCM `Program.cs` = dry-run print + `--apply` gate + manual report.
+  Tests: hermetic planner cases + classifier + integration (snapshot copy → apply → verify).
 - **Write key:** catalog `exposure_plan.imported_from_ts_guid` already holds the TS `exposureplan.Id` (integer PK)
   → direct `UPDATE exposureplan SET acquired=?, accepted=? WHERE Id=?`.
+- **Out of scope (later phase):** automated network push of the local copy back to the imaging PC (BIRDWATCHER) —
+  for now copied back by hand; and creating missing targets (TS-only kept, disk-only deferred), revisited in the UI.
 
 ## Phase 5 — Consumer cutover
 
