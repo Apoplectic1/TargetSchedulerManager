@@ -21,7 +21,9 @@ All logic lives in the shared `Astronomy.Catalog` library (58 tests, 0 warnings)
 **▶ Phase 4 — `TargetSchedulerWriter` — DONE (built 2026-06-08).** `tcm writeback [--apply]` fresh-rebuilds the
 catalog, then pushes disk-derived counts into a **local** TS copy (dry-run by default). Validated on real data:
 **182 plans written / 13 held for manual / 92 ignored-missing**, the motivating case `Sh2-142 Wizard H 0 → 140` is
-fixed, re-apply idempotent. Details in Phase 4 below.
+fixed, re-apply idempotent. **`tcm writeback --target "<dir>"`** adds a surgical single-target write — no catalog
+rebuild, and for a **mosaic it writes each panel's** counts to that panel's own TS plan (`Mosaic - Cygnus Loop` →
+16 panels, 96 cells matched / 80 writes, apply-verify OK, idempotent). Details in Phase 4 below.
 
 **▶ Recommended next — Phase 3 (WinUI maintenance UI) or Phase 5 (consumer cutover).** TS read+write is a
 **stop-gap** until IS/ISP reads `Catalog.db` directly.
@@ -96,6 +98,15 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
   Tests: hermetic planner cases + classifier + integration (snapshot copy → apply → verify).
 - **Write key:** catalog `exposure_plan.imported_from_ts_guid` already holds the TS `exposureplan.Id` (integer PK)
   → direct `UPDATE exposureplan SET acquired=?, accepted=? WHERE Id=?`.
+- **Surgical single-target — `tcm writeback --target "<dir>"`:** scans **one** directory only (no catalog rebuild)
+  and writes just its cells. The unit is a **filter-cell** = `(filter, purpose, binning)`: a normal target is one
+  unit, a **mosaic is N panel units**. Each unit coordinate-anchors to its TS target (a mosaic panel only within the
+  same-named `isMosaic` project — name-matched first, then coord-matched), and each cell matches the TS plan by
+  `(filter, purpose, binning)` so a 2×2 cell can't write a 1×1 plan. Unmatched units (beyond tolerance / ambiguous →
+  `ReconcileNote`) and cells (no / multiple plans → `ManualGroup`, new `ManualReason.NoMatchingPlan`) are reported,
+  never forced. Reuses the bulk writer (acq/acc + `desired` ratchet + read-back verify) + `Program.PrintWriteBack`;
+  new `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync`. Tests: per-panel match, binning
+  disambiguation, no-bin-match→manual, unit-beyond-tolerance→note, normal-doesn't-grab-a-panel. (75 library tests.)
 - **Out of scope (later phase):** automated network push of the local copy back to the imaging PC (BIRDWATCHER) —
   for now copied back by hand; and creating missing targets (TS-only kept, disk-only deferred), revisited in the UI.
 

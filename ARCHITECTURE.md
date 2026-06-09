@@ -53,7 +53,8 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
   dirs (a mosaic and a sub-region) are distinct targets. A `Mosaic - <Name>` dir nests an extra opaque *panel*
   level (the scanner descends it, aggregating per filter into one target) and **name-matches** the same-named
   `isMosaic` TS project, folding its panels' goals onto that one disk target → mosaic-level goal-vs-actual;
-  write-back routes mosaics to manual. Panels are excluded from coordinate matching so they can't mis-anchor onto
+  **bulk** write-back routes mosaics to manual, while **`tcm writeback --target`** writes each panel's counts to
+  that panel's own TS plan (see Phase 4). Panels are excluded from coordinate matching so they can't mis-anchor onto
   an overlapping standalone dir (`CygnusLoop P3` no longer grabs `NGC 6995 - Eastern Veil`). Real run: 6 mosaics,
   38 panels folded, name-mismatches now 0.
 - **Schema rules:** GUID `BLOB(16)` PKs (big-endian, see `GuidBlob`), `snake_case`, NULL not sentinels, enum
@@ -95,5 +96,13 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   which the NINA-nightly bumps), dry-run by default, one transaction + read-back verify. No backups — both DBs are
   recreatable. The writer uses a private SQLite cache (so it doesn't inherit the build-reader's read-only shared
   cache); a fresh re-scan each run can't push stale numbers.
+- **Surgical single-target (`--target`).** `tcm writeback --target "<dir>"` scans one directory only (no catalog
+  rebuild) and writes just its cells; a **mosaic writes per panel** — each panel dir coordinate-anchors to its TS
+  panel *within the same-named isMosaic project*, and each `(filter, purpose, binning)` cell lands on that panel's
+  matching plan (binning guards a 2×2 cell off a 1×1 plan). The unit is a filter-cell, so a normal target is one
+  unit and a mosaic is N panel units. Unmatched units (beyond tolerance / ambiguous) and cells (no / multiple
+  matching plans) are **reported, never forced**; reuses the same writer (acq/acc + `desired` ratchet + verify) and
+  guards. Surface: `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan). Validated:
+  `Mosaic - Cygnus Loop` → 16 panels, 96 cells all matched (80 writes), apply + read-back verify OK, re-run idempotent.
 
 This supersedes the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and IS becomes a consumer.
