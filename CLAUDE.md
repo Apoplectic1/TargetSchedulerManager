@@ -48,8 +48,8 @@ tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
 ```
 
 Defaults (in `Program.cs`): catalog `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
-library `E:\Photography\Astro Photography\Processing`, TS db the local working copy
-`TargetCatalogManager\TS Database\schedulerdb.sqlite` (re-copyable from the imaging PC **BIRDWATCHER**;
+library `E:\Photography\Astro Photography\Processing`, TS db the shared working copy under
+`Processing\Catalog\TS Database\schedulerdb.sqlite` (one location TCM + IS read, re-copyable from **BIRDWATCHER**;
 `schedulerdb - Copy.sqlite` restores it). The live TS database lives on BIRDWATCHER (cross-machine), so the
 default is a local copy — `writeback --apply` against it is restorable, never the live db.
 

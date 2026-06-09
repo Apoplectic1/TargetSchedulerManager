@@ -55,8 +55,3 @@ personal-defaults.json
 # the repo. settings.local.json holds the user-local permissions.
 .claude/settings.local.json
 
-# Local TS database: the NINA Target Scheduler copy from the imaging PC (BIRDWATCHER) + its restore copy.
-# Large binaries (~140 MB each), re-copyable, never committed. It's the default --ts for `tcm writeback` and the
-# integration tests; "schedulerdb - Copy.sqlite" is the manual restore.
-TS Database/
-

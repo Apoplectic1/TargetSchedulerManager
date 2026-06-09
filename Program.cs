@@ -15,11 +15,12 @@ namespace TargetCatalogManager;
 /// </summary>
 internal static class Program
 {
-    // Dev defaults for this machine; override via args. The live TS DB lives on the imaging PC (BIRDWATCHER); the
-    // default here is the local, restorable working copy under TS Database/ ("schedulerdb - Copy.sqlite" restores it).
+    // Dev defaults for this machine; override via args. The live TS DB lives on the imaging PC (BIRDWATCHER). The
+    // default here is the restorable working copy under Processing\Catalog\TS Database\ — one location TCM + IS both
+    // read, on the BIRDWATCHER-mapped imaging tree so refreshes are easy ("schedulerdb - Copy.sqlite" restores it).
     private const string DefaultCatalog = @"E:\Photography\Astro Photography\Processing\Catalog\Catalog.db";
     private const string DefaultLibrary = @"E:\Photography\Astro Photography\Processing";
-    private const string DefaultTs = @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
+    private const string DefaultTs = @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";
 
     private static async Task<int> Main(string[] args)
     {
