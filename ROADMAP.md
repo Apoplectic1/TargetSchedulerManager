@@ -7,12 +7,13 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 Phases 1–2 are **done and working on real data**. The headless host (`tcm`) rebuilds `Catalog.db` from the image
 library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-actual in ~1s:
 
-- **70 disk × 102 TS targets → 39 Both / 62 Planned-only / 31 Actual-only**; 1 name-mismatch (`CygnusLoop P3` ↔
-  `NGC 6995`, coords-matched despite the name) and 1 TS duplicate (`M27` / `Dumbell`) surfaced.
-- **goal vs actual:** 101 planned targets (6 complete / 33 in-progress / 62 not-started), **8221 / 30088 frames
-  done**, 21867 remaining.
+- **77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only**, 6 mosaics (38 panels folded); **0
+  name-mismatches / 0 ambiguous** (mosaic handling fixed the old `CygnusLoop P3` ↔ `NGC 6995`), 1 TS
+  alias-duplicate (`M27` / `Dumbell` — see Open decision below).
+- **goal vs actual:** 69 planned targets (6 complete / 38 in-progress / 25 not-started), **12235 / 30088 frames
+  done**, 17853 remaining.
 
-All logic lives in the shared `Astronomy.Catalog` library (58 tests, 0 warnings). The TCM project itself is just
+All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings). The TCM project itself is just
 `Program.cs` (the headless host) so far — **no UI yet**. Run it: `tcm` (override `--catalog --library --ts
 --tolerance`). DB at `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`. Match tolerance is **0.5°**
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
@@ -25,8 +26,28 @@ fixed, re-apply idempotent. **`tcm writeback --target "<dir>"`** adds a surgical
 rebuild, and for a **mosaic it writes each panel's** counts to that panel's own TS plan (`Mosaic - Cygnus Loop` →
 16 panels, 96 cells matched / 80 writes, apply-verify OK, idempotent). Details in Phase 4 below.
 
-**▶ Recommended next — Phase 3 (WinUI maintenance UI) or Phase 5 (consumer cutover).** TS read+write is a
-**stop-gap** until IS/ISP reads `Catalog.db` directly.
+**Shipped 2026-06-08 (this session):** `tcm writeback --target` (surgical single-target; per-panel for mosaics) —
+**verified live on BIRDWATCHER with NINA/TS running**. CLI hardened so the verb is dash-tolerant (`--writeback`
+routes) and `--target` without the verb prints a hint instead of silently running a full build. All committed
+(library + TCM, branch `dev`).
+
+**▶ OPEN DECISION — resume here (2026-06-09).** The reconciliation report calls `M27`/`Dumbell` a **Duplicate**, but
+they are two TS targets (projects 11 & 1) for the **same object** — names that are exactly the two halves of disk
+`M27 - Dumbell`, each with an identical 6-plan set (H/O/S Light + Stars B/G/R), fully overlapping on every filter.
+Define an **alias** = every colliding TS name exactly matches a disk identity facet (catalog / common / object);
+that cleanly separates this from a genuine variant like `M42` + `M42 core` (which must stay a real duplicate). Pick
+the behaviour (no code written yet — user leaning **B**):
+- **A — report-only:** stop labelling aliases "Duplicate"; write-back unchanged (still holds the 6 cells for manual).
+- **B — treat aliases as one object (leaning):** not a duplicate, **and** write-back writes the disk count to
+  **both** targets' plans (same object → both reflect disk truth); the strict alias rule keeps `M42 core`-type
+  variants manual.
+- **C — leave as-is; user deletes one in TS** → collapses to one target, no code change.
+Touch points if implementing: `TargetResolver` duplicate detection (the `w.AssignedTs.Count > 1` block),
+`WriteBackPlanner` (`dupDirs` reason + the per-`(target,filter,purpose)` collision that forces manual), and the
+existing `Resolve_TwoTsTargetsOntoOneDisk_DedupesAndFlagsDuplicate` test (M42 + `M42 core` must stay flagged).
+
+**▶ After that — Phase 3 (WinUI maintenance UI) or Phase 5 (consumer cutover); or Phase 4's tail** (auto-push the
+local TS copy back to BIRDWATCHER). TS read+write is a **stop-gap** until IS/ISP reads `Catalog.db` directly.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
 (`M27`/`Dumbell`: two TS targets onto one disk target, plans accumulate) and **identity conflicts** (name-mismatch
