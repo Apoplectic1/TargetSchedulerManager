@@ -39,13 +39,19 @@ dotnet build TargetCatalogManager.slnx -v:m -nologo
 dotnet run --project TargetCatalogManager.csproj
 # or the built exe:  bin/Debug/net10.0-windows/tcm.exe
 
+# Write reconciled disk counts back into the local TS copy (dry-run by default; --apply commits, restorable)
+tcm writeback              # dry-run: prints the per-row diff + the manual-reconciliation bucket
+tcm writeback --apply      # commit to the --ts db (defaults to the TS Database working copy)
+
 # Override any path; all four are optional and default to this dev machine (see Program.cs)
 tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
 ```
 
 Defaults (in `Program.cs`): catalog `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
-library `E:\Photography\Astro Photography\Processing`, TS db a pinned dev snapshot under the IntervalScheduler
-repo. The live TS database usually lives on the imaging PC (cross-machine), so the default is a snapshot.
+library `E:\Photography\Astro Photography\Processing`, TS db the local working copy
+`TargetCatalogManager\TS Database\schedulerdb.sqlite` (re-copyable from the imaging PC **BIRDWATCHER**;
+`schedulerdb - Copy.sqlite` restores it). The live TS database lives on BIRDWATCHER (cross-machine), so the
+default is a local copy — `writeback --apply` against it is restorable, never the live db.
 
 ## Tests
 

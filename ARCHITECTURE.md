@@ -83,8 +83,9 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   are held for manual resolution with full info, never auto-written — a false-positive coordinate match must not
   overwrite a real TS target.
 - **Safe by construction.** Operates on a local DB copy (never the live imaging-PC db) with hard guards
-  (open-connection sidecars, schema version, read-only file), dry-run by default, one transaction + read-back
-  verify. No backups — both DBs are recreatable. The writer uses a private SQLite cache (so it doesn't inherit the
-  build-reader's read-only shared cache); a fresh re-scan each run can't push stale numbers.
+  (open-connection sidecars, read-only file, and `exposureplan` column presence — *not* an exact schema version,
+  which the NINA-nightly bumps), dry-run by default, one transaction + read-back verify. No backups — both DBs are
+  recreatable. The writer uses a private SQLite cache (so it doesn't inherit the build-reader's read-only shared
+  cache); a fresh re-scan each run can't push stale numbers.
 
 This supersedes the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and IS becomes a consumer.

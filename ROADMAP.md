@@ -85,9 +85,10 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
   identity conflicts — the whole flagged target is held when its match is a name-mismatch or ambiguous coord match
   (e.g. `CygnusLoop P3` ↔ `NGC 6995`), so a false-positive match can't zero a real TS target's counts.
 - **Safety:** local-copy only; **no backups** (both DBs are recreatable); refuse on `-wal`/`-shm`/`-journal`
-  sidecar, `user_version ≠ 24`, or a read-only db file; dry-run default, `--apply` to commit; one transaction +
-  read-back verify. Writer uses a **private** SQLite cache so it doesn't inherit the build-reader's read-only
-  shared cache (`SQLITE_READONLY` otherwise).
+  sidecar, a read-only db file, or `exposureplan` missing its `acquired`/`accepted`/`Id` columns — validated by
+  **column presence, not exact `user_version`** (TS bumps that every NINA-nightly migration; it's 25 now). Dry-run
+  default, `--apply` to commit; one transaction + read-back verify. Writer uses a **private** SQLite cache so it
+  doesn't inherit the build-reader's read-only shared cache (`SQLITE_READONLY` otherwise).
 - **Source:** fresh re-scan each run (`tcm writeback`, ~1 s, self-contained — can't push stale numbers).
 - **Surface:** `FilterPurposeClassifier` (shared `"Stars "` rule) + `WriteBackPlanner` (pure) + `WriteBackPlan`
   records + `TargetSchedulerWriter` (thin I/O); TCM `Program.cs` = dry-run print + `--apply` gate + manual report.
