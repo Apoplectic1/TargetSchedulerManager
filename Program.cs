@@ -232,6 +232,8 @@ internal static class Program
         Console.WriteLine($"    Both        : {r.BothCount}");
         Console.WriteLine($"    PlannedOnly : {r.PlannedOnlyCount}");
         Console.WriteLine($"    ActualOnly  : {r.ActualOnlyCount}");
+        if (r.MosaicsResolved > 0)
+            Console.WriteLine($"    Mosaics     : {r.MosaicsResolved}  ({r.PanelsFolded} panels folded)");
         Console.WriteLine();
         Console.WriteLine("reconciliation (TS 'problems and errors' surfaced, not dropped):");
         Console.WriteLine($"  name mismatches : {r.NameMismatches.Count}");

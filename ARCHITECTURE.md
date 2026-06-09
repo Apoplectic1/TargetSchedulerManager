@@ -48,7 +48,14 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
   on `Both` for write-back. TS duplicates fold onto one canonical, and name-mismatch / ambiguous / unanchored /
   out-of-range rows are reported in `CatalogBuildReport`, not dropped. First real run (2026-06): 70 disk × 102 TS
   → 39 Both / 62 Planned / 31 Actual, 1 name-mismatch (`CygnusLoop P3` ↔ `NGC 6995`, coords-matched despite the
-  name), 1 TS duplicate (`M27` / `Dumbell`) in ~1s.
+  name — since fixed by mosaic handling), 1 TS duplicate (`M27` / `Dumbell`) in ~1s.
+- **Mosaics & disk identity:** disk identity is the **`directory_name`** (`UNIQUE`), never RA/Dec — overlapping
+  dirs (a mosaic and a sub-region) are distinct targets. A `Mosaic - <Name>` dir nests an extra opaque *panel*
+  level (the scanner descends it, aggregating per filter into one target) and **name-matches** the same-named
+  `isMosaic` TS project, folding its panels' goals onto that one disk target → mosaic-level goal-vs-actual;
+  write-back routes mosaics to manual. Panels are excluded from coordinate matching so they can't mis-anchor onto
+  an overlapping standalone dir (`CygnusLoop P3` no longer grabs `NGC 6995 - Eastern Veil`). Real run: 6 mosaics,
+  38 panels folded, name-mismatches now 0.
 - **Schema rules:** GUID `BLOB(16)` PKs (big-endian, see `GuidBlob`), `snake_case`, NULL not sentinels, enum
   lookup tables + CHECK, every FK indexed, UNIX-seconds timestamps. **No `schema_migration` / `user_version`** —
   a schema change just means deleting the regenerable `Catalog.db`.
