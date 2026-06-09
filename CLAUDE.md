@@ -43,6 +43,10 @@ dotnet run --project TargetCatalogManager.csproj
 tcm writeback              # dry-run: prints the per-row diff + the manual-reconciliation bucket
 tcm writeback --apply      # commit to the --ts db (defaults to the TS Database working copy)
 
+# Surgical: write back ONE disk target only (no catalog rebuild); per panel for a mosaic
+tcm writeback --target "NGC 6888 - Crescent"           # dry-run scoped to that target
+tcm writeback --target "Mosaic - Cygnus Loop" --apply  # each panel's counts -> its own TS plan
+
 # Override any path; all four are optional and default to this dev machine (see Program.cs)
 tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
 ```
