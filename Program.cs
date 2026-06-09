@@ -175,6 +175,7 @@ internal static class Program
     {
         List<WriteBackChange> effective = [.. result.Changes.Where(c => !c.IsNoOp)];
         int decreases = effective.Count(c => c.IsDecrease);
+        int raised = effective.Count(c => c.RaisesDesired);
         int noOps = result.Changes.Count - effective.Count;
 
         foreach (WriteBackChange c in effective
@@ -183,11 +184,12 @@ internal static class Program
         {
             string name = c.TargetName.Length <= 26 ? c.TargetName : c.TargetName[..26];
             string flag = c.IsDecrease ? "  <- DECREASE" : "";
-            Console.WriteLine($"  {name,-26} {c.Filter,-2} {c.Purpose,-5}  acq/acc {c.OldAcquired}/{c.OldAccepted} -> {c.NewCount}{flag}");
+            string desiredNote = c.RaisesDesired ? $"  desired {c.OldDesired}->{c.NewDesired}" : "";
+            Console.WriteLine($"  {name,-26} {c.Filter,-2} {c.Purpose,-5}  acq/acc {c.OldAcquired}/{c.OldAccepted} -> {c.NewCount}{desiredNote}{flag}");
         }
 
         Console.WriteLine();
-        Console.WriteLine($"writes: {effective.Count}  (decreases {decreases}, no-ops {noOps})   " +
+        Console.WriteLine($"writes: {effective.Count}  (decreases {decreases}, goals-raised {raised}, no-ops {noOps})   " +
             $"manual: {plan.Manual.Count}   needs-reconciliation: {plan.NeedsReconciliation.Count}   " +
             $"ignored-missing: {plan.IgnoredMissing}");
 
@@ -215,7 +217,7 @@ internal static class Program
         if (!apply)
             Console.WriteLine($"dry-run - nothing written. Re-run with --apply to commit {effective.Count} change(s).");
         else if (result.VerifyFailures.Count == 0)
-            Console.WriteLine($"applied {plan.Writes.Count} plan(s) ({effective.Count} changed, {decreases} decreased); read-back verify OK.");
+            Console.WriteLine($"applied {plan.Writes.Count} plan(s) ({effective.Count} changed, {decreases} decreased, {raised} goals raised); read-back verify OK.");
         else
         {
             Console.WriteLine($"applied with {result.VerifyFailures.Count} VERIFY FAILURE(S):");

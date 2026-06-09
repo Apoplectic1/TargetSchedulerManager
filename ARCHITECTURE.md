@@ -79,9 +79,10 @@ invariants (full spec in `ROADMAP.md` Phase 4):
 
 - **Disk is master, one-way.** Write-back only ever flows ACTUAL → TS, never the reverse; conflicts overwrite the
   TS value up or down.
-- **Counts only, cached columns only.** Sets `exposureplan.acquired` *and* `.accepted` = disk count; touches no
-  `acquiredimage` rows. TS never recomputes counts from images, so the cached columns are authoritative (its own
-  Database-Manager UI hand-edits them) — that is why a column write suffices and survives.
+- **Counts only, cached columns only.** Sets `exposureplan.acquired` *and* `.accepted` = disk count and ratchets
+  `desired` **up** to ≥ that (never lowered — a goal can't be below what was kept); touches no `acquiredimage` rows.
+  TS never recomputes counts from images, so the cached columns are authoritative (its own Database-Manager UI
+  hand-edits them) — that is why a column write suffices and survives.
 - **`(target, filter, purpose)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming convention,
   symmetric across disk directories and TS templates — so the main/Stars two-plan split resolves without guessing
   (the disk inventory can't separate same-purpose plans by exposure, hence the purpose axis carries it).

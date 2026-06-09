@@ -76,7 +76,8 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
   (disk = post-cull "kept" = accepted-equivalent), so TS halts scheduling under any grading mode. **No**
   synthesized `acquiredimage` rows — TS never recomputes counts from them; its own Database-Manager UI hand-edits
   these columns (confirmed `SchedulerDatabaseContext.cs` / `TargetViewVM.cs`).
-- **Conflict:** **disk wins** — overwrite up or down (ACTUAL is master). No clamp to `desired` (over-shoot >100% OK).
+- **Conflict:** **disk wins** — `acquired`/`accepted` overwrite up or down (ACTUAL is master); `desired` is ratcheted
+  **up** to the disk count (never lowered) so a goal is never below what was kept (over-shot targets read exactly 100%).
 - **Mapping key — `(target, filter, purpose)`:** purpose ∈ {Light, Stars} from the `"Stars "` prefix, identical on
   disk dir names *and* TS template names (`B300`→Light, `Stars B`→Stars). Light plan ← `LightCount`, Stars plan ←
   `StarsCount`. **Never** the `Combined` sum. Resolves 126/127 multi-plan RGB pairs in the snapshot.
