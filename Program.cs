@@ -3,6 +3,7 @@ using System.Globalization;
 using Astronomy.Catalog;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Reconcile;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 
 namespace TargetCatalogManager;
@@ -67,9 +68,11 @@ internal static class Program
     }
 
     /// <summary>
-    /// <c>writeback</c> verb: fresh-rebuild the catalog, then push disk-derived counts into the <b>local</b> TS
-    /// copy so its planner reflects ACTUAL. Dry-run by default; pass <c>--apply</c> to commit. Refuses a
-    /// version-mismatched or apparently-open db. Never touches the live imaging-PC database.
+    /// <c>writeback</c> verb: push disk-derived counts into the <b>local</b> TS copy so its planner reflects ACTUAL.
+    /// Default (bulk) form fresh-rebuilds the catalog and writes every resolvable target; <c>--target "&lt;dir&gt;"</c>
+    /// is the surgical form — scans just one directory (incl. per-panel for a mosaic) and writes only its cells, no
+    /// catalog rebuild. Dry-run by default; pass <c>--apply</c> to commit. Refuses an incompatible or apparently-open
+    /// db. Never touches the live imaging-PC database.
     /// </summary>
     private static async Task<int> WriteBack(string[] args)
     {
@@ -77,17 +80,23 @@ internal static class Program
         string catalog = opts.GetValueOrDefault("catalog", DefaultCatalog);
         string library = opts.GetValueOrDefault("library", DefaultLibrary);
         string tsDb = opts.GetValueOrDefault("ts", DefaultTs);
+        string? target = opts.TryGetValue("target", out string? tv) && !string.IsNullOrWhiteSpace(tv) ? tv : null;
         bool apply = args.Any(a => a.Equals("--apply", StringComparison.OrdinalIgnoreCase));
         ResolveOptions resolve = ParseTolerance(opts);
+
+        if (!File.Exists(tsDb))
+        {
+            Console.Error.WriteLine($"Target Scheduler database not found: {tsDb}");
+            return 1;
+        }
+
+        // Surgical single-target path: scan just one directory and write only its cells (no catalog rebuild).
+        if (target is not null)
+            return await WriteBackSingleTarget(target, library, tsDb, apply, resolve);
 
         if (!Directory.Exists(library))
         {
             Console.Error.WriteLine($"image library root not found: {library}");
-            return 1;
-        }
-        if (!File.Exists(tsDb))
-        {
-            Console.Error.WriteLine($"Target Scheduler database not found: {tsDb}");
             return 1;
         }
         Directory.CreateDirectory(Path.GetDirectoryName(catalog)!);
@@ -108,24 +117,7 @@ internal static class Program
                 store.GetInventoryFilters(), report);
 
         using TargetSchedulerWriter writer = new(tsDb);
-        if (!writer.HasRequiredColumns)
-        {
-            Console.Error.WriteLine(
-                "refusing: TS exposureplan lacks the acquired/accepted/Id columns this writer updates (incompatible schema).");
-            return 1;
-        }
-        if (writer.HasOpenSidecar)
-        {
-            Console.Error.WriteLine(
-                "refusing: TS db has a -wal/-shm/-journal sidecar (may be open). Close NINA / copy a fresh snapshot.");
-            return 1;
-        }
-        if (writer.IsReadOnly)
-        {
-            Console.Error.WriteLine(
-                "refusing: TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot.");
-            return 1;
-        }
+        if (WriterGuardsFail(writer)) return 1;
 
         Console.WriteLine($"TS schema user_version {writer.SchemaUserVersion} (validated by column presence)");
         Console.WriteLine();
@@ -133,6 +125,87 @@ internal static class Program
         WriteBackResult result = writer.Execute(plan, apply);
         PrintWriteBack(plan, result, apply);
         return result.VerifyFailures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Surgical <c>writeback --target "&lt;dir&gt;"</c>: scan one disk target only and push its per-(filter,purpose,
+    /// binning) counts to the matching TS plans. For a mosaic, writes each panel's counts to that panel's own plan.
+    /// No catalog rebuild. Same writer guards and dry-run/<c>--apply</c> semantics as the bulk form.
+    /// </summary>
+    private static async Task<int> WriteBackSingleTarget(
+        string target, string library, string tsDb, bool apply, ResolveOptions resolve)
+    {
+        // Resolve the directory: an absolute path or one containing separators is used as-is; a bare name is taken
+        // relative to the library root.
+        bool hasSeparators =
+            target.Contains(Path.DirectorySeparatorChar) || target.Contains(Path.AltDirectorySeparatorChar);
+        string dir = Path.IsPathRooted(target) || hasSeparators ? target : Path.Combine(library, target);
+        dir = Path.TrimEndingDirectorySeparator(dir);
+
+        if (!Directory.Exists(dir))
+        {
+            Console.Error.WriteLine($"target directory not found: {dir}");
+            return 1;
+        }
+
+        string dirName = Path.GetFileName(dir);
+        bool isMosaic = MosaicConvention.IsMosaicDirectory(dirName);
+
+        Console.WriteLine($"writeback --target {(apply ? "(APPLY)" : "(dry-run - pass --apply to commit)")}");
+        Console.WriteLine($"  target   : {dirName}{(isMosaic ? "  (mosaic - per panel)" : "")}");
+        Console.WriteLine($"  dir      : {dir}");
+        Console.WriteLine($"  TS db    : {tsDb}  (local copy - never the live imaging-PC db)");
+        Console.WriteLine($"  tolerance: {resolve.MatchToleranceDegrees:0.00} deg");
+        Console.WriteLine();
+
+        // Read the TS plan plane directly (no catalog rebuild), closing the reader before the writer opens.
+        TsPlanData ts;
+        using (TargetSchedulerReader reader = new(tsDb))
+            ts = reader.ReadPlanData();
+
+        IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(dir);
+        if (units.Count == 0)
+        {
+            Console.Error.WriteLine($"no imaging frames found under {Path.Combine(dir, "Captures")} - nothing to write.");
+            return 1;
+        }
+
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic, dirName, ts, resolve);
+
+        using TargetSchedulerWriter writer = new(tsDb);
+        if (WriterGuardsFail(writer)) return 1;
+
+        Console.WriteLine($"TS schema user_version {writer.SchemaUserVersion} (validated by column presence)");
+        Console.WriteLine($"units scanned: {units.Count}{(isMosaic ? " panel(s)" : "")}");
+        Console.WriteLine();
+
+        WriteBackResult result = writer.Execute(plan, apply);
+        PrintWriteBack(plan, result, apply);
+        return result.VerifyFailures.Count == 0 ? 0 : 1;
+    }
+
+    // Shared refusal guards for the writer; prints a clear reason and returns true when the db must not be written.
+    private static bool WriterGuardsFail(TargetSchedulerWriter writer)
+    {
+        if (!writer.HasRequiredColumns)
+        {
+            Console.Error.WriteLine(
+                "refusing: TS exposureplan lacks the acquired/accepted/Id columns this writer updates (incompatible schema).");
+            return true;
+        }
+        if (writer.HasOpenSidecar)
+        {
+            Console.Error.WriteLine(
+                "refusing: TS db has a -wal/-shm/-journal sidecar (may be open). Close NINA / copy a fresh snapshot.");
+            return true;
+        }
+        if (writer.IsReadOnly)
+        {
+            Console.Error.WriteLine(
+                "refusing: TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot.");
+            return true;
+        }
+        return false;
     }
 
     private static ResolveOptions ParseTolerance(Dictionary<string, string> opts) =>
@@ -264,13 +337,18 @@ internal static class Program
             $"{store.GetInventoryFilters().Count} inventory rows, {store.GetExposurePlans().Count} plans");
     }
 
+    // --key value pairs; a flag with no value (e.g. --apply, or --key followed by another --flag) maps to "" so it
+    // can't swallow the next option's value (matters for --apply --target "<dir>" in any order).
     private static Dictionary<string, string> ParseArgs(string[] args)
     {
         Dictionary<string, string> opts = new(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < args.Length - 1; i++)
+        for (int i = 0; i < args.Length; i++)
         {
-            if (args[i].StartsWith("--", StringComparison.Ordinal))
-                opts[args[i][2..]] = args[++i];
+            if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
+            string key = args[i][2..];
+            opts[key] = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
+                ? args[++i]
+                : "";
         }
         return opts;
     }
