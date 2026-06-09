@@ -15,11 +15,11 @@ namespace TargetCatalogManager;
 /// </summary>
 internal static class Program
 {
-    // Dev defaults for this machine; override via args. The live TS DB usually lives on the imaging PC, so the
-    // default here is the pinned snapshot used for development.
+    // Dev defaults for this machine; override via args. The live TS DB lives on the imaging PC (BIRDWATCHER); the
+    // default here is the local, restorable working copy under TS Database/ ("schedulerdb - Copy.sqlite" restores it).
     private const string DefaultCatalog = @"E:\Photography\Astro Photography\Processing\Catalog\Catalog.db";
     private const string DefaultLibrary = @"E:\Photography\Astro Photography\Processing";
-    private const string DefaultTs = @"E:\Projects\VisualStudio\Astronomy\IntervalScheduler\TS DataBase Example\schedulerdb.sqlite";
+    private const string DefaultTs = @"E:\Projects\VisualStudio\Astronomy\TargetCatalogManager\TS Database\schedulerdb.sqlite";
 
     private static async Task<int> Main(string[] args)
     {
@@ -107,10 +107,10 @@ internal static class Program
                 store.GetInventoryFilters(), report);
 
         using TargetSchedulerWriter writer = new(tsDb);
-        if (writer.SchemaUserVersion != TargetSchedulerWriter.RequiredUserVersion)
+        if (!writer.HasRequiredColumns)
         {
             Console.Error.WriteLine(
-                $"refusing: TS user_version {writer.SchemaUserVersion} != required {TargetSchedulerWriter.RequiredUserVersion}");
+                "refusing: TS exposureplan lacks the acquired/accepted/Id columns this writer updates (incompatible schema).");
             return 1;
         }
         if (writer.HasOpenSidecar)
@@ -125,6 +125,9 @@ internal static class Program
                 "refusing: TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot.");
             return 1;
         }
+
+        Console.WriteLine($"TS schema user_version {writer.SchemaUserVersion} (validated by column presence)");
+        Console.WriteLine();
 
         WriteBackResult result = writer.Execute(plan, apply);
         PrintWriteBack(plan, result, apply);
