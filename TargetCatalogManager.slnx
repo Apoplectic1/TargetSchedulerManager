@@ -5,12 +5,18 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
+  <!-- Every project carries an explicit all-configs mapping: VS excludes unmapped projects from the build
+       (F5 then can't launch them), while CLI MSBuild default-includes them — keep both interpreters agreeing. -->
   <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj">
-    <Platform Solution="Debug|*" Project="x64" />
+    <Platform Solution="*|*" Project="x64" />
   </Project>
   <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj">
-    <Platform Solution="Debug|*" Project="x64" />
+    <Platform Solution="*|*" Project="x64" />
   </Project>
-  <Project Path="TargetCatalogManager.csproj" />
-  <Project Path="TargetCatalogManager.App/TargetCatalogManager.App.csproj" />
+  <Project Path="TargetCatalogManager.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="TargetCatalogManager.App/TargetCatalogManager.App.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
 </Solution>
