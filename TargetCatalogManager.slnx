@@ -3,11 +3,13 @@
        standalone `dotnet build <csproj>`). Without this block VS auto-derives an "Any CPU" platform from the AL
        libraries that x64-only TCM can't map to. -->
   <Configurations>
-    <BuildType Name="Debug" />
-    <BuildType Name="Release" />
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj" />
-  <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj" />
+  <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj">
+    <Platform Solution="Debug|*" Project="x64" />
+  </Project>
+  <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj">
+    <Platform Solution="Debug|*" Project="x64" />
+  </Project>
   <Project Path="TargetCatalogManager.csproj" />
 </Solution>
