@@ -118,8 +118,8 @@ public static class ReconciliationLoader
 
             // One rollup per (filter, purpose) that has BOTH a plan side and a disk side, aggregating every
             // sub length. A rollup whose times all agree is a plain merged row; 2+ distinct times reads
-            // "mixed" (caution pill) and expands into its one-plane source lines (plan lines first, then
-            // disk, each in sub-length order). One-plane filters emit plain TS/Disk lines directly.
+            // "mixed" (caution pill) and expands into one source line per sub length — a nested Both line
+            // where a bucket has both planes, TS/Disk where one-sided. One-plane filters emit plain lines.
             foreach (IGrouping<(string Filter, FilterPurpose Purpose), Cell> fp in cells.Values
                 .GroupBy(c => (c.Filter.ToUpperInvariant(), c.Purpose)))
             {
@@ -147,9 +147,15 @@ public static class ReconciliationLoader
 
                 if (planCells.Count > 0 && diskCells.Count > 0)
                 {
-                    List<ReconciliationRow> detail = new(planCells.Count + diskCells.Count);
-                    foreach (Cell c in planCells) detail.Add(TsRow(c, isDetail: true));
-                    foreach (Cell c in diskCells) detail.Add(DiskRow(c, isDetail: true));
+                    // One detail line per sub length, seconds ascending: a bucket carrying both planes is
+                    // a nested Both line (plan + disk together, gap hours); one-sided buckets stay TS/Disk.
+                    List<ReconciliationRow> detail = [];
+                    foreach (Cell c in fp.OrderBy(c => c.Seconds))
+                    {
+                        if (c.PlanCount > 0 && c.Disk > 0) detail.Add(BothRow(c));
+                        else if (c.PlanCount > 0) detail.Add(TsRow(c, isDetail: true));
+                        else detail.Add(DiskRow(c, isDetail: true));
+                    }
 
                     bool mixed = planCells.Count > 1 || diskCells.Count > 1
                         || planCells[0].Seconds != diskCells[0].Seconds;
@@ -174,6 +180,14 @@ public static class ReconciliationLoader
                     foreach (Cell c in planCells) rows.Add(TsRow(c, isDetail: false));
                     foreach (Cell c in diskCells) rows.Add(DiskRow(c, isDetail: false));
                 }
+
+                ReconciliationRow BothRow(Cell c) => new(
+                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
+                    c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged,
+                    planHours: c.Desired * (double)c.Seconds / 3600.0,
+                    diskHours: c.Disk * (double)c.Seconds / 3600.0,
+                    isDetail: true);
 
                 ReconciliationRow TsRow(Cell c, bool isDetail) => new(
                     t.Name, project, c.Filter, c.Purpose.ToString(),

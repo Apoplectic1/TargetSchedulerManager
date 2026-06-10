@@ -35,8 +35,8 @@ public enum RowPlane
 /// <summary>
 /// One grid row = one (target, filter, purpose) cell or one plane of it. A filter carrying both a plan and
 /// disk frames is a single <see cref="RowPlane.Both"/> rollup of every sub length; when those sub lengths
-/// don't all agree the rollup gets a disclosure chevron and <see cref="Detail"/> holds the individual
-/// TS/Disk source lines (plan lines first, then disk, each in sub-length order). Rows are immutable except
+/// don't all agree the rollup gets a disclosure chevron and <see cref="Detail"/> holds one source line per
+/// sub length, seconds ascending (a bucket with both planes is a nested Both line). Rows are immutable except
 /// <see cref="IsExpanded"/>, which the view-model flips while editing the bound list in place (keeping the
 /// scroll position). The <c>*Text</c> properties are what the XAML binds for display ("—" where the row's
 /// plane has nothing, like an empty DataGridView cell).
