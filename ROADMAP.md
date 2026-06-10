@@ -86,7 +86,9 @@ planes is a nested `Both` line (plan values + disk count, its own gap hours + fi
 TS/Disk lines — answering "where do these times come from". **Hours model (user-refined to fully additive signs):**
 every cell is the row's signed contribution — TS lines show **−(desired × seconds)** (the deficit), Disk lines
 +(frames × seconds), Both/header cells the disk−plan gap — so each parent is the literal sum of its children's
-displayed Hours. Fills stay on gap rows only; tiny non-zero values render F2 so they never read as 0.0. A Both rollup's Hours = its **disk − desired gap** with
+displayed Hours. Fills: gap cells caution/green by sign; **TS lines filled at every level** (caution while
+outstanding; a desired-0 plan shows the **critical/error fill** — data that shouldn't exist); Disk lines stay
+plain by choice. Tiny non-zero values render F2 so they never read as 0.0. A Both rollup's Hours = its **disk − desired gap** with
 the caution/green fill (per-filter mini header); one-plane rows stay plain everywhere. Rollup expansion is
 keyed `target|filter|purpose` (survives filters/reloads); whole-row click toggles, exactly like target
 groups. Group `Remaining` is per-row (rollups self-pair). Per-row hours are loader-computed
