@@ -189,11 +189,15 @@ public sealed class ReconciliationRow(
         double h => Format.Hours(h),
     };
 
-    /// <summary>Caution/green fill behind a rollup's hours gap (needs time vs goal met); plain on one-plane rows.</summary>
-    public Brush? HoursBackground =>
-        Plane == RowPlane.Both && Hours is double h
-            ? (h < 0 ? ThemeBrushes.Caution : ThemeBrushes.Success)
-            : null;
+    /// <summary>Fill behind the Hours cell: gap rows follow the sign rule (caution = needs time, green =
+    /// goal met); TS rows are always commitments, so caution when outstanding and the error fill for a
+    /// desired-0 plan (data that shouldn't exist). Disk rows stay plain — quiet positive facts.</summary>
+    public Brush? HoursBackground => Plane switch
+    {
+        RowPlane.Both when Hours is double h => h < 0 ? ThemeBrushes.Caution : ThemeBrushes.Success,
+        RowPlane.Ts when Hours is double h => h < 0 ? ThemeBrushes.Caution : ThemeBrushes.Critical,
+        _ => null,
+    };
 
     public string PlanCountText => PlanCount > 1 ? $"×{PlanCount}" : string.Empty;
 

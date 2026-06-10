@@ -13,6 +13,9 @@ internal static class ThemeBrushes
     public static Brush? Caution => Lookup("SystemFillColorCautionBackgroundBrush");
     public static Brush? Success => Lookup("SystemFillColorSuccessBackgroundBrush");
 
+    /// <summary>Error fill — data that shouldn't exist (e.g. a plan whose desired count is 0).</summary>
+    public static Brush? Critical => Lookup("SystemFillColorCriticalBackgroundBrush");
+
     private static Brush? Lookup(string key)
     {
         IDictionary<object, object> resources = Application.Current.Resources;
