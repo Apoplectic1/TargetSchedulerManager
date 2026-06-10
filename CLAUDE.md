@@ -8,7 +8,8 @@ TargetCatalogManager (TCM) is a .NET 10 app whose sole job is to **own and maint
 (`Catalog.db`) for the astrophotography portfolio. TCM is the **single writer**; XFM, TargetPlanner (TP), and
 IntervalScheduler (IS/ISP) are read-only consumers.
 
-This repo is currently *just* a headless console host (`Program.cs`, assembly name `tcm`). **Almost all logic
+This repo holds the headless console host (`Program.cs` at the repo root, assembly name `tcm`) and the WinUI 3
+app (`TargetCatalogManager.App\`, assembly name `tcmui` — Phase 3, read-only grid so far). **Almost all logic
 lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`). When a change
 is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files under
 `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` for the library's own guidance.
@@ -38,6 +39,9 @@ dotnet build TargetCatalogManager.slnx -v:m -nologo
 # Run the headless catalog build (rebuilds Catalog.db from ACTUAL + PLAN, prints reconciliation)
 dotnet run --project TargetCatalogManager.csproj
 # or the built exe:  bin/Debug/net10.0-windows/tcm.exe
+
+# The WinUI app (Phase 3): read-only plan-vs-disk grid; fresh scan on load, no Catalog.db needed
+TargetCatalogManager.App/bin/Debug/net10.0-windows10.0.19041.0/win-x64/tcmui.exe
 
 # Write reconciled disk counts back into the local TS copy (dry-run by default; --apply commits, restorable)
 tcm writeback              # dry-run: prints the per-row diff + the manual-reconciliation bucket

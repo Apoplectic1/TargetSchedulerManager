@@ -42,8 +42,15 @@ ratchet 129→169), manual bucket M27-free, dry-run idempotent. 78 library tests
 
 **▶ Phase 3 planned (grill-me session 2026-06-10) — TS Editor (WinUI 3).** TS stays the daily scheduler until IS
 exists; TCM bridges: view + edit the **local TS working copy** with disk-ACTUAL beside every number. Full spec in
-Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 read-only grid → (3) M2 edits → (4) M3
-resolution + structural.** TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 read-only grid (✅ built 2026-06-10) →
+(3) M2 edits → (4) M3 resolution + structural.**
+
+**▶ M1 BUILT 2026-06-10 — `TargetCatalogManager.App`** (WinUI 3, WindowsAppSDK 2.2.0, unpackaged, x64, exe
+`tcmui`): read-only reconciliation grid — flat (target, filter, purpose) rows, plan vs DISK vs Δ from a fresh
+in-memory scan+resolve (no Catalog.db), search / source filter / flagged-only / sort, match-state badges, mosaic
+rollup rows. Self-verified: launches and matches the console exactly (Both 44 / TS-only 25 / Disk-only 33, alias 1,
+mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
+captured: the console csproj sits at the repo root, so it must `DefaultItemExcludes` the nested app dir. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
@@ -107,8 +114,9 @@ at Phase 5 cutover).
   seeded from existing filters); **TS-only** (25) → leave (legit not-started) / *rename-to-disk* showing nearest
   disk candidates with distances (catches `Forsaken`-0.50° near-misses) / delete; **name-mismatch / ambiguous** →
   *adopt disk name* / accept; **dup-fold** → alias rule (genuine variants only, post-option-B).
-- **Milestones:** **M1 view** — read-only grid + badges + filters, verified against the known 44 / 25 / 33 →
-  **M2 edit** — Tier-1 in-grid + detail panel (T2–T3) + save → **M3 resolve** — resolution commands + Tier 4.
+- **Milestones:** **M1 view** (✅ built 2026-06-10, see Status) — read-only grid + badges + filters, verified
+  against the known 44 / 25 / 33 → **M2 edit** — Tier-1 in-grid + detail panel (T2–T3) + save → **M3 resolve** —
+  resolution commands + Tier 4.
 - **Hazards (carry into M2/M3):** cadence-breaking edits (T3/T4 — filterSwitchFrequency, ditherEvery, plan
   add/remove, …) must replicate TS's `filtercadence`-clear behaviour (lift the exact rules from TS's
   `TargetViewVM` / `SchedulerDatabaseContext` when building M2/M3); T2 name edits must round-trip the matcher's
