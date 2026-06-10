@@ -55,8 +55,10 @@ captured: the console csproj sits at the repo root, so it must `DefaultItemExclu
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
 USER_OBS START/END markers, notes + VM ctx snapshot + main-window screenshot into the log stream. Use it during
-the M1 pass to annotate findings in place. **Pending: interactive verification** (Ctrl+N → note → Ctrl+Enter/OK →
-check log + screenshots). Slice 2 open: wire `DIAG/Load` + `DIAG/UI`; M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+the M1 pass to annotate findings in place. Slice 1 **verified interactively** (checkpoint / note / cancel /
+rotation / clean screenshot). **Slice 2 built + log-verified 2026-06-10:** `DIAG/Load` (per-stage timings — scan
+1.77 s of 1.83 s total, the XISF walk is the whole load cost — + report counts) and `DIAG/UI` (filter trail with
+row counts), `TCM_DIAG`-gated. Standing M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
