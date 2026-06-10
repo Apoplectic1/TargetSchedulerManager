@@ -50,7 +50,13 @@ Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 
 in-memory scan+resolve (no Catalog.db), search / source filter / flagged-only / sort, match-state badges, mosaic
 rollup rows. Self-verified: launches and matches the console exactly (Both 44 / TS-only 25 / Disk-only 33, alias 1,
 mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
-captured: the console csproj sits at the repo root, so it must `DefaultItemExcludes` the nested app dir. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+captured: the console csproj sits at the repo root, so it must `DefaultItemExcludes` the nested app dir.
+
+**Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
+(session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
+USER_OBS START/END markers, notes + VM ctx snapshot + main-window screenshot into the log stream. Use it during
+the M1 pass to annotate findings in place. **Pending: interactive verification** (Ctrl+N → note → Ctrl+Enter/OK →
+check log + screenshots). Slice 2 open: wire `DIAG/Load` + `DIAG/UI`; M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
