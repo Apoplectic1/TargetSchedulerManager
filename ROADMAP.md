@@ -77,15 +77,19 @@ write-back to auto-resolve same-purpose multi-plan manual groups.
 leaf rows carry per-plane Hours — a TS row (Desired/Acq/Acc; **Hours = desired × seconds**) and/or a Disk row
 (frame count; **Hours = count × seconds**). Group header Hours = **disk hours − desired hours** (signed F1,
 pill fill: caution = needs telescope time, green = plan goals met). Frame-count Δ survives as the sort key
-only; the Source dropdown still classifies whole targets. **Refined same day — Both rows are back, merged
-per (filter, purpose):** a cell carrying both planes is a `Both` row outright; a lone leftover plan + lone
-leftover disk bucket also merge across drifted sub lengths (Seconds cell shows **`disk≠plan`** in a caution
-pill, plain when equal; e.g. Abell 21 `H 600≠900`); ambiguous leftovers stay one-plane rows. A Both row's
-Hours = its **disk − desired gap** with the same caution/green fill (per-filter mini header); one-plane rows
-stay plain. Group `Remaining` is per-row again (merged rows self-pair). Verified live: 690 rows / 102 groups
-(227 exact + 25 drift merges), header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.1 desired).
-**Pending user's visual pass** — dark-theme caution/success fills are subtle; stronger brushes are a
-one-line swap (`ThemeBrushes.cs`) if wanted.
+only; the Source dropdown still classifies whole targets. **Refined same day — Both-row rollups with nested
+disclosure (from the user's Ctrl+N notes):** one `Both` rollup per (filter, purpose) that has both a plan and
+a disk side, aggregating **every** sub length (counts + hours). Sub lengths all one value → plain merged row.
+**2+ distinct times → Seconds reads `mixed`** (caution pill) and the rollup gets its own chevron, expanding
+in place into its one-plane TS/Disk source lines (plan lines first, then disk, sub-length order, deeper
+indent) — answering "where do these times come from". A Both rollup's Hours = its **disk − desired gap** with
+the caution/green fill (per-filter mini header); one-plane rows stay plain everywhere. Rollup expansion is
+keyed `target|filter|purpose` (survives filters/reloads); whole-row click toggles, exactly like target
+groups. Group `Remaining` is per-row (rollups self-pair). Per-row hours are loader-computed
+(`PlanHours`/`DiskHours`) since a mixed rollup has no single seconds value. Verified live: 582 top-level
+rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.1 desired). **Pending user's
+visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
+stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
