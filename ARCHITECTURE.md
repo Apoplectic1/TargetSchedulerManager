@@ -36,7 +36,8 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
     summary. Cross-repo
     `ProjectReference` to `Astronomy.Catalog` (local disk is source of truth).
   - **TS Editor (Phase 3, WinUI 3 — planned, spec in `ROADMAP.md`)** — `TargetCatalogManager.App`, a grid-first
-    reconciliation editor over the **local TS working copy**: plan vs disk-ACTUAL per (target, filter, purpose),
+    reconciliation editor over the **local TS working copy**: plan vs disk-ACTUAL per (target, filter, purpose,
+    exposure seconds),
     tiered editing (counts/toggles → identity → project knobs → structural), per-class difference-resolution
     commands (create-from-disk, rename-to-disk, delete). Its TS data layer (`TargetSchedulerEditor`, in the
     library beside Reader/Writer) is a deletable stop-gap; the **UI shell is permanent** and retargets
@@ -91,8 +92,11 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   TS never recomputes counts from images, so the cached columns are authoritative (its own Database-Manager UI
   hand-edits them) — that is why a column write suffices and survives.
 - **`(target, filter, purpose)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming convention,
-  symmetric across disk directories and TS templates — so the main/Stars two-plan split resolves without guessing
-  (the disk inventory can't separate same-purpose plans by exposure, hence the purpose axis carries it).
+  symmetric across disk directories and TS templates — so the main/Stars two-plan split resolves without guessing.
+  The scanner now splits inventory per exposure time as well (`inventory_filter` keys on it), but **write-back
+  folds those splits back** onto this key before matching — same-purpose multi-plans still route to manual.
+  Matching plan↔disk *by exposure* (auto-resolving those manual groups) is a possible future upgrade, not current
+  behavior.
 - **Uncertain identity → manual.** ≥2 plans collapsing onto one `(target,filter,purpose)` (a same-purpose
   multi-plan or a dup-fold target), **and** any target whose match is flagged (name-mismatch / ambiguous coord),
   are held for manual resolution with full info, never auto-written — a false-positive coordinate match must not

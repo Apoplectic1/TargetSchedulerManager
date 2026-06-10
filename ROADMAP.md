@@ -46,7 +46,7 @@ Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 
 (3) M2 edits → (4) M3 resolution + structural.**
 
 **▶ M1 BUILT 2026-06-10 — `TargetCatalogManager.App`** (WinUI 3, WindowsAppSDK 2.2.0, unpackaged, x64, exe
-`tcmui`): read-only reconciliation grid — flat (target, filter, purpose) rows, plan vs DISK vs Δ from a fresh
+`tcmui`): read-only reconciliation grid — flat (target, filter, purpose, seconds) rows, plan vs DISK vs Δ from a fresh
 in-memory scan+resolve (no Catalog.db), search / source filter / flagged-only / sort, match-state badges, mosaic
 rollup rows. Self-verified: launches and matches the console exactly (Both 44 / TS-only 25 / Disk-only 33, alias 1,
 mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
@@ -60,7 +60,18 @@ in the toolbar. Expansion keyed by target name (survives filter changes + reload
 respects manual expand state (headers of matching groups appear collapsed; aggregates cover only surviving
 children). WinUI shape: two `DataTemplate`s + `DataTemplateSelector`, no real TreeView — the VM owns the
 visible-row list (TreeListView-in-VirtualMode style). Smoke-tested: launch clean, `groups=102 expanded=0`.
-**Pending: user's visual pass** (chevron alignment, group-row readability, click feel).
+**Pending: user's visual pass** (chevron alignment, group-row readability, click feel). The accelerator's
+floating Ctrl+N hover hint is suppressed (`KeyboardAcceleratorPlacementMode=Hidden`).
+
+**Seconds column + per-exposure rows (built 2026-06-10):** exposure time joined the cell identity end to end.
+Library (`b195e31`): scanner buckets `FilterAggregate`s per (filter, purpose, whole-second exposure);
+`inventory_filter.exposure_seconds` (renamed from `typical_exposure_seconds`) joins the PK — schema change,
+so `Catalog.db` was deleted + rebuilt (482 inventory rows). **Write-back contracts unchanged** (planners
+fold/sum splits back to their (filter, purpose[, bin]) keys; 82 tests, +4 covering the folds). App: grid rows
+key on (filter, purpose, seconds) — plan and disk join when sub lengths agree, drift shows as separate
+plan-only/disk-only rows; "Seconds" column right of Filter; group headers count distinct filters. Verified on
+live data: 715 rows / 102 groups, report counts unchanged. Future option: match plan↔disk *by exposure* in
+write-back to auto-resolve same-purpose multi-plan manual groups.
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
@@ -116,7 +127,7 @@ at Phase 5 cutover).
 - **Structure:** new **`TargetCatalogManager.App`** (WinUI 3) beside the untouched `tcm` CLI (WinExe can't host a
   clean console). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
   Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
-- **UI shape — grid-first:** home screen is a flat filterable **(target, filter, purpose)** reconciliation grid —
+- **UI shape — grid-first:** home screen is a flat filterable **(target, filter, purpose, seconds)** reconciliation grid —
   plan vs DISK vs Δ; disk columns from a **fresh scan on load** (~1 s, the same self-contained path `writeback`
   uses; `Catalog.db` isn't needed for the editor screen). Tree (Profile ▸ Project ▸ Target) is secondary nav.
   Mosaics appear **per panel** (TS granularity) + a rollup row. In-grid editing for Tier 1; detail panel for
