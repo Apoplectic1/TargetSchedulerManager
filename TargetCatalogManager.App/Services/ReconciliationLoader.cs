@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.Globalization;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetCatalogManager.App.Models;
+using TargetCatalogManager.App.Support;
 
 namespace TargetCatalogManager.App.Services;
 
@@ -26,15 +28,30 @@ public static class ReconciliationLoader
         Stopwatch sw = Stopwatch.StartNew();
 
         ImageLibraryReport scan = await ImageLibraryScanner.ScanAsync(libraryRoot, ct).ConfigureAwait(false);
+        TimeSpan tScan = sw.Elapsed;
 
         TsPlanData ts;
         using (TargetSchedulerReader reader = new(tsDbPath))
             ts = reader.ReadPlanData();
+        TimeSpan tTsRead = sw.Elapsed;
 
         (CatalogGraph graph, CatalogBuildReport report) = TargetResolver.Resolve(
             scan.Targets, ts, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), new ResolveOptions(toleranceDegrees));
+        TimeSpan tResolve = sw.Elapsed;
 
-        return new LoadResult(BuildRows(graph, report), report, sw.Elapsed);
+        List<ReconciliationRow> rows = BuildRows(graph, report);
+
+        Log.Diag("Load",
+            $"scan={Sec(tScan)}s diskTargets={scan.Targets.Count}" +
+            $" tsRead={Sec(tTsRead - tScan)}s tsTargets={ts.Targets.Count} tsPlans={ts.Plans.Count}" +
+            $" resolve={Sec(tResolve - tTsRead)}s rows={rows.Count} total={Sec(sw.Elapsed)}s");
+        Log.Diag("Load",
+            $"report: both={report.BothCount} tsOnly={report.PlannedOnlyCount} diskOnly={report.ActualOnlyCount}" +
+            $" aliases={report.AliasTsTargets.Count} dups={report.DuplicateTsTargets.Count}" +
+            $" mismatches={report.NameMismatches.Count} ambiguous={report.AmbiguousMatches.Count}" +
+            $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}/{report.PanelsFolded}");
+
+        return new LoadResult(rows, report, sw.Elapsed);
     }
 
     /// <summary>
@@ -133,6 +150,8 @@ public static class ReconciliationLoader
         });
         return rows;
     }
+
+    private static string Sec(TimeSpan t) => t.TotalSeconds.ToString("0.00", CultureInfo.InvariantCulture);
 
     private static Cell GetCell(Dictionary<(string, FilterPurpose), Cell> cells, string filter, FilterPurpose purpose)
     {

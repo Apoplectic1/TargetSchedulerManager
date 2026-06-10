@@ -149,6 +149,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         List<ReconciliationRow> rows = [.. q];
         Rows = rows;
 
+        // One line per applied filter state (incl. each search keystroke) — between USER_OBS markers this
+        // is the trail of what the user was looking at. TCM_DIAG-gated; zero overhead when off.
+        if (Support.Log.IsDiagEnabled("UI"))
+        {
+            Support.Log.Diag("UI",
+                $"filters: rows={rows.Count}/{_allRows.Count} search=\"{_searchText}\" " +
+                $"source={SourceFilterName()} flagged={_flaggedOnly} sort={_sortMode}");
+        }
+
         if (_lastLoad is { Report: var r })
         {
             SummaryText =
@@ -163,13 +172,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// the grid showed when the user committed the note, without them having to type it.</summary>
     public string GetObservationContext()
     {
-        string source = _sourceFilterIndex switch { 1 => "Both", 2 => "TsOnly", 3 => "DiskOnly", _ => "All" };
         string counts = _lastLoad is { Report: var r }
             ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} aliases={r.AliasTsTargets.Count} mosaics={r.MosaicsResolved}"
             : "no-load";
-        return $"rows={Rows.Count}/{_allRows.Count}, search=\"{_searchText}\", source={source}, " +
+        return $"rows={Rows.Count}/{_allRows.Count}, search=\"{_searchText}\", source={SourceFilterName()}, " +
                $"flagged={_flaggedOnly}, sort={_sortMode}, {counts}";
     }
+
+    private string SourceFilterName() =>
+        _sourceFilterIndex switch { 1 => "Both", 2 => "TsOnly", 3 => "DiskOnly", _ => "All" };
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
