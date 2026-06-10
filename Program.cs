@@ -4,6 +4,7 @@ using Astronomy.Catalog;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Scan;
+using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 
 namespace TargetCatalogManager;
@@ -290,8 +291,21 @@ internal static class Program
     private static void PrintReconciliation(string catalog)
     {
         using CatalogStore store = CatalogStore.OpenReadOnly(catalog);
-        List<TargetReconciliation> planned =
-            [.. store.GetReconciliation().Where(r => r.TotalDesired > 0)];
+        Dictionary<Guid, Target> byId = store.GetTargets().ToDictionary(t => t.Id);
+        List<TargetReconciliation> all = [.. store.GetReconciliation()];
+
+        // Mosaic panels reconcile individually; merge each family under its parent's name so a mosaic stays
+        // one display line (the same filter-level sums the panel-folded model used to produce).
+        List<TargetReconciliation> display = [.. all.Where(r => byId[r.TargetId].ParentTargetId is null)];
+        foreach (IGrouping<Guid, TargetReconciliation> family in all
+            .Where(r => byId[r.TargetId].ParentTargetId is Guid)
+            .GroupBy(r => byId[r.TargetId].ParentTargetId!.Value))
+        {
+            Target parent = byId[family.Key];
+            display.Add(Reconciler.Merge(parent.Id, parent.Name, parent.Source, family));
+        }
+
+        List<TargetReconciliation> planned = [.. display.Where(r => r.TotalDesired > 0)];
 
         int complete = planned.Count(r => r.Status == ReconcileStatus.Complete);
         int inProgress = planned.Count(r => r.Status == ReconcileStatus.InProgress);
@@ -397,8 +411,9 @@ internal static class Program
         Console.WriteLine($"    Both        : {r.BothCount}");
         Console.WriteLine($"    PlannedOnly : {r.PlannedOnlyCount}");
         Console.WriteLine($"    ActualOnly  : {r.ActualOnlyCount}");
-        if (r.MosaicsResolved > 0)
-            Console.WriteLine($"    Mosaics     : {r.MosaicsResolved}  ({r.PanelsFolded} panels folded)");
+        if (r.MosaicsResolved > 0 || r.PanelsActualOnly > 0)
+            Console.WriteLine($"    Mosaics     : {r.MosaicsResolved}  (panels: {r.PanelsMatched} matched / " +
+                $"{r.PanelsPlannedOnly} planned-only / {r.PanelsActualOnly} disk-only)");
         Console.WriteLine();
         Console.WriteLine("reconciliation (TS 'problems and errors' surfaced, not dropped):");
         Console.WriteLine($"  name mismatches : {r.NameMismatches.Count}");
@@ -425,8 +440,10 @@ internal static class Program
     private static void PrintReadBack(string catalog)
     {
         using CatalogStore store = CatalogStore.OpenReadOnly(catalog);
+        IReadOnlyList<Target> all = store.GetTargets();
+        int panels = all.Count(t => t.ParentTargetId is not null);
         Console.WriteLine();
-        Console.WriteLine($"read-back: {store.GetTargets().Count} targets, {store.GetShotTargets().Count} shot, " +
+        Console.WriteLine($"read-back: {all.Count - panels} targets (+{panels} panels), {store.GetShotTargets().Count} shot, " +
             $"{store.GetInventoryFilters().Count} inventory rows, {store.GetExposurePlans().Count} plans");
     }
 
