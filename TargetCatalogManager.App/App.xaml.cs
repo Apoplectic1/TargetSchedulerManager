@@ -17,6 +17,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        Support.Log.StartNewSession();   // rotate tcm.log/screenshots; each run's trail is self-contained
         _window = new MainWindow();
         _window.Activate();
     }

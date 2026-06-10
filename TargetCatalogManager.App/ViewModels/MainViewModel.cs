@@ -109,6 +109,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            Support.Log.Error("reconciliation load failed", ex);
             _lastLoad = null;
             _allRows = [];
             SummaryText = "";
@@ -156,6 +157,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $" · mosaics {r.MosaicsResolved} ({r.PanelsFolded} panels)" +
                 $"  —  showing {rows.Count}/{_allRows.Count} rows";
         }
+    }
+
+    /// <summary>App-state snapshot for the Ctrl+N observation window's USER_OBS_END line — captures what
+    /// the grid showed when the user committed the note, without them having to type it.</summary>
+    public string GetObservationContext()
+    {
+        string source = _sourceFilterIndex switch { 1 => "Both", 2 => "TsOnly", 3 => "DiskOnly", _ => "All" };
+        string counts = _lastLoad is { Report: var r }
+            ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} aliases={r.AliasTsTargets.Count} mosaics={r.MosaicsResolved}"
+            : "no-load";
+        return $"rows={Rows.Count}/{_allRows.Count}, search=\"{_searchText}\", source={source}, " +
+               $"flagged={_flaggedOnly}, sort={_sortMode}, {counts}";
     }
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

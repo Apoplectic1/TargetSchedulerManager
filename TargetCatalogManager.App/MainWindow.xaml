@@ -8,6 +8,10 @@
     <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
          {x:Bind} is typed, compile-time binding: a path typo is a build error, not a silent empty cell. -->
     <Grid Padding="12,8,12,8">
+        <!-- WinUI's ProcessCmdKey: accelerators attach declaratively to an element subtree. -->
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="Observation_Invoked"/>
+        </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- toolbar: reload + summary -->
             <RowDefinition Height="Auto"/>  <!-- filter bar -->

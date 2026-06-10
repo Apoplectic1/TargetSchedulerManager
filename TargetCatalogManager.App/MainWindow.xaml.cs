@@ -33,4 +33,12 @@ public sealed partial class MainWindow : Window
 
     private void Sort_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         ViewModel.SortMode = (SortMode)SortPicker.SelectedIndex;
+
+    // Ctrl+N: open (or focus) the observation window — notes + screenshot into the tcm.log stream.
+    private void Observation_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+        Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        Support.ObservationWindow.ShowOrFocus(this, ViewModel.GetObservationContext);
+        args.Handled = true;
+    }
 }
