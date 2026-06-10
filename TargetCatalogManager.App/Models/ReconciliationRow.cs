@@ -20,10 +20,11 @@ public enum RowSource
 /// <summary>Which plane(s) of its cell one grid row carries.</summary>
 public enum RowPlane
 {
-    /// <summary>A TS plan row — Desired/Acq/Acc; Hours = desired × seconds (planned commitment).</summary>
+    /// <summary>A TS plan row — Desired/Acq/Acc; Hours = −(desired × seconds): the commitment shown as the
+    /// deficit it contributes to its parent's total.</summary>
     Ts,
 
-    /// <summary>A disk actuals row — the frame count; Hours = count × seconds (actual integration).</summary>
+    /// <summary>A disk actuals row — the frame count; Hours = +(count × seconds) (actual integration).</summary>
     Disk,
 
     /// <summary>A merged plan+actuals rollup. Hours = disk − desired hours (filled caution/green); when
@@ -135,12 +136,13 @@ public sealed class ReconciliationRow(
     }
 
     /// <summary>
-    /// What the Hours column shows: the plane's own time on one-plane rows; on a Both rollup, the gap
-    /// (disk − desired hours) — the per-filter version of the group header's delta.
+    /// What the Hours column shows — every row's SIGNED contribution to its parent's total, so parents are
+    /// the literal sum of their children: a TS row is the unmet commitment (−desired × seconds), a Disk row
+    /// the captured time (+frames × seconds), a Both rollup their gap (disk − desired hours).
     /// </summary>
     public double? Hours => Plane switch
     {
-        RowPlane.Ts => PlanHours,
+        RowPlane.Ts => PlanHours is double ph ? -ph : null,
         RowPlane.Disk => DiskHours,
         _ => DiskHours is double dh && PlanHours is double ph ? dh - ph : null,
     };
