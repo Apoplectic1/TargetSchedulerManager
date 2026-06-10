@@ -46,7 +46,7 @@ Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 
 (3) M2 edits → (4) M3 resolution + structural.**
 
 **▶ M1 BUILT 2026-06-10 — `TargetCatalogManager.App`** (WinUI 3, WindowsAppSDK 2.2.0, unpackaged, x64, exe
-`tcmui`): read-only reconciliation grid — flat (target, filter, purpose, seconds) rows, plan vs DISK vs Δ from a fresh
+`tcmui`): read-only reconciliation grid — flat (target, filter, purpose, seconds) per-plane rows, plan vs DISK from a fresh
 in-memory scan+resolve (no Catalog.db), search / source filter / flagged-only / sort, match-state badges, mosaic
 rollup rows. Self-verified: launches and matches the console exactly (Both 44 / TS-only 25 / Disk-only 33, alias 1,
 mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
@@ -72,6 +72,15 @@ key on (filter, purpose, seconds) — plan and disk join when sub lengths agree,
 plan-only/disk-only rows; "Seconds" column right of Filter; group headers count distinct filters. Verified on
 live data: 715 rows / 102 groups, report counts unchanged. Future option: match plan↔disk *by exposure* in
 write-back to auto-resolve same-purpose multi-plan manual groups.
+
+**Hours column + plane-split rows (built 2026-06-10, from the user's Ctrl+N notes):** the Δ column is gone;
+every leaf row is now one *plane* of its cell — a TS row (Desired/Acq/Acc; **Hours = desired × seconds**) and/or
+a Disk row (frame count; **Hours = count × seconds**), TS above Disk, both labeled in the Source column. Group
+header Hours = **disk hours − desired hours** (signed F1, pill fill: caution = needs telescope time, green =
+plan goals met). Group `Remaining` re-pairs the split planes per cell (over-shot filters can't mask gaps);
+frame-count Δ survives as the sort key only; the Source dropdown still classifies whole targets. Verified live:
+942 rows / 102 groups (227 cells split), Abell 21 −10.3 = 15.8 disk − 26.1 desired. **Pending user's visual
+pass** — note the dark-theme caution/success fills are subtle; stronger brushes are a one-line swap if wanted.
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
