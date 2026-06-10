@@ -31,19 +31,19 @@ rebuild, and for a **mosaic it writes each panel's** counts to that panel's own 
 routes) and `--target` without the verb prints a hint instead of silently running a full build. All committed
 (library + TCM, branch `dev`).
 
-**▶ DECIDED 2026-06-10 — M27/Dumbell = alias, option B** (treat aliases as one object). An **alias** = every
-colliding TS name exactly matches a disk identity facet (catalog / common / object) — `M27` + `Dumbell` are the two
-halves of disk `M27 - Dumbell`; the strict rule keeps genuine variants like `M42` + `M42 core` flagged as real
-duplicates. Behaviour: not reported as "Duplicate", **and** write-back writes the disk count to **both** targets'
-plans (same object → both reflect disk truth). Touch points: `TargetResolver` duplicate detection (the
-`w.AssignedTs.Count > 1` block), `WriteBackPlanner` (`dupDirs` reason + the per-`(target,filter,purpose)` collision
-that forces manual), and the existing `Resolve_TwoTsTargetsOntoOneDisk_DedupesAndFlagsDuplicate` test (M42 +
-`M42 core` must stay flagged). **This is the warm-up task before Phase 3.**
+**▶ SHIPPED 2026-06-10 — M27/Dumbell = alias, option B** (treat aliases as one object). An **alias** = every
+colliding TS name **exactly** matches a disk identity facet (directory / catalog / common / object; normalized, no
+substring) — `M27` + `Dumbell` are the two halves of disk `M27 - Dumbell`; the strict rule keeps genuine variants
+like `M42` + `M42 core` flagged as real duplicates. Implemented: `AliasTsTarget` in `CatalogBuildReport`,
+`TargetResolver.IsAliasName`, and `WriteBackPlanner` auto-writes an alias cell when its plan count equals the alias
+member count (disk count to **every** member's plan; any other multiplicity stays `MultiPlan` manual). Verified on
+real data: duplicates 1→0, aliases 1, the 6 held cells became 12 writes (both members converge, one `desired`
+ratchet 129→169), manual bucket M27-free, dry-run idempotent. 78 library tests (+3).
 
 **▶ Phase 3 planned (grill-me session 2026-06-10) — TS Editor (WinUI 3).** TS stays the daily scheduler until IS
 exists; TCM bridges: view + edit the **local TS working copy** with disk-ACTUAL beside every number. Full spec in
-Phase 3 below. Build order: **(1) alias rule (above) → (2) M1 read-only grid → (3) M2 edits → (4) M3 resolution +
-structural.** TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 read-only grid → (3) M2 edits → (4) M3
+resolution + structural.** TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**

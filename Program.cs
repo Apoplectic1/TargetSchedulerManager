@@ -336,6 +336,7 @@ internal static class Program
         Console.WriteLine($"  name mismatches : {r.NameMismatches.Count}");
         Console.WriteLine($"  ambiguous       : {r.AmbiguousMatches.Count}");
         Console.WriteLine($"  TS duplicates   : {r.DuplicateTsTargets.Count}");
+        Console.WriteLine($"  TS aliases      : {r.AliasTsTargets.Count}");
         Console.WriteLine($"  unanchored      : {r.UnanchoredTsTargets.Count}");
         Console.WriteLine($"  invalid/coerced : {r.InvalidTsTargets.Count}");
 
@@ -345,6 +346,8 @@ internal static class Program
             Console.WriteLine($"    ambig   : TS '{a.TsName}' -> [{string.Join(" | ", a.CandidateDirectories)}] nearest {a.NearestSeparationDegrees:0.000} deg");
         foreach (DuplicateTsTarget d in r.DuplicateTsTargets)
             Console.WriteLine($"    dup     : disk '{d.DiskDirectory}' <- TS [{string.Join(" | ", d.TsTargetNames)}]");
+        foreach (AliasTsTarget al in r.AliasTsTargets)
+            Console.WriteLine($"    alias   : disk '{al.DiskDirectory}' <- TS [{string.Join(" | ", al.TsTargetNames)}] (same object; counts write to all)");
         foreach (UnanchoredTsTarget u in r.UnanchoredTsTargets)
             Console.WriteLine($"    no-coord: TS '{u.TsName}'");
         foreach (InvalidTsTarget i in r.InvalidTsTargets)
