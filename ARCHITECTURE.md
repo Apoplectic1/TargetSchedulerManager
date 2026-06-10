@@ -35,8 +35,12 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
     --tolerance]` runs `CatalogBuilder.BuildAsync` and prints the reconciliation report + the goal-vs-actual
     summary. Cross-repo
     `ProjectReference` to `Astronomy.Catalog` (local disk is source of truth).
-  - **Maintenance UI (Phase 3, WinUI 3)** — CRUD over `CatalogStore`, scan trigger, goal-vs-actual view; hosts
-    the migrated XFM scheduler tree. Sits on the same `CatalogBuilder`.
+  - **TS Editor (Phase 3, WinUI 3 — planned, spec in `ROADMAP.md`)** — `TargetCatalogManager.App`, a grid-first
+    reconciliation editor over the **local TS working copy**: plan vs disk-ACTUAL per (target, filter, purpose),
+    tiered editing (counts/toggles → identity → project knobs → structural), per-class difference-resolution
+    commands (create-from-disk, rename-to-disk, delete). Its TS data layer (`TargetSchedulerEditor`, in the
+    library beside Reader/Writer) is a deletable stop-gap; the **UI shell is permanent** and retargets
+    `Catalog.db` when IS arrives.
 - **Consumers** — XFM / TP / IS / ISP open `Catalog.db` read-only via `SchemaManager.OpenReadOnly`. XFM's
   actual-only world is `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
 
@@ -67,8 +71,10 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
   network shares — relevant if a consumer runs on another PC.)
 - **TS interop:** read-only today (`TargetSchedulerReader`, opened `Mode=ReadOnly` + busy-timeout, explicit
   column lists, schema-version aware). Write-back shipped in Phase 4 (`tcm writeback`, see below). All TS interop
-  (read *and* write) is a **stop-gap** until IS/ISP reads `Catalog.db` directly; the live TS DB likely lives on
-  the imaging PC (cross-machine), so write-back operates on a local copy.
+  (read *and* write) is a **stop-gap** until IS/ISP reads `Catalog.db` directly — though a *long* one (TS is the
+  daily scheduler until IS exists), and the Phase-3 UI shell built on it is permanent; only the TS data layer is
+  disposable. The live TS DB lives on the imaging PC (cross-machine), so write-back and the Phase-3 editor
+  operate on a local copy.
 - **Reuse:** the scan is `Astronomy.Catalog.Scan.ImageLibraryScanner` (on `Astronomy.XISF`'s header reader); the
   SQLite mapper pattern came from XFM.
 

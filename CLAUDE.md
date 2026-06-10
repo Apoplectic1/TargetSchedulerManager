@@ -20,7 +20,7 @@ after substantive changes, per the user's docs-as-memory convention.
 
 | Repo | Path | Role |
 |---|---|---|
-| **TargetCatalogManager** (this) | `E:\Projects\…\TargetCatalogManager` | the writer app: console host now, WinUI 3 maintenance UI later |
+| **TargetCatalogManager** (this) | `E:\Projects\…\TargetCatalogManager` | the writer app: console host now, WinUI 3 TS-editor UI next (Phase 3, spec in `ROADMAP.md`) |
 | **Astronomy.Catalog** + deps | `E:\Projects\…\Library` | the shared schema/build **contract** every consumer references |
 
 TCM has a cross-repo `ProjectReference` straight to `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`

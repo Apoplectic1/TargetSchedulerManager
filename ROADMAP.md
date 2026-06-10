@@ -2,7 +2,7 @@
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-06-08)
+## Status — pick up here (2026-06-10)
 
 Phases 1–2 are **done and working on real data**. The headless host (`tcm`) rebuilds `Catalog.db` from the image
 library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-actual in ~1s:
@@ -31,23 +31,20 @@ rebuild, and for a **mosaic it writes each panel's** counts to that panel's own 
 routes) and `--target` without the verb prints a hint instead of silently running a full build. All committed
 (library + TCM, branch `dev`).
 
-**▶ OPEN DECISION — resume here (2026-06-09).** The reconciliation report calls `M27`/`Dumbell` a **Duplicate**, but
-they are two TS targets (projects 11 & 1) for the **same object** — names that are exactly the two halves of disk
-`M27 - Dumbell`, each with an identical 6-plan set (H/O/S Light + Stars B/G/R), fully overlapping on every filter.
-Define an **alias** = every colliding TS name exactly matches a disk identity facet (catalog / common / object);
-that cleanly separates this from a genuine variant like `M42` + `M42 core` (which must stay a real duplicate). Pick
-the behaviour (no code written yet — user leaning **B**):
-- **A — report-only:** stop labelling aliases "Duplicate"; write-back unchanged (still holds the 6 cells for manual).
-- **B — treat aliases as one object (leaning):** not a duplicate, **and** write-back writes the disk count to
-  **both** targets' plans (same object → both reflect disk truth); the strict alias rule keeps `M42 core`-type
-  variants manual.
-- **C — leave as-is; user deletes one in TS** → collapses to one target, no code change.
-Touch points if implementing: `TargetResolver` duplicate detection (the `w.AssignedTs.Count > 1` block),
-`WriteBackPlanner` (`dupDirs` reason + the per-`(target,filter,purpose)` collision that forces manual), and the
-existing `Resolve_TwoTsTargetsOntoOneDisk_DedupesAndFlagsDuplicate` test (M42 + `M42 core` must stay flagged).
+**▶ DECIDED 2026-06-10 — M27/Dumbell = alias, option B** (treat aliases as one object). An **alias** = every
+colliding TS name exactly matches a disk identity facet (catalog / common / object) — `M27` + `Dumbell` are the two
+halves of disk `M27 - Dumbell`; the strict rule keeps genuine variants like `M42` + `M42 core` flagged as real
+duplicates. Behaviour: not reported as "Duplicate", **and** write-back writes the disk count to **both** targets'
+plans (same object → both reflect disk truth). Touch points: `TargetResolver` duplicate detection (the
+`w.AssignedTs.Count > 1` block), `WriteBackPlanner` (`dupDirs` reason + the per-`(target,filter,purpose)` collision
+that forces manual), and the existing `Resolve_TwoTsTargetsOntoOneDisk_DedupesAndFlagsDuplicate` test (M42 +
+`M42 core` must stay flagged). **This is the warm-up task before Phase 3.**
 
-**▶ After that — Phase 3 (WinUI maintenance UI) or Phase 5 (consumer cutover); or Phase 4's tail** (auto-push the
-local TS copy back to BIRDWATCHER). TS read+write is a **stop-gap** until IS/ISP reads `Catalog.db` directly.
+**▶ Phase 3 planned (grill-me session 2026-06-10) — TS Editor (WinUI 3).** TS stays the daily scheduler until IS
+exists; TCM bridges: view + edit the **local TS working copy** with disk-ACTUAL beside every number. Full spec in
+Phase 3 below. Build order: **(1) alias rule (above) → (2) M1 read-only grid → (3) M2 edits → (4) M3 resolution +
+structural.** TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**
 (`M27`/`Dumbell`: two TS targets onto one disk target, plans accumulate) and **identity conflicts** (name-mismatch
@@ -81,11 +78,41 @@ TS target's counts).
   reconciliation report and goal-vs-actual summary.
 - 42 Catalog tests + 45 NINA tests pass.
 
-## Phase 3 — TCM app (WinUI 3)  ◀ alternative next
+## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ NEXT (planned 2026-06-10)
 
-- Maintenance UI over `CatalogStore` (CRUD, scan trigger, goal-vs-actual view) on the same `CatalogBuilder` /
-  `GetReconciliation`.
-- Migrate XFM's Target Scheduler tab (`MainForm/TargetScheduler.*` + `CustomTreeView`) into TCM.
+**Purpose.** TS remains the daily scheduler until IS exists; TCM is the bridge: view + edit TS's database with
+disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data
+layer* is the disposable stop-gap; the **UI shell is permanent** — it retargets `Catalog.db` plans when IS
+arrives. Supersedes the old "migrate XFM's scheduler tab" framing: the grid replaces that tab (XFM's is deleted
+at Phase 5 cutover).
+
+- **DB touched:** the **local TS working copy only** (same default as `writeback`); manual copy to/from
+  BIRDWATCHER stays the sync; push-to-live stays a separate future feature (Phase 4's tail).
+- **Structure:** new **`TargetCatalogManager.App`** (WinUI 3) beside the untouched `tcm` CLI (WinExe can't host a
+  clean console). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
+  Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
+- **UI shape — grid-first:** home screen is a flat filterable **(target, filter, purpose)** reconciliation grid —
+  plan vs DISK vs Δ; disk columns from a **fresh scan on load** (~1 s, the same self-contained path `writeback`
+  uses; `Catalog.db` isn't needed for the editor screen). Tree (Profile ▸ Project ▸ Target) is secondary nav.
+  Mosaics appear **per panel** (TS granularity) + a rollup row. In-grid editing for Tier 1; detail panel for
+  Tiers 2–3; toolbar/context commands for Tier 4. **`acquired`/`accepted` are read-only** — Phase 4 write-back
+  owns those columns.
+- **Edit tiers (all in scope):** **T1** counts & toggles (`desired`, plan `enabled`, target `active`, target
+  priority) · **T2** identity & pointing (`name`, RA/Dec, epoch, rotation, ROI) · **T3** project knobs (state,
+  priority, description, altitude/horizon/meridian, filterSwitchFrequency, ditherEvery, smartExposureOrder,
+  enableGrader, flatsHandling, ruleWeights) · **T4** structural (add/delete target & plan, template swap, move
+  between projects). Templates/profiles render read-only.
+- **Differences are first-class:** all three sources shown, match-status **badge column + filter bar**, per-class
+  resolution commands — **Disk-only** (33) → *create TS target from disk* (dir name, plate-solved coords, plans
+  seeded from existing filters); **TS-only** (25) → leave (legit not-started) / *rename-to-disk* showing nearest
+  disk candidates with distances (catches `Forsaken`-0.50° near-misses) / delete; **name-mismatch / ambiguous** →
+  *adopt disk name* / accept; **dup-fold** → alias rule (genuine variants only, post-option-B).
+- **Milestones:** **M1 view** — read-only grid + badges + filters, verified against the known 44 / 25 / 33 →
+  **M2 edit** — Tier-1 in-grid + detail panel (T2–T3) + save → **M3 resolve** — resolution commands + Tier 4.
+- **Hazards (carry into M2/M3):** cadence-breaking edits (T3/T4 — filterSwitchFrequency, ditherEvery, plan
+  add/remove, …) must replicate TS's `filtercadence`-clear behaviour (lift the exact rules from TS's
+  `TargetViewVM` / `SchedulerDatabaseContext` when building M2/M3); T2 name edits must round-trip the matcher's
+  name-validation without minting new mismatch classes.
 
 ## Phase 4 — Write back to TS  ✅ DONE (built 2026-06-08)
 
