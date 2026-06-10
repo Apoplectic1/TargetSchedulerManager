@@ -14,16 +14,19 @@ public enum RowSource
 }
 
 /// <summary>
-/// One grid row = one (target, filter, purpose) cell: the TS plan numbers next to the disk-ACTUAL count.
-/// Immutable — the grid reloads wholesale (fresh scan), it never mutates rows in place. Numeric properties
-/// stay <see cref="int"/>-typed for sorting; the <c>*Text</c> properties are what the XAML binds for display
-/// ("—" where a side has nothing, like an empty DataGridView cell).
+/// One grid row = one (target, filter, purpose, exposure seconds) cell: the TS plan numbers next to the
+/// disk-ACTUAL count. The same filter shot/planned at different sub lengths is separate rows; plan and disk
+/// join only when their whole-second sub lengths agree. Immutable — the grid reloads wholesale (fresh scan),
+/// it never mutates rows in place. Numeric properties stay <see cref="int"/>-typed for sorting; the
+/// <c>*Text</c> properties are what the XAML binds for display ("—" where a side has nothing, like an empty
+/// DataGridView cell).
 /// </summary>
 public sealed class ReconciliationRow(
     string target,
     string project,
     string filter,
     string purpose,
+    int seconds,
     RowSource source,
     int? desired,
     int? acquired,
@@ -37,6 +40,10 @@ public sealed class ReconciliationRow(
     public string Project { get; } = project;
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
+
+    /// <summary>Whole-second sub length (plan-effective or disk bucket — they agree on a joined row); 0 = unknown.</summary>
+    public int Seconds { get; } = seconds;
+
     public RowSource Source { get; } = source;
 
     /// <summary>Summed <c>desired</c> across the cell's plans; null when the target has no TS plan.</summary>
@@ -70,6 +77,7 @@ public sealed class ReconciliationRow(
         _ => "Disk",
     };
 
+    public string SecondsText => Seconds > 0 ? Seconds.ToString() : "—";
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";

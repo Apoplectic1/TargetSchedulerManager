@@ -94,24 +94,47 @@ public static class ReconciliationLoader
             };
 
             // Aggregate plans and inventory onto the shared cell key (filter, purpose); filter case-insensitive.
-            Dictionary<(string Filter, FilterPurpose Purpose), Cell> cells = [];
+            // One cell per (filter, purpose, exposure seconds) — each sub length is its own grid row.
+            // Plan and disk join when their whole-second sub lengths agree; a drifted exposure shows as
+            // two honest rows (plan-only + disk-only) instead of silently sharing one.
+            Dictionary<(string Filter, FilterPurpose Purpose, int Seconds), Cell> cells = [];
             foreach (ExposurePlan p in plansByTarget[t.Id])
             {
                 if (!templates.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
-                Cell c = GetCell(cells, tpl.FilterName, FilterPurposeClassifier.Classify(tpl.Name));
+                // Effective planned sub length: the plan's own value, else its template default
+                // (the resolver already normalized TS's -1 sentinel to null). 0 = unknown.
+                int seconds = (int)Math.Round(p.ExposureSeconds ?? tpl.DefaultExposureSeconds ?? 0.0);
+                Cell c = GetCell(cells, tpl.FilterName, FilterPurposeClassifier.Classify(tpl.Name), seconds);
                 c.Desired += p.DesiredCount;
                 c.Acquired += p.AcquiredCount;
                 c.Accepted += p.AcceptedCount;
                 c.PlanCount++;
             }
             foreach (InventoryFilter f in invByTarget[t.Id])
-                GetCell(cells, f.FilterName, f.Purpose).Disk += f.ExposureCount;
-
-            foreach (Cell c in cells.Values.OrderBy(c => c.Filter, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Purpose))
             {
-                // A multi-plan cell is explained (mosaic panels fold, alias members fold) or it's the same
+                // The scanner already buckets aggregates to whole seconds (ExposureSeconds is identity).
+                Cell c = GetCell(cells, f.FilterName, f.Purpose, (int)Math.Round(f.ExposureSeconds));
+                c.Disk += f.ExposureCount;
+            }
+
+            // Write-back routes per (filter, purpose) — multiple same-purpose plans go to its manual
+            // bucket even when their sub lengths differ. Flag every cell of such a group so the grid
+            // still surfaces what write-back will refuse to auto-write.
+            Dictionary<(string, FilterPurpose), int> plansPerFilter = [];
+            foreach (Cell c in cells.Values)
+            {
+                (string, FilterPurpose) k = (c.Filter.ToUpperInvariant(), c.Purpose);
+                plansPerFilter[k] = plansPerFilter.GetValueOrDefault(k) + c.PlanCount;
+            }
+
+            foreach (Cell c in cells.Values
+                .OrderBy(c => c.Filter, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(c => c.Purpose)
+                .ThenBy(c => c.Seconds))
+            {
+                // A multi-plan group is explained (mosaic panels fold, alias members fold) or it's the
                 // same-purpose multiplicity that routes write-back to manual — only the latter is a flag.
-                bool multiPlan = c.PlanCount > 1 && !isMosaic && !isAlias;
+                bool multiPlan = plansPerFilter[(c.Filter.ToUpperInvariant(), c.Purpose)] > 1 && !isMosaic && !isAlias;
                 List<string> badges = [];
                 if (isMosaic) badges.Add("mosaic");
                 if (isAlias) badges.Add("alias");
@@ -122,7 +145,7 @@ public static class ReconciliationLoader
                 if (multiPlan) badges.Add("multi-plan");
 
                 rows.Add(new ReconciliationRow(
-                    t.Name, project, c.Filter, c.Purpose.ToString(), source,
+                    t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source,
                     desired: c.PlanCount > 0 ? c.Desired : null,
                     acquired: c.PlanCount > 0 ? c.Acquired : null,
                     accepted: c.PlanCount > 0 ? c.Accepted : null,
@@ -136,7 +159,7 @@ public static class ReconciliationLoader
             if (cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
-                    t.Name, project, "—", "—", source,
+                    t.Name, project, "—", "—", seconds: 0, source,
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
                     isFlagged: false));
@@ -146,18 +169,23 @@ public static class ReconciliationLoader
         rows.Sort((a, b) =>
         {
             int byTarget = string.Compare(a.Target, b.Target, StringComparison.OrdinalIgnoreCase);
-            return byTarget != 0 ? byTarget : string.Compare(a.Filter, b.Filter, StringComparison.OrdinalIgnoreCase);
+            if (byTarget != 0) return byTarget;
+            int byFilter = string.Compare(a.Filter, b.Filter, StringComparison.OrdinalIgnoreCase);
+            if (byFilter != 0) return byFilter;
+            int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
+            return byPurpose != 0 ? byPurpose : a.Seconds.CompareTo(b.Seconds);
         });
         return rows;
     }
 
     private static string Sec(TimeSpan t) => t.TotalSeconds.ToString("0.00", CultureInfo.InvariantCulture);
 
-    private static Cell GetCell(Dictionary<(string, FilterPurpose), Cell> cells, string filter, FilterPurpose purpose)
+    private static Cell GetCell(
+        Dictionary<(string, FilterPurpose, int), Cell> cells, string filter, FilterPurpose purpose, int seconds)
     {
-        (string, FilterPurpose) key = (filter.ToUpperInvariant(), purpose);
+        (string, FilterPurpose, int) key = (filter.ToUpperInvariant(), purpose, seconds);
         if (!cells.TryGetValue(key, out Cell? cell))
-            cells[key] = cell = new Cell { Filter = filter, Purpose = purpose };
+            cells[key] = cell = new Cell { Filter = filter, Purpose = purpose, Seconds = seconds };
         return cell;
     }
 
@@ -165,6 +193,10 @@ public static class ReconciliationLoader
     {
         public required string Filter { get; init; }
         public required FilterPurpose Purpose { get; init; }
+
+        /// <summary>Whole-second sub length — part of the cell key; 0 = unknown.</summary>
+        public required int Seconds { get; init; }
+
         public int Desired;
         public int Acquired;
         public int Accepted;

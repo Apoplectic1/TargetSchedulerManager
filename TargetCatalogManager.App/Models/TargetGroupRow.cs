@@ -38,6 +38,8 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
         Acquired = anyPlanned ? acquired : null;
         Accepted = anyPlanned ? accepted : null;
         Badge = string.Join(" · ", children.Select(r => r.Badge).Where(b => b.Length > 0).Distinct());
+        // Distinct filters, not child rows — a filter shot at two sub lengths is still one filter.
+        FilterCount = children.Select(r => r.Filter).Distinct(StringComparer.OrdinalIgnoreCase).Count();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -61,6 +63,9 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
 
     /// <summary>Union of the children's badges (distinct, order of first appearance).</summary>
     public string Badge { get; }
+
+    /// <summary>Distinct filter names across the children (sub-length splits don't inflate it).</summary>
+    public int FilterCount { get; }
 
     public bool IsFlagged { get; }
 
@@ -88,7 +93,7 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
         _ => "Disk",
     };
 
-    public string TargetText => $"{Target}  ·  {Children.Count} {(Children.Count == 1 ? "filter" : "filters")}";
+    public string TargetText => $"{Target}  ·  {FilterCount} {(FilterCount == 1 ? "filter" : "filters")}";
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";

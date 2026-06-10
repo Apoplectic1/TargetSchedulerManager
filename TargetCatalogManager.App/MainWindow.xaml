@@ -21,6 +21,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="60"/>
@@ -39,12 +40,12 @@
                     <TextBlock Grid.Column="1" Text="{x:Bind TargetText}" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="2" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="5" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="6" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="11" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="6" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="10" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -55,6 +56,7 @@
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="70"/>
@@ -70,15 +72,16 @@
                     <TextBlock Grid.Column="1" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="2" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="3" Text="{x:Bind Filter}"/>
-                    <TextBlock Grid.Column="4" Text="{x:Bind Purpose}" Opacity="0.7"/>
-                    <TextBlock Grid.Column="5" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="6" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind DiskText}" TextAlignment="Right"
+                    <TextBlock Grid.Column="4" Text="{x:Bind SecondsText}" TextAlignment="Right" Margin="0,0,14,0"/>
+                    <TextBlock Grid.Column="5" Text="{x:Bind Purpose}" Opacity="0.7"/>
+                    <TextBlock Grid.Column="6" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right"
                                FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="11" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="10" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="11" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -137,6 +140,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="170"/>
                 <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="60"/>
                 <ColumnDefinition Width="70"/>
                 <ColumnDefinition Width="70"/>
                 <ColumnDefinition Width="60"/>
@@ -150,14 +154,15 @@
             <TextBlock Grid.Column="1" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}"/>
             <TextBlock Grid.Column="2" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}"/>
             <TextBlock Grid.Column="3" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="4" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="5" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="6" Text="Acq" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="7" Text="Acc" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="8" Text="Disk" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="9" Text="Δ" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="10" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="11" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0"/>
+            <TextBlock Grid.Column="4" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0"/>
+            <TextBlock Grid.Column="5" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="6" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="7" Text="Acq" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="8" Text="Acc" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="9" Text="Disk" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="10" Text="Δ" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="11" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="12" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0"/>
         </Grid>
 
         <!-- A flattened tree, not a real TreeView: the VM owns the visible-row list (group headers +
