@@ -70,8 +70,8 @@ so `Catalog.db` was deleted + rebuilt (482 inventory rows). **Write-back contrac
 fold/sum splits back to their (filter, purpose[, bin]) keys; 82 tests, +4 covering the folds). App: grid rows
 key on (filter, purpose, seconds) — plan and disk join when sub lengths agree, drift shows as separate
 plan-only/disk-only rows; "Seconds" column right of Filter; group headers count distinct filters. Verified on
-live data: 715 rows / 102 groups, report counts unchanged. Future option: match plan↔disk *by exposure* in
-write-back to auto-resolve same-purpose multi-plan manual groups.
+live data: 715 rows / 102 groups, report counts unchanged. (The "match by exposure in write-back" follow-up
+shipped the same day — see below.)
 
 **Hours column + plane-split rows (built 2026-06-10, from the user's Ctrl+N notes):** the Δ column is gone;
 leaf rows carry per-plane Hours — a TS row (Desired/Acq/Acc; **Hours = desired × seconds**) and/or a Disk row
@@ -93,6 +93,19 @@ groups. Group `Remaining` is per-row (rollups self-pair). Per-row hours are load
 rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.1 desired). **Pending user's
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
+
+**▶ SHIPPED 2026-06-10 — exposure-aware write-back (library `87ae471`, host `ba23f06`).** The write key is now
+**(target, filter, purpose, whole-second exposure)** — *the plan's seconds is the spec* (user-decided strict
+semantics): each plan receives the disk count at exactly its effective duration (plan exposure ?? template
+default), **0 when none match** (flagged decrease — 600 s frames never satisfy a 900 s plan). Same-purpose
+plans at different durations auto-resolve (no longer manual); disk buckets no plan targets are
+**`UnplannedFrames` notes**, never written, never manual (plan creation is M2's). Surgical `--target` matches
+(filter, purpose, bin, seconds) and deliberately never zeroes plans with no matching cell (bulk does — see
+ARCHITECTURE). Output: per-row `@900s`, `--target` lists no-ops explicitly, new `unplanned` section + summary
+count. **New `tcm-cli.log`** (append-only, `%APPDATA%\TargetCatalogManager\Logs\`) audits every run's full
+decision trail. 91 library tests (+9). Live dry-run verified: Medusa H/S/O @900 → 0, R → 0, B → 2; M17 H
+stays MultiPlan (its two plans share 900 s); bulk totals 105 decreases / 154 no-ops / 38 manual (mosaics) /
+140 unplanned. **`--apply` not yet run — user's call** (working copy restorable from `schedulerdb - Copy.sqlite`).
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,

@@ -91,13 +91,14 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   `desired` **up** to ≥ that (never lowered — a goal can't be below what was kept); touches no `acquiredimage` rows.
   TS never recomputes counts from images, so the cached columns are authoritative (its own Database-Manager UI
   hand-edits them) — that is why a column write suffices and survives.
-- **`(target, filter, purpose)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming convention,
-  symmetric across disk directories and TS templates — so the main/Stars two-plan split resolves without guessing.
-  The scanner now splits inventory per exposure time as well (`inventory_filter` keys on it), but **write-back
-  folds those splits back** onto this key before matching — same-purpose multi-plans still route to manual.
-  Matching plan↔disk *by exposure* (auto-resolving those manual groups) is a possible future upgrade, not current
-  behavior.
-- **Uncertain identity → manual.** ≥2 plans collapsing onto one `(target,filter,purpose)` (a same-purpose
+- **`(target, filter, purpose, seconds)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming
+  convention, symmetric across disk directories and TS templates. **The plan's whole-second exposure is its
+  spec**: effective seconds = round(plan exposure ?? template default); each plan receives the disk count at
+  exactly that bucket — **0 when none match** (a flagged decrease; 600 s frames never satisfy a 900 s plan).
+  Same-purpose plans at *different* durations are different cells and auto-resolve; disk buckets no plan
+  targets are surfaced as `UnplannedFrames` notes, never written and never manual — **write-back updates
+  existing plan rows only** (plan creation/deletion is an M2 concern).
+- **Uncertain identity → manual.** ≥2 plans collapsing onto one `(target,filter,purpose,seconds)` (a same-key
   multi-plan or a dup-fold target), **and** any target whose match is flagged (name-mismatch / ambiguous coord),
   are held for manual resolution with full info, never auto-written — a false-positive coordinate match must not
   overwrite a real TS target.
@@ -108,11 +109,16 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   cache); a fresh re-scan each run can't push stale numbers.
 - **Surgical single-target (`--target`).** `tcm writeback --target "<dir>"` scans one directory only (no catalog
   rebuild) and writes just its cells; a **mosaic writes per panel** — each panel dir coordinate-anchors to its TS
-  panel *within the same-named isMosaic project*, and each `(filter, purpose, binning)` cell lands on that panel's
-  matching plan (binning guards a 2×2 cell off a 1×1 plan). The unit is a filter-cell, so a normal target is one
-  unit and a mosaic is N panel units. Unmatched units (beyond tolerance / ambiguous) and cells (no / multiple
-  matching plans) are **reported, never forced**; reuses the same writer (acq/acc + `desired` ratchet + verify) and
-  guards. Surface: `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan). Validated:
-  `Mosaic - Cygnus Loop` → 16 panels, 96 cells all matched (80 writes), apply + read-back verify OK, re-run idempotent.
+  panel *within the same-named isMosaic project*, and each `(filter, purpose, binning, seconds)` cell lands on that
+  panel's matching plan (binning guards a 2×2 cell off a 1×1 plan; seconds guard 600 s frames off a 900 s plan — a
+  same-seconds plan at another binning is a `NoMatchingPlan` manual with context, a pure duration mismatch is an
+  `UnplannedFrames` note). The unit is a filter-cell, so a normal target is one unit and a mosaic is N panel units.
+  Unmatched units (beyond tolerance / ambiguous) are **reported, never forced**; reuses the same writer (acq/acc +
+  `desired` ratchet + verify) and guards. **Deliberate asymmetry:** the surgical path never zeroes plans with no
+  matching cell (a per-cell push tool must not let a partial scan silently zero the target's other plans); the bulk
+  path does. Surface: `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan).
+- **Audited.** Every CLI writeback run (bulk or surgical, dry-run or apply) appends its full decision trail —
+  writes with old→new and flags, manual groups, unplanned buckets, verify results — to
+  `%APPDATA%\TargetCatalogManager\Logs\tcm-cli.log` (separate from the WinUI app's session-rotated `tcm.log`).
 
 This supersedes the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and IS becomes a consumer.

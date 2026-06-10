@@ -43,8 +43,11 @@ dotnet run --project TargetCatalogManager.csproj
 # The WinUI app (Phase 3): read-only plan-vs-disk grid; fresh scan on load, no Catalog.db needed
 TargetCatalogManager.App/bin/Debug/net10.0-windows10.0.19041.0/win-x64/tcmui.exe
 
-# Write reconciled disk counts back into the local TS copy (dry-run by default; --apply commits, restorable)
-tcm writeback              # dry-run: prints the per-row diff + the manual-reconciliation bucket
+# Write reconciled disk counts back into the local TS copy (dry-run by default; --apply commits, restorable).
+# EXPOSURE-AWARE: the write key is (target, filter, purpose, whole-second exposure) — a plan only receives
+# frames at exactly its duration (0 when none match, a flagged decrease); off-duration disk buckets are
+# reported as "unplanned frames", never written. Every run is audited to %APPDATA%\TargetCatalogManager\Logs\tcm-cli.log.
+tcm writeback              # dry-run: per-row diff (@900s etc.) + manual bucket + unplanned frames
 tcm writeback --apply      # commit to the --ts db (defaults to the TS Database working copy)
 
 # Surgical: write back ONE disk target only (no catalog rebuild); per panel for a mosaic
