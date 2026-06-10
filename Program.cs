@@ -128,6 +128,8 @@ internal static class Program
         Console.WriteLine($"  TS db    : {tsDb}  (local copy - never the live imaging-PC db)");
         Console.WriteLine($"  tolerance: {resolve.MatchToleranceDegrees:0.00} deg");
         Console.WriteLine();
+        CliLog.Line($"writeback start mode=bulk apply={apply} ts=\"{tsDb}\" catalog=\"{catalog}\" " +
+            $"library=\"{library}\" tolerance={resolve.MatchToleranceDegrees.ToString("0.00", CultureInfo.InvariantCulture)}");
 
         // Fresh re-scan so we never push stale numbers.
         CatalogBuildReport report = await CatalogBuilder.BuildAsync(catalog, library, tsDb, resolve);
@@ -139,14 +141,21 @@ internal static class Program
                 store.GetInventoryFilters(), report);
 
         using TargetSchedulerWriter writer = new(tsDb);
-        if (WriterGuardsFail(writer)) return 1;
+        if (WriterGuardsFail(writer))
+        {
+            CliLog.Line("writeback end rc=1");
+            return 1;
+        }
 
         Console.WriteLine($"TS schema user_version {writer.SchemaUserVersion} (validated by column presence)");
         Console.WriteLine();
 
         WriteBackResult result = writer.Execute(plan, apply);
-        PrintWriteBack(plan, result, apply);
-        return result.VerifyFailures.Count == 0 ? 0 : 1;
+        PrintWriteBack(plan, result, apply, listNoOps: false);
+        LogWriteBackOutcome(plan, result);
+        int rc = result.VerifyFailures.Count == 0 ? 0 : 1;
+        CliLog.Line($"writeback end rc={rc}");
+        return rc;
     }
 
     /// <summary>
@@ -179,6 +188,8 @@ internal static class Program
         Console.WriteLine($"  TS db    : {tsDb}  (local copy - never the live imaging-PC db)");
         Console.WriteLine($"  tolerance: {resolve.MatchToleranceDegrees:0.00} deg");
         Console.WriteLine();
+        CliLog.Line($"writeback start mode=target target=\"{dirName}\" dir=\"{dir}\" apply={apply} " +
+            $"ts=\"{tsDb}\" tolerance={resolve.MatchToleranceDegrees.ToString("0.00", CultureInfo.InvariantCulture)}");
 
         // Read the TS plan plane directly (no catalog rebuild), closing the reader before the writer opens.
         TsPlanData ts;
@@ -195,39 +206,79 @@ internal static class Program
         WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic, dirName, ts, resolve);
 
         using TargetSchedulerWriter writer = new(tsDb);
-        if (WriterGuardsFail(writer)) return 1;
+        if (WriterGuardsFail(writer))
+        {
+            CliLog.Line("writeback end rc=1");
+            return 1;
+        }
 
         Console.WriteLine($"TS schema user_version {writer.SchemaUserVersion} (validated by column presence)");
         Console.WriteLine($"units scanned: {units.Count}{(isMosaic ? " panel(s)" : "")}");
         Console.WriteLine();
 
         WriteBackResult result = writer.Execute(plan, apply);
-        PrintWriteBack(plan, result, apply);
-        return result.VerifyFailures.Count == 0 ? 0 : 1;
+        PrintWriteBack(plan, result, apply, listNoOps: true);   // surgical runs answer "did it touch X?" inline
+        LogWriteBackOutcome(plan, result);
+        int rc = result.VerifyFailures.Count == 0 ? 0 : 1;
+        CliLog.Line($"writeback end rc={rc}");
+        return rc;
     }
 
-    // Shared refusal guards for the writer; prints a clear reason and returns true when the db must not be written.
+    // Shared refusal guards for the writer; prints (and logs) a clear reason and returns true when the db must
+    // not be written.
     private static bool WriterGuardsFail(TargetSchedulerWriter writer)
     {
-        if (!writer.HasRequiredColumns)
+        string? reason =
+            !writer.HasRequiredColumns
+                ? "TS exposureplan lacks the acquired/accepted/Id columns this writer updates (incompatible schema)."
+            : writer.HasOpenSidecar
+                ? "TS db has a -wal/-shm/-journal sidecar (may be open). Close NINA / copy a fresh snapshot."
+            : writer.IsReadOnly
+                ? "TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot."
+            : null;
+
+        if (reason is null) return false;
+        Console.Error.WriteLine($"refusing: {reason}");
+        CliLog.Line($"abort reason=\"{reason}\"");
+        return true;
+    }
+
+    // Mirrors the printed outcome into tcm-cli.log so every TS write decision is auditable after the fact.
+    private static void LogWriteBackOutcome(WriteBackPlan plan, WriteBackResult result)
+    {
+        foreach (WriteBackChange c in result.Changes)
         {
-            Console.Error.WriteLine(
-                "refusing: TS exposureplan lacks the acquired/accepted/Id columns this writer updates (incompatible schema).");
-            return true;
+            string flags = c.IsNoOp
+                ? "noop"
+                : string.Join(",", new[] { c.IsDecrease ? "decrease" : null, c.RaisesDesired ? "ratchet" : null }
+                    .Where(f => f is not null));
+            if (flags.Length == 0) flags = "-";
+            CliLog.Line($"write ts#{c.TsExposurePlanId} target=\"{c.TargetName}\" filter={c.Filter} " +
+                $"purpose={c.Purpose} sec={c.PlanSeconds} acq {c.OldAcquired}->{c.NewCount} " +
+                $"acc {c.OldAccepted}->{c.NewCount} desired {c.OldDesired}->{c.NewDesired} flags={flags}");
         }
-        if (writer.HasOpenSidecar)
+
+        foreach (ManualGroup g in plan.Manual)
         {
-            Console.Error.WriteLine(
-                "refusing: TS db has a -wal/-shm/-journal sidecar (may be open). Close NINA / copy a fresh snapshot.");
-            return true;
+            CliLog.Line($"manual target=\"{g.TargetName}\" filter={g.Filter} purpose={g.Purpose} sec={g.Seconds} " +
+                $"disk={g.DiskCount} reason={g.Reason} plans={g.Plans.Count}");
+            foreach (ManualPlan p in g.Plans)
+                CliLog.Line($"manual-plan ts#{p.TsExposurePlanId} sec={p.PlanSeconds} " +
+                    $"acq/acc {p.CatalogAcquired}/{p.CatalogAccepted} desired {p.Desired}");
         }
-        if (writer.IsReadOnly)
-        {
-            Console.Error.WriteLine(
-                "refusing: TS db file is read-only. Clear the read-only attribute or re-copy a writable snapshot.");
-            return true;
-        }
-        return false;
+
+        foreach (ReconcileNote n in plan.NeedsReconciliation.Where(n => n.Kind == ReconcileNote.UnplannedFramesKind))
+            CliLog.Line($"unplanned target=\"{n.TargetName}\" detail=\"{n.Detail}\"");
+
+        int effective = result.Changes.Count(c => !c.IsNoOp);
+        CliLog.Line($"result applied={result.Applied} writes={result.Changes.Count} changed={effective} " +
+            $"decreases={result.Changes.Count(c => !c.IsNoOp && c.IsDecrease)} " +
+            $"ratchets={result.Changes.Count(c => !c.IsNoOp && c.RaisesDesired)} " +
+            $"noops={result.Changes.Count - effective} manual={plan.Manual.Count} " +
+            $"unplanned={plan.NeedsReconciliation.Count(n => n.Kind == ReconcileNote.UnplannedFramesKind)} " +
+            $"verify-failures={result.VerifyFailures.Count}");
+        foreach (WriteBackVerifyFailure f in result.VerifyFailures)
+            CliLog.Line($"verify-fail ts#{f.TsExposurePlanId} expected={f.Expected} got={f.ActualAcquired}/{f.ActualAccepted}");
     }
 
     private static ResolveOptions ParseTolerance(Dictionary<string, string> opts) =>
@@ -266,26 +317,35 @@ internal static class Program
         }
     }
 
-    private static void PrintWriteBack(WriteBackPlan plan, WriteBackResult result, bool apply)
+    private static void PrintWriteBack(WriteBackPlan plan, WriteBackResult result, bool apply, bool listNoOps)
     {
         List<WriteBackChange> effective = [.. result.Changes.Where(c => !c.IsNoOp)];
         int decreases = effective.Count(c => c.IsDecrease);
         int raised = effective.Count(c => c.RaisesDesired);
         int noOps = result.Changes.Count - effective.Count;
+        List<ReconcileNote> unplanned =
+            [.. plan.NeedsReconciliation.Where(n => n.Kind == ReconcileNote.UnplannedFramesKind)];
+        List<ReconcileNote> otherNotes =
+            [.. plan.NeedsReconciliation.Where(n => n.Kind != ReconcileNote.UnplannedFramesKind)];
 
-        foreach (WriteBackChange c in effective
+        // The surgical --target path lists no-ops too, so "did it touch X?" is answered by the output itself.
+        foreach (WriteBackChange c in (listNoOps ? result.Changes : effective)
             .OrderByDescending(c => c.IsDecrease)
             .ThenBy(c => c.TargetName, StringComparer.OrdinalIgnoreCase))
         {
             string name = c.TargetName.Length <= 26 ? c.TargetName : c.TargetName[..26];
-            string flag = c.IsDecrease ? "  <- DECREASE" : "";
-            string desiredNote = c.RaisesDesired ? $"  desired {c.OldDesired}->{c.NewDesired}" : "";
-            Console.WriteLine($"  {name,-26} {c.Filter,-2} {c.Purpose,-5}  acq/acc {c.OldAcquired}/{c.OldAccepted} -> {c.NewCount}{desiredNote}{flag}");
+            string secs = $"@{c.PlanSeconds}s";
+            string body = c.IsNoOp
+                ? $"acq/acc {c.OldAcquired}/{c.OldAccepted} == disk {c.NewCount}, no-op"
+                : $"acq/acc {c.OldAcquired}/{c.OldAccepted} -> {c.NewCount}"
+                  + (c.RaisesDesired ? $"  desired {c.OldDesired}->{c.NewDesired}" : "")
+                  + (c.IsDecrease ? "  <- DECREASE" : "");
+            Console.WriteLine($"  {name,-26} {c.Filter,-2} {c.Purpose,-5} {secs,-6}  {body}");
         }
 
         Console.WriteLine();
         Console.WriteLine($"writes: {effective.Count}  (decreases {decreases}, goals-raised {raised}, no-ops {noOps})   " +
-            $"manual: {plan.Manual.Count}   needs-reconciliation: {plan.NeedsReconciliation.Count}   " +
+            $"manual: {plan.Manual.Count}   unplanned: {unplanned.Count}   needs-reconciliation: {otherNotes.Count}   " +
             $"ignored-missing: {plan.IgnoredMissing}");
 
         if (plan.Manual.Count > 0)
@@ -294,17 +354,25 @@ internal static class Program
             Console.WriteLine("manual reconciliation (NOT written - resolve by hand in TS):");
             foreach (ManualGroup g in plan.Manual)
             {
-                Console.WriteLine($"  {g.TargetName}  {g.Filter} {g.Purpose}  disk={g.DiskCount}  ({g.Reason})");
+                Console.WriteLine($"  {g.TargetName}  {g.Filter} {g.Purpose} @{g.Seconds}s  disk={g.DiskCount}  ({g.Reason})");
                 foreach (ManualPlan p in g.Plans)
-                    Console.WriteLine($"      ts#{p.TsExposurePlanId}  acq/acc {p.CatalogAcquired}/{p.CatalogAccepted}  desired {p.Desired}");
+                    Console.WriteLine($"      ts#{p.TsExposurePlanId} @{p.PlanSeconds}s  acq/acc {p.CatalogAcquired}/{p.CatalogAccepted}  desired {p.Desired}");
             }
         }
 
-        if (plan.NeedsReconciliation.Count > 0)
+        if (unplanned.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("unplanned frames (no TS plan at this exposure - not written; plan creation is a later milestone):");
+            foreach (ReconcileNote n in unplanned)
+                Console.WriteLine($"  '{n.TargetName}'  {n.Detail}");
+        }
+
+        if (otherNotes.Count > 0)
         {
             Console.WriteLine();
             Console.WriteLine("needs reconciliation (TS target issues surfaced):");
-            foreach (ReconcileNote n in plan.NeedsReconciliation)
+            foreach (ReconcileNote n in otherNotes)
                 Console.WriteLine($"  {n.Kind,-12} '{n.TargetName}'  {n.Detail}");
         }
 
