@@ -8,7 +8,9 @@
 
     <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
          {x:Bind} is typed, compile-time binding: a path typo is a build error, not a silent empty cell. -->
-    <Grid Padding="12,8,12,8">
+    <!-- PlacementMode Hidden: WinUI auto-surfaces a declared accelerator as a floating "Ctrl+N" hover
+         tooltip; Hidden removes that hint entirely (never created) while the accelerator keeps working. -->
+    <Grid Padding="12,8,12,8" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.Resources>
             <!-- The grid's rows mix two item types (group header / filter row); the selector below picks the
                  template per item. Both templates share the header's column widths so everything lines up. -->
