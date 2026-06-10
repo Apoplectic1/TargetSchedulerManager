@@ -120,8 +120,8 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     public string HoursText => HoursDelta switch
     {
         null => "—",
-        > 0 => $"+{HoursDelta.Value:F1}",
-        _ => HoursDelta.Value.ToString("F1"),
+        > 0 => $"+{Format.Hours(HoursDelta.Value)}",
+        _ => Format.Hours(HoursDelta.Value),
     };
 
     /// <summary>Soft theme fill behind the header's hours: caution when time is still needed, success when

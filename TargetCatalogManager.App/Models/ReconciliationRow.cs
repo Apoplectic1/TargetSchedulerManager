@@ -183,8 +183,8 @@ public sealed class ReconciliationRow(
     public string HoursText => Hours switch
     {
         null => "—",
-        double h when Plane == RowPlane.Both && h > 0 => $"+{h:F1}",
-        double h => h.ToString("F1"),
+        double h when Plane == RowPlane.Both && h > 0 => $"+{Format.Hours(h)}",
+        double h => Format.Hours(h),
     };
 
     /// <summary>Caution/green fill behind a rollup's hours gap (needs time vs goal met); plain on one-plane rows.</summary>
