@@ -120,10 +120,11 @@ internal sealed class ObservationWindow : Window
 
     private async void OnOkClick(object sender, RoutedEventArgs e)
     {
-        // Hide before the screen grab so this window isn't in its own screenshot. DWM recomposites the
-        // area we were covering from the main window's surface; the short delay lets that land.
+        // Hide before the screen grab so this window isn't in its own screenshot. The delay must outlast
+        // the window's fade-out animation plus a DWM recomposite — 150 ms left a translucent ghost of
+        // this window in the capture (observed 2026-06-10); 450 ms grabs clean.
         AppWindow.Hide();
-        await Task.Delay(150);
+        await Task.Delay(450);
 
         string? screenshotPath = TryCaptureScreenshot();
 
