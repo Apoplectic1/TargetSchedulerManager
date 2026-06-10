@@ -52,6 +52,16 @@ rollup rows. Self-verified: launches and matches the console exactly (Both 44 / 
 mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
 captured: the console csproj sits at the repo root, so it must `DefaultItemExcludes` the nested app dir.
 
+**Target grouping (built 2026-06-10, from the M1 pass):** the grid is now a flattened tree — one collapsible
+`TargetGroupRow` header per target (chevron disclosure, **collapsed by default**) aggregating its visible
+filter rows (Σ desired/acq/acc/disk, Δ, badge union); whole-row click or chevron toggles, Expand/Collapse-all
+in the toolbar. Expansion keyed by target name (survives filter changes + reloads); toggle edits the bound
+`ObservableCollection` in place so scroll position holds; sort dropdown orders groups by aggregates. Search
+respects manual expand state (headers of matching groups appear collapsed; aggregates cover only surviving
+children). WinUI shape: two `DataTemplate`s + `DataTemplateSelector`, no real TreeView — the VM owns the
+visible-row list (TreeListView-in-VirtualMode style). Smoke-tested: launch clean, `groups=102 expanded=0`.
+**Pending: user's visual pass** (chevron alignment, group-row readability, click feel).
+
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
 USER_OBS START/END markers, notes + VM ctx snapshot + main-window screenshot into the log stream. Use it during
