@@ -116,10 +116,10 @@ public static class ReconciliationLoader
                 c.Disk += f.ExposureCount;
             }
 
-            // Pair the planes back up per (filter, purpose): a cell carrying both planes is a Both row
-            // outright (sub lengths agree); after that, a lone leftover plan and a lone leftover disk
-            // bucket also merge — the Seconds cell shows the "disk≠plan" drift. Several leftovers on a
-            // side would make that pairing a guess, so those stay one-plane rows.
+            // One rollup per (filter, purpose) that has BOTH a plan side and a disk side, aggregating every
+            // sub length. A rollup whose times all agree is a plain merged row; 2+ distinct times reads
+            // "mixed" (caution pill) and expands into its one-plane source lines (plan lines first, then
+            // disk, each in sub-length order). One-plane filters emit plain TS/Disk lines directly.
             foreach (IGrouping<(string Filter, FilterPurpose Purpose), Cell> fp in cells.Values
                 .GroupBy(c => (c.Filter.ToUpperInvariant(), c.Purpose)))
             {
@@ -138,45 +138,56 @@ public static class ReconciliationLoader
                 string badge = string.Join(" · ", badges);
                 bool flagged = isDup || isMismatch || isAmbiguous || multiPlan;
 
-                List<Cell> tsLeft = [], diskLeft = [];
+                List<Cell> planCells = [], diskCells = [];
                 foreach (Cell c in fp.OrderBy(c => c.Seconds))
                 {
-                    if (c.PlanCount > 0 && c.Disk > 0)
-                    {
-                        rows.Add(new ReconciliationRow(
-                            t.Name, project, c.Filter, c.Purpose.ToString(),
-                            planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
-                            c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged));
-                    }
-                    else if (c.PlanCount > 0) tsLeft.Add(c);
-                    else diskLeft.Add(c);
+                    if (c.PlanCount > 0) planCells.Add(c);
+                    if (c.Disk > 0) diskCells.Add(c);   // a cell carrying both planes sits in both lists
                 }
 
-                if (tsLeft.Count == 1 && diskLeft.Count == 1)
+                if (planCells.Count > 0 && diskCells.Count > 0)
                 {
-                    Cell ts = tsLeft[0], dk = diskLeft[0];
+                    List<ReconciliationRow> detail = new(planCells.Count + diskCells.Count);
+                    foreach (Cell c in planCells) detail.Add(TsRow(c, isDetail: true));
+                    foreach (Cell c in diskCells) detail.Add(DiskRow(c, isDetail: true));
+
+                    bool mixed = planCells.Count > 1 || diskCells.Count > 1
+                        || planCells[0].Seconds != diskCells[0].Seconds;
+
                     rows.Add(new ReconciliationRow(
-                        t.Name, project, ts.Filter, ts.Purpose.ToString(),
-                        planSeconds: ts.Seconds, diskSeconds: dk.Seconds, source, RowPlane.Both,
-                        ts.Desired, ts.Acquired, ts.Accepted, dk.Disk, ts.PlanCount, badge, flagged));
+                        t.Name, project, planCells[0].Filter, fp.Key.Purpose.ToString(),
+                        planSeconds: planCells[0].Seconds, diskSeconds: diskCells[0].Seconds,
+                        source, RowPlane.Both,
+                        desired: planCells.Sum(c => c.Desired),
+                        acquired: planCells.Sum(c => c.Acquired),
+                        accepted: planCells.Sum(c => c.Accepted),
+                        disk: diskCells.Sum(c => c.Disk),
+                        planCount: planCells.Sum(c => c.PlanCount),
+                        badge, flagged,
+                        planHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
+                        diskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
+                        secondsMixed: mixed,
+                        detail: mixed ? detail : null));
                 }
                 else
                 {
-                    foreach (Cell c in tsLeft)
-                    {
-                        rows.Add(new ReconciliationRow(
-                            t.Name, project, c.Filter, c.Purpose.ToString(),
-                            planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
-                            c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged));
-                    }
-                    foreach (Cell c in diskLeft)
-                    {
-                        rows.Add(new ReconciliationRow(
-                            t.Name, project, c.Filter, c.Purpose.ToString(),
-                            planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
-                            desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged));
-                    }
+                    foreach (Cell c in planCells) rows.Add(TsRow(c, isDetail: false));
+                    foreach (Cell c in diskCells) rows.Add(DiskRow(c, isDetail: false));
                 }
+
+                ReconciliationRow TsRow(Cell c, bool isDetail) => new(
+                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
+                    c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged,
+                    planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
+                    isDetail: isDetail);
+
+                ReconciliationRow DiskRow(Cell c, bool isDetail) => new(
+                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
+                    desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged,
+                    planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
+                    isDetail: isDetail);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
@@ -187,7 +198,7 @@ public static class ReconciliationLoader
                     plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
-                    isFlagged: false));
+                    isFlagged: false, planHours: null, diskHours: null));
             }
         }
 

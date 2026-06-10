@@ -17,7 +17,7 @@
             <DataTemplate x:Key="GroupRowTemplate" x:DataType="m:TargetGroupRow">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="90"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
@@ -57,7 +57,7 @@
             <DataTemplate x:Key="FilterRowTemplate" x:DataType="m:ReconciliationRow">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="90"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
@@ -71,12 +71,18 @@
                         <ColumnDefinition Width="45"/>
                         <ColumnDefinition Width="150"/>
                     </Grid.ColumnDefinitions>
-                    <!-- Children indent under their group's chevron. -->
-                    <TextBlock Grid.Column="0" Text="{x:Bind SourceText}" Opacity="0.7" Margin="18,0,0,0"/>
+                    <!-- Indent ladder: mixed rollups carry their own chevron; their source lines step in
+                         one more level (SourceMargin encodes all three depths). -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                Margin="{x:Bind SourceMargin}">
+                        <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"
+                                  VerticalAlignment="Center" Visibility="{x:Bind ChevronVisibility}"/>
+                        <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Grid.Column="1" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="2" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="3" Text="{x:Bind Filter}"/>
-                    <!-- "disk≠plan" gets a caution pill when a merged row's sub lengths drifted; plain otherwise. -->
+                    <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise. -->
                     <Border Grid.Column="4" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
                         <TextBlock Text="{x:Bind SecondsText}"/>
@@ -148,7 +154,7 @@
              column headers — that's the DataGridView feature we're hand-rolling for M1). -->
         <Grid Grid.Row="2" Padding="12,0,12,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="90"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="170"/>
                 <ColumnDefinition Width="60"/>

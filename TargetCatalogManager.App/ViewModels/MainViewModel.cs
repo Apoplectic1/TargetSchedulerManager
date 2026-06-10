@@ -32,9 +32,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;
 
-    // Grouping state. Expansion is keyed by target name so it survives filter changes and reloads;
-    // collapsed is the default for a never-touched group.
+    // Grouping state. Expansion is keyed by target name (and target|filter|purpose for the nested
+    // mixed-seconds rollups) so it survives filter changes and reloads; collapsed is the default
+    // for anything never touched.
     private readonly HashSet<string> _expandedTargets = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _expandedRollups = new(StringComparer.OrdinalIgnoreCase);
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -142,14 +144,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         if (group.IsExpanded)
         {
-            for (int i = 0; i < group.Children.Count; i++)
+            // Remove everything under this header (children + any expanded rollup detail).
+            while (index + 1 < _rows.Count && _rows[index + 1] is not TargetGroupRow)
                 _rows.RemoveAt(index + 1);
             _expandedTargets.Remove(group.Target);
         }
         else
         {
-            for (int i = 0; i < group.Children.Count; i++)
-                _rows.Insert(index + 1 + i, group.Children[i]);
+            int at = index + 1;
+            foreach (ReconciliationRow child in group.Children)
+            {
+                _rows.Insert(at++, child);
+                if (child is { Detail: not null, IsExpanded: true })
+                    foreach (ReconciliationRow d in child.Detail)
+                        _rows.Insert(at++, d);
+            }
             _expandedTargets.Add(group.Target);
         }
         group.IsExpanded = !group.IsExpanded;
@@ -160,6 +169,37 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $"group {(group.IsExpanded ? "expand" : "collapse")}: \"{group.Target}\" ({group.Children.Count} rows)");
         }
     }
+
+    /// <summary>Expand/collapse a mixed-seconds rollup into its one-plane source lines, in place.</summary>
+    public void ToggleRollup(ReconciliationRow rollup)
+    {
+        if (rollup.Detail is not { } detail) return;
+        int index = _rows.IndexOf(rollup);
+        if (index < 0) return;
+
+        if (rollup.IsExpanded)
+        {
+            for (int i = 0; i < detail.Count; i++)
+                _rows.RemoveAt(index + 1);
+            _expandedRollups.Remove(RollupKey(rollup));
+        }
+        else
+        {
+            for (int i = 0; i < detail.Count; i++)
+                _rows.Insert(index + 1 + i, detail[i]);
+            _expandedRollups.Add(RollupKey(rollup));
+        }
+        rollup.IsExpanded = !rollup.IsExpanded;
+
+        if (Support.Log.IsDiagEnabled("UI"))
+        {
+            Support.Log.Diag("UI",
+                $"rollup {(rollup.IsExpanded ? "expand" : "collapse")}: \"{rollup.Target}\" " +
+                $"{rollup.Filter} {rollup.Purpose} ({detail.Count} lines)");
+        }
+    }
+
+    private static string RollupKey(ReconciliationRow r) => $"{r.Target}|{r.Filter}|{r.Purpose}";
 
     public void ExpandAll()
     {
@@ -214,9 +254,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         foreach (TargetGroupRow g in groups)
         {
             visible.Add(g);
-            if (g.IsExpanded)
-                foreach (ReconciliationRow child in g.Children)
-                    visible.Add(child);
+            foreach (ReconciliationRow child in g.Children)
+            {
+                // Restore nested expansion for every rollup (rows are rebuilt each pass), visible or not,
+                // so a later ToggleGroup expands to the remembered state.
+                if (child.Detail is not null)
+                    child.IsExpanded = _expandedRollups.Contains(RollupKey(child));
+                if (!g.IsExpanded) continue;
+                visible.Add(child);
+                if (child is { Detail: not null, IsExpanded: true })
+                    foreach (ReconciliationRow d in child.Detail)
+                        visible.Add(d);
+            }
         }
         Rows = visible;
 

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace TargetCatalogManager.App.Models;
@@ -24,18 +26,20 @@ public enum RowPlane
     /// <summary>A disk actuals row — the frame count; Hours = count × seconds (actual integration).</summary>
     Disk,
 
-    /// <summary>A merged plan+actuals row. Hours = disk − desired hours (filled caution/green); the
-    /// Seconds cell shows "disk≠plan" in a caution pill when the paired sub lengths drifted.</summary>
+    /// <summary>A merged plan+actuals rollup. Hours = disk − desired hours (filled caution/green); when
+    /// the sub lengths aren't all one value the Seconds cell reads "mixed" (caution pill) and the row
+    /// expands into its one-plane <see cref="ReconciliationRow.Detail"/> source lines.</summary>
     Both,
 }
 
 /// <summary>
-/// One grid row = one (target, filter, purpose) cell, split or merged by plane: a filter with both a plan
-/// and disk frames pairs back into one <see cref="RowPlane.Both"/> row (exact-seconds pairs first, then a
-/// lone plan with a lone disk bucket even across drifted sub lengths); unpaired sides stay one-plane rows.
-/// Immutable — the grid reloads wholesale (fresh scan), it never mutates rows in place. Numeric properties
-/// stay typed for sorting; the <c>*Text</c> properties are what the XAML binds for display ("—" where the
-/// row's plane has nothing, like an empty DataGridView cell).
+/// One grid row = one (target, filter, purpose) cell or one plane of it. A filter carrying both a plan and
+/// disk frames is a single <see cref="RowPlane.Both"/> rollup of every sub length; when those sub lengths
+/// don't all agree the rollup gets a disclosure chevron and <see cref="Detail"/> holds the individual
+/// TS/Disk source lines (plan lines first, then disk, each in sub-length order). Rows are immutable except
+/// <see cref="IsExpanded"/>, which the view-model flips while editing the bound list in place (keeping the
+/// scroll position). The <c>*Text</c> properties are what the XAML binds for display ("—" where the row's
+/// plane has nothing, like an empty DataGridView cell).
 /// </summary>
 public sealed class ReconciliationRow(
     string target,
@@ -52,17 +56,26 @@ public sealed class ReconciliationRow(
     int disk,
     int planCount,
     string badge,
-    bool isFlagged)
+    bool isFlagged,
+    double? planHours,
+    double? diskHours,
+    bool secondsMixed = false,
+    bool isDetail = false,
+    IReadOnlyList<ReconciliationRow>? detail = null) : INotifyPropertyChanged
 {
+    private bool _isExpanded;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Target { get; } = target;
     public string Project { get; } = project;
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
 
-    /// <summary>The plan's whole-second sub length (effective: plan value, else template default); 0 = none/unknown.</summary>
+    /// <summary>The plan side's whole-second sub length (representative when mixed); 0 = none/unknown.</summary>
     public int PlanSeconds { get; } = planSeconds;
 
-    /// <summary>The disk bucket's whole-second sub length; 0 = none.</summary>
+    /// <summary>The disk side's whole-second sub length (representative when mixed); 0 = none.</summary>
     public int DiskSeconds { get; } = diskSeconds;
 
     /// <summary>The target's classification — drives the source dropdown and the group header's label.</summary>
@@ -71,7 +84,7 @@ public sealed class ReconciliationRow(
     /// <summary>Which plane(s) this row carries; leaf rows show it in the Source column.</summary>
     public RowPlane Plane { get; } = plane;
 
-    /// <summary>Summed <c>desired</c> across the cell's plans; null on Disk rows.</summary>
+    /// <summary>Summed <c>desired</c> across the row's plans; null on Disk rows.</summary>
     public int? Desired { get; } = desired;
 
     /// <summary>Summed TS <c>acquired</c> (the cached column write-back owns); null on Disk rows.</summary>
@@ -80,10 +93,10 @@ public sealed class ReconciliationRow(
     /// <summary>Summed TS <c>accepted</c> (cached column); null on Disk rows.</summary>
     public int? Accepted { get; } = accepted;
 
-    /// <summary>Frames on disk for this cell (ACTUAL — ground truth); 0 on TS rows.</summary>
+    /// <summary>Frames on disk (ACTUAL — ground truth); 0 on TS rows.</summary>
     public int Disk { get; } = disk;
 
-    /// <summary>TS plans contributing to this cell (&gt;1 = mosaic fold, alias fold, or a same-purpose multi-plan).</summary>
+    /// <summary>TS plans contributing (&gt;1 = mosaic fold, alias fold, or a same-purpose multi-plan).</summary>
     public int PlanCount { get; } = planCount;
 
     /// <summary>Match-state badges for the row's target ("alias", "duplicate", "name≠", "mosaic", …); empty when clean.</summary>
@@ -92,16 +105,37 @@ public sealed class ReconciliationRow(
     /// <summary>True when the target needs human attention (duplicate / name-mismatch / ambiguous / multi-plan).</summary>
     public bool IsFlagged { get; } = isFlagged;
 
-    /// <summary>Planned commitment in decimal hours (desired × plan seconds); null without a plan side.</summary>
-    public double? PlanHours =>
-        Desired is int d && PlanSeconds > 0 ? d * PlanSeconds / 3600.0 : null;
+    /// <summary>Planned commitment in decimal hours, summed per sub length by the loader; null without a plan side.</summary>
+    public double? PlanHours { get; } = planHours;
 
-    /// <summary>Actual integration in decimal hours (frames × disk seconds); null without a disk side.</summary>
-    public double? DiskHours =>
-        Plane != RowPlane.Ts && DiskSeconds > 0 ? Disk * DiskSeconds / 3600.0 : null;
+    /// <summary>Actual integration in decimal hours, summed per sub length by the loader; null without a disk side.</summary>
+    public double? DiskHours { get; } = diskHours;
+
+    /// <summary>True when the rollup's sub lengths aren't all one identical value (2+ distinct times
+    /// across the plan and disk sides) — the Seconds cell reads "mixed" and the row is expandable.</summary>
+    public bool SecondsMixed { get; } = secondsMixed;
+
+    /// <summary>True for a one-plane source line living under a rollup's disclosure (extra indent).</summary>
+    public bool IsDetail { get; } = isDetail;
+
+    /// <summary>The rollup's one-plane source lines; null when the row has nothing to disclose.</summary>
+    public IReadOnlyList<ReconciliationRow>? Detail { get; } = detail;
+
+    /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ChevronGlyph)));
+        }
+    }
 
     /// <summary>
-    /// What the Hours column shows: the plane's own time on one-plane rows; on a Both row, the gap
+    /// What the Hours column shows: the plane's own time on one-plane rows; on a Both rollup, the gap
     /// (disk − desired hours) — the per-filter version of the group header's delta.
     /// </summary>
     public double? Hours => Plane switch
@@ -110,6 +144,17 @@ public sealed class ReconciliationRow(
         RowPlane.Disk => DiskHours,
         _ => DiskHours is double dh && PlanHours is double ph ? dh - ph : null,
     };
+
+    /// <summary>Segoe Fluent Icons chevron for expandable rollups; empty otherwise.</summary>
+    public string ChevronGlyph => Detail is null ? "" : _isExpanded ? "\uE70D" : "\uE76C";
+
+    public Visibility ChevronVisibility => Detail is null ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Indent ladder for the Source column: rollups carry their chevron at the leaf level, plain
+    /// leaf text aligns just past it, and detail source lines step in once more.</summary>
+    public Thickness SourceMargin => Detail is not null
+        ? new Thickness(18, 0, 0, 0)
+        : IsDetail ? new Thickness(50, 0, 0, 0) : new Thickness(36, 0, 0, 0);
 
     public string SourceText => Plane switch
     {
@@ -122,12 +167,13 @@ public sealed class ReconciliationRow(
     {
         RowPlane.Ts => PlanSeconds > 0 ? PlanSeconds.ToString() : "—",
         RowPlane.Disk => DiskSeconds > 0 ? DiskSeconds.ToString() : "—",
-        _ => DiskSeconds == PlanSeconds ? PlanSeconds.ToString() : $"{DiskSeconds}≠{PlanSeconds}",
+        _ when SecondsMixed => "mixed",
+        _ => PlanSeconds.ToString(),
     };
 
-    /// <summary>Caution pill behind the Seconds cell when a Both row's paired sub lengths drifted.</summary>
+    /// <summary>Caution pill behind the Seconds cell when a rollup's sub lengths are mixed.</summary>
     public Brush? SecondsBackground =>
-        Plane == RowPlane.Both && DiskSeconds != PlanSeconds ? ThemeBrushes.Caution : null;
+        Plane == RowPlane.Both && SecondsMixed ? ThemeBrushes.Caution : null;
 
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
@@ -141,7 +187,7 @@ public sealed class ReconciliationRow(
         double h => h.ToString("F1"),
     };
 
-    /// <summary>Caution/green fill behind a Both row's hours gap (needs time vs goal met); plain on one-plane rows.</summary>
+    /// <summary>Caution/green fill behind a rollup's hours gap (needs time vs goal met); plain on one-plane rows.</summary>
     public Brush? HoursBackground =>
         Plane == RowPlane.Both && Hours is double h
             ? (h < 0 ? ThemeBrushes.Caution : ThemeBrushes.Success)
