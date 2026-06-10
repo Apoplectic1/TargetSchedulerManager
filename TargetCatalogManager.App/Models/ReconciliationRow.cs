@@ -13,13 +13,23 @@ public enum RowSource
     DiskOnly,
 }
 
+/// <summary>Which plane one grid row carries: the TS plan numbers or the disk actuals.</summary>
+public enum RowPlane
+{
+    /// <summary>A TS plan row — Desired/Acq/Acc; Hours = desired × seconds (planned commitment).</summary>
+    Ts,
+
+    /// <summary>A disk actuals row — the frame count; Hours = count × seconds (actual integration).</summary>
+    Disk,
+}
+
 /// <summary>
-/// One grid row = one (target, filter, purpose, exposure seconds) cell: the TS plan numbers next to the
-/// disk-ACTUAL count. The same filter shot/planned at different sub lengths is separate rows; plan and disk
-/// join only when their whole-second sub lengths agree. Immutable — the grid reloads wholesale (fresh scan),
-/// it never mutates rows in place. Numeric properties stay <see cref="int"/>-typed for sorting; the
-/// <c>*Text</c> properties are what the XAML binds for display ("—" where a side has nothing, like an empty
-/// DataGridView cell).
+/// One grid row = one plane of one (target, filter, purpose, exposure seconds) cell. A cell with both a TS
+/// plan and disk frames yields two adjacent rows (TS above Disk), so every row carries exactly one
+/// <see cref="Hours"/> semantics — planned commitment or actual integration — instead of a horizontal Δ.
+/// Immutable — the grid reloads wholesale (fresh scan), it never mutates rows in place. Numeric properties
+/// stay typed for sorting; the <c>*Text</c> properties are what the XAML binds for display ("—" where the
+/// row's plane has nothing, like an empty DataGridView cell).
 /// </summary>
 public sealed class ReconciliationRow(
     string target,
@@ -28,6 +38,7 @@ public sealed class ReconciliationRow(
     string purpose,
     int seconds,
     RowSource source,
+    RowPlane plane,
     int? desired,
     int? acquired,
     int? accepted,
@@ -41,21 +52,25 @@ public sealed class ReconciliationRow(
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
 
-    /// <summary>Whole-second sub length (plan-effective or disk bucket — they agree on a joined row); 0 = unknown.</summary>
+    /// <summary>Whole-second sub length (plan-effective or disk bucket); 0 = unknown.</summary>
     public int Seconds { get; } = seconds;
 
+    /// <summary>The target's classification — drives the source dropdown and the group header's label.</summary>
     public RowSource Source { get; } = source;
 
-    /// <summary>Summed <c>desired</c> across the cell's plans; null when the target has no TS plan.</summary>
+    /// <summary>Which plane this row carries; leaf rows show it in the Source column ("TS"/"Disk").</summary>
+    public RowPlane Plane { get; } = plane;
+
+    /// <summary>Summed <c>desired</c> across the cell's plans; null on Disk rows.</summary>
     public int? Desired { get; } = desired;
 
-    /// <summary>Summed TS <c>acquired</c> (the cached column write-back owns); null when no TS plan.</summary>
+    /// <summary>Summed TS <c>acquired</c> (the cached column write-back owns); null on Disk rows.</summary>
     public int? Acquired { get; } = acquired;
 
-    /// <summary>Summed TS <c>accepted</c> (cached column); null when no TS plan.</summary>
+    /// <summary>Summed TS <c>accepted</c> (cached column); null on Disk rows.</summary>
     public int? Accepted { get; } = accepted;
 
-    /// <summary>Frames on disk for this cell (ACTUAL — ground truth).</summary>
+    /// <summary>Frames on disk for this cell (ACTUAL — ground truth); 0 on TS rows.</summary>
     public int Disk { get; } = disk;
 
     /// <summary>TS plans contributing to this cell (&gt;1 = mosaic fold, alias fold, or a same-purpose multi-plan).</summary>
@@ -67,22 +82,22 @@ public sealed class ReconciliationRow(
     /// <summary>True when the target needs human attention (duplicate / name-mismatch / ambiguous / multi-plan).</summary>
     public bool IsFlagged { get; } = isFlagged;
 
-    /// <summary>Disk − Desired; null when there is no goal to compare against.</summary>
-    public int? Delta => Desired is int d ? Disk - d : null;
+    /// <summary>
+    /// The row's time total in decimal hours — desired × seconds on a TS row (planned commitment),
+    /// frames × seconds on a Disk row (actual integration). Null when the sub length is unknown.
+    /// </summary>
+    public double? Hours => Seconds <= 0
+        ? null
+        : (Plane == RowPlane.Ts ? Desired ?? 0 : Disk) * Seconds / 3600.0;
 
-    public string SourceText => Source switch
-    {
-        RowSource.Both => "Both",
-        RowSource.TsOnly => "TS",
-        _ => "Disk",
-    };
+    public string SourceText => Plane == RowPlane.Ts ? "TS" : "Disk";
 
     public string SecondsText => Seconds > 0 ? Seconds.ToString() : "—";
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";
-    public string DiskText => Disk.ToString();
-    public string DeltaText => Delta switch { null => "—", > 0 => $"+{Delta}", _ => Delta.Value.ToString() };
+    public string DiskText => Plane == RowPlane.Disk ? Disk.ToString() : "—";
+    public string HoursText => Hours is double h ? h.ToString("F1") : "—";
     public string PlanCountText => PlanCount > 1 ? $"×{PlanCount}" : string.Empty;
 
     /// <summary>Case-insensitive match against the searchable columns.</summary>

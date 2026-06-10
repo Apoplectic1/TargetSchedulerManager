@@ -1,9 +1,11 @@
 using System.ComponentModel;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 
 namespace TargetCatalogManager.App.Models;
 
 /// <summary>
-/// The collapsible header row for one target group: aggregates of the (filter, purpose) rows beneath it.
+/// The collapsible header row for one target group: aggregates of the per-plane rows beneath it.
 /// Rebuilt on every filter pass over the *visible* children, so its sums always match what expanding
 /// reveals. The only mutable state is <see cref="IsExpanded"/> — the chevron re-renders via
 /// INotifyPropertyChanged while the view-model edits the bound list in place (insert/remove children),
@@ -23,22 +25,35 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
         Source = children[0].Source;
         Project = children[0].Project;
 
-        bool anyPlanned = false;
+        bool anyPlanned = false, anyHours = false;
         int desired = 0, acquired = 0, accepted = 0;
+        double diskHours = 0, desiredHours = 0;
         foreach (ReconciliationRow r in children)
         {
             if (r.Desired is int d) { anyPlanned = true; desired += d; }
             acquired += r.Acquired ?? 0;
             accepted += r.Accepted ?? 0;
             Disk += r.Disk;
-            Remaining += Math.Max(0, (r.Desired ?? 0) - r.Disk);
             if (r.IsFlagged) IsFlagged = true;
+            if (r.Hours is double h)
+            {
+                anyHours = true;
+                if (r.Plane == RowPlane.Disk) diskHours += h; else desiredHours += h;
+            }
         }
         Desired = anyPlanned ? desired : null;
         Acquired = anyPlanned ? acquired : null;
         Accepted = anyPlanned ? accepted : null;
+        HoursDelta = anyHours ? diskHours - desiredHours : null;
+
+        // Per-cell shortfalls pair the split planes back up (TS + Disk rows of one cell), so an over-shot
+        // filter can't mask another filter's gap.
+        Remaining = children
+            .GroupBy(r => (Filter: r.Filter.ToUpperInvariant(), r.Purpose, r.Seconds))
+            .Sum(g => Math.Max(0, g.Sum(r => r.Desired ?? 0) - g.Sum(r => r.Disk)));
+
         Badge = string.Join(" · ", children.Select(r => r.Badge).Where(b => b.Length > 0).Distinct());
-        // Distinct filters, not child rows — a filter shot at two sub lengths is still one filter.
+        // Distinct filters, not child rows — a filter split by plane or sub length is still one filter.
         FilterCount = children.Select(r => r.Filter).Distinct(StringComparer.OrdinalIgnoreCase).Count();
     }
 
@@ -46,13 +61,13 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
 
     public string Target { get; }
 
-    /// <summary>The filter rows this header aggregates — already filtered/ordered by the view-model.</summary>
+    /// <summary>The per-plane rows this header aggregates — already filtered/ordered by the view-model.</summary>
     public IReadOnlyList<ReconciliationRow> Children { get; }
 
     public RowSource Source { get; }
     public string Project { get; }
 
-    /// <summary>Summed over children with a plan; null when no child has one (pure disk-only group).</summary>
+    /// <summary>Summed over the TS children; null when no child has a plan (pure disk-only group).</summary>
     public int? Desired { get; }
     public int? Acquired { get; }
     public int? Accepted { get; }
@@ -61,14 +76,21 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     /// <summary>Sum of per-cell shortfalls max(0, desired − disk) — the group-level "remaining" sort key.</summary>
     public int Remaining { get; }
 
+    /// <summary>
+    /// Disk hours − desired hours across all the target's rows: negative = the target still needs telescope
+    /// time; ≥ 0 = the captured time met the plan's commitment. Null when no row carries hours.
+    /// </summary>
+    public double? HoursDelta { get; }
+
     /// <summary>Union of the children's badges (distinct, order of first appearance).</summary>
     public string Badge { get; }
 
-    /// <summary>Distinct filter names across the children (sub-length splits don't inflate it).</summary>
+    /// <summary>Distinct filter names across the children (plane/sub-length splits don't inflate it).</summary>
     public int FilterCount { get; }
 
     public bool IsFlagged { get; }
 
+    /// <summary>Frame-count delta (disk − desired) — kept as the "Sort: Δ" key; the column itself shows hours.</summary>
     public int? Delta => Desired is int d ? Disk - d : null;
 
     public bool IsExpanded
@@ -98,5 +120,26 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";
     public string DiskText => Disk.ToString();
-    public string DeltaText => Delta switch { null => "—", > 0 => $"+{Delta}", _ => Delta.Value.ToString() };
+
+    public string HoursText => HoursDelta switch
+    {
+        null => "—",
+        > 0 => $"+{HoursDelta.Value:F1}",
+        _ => HoursDelta.Value.ToString("F1"),
+    };
+
+    /// <summary>Soft theme fill behind the header's hours: caution when time is still needed, success when
+    /// the plan's committed time is met. Null (no fill) when the group has no hours at all.</summary>
+    public Brush? HoursBackground => HoursDelta switch
+    {
+        null => null,
+        < 0 => ThemeBrush("SystemFillColorCautionBackgroundBrush"),
+        _ => ThemeBrush("SystemFillColorSuccessBackgroundBrush"),
+    };
+
+    private static Brush? ThemeBrush(string key)
+    {
+        IDictionary<object, object> resources = Application.Current.Resources;
+        return resources.TryGetValue(key, out object? value) ? value as Brush : null;
+    }
 }

@@ -44,7 +44,11 @@
                     <TextBlock Grid.Column="7" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
+                    <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
+                    <Border Grid.Column="10" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind HoursText}"/>
+                    </Border>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
@@ -79,7 +83,7 @@
                     <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right"
                                FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="10" Text="{x:Bind HoursText}" TextAlignment="Right"/>
                     <TextBlock Grid.Column="11" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -160,7 +164,7 @@
             <TextBlock Grid.Column="7" Text="Acq" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
             <TextBlock Grid.Column="8" Text="Acc" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
             <TextBlock Grid.Column="9" Text="Disk" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="10" Text="Δ" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="10" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
             <TextBlock Grid.Column="11" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
             <TextBlock Grid.Column="12" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0"/>
         </Grid>

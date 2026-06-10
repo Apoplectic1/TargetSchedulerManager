@@ -55,8 +55,9 @@ public static class ReconciliationLoader
     }
 
     /// <summary>
-    /// Projects the resolved graph into flat (target, filter, purpose) rows — the same cell key write-back
-    /// uses, so what the grid shows is exactly what <c>tcm writeback</c> would act on.
+    /// Projects the resolved graph into flat per-plane rows: each (target, filter, purpose, seconds) cell
+    /// yields a TS row (plan commitment) and/or a Disk row (actual integration). Write-back's coarser
+    /// (filter, purpose) key folds these — what the grid shows is still what <c>tcm writeback</c> acts on.
     /// </summary>
     private static List<ReconciliationRow> BuildRows(CatalogGraph graph, CatalogBuildReport report)
     {
@@ -144,15 +145,25 @@ public static class ReconciliationLoader
                 if (isUnanchored) badges.Add("no-coords");
                 if (multiPlan) badges.Add("multi-plan");
 
-                rows.Add(new ReconciliationRow(
-                    t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source,
-                    desired: c.PlanCount > 0 ? c.Desired : null,
-                    acquired: c.PlanCount > 0 ? c.Acquired : null,
-                    accepted: c.PlanCount > 0 ? c.Accepted : null,
-                    disk: c.Disk,
-                    planCount: c.PlanCount,
-                    badge: string.Join(" · ", badges),
-                    isFlagged: isDup || isMismatch || isAmbiguous || multiPlan));
+                string badge = string.Join(" · ", badges);
+                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan;
+
+                // Each plane is its own row (TS above Disk): the plan's commitment and the disk's actual
+                // integration never share a line, so Hours has exactly one meaning per row.
+                if (c.PlanCount > 0)
+                {
+                    rows.Add(new ReconciliationRow(
+                        t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source, RowPlane.Ts,
+                        desired: c.Desired, acquired: c.Acquired, accepted: c.Accepted,
+                        disk: 0, planCount: c.PlanCount, badge, flagged));
+                }
+                if (c.Disk > 0)
+                {
+                    rows.Add(new ReconciliationRow(
+                        t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source, RowPlane.Disk,
+                        desired: null, acquired: null, accepted: null,
+                        disk: c.Disk, planCount: 0, badge, flagged));
+                }
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
@@ -160,6 +171,7 @@ public static class ReconciliationLoader
             {
                 rows.Add(new ReconciliationRow(
                     t.Name, project, "—", "—", seconds: 0, source,
+                    plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
                     isFlagged: false));
@@ -173,7 +185,9 @@ public static class ReconciliationLoader
             int byFilter = string.Compare(a.Filter, b.Filter, StringComparison.OrdinalIgnoreCase);
             if (byFilter != 0) return byFilter;
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
-            return byPurpose != 0 ? byPurpose : a.Seconds.CompareTo(b.Seconds);
+            if (byPurpose != 0) return byPurpose;
+            int bySeconds = a.Seconds.CompareTo(b.Seconds);
+            return bySeconds != 0 ? bySeconds : a.Plane.CompareTo(b.Plane);   // TS above Disk
         });
         return rows;
     }
