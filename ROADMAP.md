@@ -81,8 +81,11 @@ only; the Source dropdown still classifies whole targets. **Refined same day —
 disclosure (from the user's Ctrl+N notes):** one `Both` rollup per (filter, purpose) that has both a plan and
 a disk side, aggregating **every** sub length (counts + hours). Sub lengths all one value → plain merged row.
 **2+ distinct times → Seconds reads `mixed`** (caution pill) and the rollup gets its own chevron, expanding
-in place into its one-plane TS/Disk source lines (plan lines first, then disk, sub-length order, deeper
-indent) — answering "where do these times come from". A Both rollup's Hours = its **disk − desired gap** with
+in place into **one source line per sub length** (seconds ascending, deeper indent): a bucket carrying both
+planes is a nested `Both` line (plan values + disk count, its own gap hours + fill), one-sided buckets are
+TS/Disk lines — answering "where do these times come from". **Hours model (user-confirmed): two-tier** —
+filled cells are disk−plan gaps (headers, rollups, Both lines), plain cells are the plane's own magnitude
+(TS = planned time, Disk = actual time); tiny non-zero values render F2 so they never read as 0.0. A Both rollup's Hours = its **disk − desired gap** with
 the caution/green fill (per-filter mini header); one-plane rows stay plain everywhere. Rollup expansion is
 keyed `target|filter|purpose` (survives filters/reloads); whole-row click toggles, exactly like target
 groups. Group `Remaining` is per-row (rollups self-pair). Per-row hours are loader-computed
