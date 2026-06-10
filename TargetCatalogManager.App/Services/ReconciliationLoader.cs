@@ -94,10 +94,8 @@ public static class ReconciliationLoader
                 _ => RowSource.DiskOnly,
             };
 
-            // Aggregate plans and inventory onto the shared cell key (filter, purpose); filter case-insensitive.
-            // One cell per (filter, purpose, exposure seconds) — each sub length is its own grid row.
-            // Plan and disk join when their whole-second sub lengths agree; a drifted exposure shows as
-            // two honest rows (plan-only + disk-only) instead of silently sharing one.
+            // Aggregate plans and inventory per (filter, purpose, exposure seconds), filter case-insensitive;
+            // the pairing pass below decides which cells merge into Both rows and which stay one-plane.
             Dictionary<(string Filter, FilterPurpose Purpose, int Seconds), Cell> cells = [];
             foreach (ExposurePlan p in plansByTarget[t.Id])
             {
@@ -118,24 +116,16 @@ public static class ReconciliationLoader
                 c.Disk += f.ExposureCount;
             }
 
-            // Write-back routes per (filter, purpose) — multiple same-purpose plans go to its manual
-            // bucket even when their sub lengths differ. Flag every cell of such a group so the grid
-            // still surfaces what write-back will refuse to auto-write.
-            Dictionary<(string, FilterPurpose), int> plansPerFilter = [];
-            foreach (Cell c in cells.Values)
-            {
-                (string, FilterPurpose) k = (c.Filter.ToUpperInvariant(), c.Purpose);
-                plansPerFilter[k] = plansPerFilter.GetValueOrDefault(k) + c.PlanCount;
-            }
-
-            foreach (Cell c in cells.Values
-                .OrderBy(c => c.Filter, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(c => c.Purpose)
-                .ThenBy(c => c.Seconds))
+            // Pair the planes back up per (filter, purpose): a cell carrying both planes is a Both row
+            // outright (sub lengths agree); after that, a lone leftover plan and a lone leftover disk
+            // bucket also merge — the Seconds cell shows the "disk≠plan" drift. Several leftovers on a
+            // side would make that pairing a guess, so those stay one-plane rows.
+            foreach (IGrouping<(string Filter, FilterPurpose Purpose), Cell> fp in cells.Values
+                .GroupBy(c => (c.Filter.ToUpperInvariant(), c.Purpose)))
             {
                 // A multi-plan group is explained (mosaic panels fold, alias members fold) or it's the
                 // same-purpose multiplicity that routes write-back to manual — only the latter is a flag.
-                bool multiPlan = plansPerFilter[(c.Filter.ToUpperInvariant(), c.Purpose)] > 1 && !isMosaic && !isAlias;
+                bool multiPlan = fp.Sum(c => c.PlanCount) > 1 && !isMosaic && !isAlias;
                 List<string> badges = [];
                 if (isMosaic) badges.Add("mosaic");
                 if (isAlias) badges.Add("alias");
@@ -148,21 +138,44 @@ public static class ReconciliationLoader
                 string badge = string.Join(" · ", badges);
                 bool flagged = isDup || isMismatch || isAmbiguous || multiPlan;
 
-                // Each plane is its own row (TS above Disk): the plan's commitment and the disk's actual
-                // integration never share a line, so Hours has exactly one meaning per row.
-                if (c.PlanCount > 0)
+                List<Cell> tsLeft = [], diskLeft = [];
+                foreach (Cell c in fp.OrderBy(c => c.Seconds))
                 {
-                    rows.Add(new ReconciliationRow(
-                        t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source, RowPlane.Ts,
-                        desired: c.Desired, acquired: c.Acquired, accepted: c.Accepted,
-                        disk: 0, planCount: c.PlanCount, badge, flagged));
+                    if (c.PlanCount > 0 && c.Disk > 0)
+                    {
+                        rows.Add(new ReconciliationRow(
+                            t.Name, project, c.Filter, c.Purpose.ToString(),
+                            planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
+                            c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged));
+                    }
+                    else if (c.PlanCount > 0) tsLeft.Add(c);
+                    else diskLeft.Add(c);
                 }
-                if (c.Disk > 0)
+
+                if (tsLeft.Count == 1 && diskLeft.Count == 1)
                 {
+                    Cell ts = tsLeft[0], dk = diskLeft[0];
                     rows.Add(new ReconciliationRow(
-                        t.Name, project, c.Filter, c.Purpose.ToString(), c.Seconds, source, RowPlane.Disk,
-                        desired: null, acquired: null, accepted: null,
-                        disk: c.Disk, planCount: 0, badge, flagged));
+                        t.Name, project, ts.Filter, ts.Purpose.ToString(),
+                        planSeconds: ts.Seconds, diskSeconds: dk.Seconds, source, RowPlane.Both,
+                        ts.Desired, ts.Acquired, ts.Accepted, dk.Disk, ts.PlanCount, badge, flagged));
+                }
+                else
+                {
+                    foreach (Cell c in tsLeft)
+                    {
+                        rows.Add(new ReconciliationRow(
+                            t.Name, project, c.Filter, c.Purpose.ToString(),
+                            planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
+                            c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged));
+                    }
+                    foreach (Cell c in diskLeft)
+                    {
+                        rows.Add(new ReconciliationRow(
+                            t.Name, project, c.Filter, c.Purpose.ToString(),
+                            planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
+                            desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged));
+                    }
                 }
             }
 
@@ -170,7 +183,7 @@ public static class ReconciliationLoader
             if (cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
-                    t.Name, project, "—", "—", seconds: 0, source,
+                    t.Name, project, "—", "—", planSeconds: 0, diskSeconds: 0, source,
                     plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
@@ -186,10 +199,14 @@ public static class ReconciliationLoader
             if (byFilter != 0) return byFilter;
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
             if (byPurpose != 0) return byPurpose;
-            int bySeconds = a.Seconds.CompareTo(b.Seconds);
-            return bySeconds != 0 ? bySeconds : a.Plane.CompareTo(b.Plane);   // TS above Disk
+            int bySeconds = SortSeconds(a).CompareTo(SortSeconds(b));
+            return bySeconds != 0 ? bySeconds : a.Plane.CompareTo(b.Plane);
         });
         return rows;
+
+        // Plan seconds when the row has a plan side, the disk bucket otherwise — keeps a filter's rows
+        // in sub-length order with merged rows sitting where their plan does.
+        static int SortSeconds(ReconciliationRow r) => r.PlanSeconds > 0 ? r.PlanSeconds : r.DiskSeconds;
     }
 
     private static string Sec(TimeSpan t) => t.TotalSeconds.ToString("0.00", CultureInfo.InvariantCulture);

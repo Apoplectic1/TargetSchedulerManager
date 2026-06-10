@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace TargetCatalogManager.App.Models;
@@ -35,22 +34,19 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
             accepted += r.Accepted ?? 0;
             Disk += r.Disk;
             if (r.IsFlagged) IsFlagged = true;
-            if (r.Hours is double h)
-            {
-                anyHours = true;
-                if (r.Plane == RowPlane.Disk) diskHours += h; else desiredHours += h;
-            }
+            // A Both row carries both components; one-plane rows carry one. Summing the components (not
+            // the displayed Hours, which is a gap on Both rows) keeps the header delta exact.
+            if (r.DiskHours is double dh) { anyHours = true; diskHours += dh; }
+            if (r.PlanHours is double ph) { anyHours = true; desiredHours += ph; }
+            // Both rows pair desired against their own disk; leftover TS rows are wholly unshot; leftover
+            // Disk rows have no goal — so per-row shortfalls are already per-cell (over-shot filters
+            // can't mask another filter's gap).
+            Remaining += Math.Max(0, (r.Desired ?? 0) - r.Disk);
         }
         Desired = anyPlanned ? desired : null;
         Acquired = anyPlanned ? acquired : null;
         Accepted = anyPlanned ? accepted : null;
         HoursDelta = anyHours ? diskHours - desiredHours : null;
-
-        // Per-cell shortfalls pair the split planes back up (TS + Disk rows of one cell), so an over-shot
-        // filter can't mask another filter's gap.
-        Remaining = children
-            .GroupBy(r => (Filter: r.Filter.ToUpperInvariant(), r.Purpose, r.Seconds))
-            .Sum(g => Math.Max(0, g.Sum(r => r.Desired ?? 0) - g.Sum(r => r.Disk)));
 
         Badge = string.Join(" · ", children.Select(r => r.Badge).Where(b => b.Length > 0).Distinct());
         // Distinct filters, not child rows — a filter split by plane or sub length is still one filter.
@@ -133,13 +129,7 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     public Brush? HoursBackground => HoursDelta switch
     {
         null => null,
-        < 0 => ThemeBrush("SystemFillColorCautionBackgroundBrush"),
-        _ => ThemeBrush("SystemFillColorSuccessBackgroundBrush"),
+        < 0 => ThemeBrushes.Caution,
+        _ => ThemeBrushes.Success,
     };
-
-    private static Brush? ThemeBrush(string key)
-    {
-        IDictionary<object, object> resources = Application.Current.Resources;
-        return resources.TryGetValue(key, out object? value) ? value as Brush : null;
-    }
 }

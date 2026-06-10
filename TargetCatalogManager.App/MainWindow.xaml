@@ -21,7 +21,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="60"/>
@@ -61,7 +61,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="60"/>
@@ -76,14 +76,22 @@
                     <TextBlock Grid.Column="1" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="2" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="3" Text="{x:Bind Filter}"/>
-                    <TextBlock Grid.Column="4" Text="{x:Bind SecondsText}" TextAlignment="Right" Margin="0,0,14,0"/>
+                    <!-- "disk≠plan" gets a caution pill when a merged row's sub lengths drifted; plain otherwise. -->
+                    <Border Grid.Column="4" Background="{x:Bind SecondsBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
+                        <TextBlock Text="{x:Bind SecondsText}"/>
+                    </Border>
                     <TextBlock Grid.Column="5" Text="{x:Bind Purpose}" Opacity="0.7"/>
                     <TextBlock Grid.Column="6" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
                     <TextBlock Grid.Column="7" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right"
                                FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind HoursText}" TextAlignment="Right"/>
+                    <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
+                    <Border Grid.Column="10" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind HoursText}"/>
+                    </Border>
                     <TextBlock Grid.Column="11" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -144,7 +152,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="170"/>
                 <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="70"/>
                 <ColumnDefinition Width="70"/>
                 <ColumnDefinition Width="60"/>
