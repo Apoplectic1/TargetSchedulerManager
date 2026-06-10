@@ -11,6 +11,9 @@
     <RootNamespace>TargetCatalogManager</RootNamespace>
     <AssemblyName>tcm</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- This csproj lives at the repo root, so the WinUI app project nested below would be swept into the
+         default Compile glob (duplicate AssemblyInfo + unresolvable WinUI types) without this exclusion. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);TargetCatalogManager.App\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Cross-repo local ProjectReference (local disk is source of truth): the shared schema/build contract. -->

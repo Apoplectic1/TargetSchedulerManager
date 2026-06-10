@@ -12,4 +12,5 @@
     <Platform Solution="Debug|*" Project="x64" />
   </Project>
   <Project Path="TargetCatalogManager.csproj" />
+  <Project Path="TargetCatalogManager.App/TargetCatalogManager.App.csproj" />
 </Solution>

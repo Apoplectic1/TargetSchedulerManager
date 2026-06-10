@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="TargetCatalogManager.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:m="using:TargetCatalogManager.App.Models">
+
+    <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
+         {x:Bind} is typed, compile-time binding: a path typo is a build error, not a silent empty cell. -->
+    <Grid Padding="12,8,12,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- toolbar: reload + summary -->
+            <RowDefinition Height="Auto"/>  <!-- filter bar -->
+            <RowDefinition Height="Auto"/>  <!-- column headers -->
+            <RowDefinition Height="*"/>     <!-- grid -->
+            <RowDefinition Height="Auto"/>  <!-- status bar -->
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+            <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"/>
+            <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
+            <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
+                       Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,10,0,8">
+            <TextBox x:Name="SearchBox" PlaceholderText="search target / project / filter…"
+                     Width="280" TextChanged="Search_TextChanged"/>
+            <ComboBox x:Name="SourceFilter" SelectedIndex="0" Width="130"
+                      SelectionChanged="SourceFilter_SelectionChanged">
+                <ComboBoxItem Content="All sources"/>
+                <ComboBoxItem Content="Both"/>
+                <ComboBoxItem Content="TS-only"/>
+                <ComboBoxItem Content="Disk-only"/>
+            </ComboBox>
+            <CheckBox x:Name="FlaggedOnly" Content="flagged only"
+                      Checked="FlaggedOnly_Changed" Unchecked="FlaggedOnly_Changed"/>
+            <ComboBox x:Name="SortPicker" SelectedIndex="0" Width="170"
+                      SelectionChanged="Sort_SelectionChanged">
+                <ComboBoxItem Content="Sort: target"/>
+                <ComboBoxItem Content="Sort: remaining ↓"/>
+                <ComboBoxItem Content="Sort: disk ↓"/>
+                <ComboBoxItem Content="Sort: Δ ↓"/>
+            </ComboBox>
+        </StackPanel>
+
+        <!-- Header row mirrors the row template's column widths (WinUI's ListView has no built-in
+             column headers — that's the DataGridView feature we're hand-rolling for M1). -->
+        <Grid Grid.Row="2" Padding="12,0,12,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="170"/>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="45"/>
+                <ColumnDefinition Width="150"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Source" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="1" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="2" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="3" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="4" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}"/>
+            <TextBlock Grid.Column="5" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="6" Text="Acq" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="7" Text="Acc" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="8" Text="Disk" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="9" Text="Δ" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="10" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="11" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0"/>
+        </Grid>
+
+        <!-- Virtualized like ListView in WinForms VirtualMode, but per-row templates instead of owner-draw. -->
+        <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
+                  SelectionMode="Single" IsItemClickEnabled="False">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="MinHeight" Value="30"/>
+                    <Setter Property="Padding" Value="12,2,12,2"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="m:ReconciliationRow">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="170"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="45"/>
+                            <ColumnDefinition Width="150"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{x:Bind SourceText}" Opacity="0.7"/>
+                        <TextBlock Grid.Column="1" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="2" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="3" Text="{x:Bind Filter}"/>
+                        <TextBlock Grid.Column="4" Text="{x:Bind Purpose}" Opacity="0.7"/>
+                        <TextBlock Grid.Column="5" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="6" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
+                        <TextBlock Grid.Column="7" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
+                        <TextBlock Grid.Column="8" Text="{x:Bind DiskText}" TextAlignment="Right"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="9" Text="{x:Bind DeltaText}" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="10" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
+                        <TextBlock Grid.Column="11" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                                   Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock Grid.Row="4" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                   Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.7" Margin="0,6,0,0"/>
+    </Grid>
+</Window>
