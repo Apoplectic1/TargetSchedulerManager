@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using TargetCatalogManager.App.Models;
@@ -31,7 +32,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;
 
-    private IReadOnlyList<ReconciliationRow> _rows = [];
+    // Grouping state. Expansion is keyed by target name so it survives filter changes and reloads;
+    // collapsed is the default for a never-touched group.
+    private readonly HashSet<string> _expandedTargets = new(StringComparer.OrdinalIgnoreCase);
+    private List<TargetGroupRow> _groups = [];
+    private int _visibleLeafCount;
+
+    private ObservableCollection<object> _rows = [];
     private string _summaryText = "";
     private string _statusText = "loading…";
     private bool _isLoading;
@@ -42,8 +49,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>The filtered, sorted rows the ListView shows.</summary>
-    public IReadOnlyList<ReconciliationRow> Rows
+    /// <summary>
+    /// The flattened tree the ListView shows: one <see cref="TargetGroupRow"/> header per target, followed
+    /// by its <see cref="ReconciliationRow"/> children when expanded. ObservableCollection so a chevron
+    /// toggle can insert/remove children in place (scroll position survives); filter/sort changes replace
+    /// the whole instance instead.
+    /// </summary>
+    public ObservableCollection<object> Rows
     {
         get => _rows;
         private set => Set(ref _rows, value);
@@ -122,6 +134,46 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
+    public void ToggleGroup(TargetGroupRow group)
+    {
+        int index = _rows.IndexOf(group);
+        if (index < 0) return;
+
+        if (group.IsExpanded)
+        {
+            for (int i = 0; i < group.Children.Count; i++)
+                _rows.RemoveAt(index + 1);
+            _expandedTargets.Remove(group.Target);
+        }
+        else
+        {
+            for (int i = 0; i < group.Children.Count; i++)
+                _rows.Insert(index + 1 + i, group.Children[i]);
+            _expandedTargets.Add(group.Target);
+        }
+        group.IsExpanded = !group.IsExpanded;
+
+        if (Support.Log.IsDiagEnabled("UI"))
+        {
+            Support.Log.Diag("UI",
+                $"group {(group.IsExpanded ? "expand" : "collapse")}: \"{group.Target}\" ({group.Children.Count} rows)");
+        }
+    }
+
+    public void ExpandAll()
+    {
+        foreach (TargetGroupRow g in _groups)
+            _expandedTargets.Add(g.Target);
+        ApplyFilters();
+    }
+
+    public void CollapseAll()
+    {
+        _expandedTargets.Clear();
+        ApplyFilters();
+    }
+
     private void ApplyFilters()
     {
         IEnumerable<ReconciliationRow> q = _allRows;
@@ -136,25 +188,45 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(_searchText))
             q = q.Where(r => r.Matches(_searchText.Trim()));
 
-        q = _sortMode switch
+        // _allRows is (target, filter)-ordered, so grouping preserves filter order within each target.
+        // Headers aggregate only the rows that survived the filters — sums always match what's beneath.
+        List<ReconciliationRow> leaves = [.. q];
+        List<TargetGroupRow> groups = [.. leaves
+            .GroupBy(r => r.Target, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new TargetGroupRow(g.Key, [.. g], _expandedTargets.Contains(g.Key)))];
+
+        // The sort dropdown orders the groups by their aggregates; children stay in filter order.
+        groups = _sortMode switch
         {
-            SortMode.RemainingDesc => q.OrderByDescending(r => Math.Max(0, (r.Desired ?? 0) - r.Disk))
-                                       .ThenBy(r => r.Target, StringComparer.OrdinalIgnoreCase),
-            SortMode.DiskDesc => q.OrderByDescending(r => r.Disk).ThenBy(r => r.Target, StringComparer.OrdinalIgnoreCase),
-            SortMode.DeltaDesc => q.OrderByDescending(r => r.Delta ?? int.MinValue)
-                                   .ThenBy(r => r.Target, StringComparer.OrdinalIgnoreCase),
-            _ => q,   // loader's default order: target, then filter
+            SortMode.RemainingDesc => [.. groups.OrderByDescending(g => g.Remaining)
+                                                .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
+            SortMode.DiskDesc => [.. groups.OrderByDescending(g => g.Disk)
+                                           .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
+            SortMode.DeltaDesc => [.. groups.OrderByDescending(g => g.Delta ?? int.MinValue)
+                                            .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
+            _ => groups,   // loader's default order: target name
         };
 
-        List<ReconciliationRow> rows = [.. q];
-        Rows = rows;
+        _groups = groups;
+        _visibleLeafCount = leaves.Count;
+
+        ObservableCollection<object> visible = [];
+        foreach (TargetGroupRow g in groups)
+        {
+            visible.Add(g);
+            if (g.IsExpanded)
+                foreach (ReconciliationRow child in g.Children)
+                    visible.Add(child);
+        }
+        Rows = visible;
 
         // One line per applied filter state (incl. each search keystroke) — between USER_OBS markers this
         // is the trail of what the user was looking at. TCM_DIAG-gated; zero overhead when off.
         if (Support.Log.IsDiagEnabled("UI"))
         {
             Support.Log.Diag("UI",
-                $"filters: rows={rows.Count}/{_allRows.Count} search=\"{_searchText}\" " +
+                $"filters: rows={leaves.Count}/{_allRows.Count} groups={groups.Count} " +
+                $"expanded={groups.Count(g => g.IsExpanded)} search=\"{_searchText}\" " +
                 $"source={SourceFilterName()} flagged={_flaggedOnly} sort={_sortMode}");
         }
 
@@ -164,7 +236,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $"Both {r.BothCount} · TS-only {r.PlannedOnlyCount} · Disk-only {r.ActualOnlyCount}" +
                 $"  —  aliases {r.AliasTsTargets.Count} · duplicates {r.DuplicateTsTargets.Count}" +
                 $" · mosaics {r.MosaicsResolved} ({r.PanelsFolded} panels)" +
-                $"  —  showing {rows.Count}/{_allRows.Count} rows";
+                $"  —  showing {groups.Count} targets · {leaves.Count}/{_allRows.Count} rows";
         }
     }
 
@@ -175,8 +247,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         string counts = _lastLoad is { Report: var r }
             ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} aliases={r.AliasTsTargets.Count} mosaics={r.MosaicsResolved}"
             : "no-load";
-        return $"rows={Rows.Count}/{_allRows.Count}, search=\"{_searchText}\", source={SourceFilterName()}, " +
-               $"flagged={_flaggedOnly}, sort={_sortMode}, {counts}";
+        return $"rows={_visibleLeafCount}/{_allRows.Count}, groups={_groups.Count}, " +
+               $"expanded={_groups.Count(g => g.IsExpanded)}, search=\"{_searchText}\", " +
+               $"source={SourceFilterName()}, flagged={_flaggedOnly}, sort={_sortMode}, {counts}";
     }
 
     private string SourceFilterName() =>

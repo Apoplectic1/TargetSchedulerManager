@@ -34,6 +34,17 @@ public sealed partial class MainWindow : Window
     private void Sort_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         ViewModel.SortMode = (SortMode)SortPicker.SelectedIndex;
 
+    // Whole-row click on a group header toggles its disclosure; clicks on filter rows fall through.
+    private void Row_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Models.TargetGroupRow group)
+            ViewModel.ToggleGroup(group);
+    }
+
+    private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();
+
+    private void CollapseAll_Click(object sender, RoutedEventArgs e) => ViewModel.CollapseAll();
+
     // Ctrl+N: open (or focus) the observation window — notes + screenshot into the tcm.log stream.
     private void Observation_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
         Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
