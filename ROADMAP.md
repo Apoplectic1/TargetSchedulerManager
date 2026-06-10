@@ -74,13 +74,18 @@ live data: 715 rows / 102 groups, report counts unchanged. Future option: match 
 write-back to auto-resolve same-purpose multi-plan manual groups.
 
 **Hours column + plane-split rows (built 2026-06-10, from the user's Ctrl+N notes):** the Δ column is gone;
-every leaf row is now one *plane* of its cell — a TS row (Desired/Acq/Acc; **Hours = desired × seconds**) and/or
-a Disk row (frame count; **Hours = count × seconds**), TS above Disk, both labeled in the Source column. Group
-header Hours = **disk hours − desired hours** (signed F1, pill fill: caution = needs telescope time, green =
-plan goals met). Group `Remaining` re-pairs the split planes per cell (over-shot filters can't mask gaps);
-frame-count Δ survives as the sort key only; the Source dropdown still classifies whole targets. Verified live:
-942 rows / 102 groups (227 cells split), Abell 21 −10.3 = 15.8 disk − 26.1 desired. **Pending user's visual
-pass** — note the dark-theme caution/success fills are subtle; stronger brushes are a one-line swap if wanted.
+leaf rows carry per-plane Hours — a TS row (Desired/Acq/Acc; **Hours = desired × seconds**) and/or a Disk row
+(frame count; **Hours = count × seconds**). Group header Hours = **disk hours − desired hours** (signed F1,
+pill fill: caution = needs telescope time, green = plan goals met). Frame-count Δ survives as the sort key
+only; the Source dropdown still classifies whole targets. **Refined same day — Both rows are back, merged
+per (filter, purpose):** a cell carrying both planes is a `Both` row outright; a lone leftover plan + lone
+leftover disk bucket also merge across drifted sub lengths (Seconds cell shows **`disk≠plan`** in a caution
+pill, plain when equal; e.g. Abell 21 `H 600≠900`); ambiguous leftovers stay one-plane rows. A Both row's
+Hours = its **disk − desired gap** with the same caution/green fill (per-filter mini header); one-plane rows
+stay plain. Group `Remaining` is per-row again (merged rows self-pair). Verified live: 690 rows / 102 groups
+(227 exact + 25 drift merges), header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.1 desired).
+**Pending user's visual pass** — dark-theme caution/success fills are subtle; stronger brushes are a
+one-line swap (`ThemeBrushes.cs`) if wanted.
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
