@@ -108,6 +108,12 @@ internal static class Log
         Append("USER_OBS_END", $"id={id} ctx=({ctx}) screenshot={screenshotPath} notes=\"{bodyNotes}\"", null);
     }
 
+    /// <summary>A manual mid-session screen capture from the open observation window (its Capture button). The
+    /// line's local-time stamp plus the PNG filename's stamp let a sequence of capture → change UI → capture be
+    /// ordered against the typed notes after the fact.</summary>
+    public static void UserObservationCapture(string id, string path) =>
+        Append("USER_OBS_CAP", $"id={id} screenshot={path}", null);
+
     /// <summary>Observation window abandoned (Cancel or close-X); every START gets a terminator.</summary>
     public static void UserObservationCancel(string id) => Append("USER_OBS_CANCEL", "id=" + id, null);
 

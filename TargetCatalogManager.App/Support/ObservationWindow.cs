@@ -14,6 +14,11 @@ namespace TargetCatalogManager.App.Support;
 /// screenshot of the main window; blank notes = "all-okay checkpoint". Singleton: Ctrl+N while open
 /// focuses the existing window instead of stacking a second START marker.
 ///
+/// <para><b>Capture</b> grabs the main window on demand and stays open, so one session can interleave
+/// several timestamped shots with notes (capture → change UI → capture → type → OK). Every shot's PNG is
+/// stamped in local time (matching tcm.log), and a USER_OBS_CAP line records each, so images and notes can be
+/// ordered against each other after the fact. (TP's dialog shoots only at OK; the repeatable button is TCM's.)</para>
+///
 /// Built in code rather than XAML — WinUI controls construct imperatively exactly like WinForms, and this
 /// stays close to the TP original it ports.
 /// </summary>
@@ -25,6 +30,8 @@ internal sealed class ObservationWindow : Window
     private readonly Window mOwner;
     private readonly Func<string> mContextProvider;
     private readonly TextBox mNotes;
+    private readonly TextBlock mStatus;
+    private int mCaptureCount;
     // True when END/CANCEL was logged from a button handler; stops Closed from double-logging.
     private bool mTerminationLogged;
 
@@ -35,7 +42,7 @@ internal sealed class ObservationWindow : Window
         mContextProvider = contextProvider;
 
         Title = $"Observation (id={mId})";
-        AppWindow.Resize(new SizeInt32(560, 340));
+        AppWindow.Resize(new SizeInt32(560, 360));
         CenterOverOwner();              // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
         {
@@ -46,7 +53,8 @@ internal sealed class ObservationWindow : Window
 
         TextBlock label = new()
         {
-            Text = "Notes (free-form; Enter for newline). Leave blank for a checkpoint. Ctrl+Enter = OK:",
+            Text = "Notes (Enter = newline, Ctrl+Enter = OK). Capture = screenshot the main window now "
+                 + "(repeatable); leave notes blank for a checkpoint:",
             TextWrapping = TextWrapping.Wrap,
         };
 
@@ -69,20 +77,39 @@ internal sealed class ObservationWindow : Window
             }
         };
 
+        // Capture stays open and re-shows itself after the grab; OK / Cancel are terminal. Capture sits left,
+        // visually apart from the terminal pair on the right.
+        Button capture = new() { Content = "Capture", MinWidth = 100 };
+        capture.Click += OnCaptureClick;
+
+        mStatus = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = 0.7,
+            Margin = new Thickness(12, 0, 0, 0),
+        };
+
         Button ok = new() { Content = "OK", MinWidth = 90, Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
         ok.Click += OnOkClick;
 
         Button cancel = new() { Content = "Cancel", MinWidth = 90 };
         cancel.Click += OnCancelClick;
 
-        StackPanel buttons = new()
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Spacing = 8,
-        };
-        buttons.Children.Add(ok);
-        buttons.Children.Add(cancel);
+        StackPanel leftButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
+        leftButtons.Children.Add(capture);
+        leftButtons.Children.Add(mStatus);
+
+        StackPanel rightButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
+        rightButtons.Children.Add(ok);
+        rightButtons.Children.Add(cancel);
+
+        Grid buttons = new();
+        buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        buttons.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(leftButtons, 0);
+        Grid.SetColumn(rightButtons, 1);
+        buttons.Children.Add(leftButtons);
+        buttons.Children.Add(rightButtons);
 
         Grid root = new() { Padding = new Thickness(12), RowSpacing = 10 };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -118,15 +145,26 @@ internal sealed class ObservationWindow : Window
         w.mNotes.Focus(FocusState.Programmatic);
     }
 
+    // Take a mid-session shot and stay open: grab the main window (this window hidden so it's not in its own
+    // shot), re-show, and record a USER_OBS_CAP line + bump the status readout. Repeatable.
+    private async void OnCaptureClick(object sender, RoutedEventArgs e)
+    {
+        string? path = await CaptureHidingSelfAsync(reshow: true);
+        if (path is not null)
+        {
+            mCaptureCount++;
+            Log.UserObservationCapture(mId, path);
+            mStatus.Text = $"captured {mCaptureCount} · {DateTime.Now:HH:mm:ss}";
+        }
+        else
+        {
+            mStatus.Text = "capture failed — see tcm.log";
+        }
+    }
+
     private async void OnOkClick(object sender, RoutedEventArgs e)
     {
-        // Hide before the screen grab so this window isn't in its own screenshot. The delay must outlast
-        // the window's fade-out animation plus a DWM recomposite — 150 ms left a translucent ghost of
-        // this window in the capture (observed 2026-06-10); 450 ms grabs clean.
-        AppWindow.Hide();
-        await Task.Delay(450);
-
-        string? screenshotPath = TryCaptureScreenshot();
+        string? screenshotPath = await CaptureHidingSelfAsync(reshow: false);   // a final shot tied to the note
 
         string ctx = string.Empty;
         try { ctx = mContextProvider() ?? string.Empty; }
@@ -177,9 +215,27 @@ internal sealed class ObservationWindow : Window
         }
     }
 
+    // Hide this always-on-top window, let its fade-out + a DWM recomposite settle, grab the owner's pixels,
+    // then (for a mid-session Capture) bring this window back and refocus the notes. 450 ms: 150 ms left a
+    // translucent ghost of this window in the shot (observed 2026-06-10); 450 ms grabs clean.
+    private async Task<string?> CaptureHidingSelfAsync(bool reshow)
+    {
+        AppWindow.Hide();
+        await Task.Delay(450);
+        string? path = TryCaptureScreenshot();
+        if (reshow)
+        {
+            AppWindow.Show();
+            Activate();
+            mNotes.Focus(FocusState.Programmatic);
+        }
+        return path;
+    }
+
     // Capture the owner window's screen pixels (AppWindow position/size are physical pixels — the same
     // space CopyFromScreen works in) and save a PNG under Logs\screenshots\. Screen-grab rather than
-    // RenderTargetBitmap so the capture is the literal rendered truth, window chrome included.
+    // RenderTargetBitmap so the capture is the literal rendered truth, window chrome included. The filename is
+    // stamped in LOCAL time to millisecond (matching tcm.log's local stamps + unique across rapid captures).
     private string? TryCaptureScreenshot()
     {
         try
@@ -190,7 +246,7 @@ internal sealed class ObservationWindow : Window
 
             string dir = Path.Combine(Log.NotesFolderPath, "screenshots");
             Directory.CreateDirectory(dir);
-            string path = Path.Combine(dir, $"obs-{mId}-{DateTime.UtcNow:yyyyMMddHHmmss}.png");
+            string path = Path.Combine(dir, $"obs-{mId}-{DateTime.Now:yyyyMMdd-HHmmss-fff}.png");
 
             using System.Drawing.Bitmap bmp = new(size.Width, size.Height);
             using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
