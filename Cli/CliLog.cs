@@ -1,4 +1,4 @@
-namespace TargetCatalogManager;
+namespace TargetCatalogManager.Cli;
 
 /// <summary>
 /// Append-only audit log at <c>%APPDATA%\TargetCatalogManager\Logs\tcm-cli.log</c>: every writeback run's
