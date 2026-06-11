@@ -4,16 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TargetCatalogManager (TCM) is a .NET 10 app whose sole job is to **own and maintain the catalog database**
-(`Catalog.db`) for the astrophotography portfolio. TCM is the **single writer**; XFM, TargetPlanner (TP), and
-IntervalScheduler (IS/ISP) are read-only consumers.
+TargetCatalogManager (TCM) is a .NET 10 **WinUI 3 app** (assembly `tcmui`) that **manages the N.I.N.A. Target
+Scheduler database** — view + edit TS plans with disk-ACTUAL beside every number. It scans the disk image library
+*read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does **not** own or write
+`Catalog.db`.
 
-This repo holds the headless console host (assembly name `tcm`; `Program.cs` routes verbs, the commands /
-renderer / audit log live in `Cli\`) and the WinUI 3 app (`TargetCatalogManager.App\`, assembly name `tcmui` —
-Phase 3, read-only grid so far). **Almost all logic
-lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`). When a change
-is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files under
-`..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` for the library's own guidance.
+> **History (2026-06-11):** TCM used to *also* be a headless console host (`tcm`) that built `Catalog.db`. That
+> CLI was removed — catalog-building moves to a future **LibraryCatalogManager (LCM)** (sibling dir
+> `..\LibraryCatalogManager`, ROADMAP there). TCM is now app-only and is, in effect, a *TS-database* manager (the
+> "Catalog" in the name is legacy; rename candidate). The catalog-build engine is one AL call
+> (`CatalogBuilder.BuildAsync`, disk-only via `tsDb: null`); nothing in TCM was lost.
+
+**Almost all logic lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`).
+When a change is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files
+under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` for the library's own guidance.
 
 `ARCHITECTURE.md` (design) and `ROADMAP.md` (phased plan + current status) are load-bearing — keep them current
 after substantive changes, per the user's docs-as-memory convention.
@@ -22,7 +26,7 @@ after substantive changes, per the user's docs-as-memory convention.
 
 | Repo | Path | Role |
 |---|---|---|
-| **TargetCatalogManager** (this) | `E:\Projects\…\TargetCatalogManager` | the writer app: console host now, WinUI 3 TS-editor UI next (Phase 3, spec in `ROADMAP.md`) |
+| **TargetCatalogManager** (this) | `E:\Projects\…\TargetCatalogManager` | the WinUI 3 app: a TS-database manager (view + edit TS; disk read-only for plan-vs-actual). App-only since 2026-06-11. |
 | **Astronomy.Catalog** + deps | `E:\Projects\…\Library` | the shared schema/build **contract** every consumer references |
 
 TCM has a cross-repo `ProjectReference` straight to `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`
@@ -37,49 +41,34 @@ here; the native PCL projects are not in TCM's solution).
 # Build (slnx pulls in Astronomy.Catalog + Astronomy.XISF from ..\Library)
 dotnet build TargetCatalogManager.slnx -v:m -nologo
 
-# Run the headless catalog build (rebuilds Catalog.db from ACTUAL + PLAN, prints reconciliation)
-dotnet run --project TargetCatalogManager.csproj
-# or the built exe:  bin/Debug/net10.0-windows/tcm.exe
-
-# The WinUI app (Phase 3): read-only plan-vs-disk grid; fresh scan on load, no Catalog.db needed
+# Run the WinUI app: TS plan vs disk grid (fresh in-memory scan on load, no Catalog.db needed); edit TS live
 TargetCatalogManager.App/bin/Debug/net10.0-windows10.0.19041.0/win-x64/tcmui.exe
 
-# Write reconciled disk counts back into the local TS copy (dry-run by default; --apply commits, restorable).
-# EXPOSURE-AWARE: the write key is (target, filter, purpose, whole-second exposure) — a plan only receives
-# frames at exactly its duration (0 when none match, a flagged decrease); off-duration disk buckets are
-# reported as "unplanned frames", never written. Every run is audited to %APPDATA%\TargetCatalogManager\Logs\tcm-cli.log.
-tcm writeback              # dry-run: per-row diff (@900s etc.) + manual bucket + unplanned frames
-tcm writeback --apply      # commit to the --ts db (defaults to the TS Database working copy)
-
-# Surgical: write back ONE disk target only (no catalog rebuild); per panel for a mosaic
-tcm writeback --target "NGC 6888 - Crescent"           # dry-run scoped to that target
-tcm writeback --target "Mosaic - Cygnus Loop" --apply  # each panel's counts -> its own TS plan
-
-# Override any path; all four are optional and default to this dev machine (see Shared\DevDefaults.cs)
-tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
+# Tests (App.Tests only)
+dotnet test TargetCatalogManager.slnx -v:q --nologo
 ```
 
-Defaults (in `Shared\DevDefaults.cs`, a linked source file both heads compile): catalog
-`E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
-library `E:\Photography\Astro Photography\Processing`. **TS db: `TsDatabaseResolver` prefers the LIVE BIRDWATCHER
-db (`\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`, over SMB) when network-reachable, else the local working
-copy** under `Processing\Catalog\TS Database\schedulerdb.sqlite` (one location TCM + IS read; `schedulerdb -
-Copy.sqlite` restores it). The CLI banner + app toolbar badge say LIVE vs LOCAL; an explicit `--ts <path>` bypasses
-the resolver. Live writes are guarded (refuse open sidecar / read-only) + read-back verified; daily Macrium imaging
-of BIRDWATCHER is the recovery path.
+Path defaults live in `TargetCatalogManager.App\Shared\DevDefaults.cs` (a normal App file since the CLI was
+removed). **TS db: `TsDatabaseResolver` prefers the LIVE BIRDWATCHER db
+(`\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`, over SMB) when network-reachable, else the local working
+copy** under `Processing\Catalog\TS Database\schedulerdb.sqlite` (`schedulerdb - Copy.sqlite` restores it). A
+toolbar badge says LIVE vs LOCAL; live writes are guarded (refuse open sidecar / read-only) + read-back verified;
+daily Macrium imaging of BIRDWATCHER is the recovery path. The library + catalog defaults also live in
+`DevDefaults.cs` (used by the in-memory scan+resolve).
+
+**Write-back** (push disk-derived counts into TS) was a CLI verb; its engine (`WriteBackPlanner` /
+`TargetSchedulerWriter`) stays in AL and will resurface as a TCM **app action**, not a console command.
 
 ## Tests
 
-Two test projects in this repo (`dotnet test TargetCatalogManager.slnx` runs both):
+One test project in this repo (`dotnet test TargetCatalogManager.slnx`):
 
-- **`TargetCatalogManager.Cli.Tests`** — `CliOptions` parsing + warnings. Scoped to the transitional CLI
-  head; retires with it at the IS/ISP cutover.
 - **`TargetCatalogManager.App.Tests`** — the app's real logic: `ReconciliationLoader.BuildRows` (internal,
-  via `InternalsVisibleTo`), `MainViewModel` filter/toggle pipeline (`SetRowsForTest` seam — the injectable
-  loader interface is an M2 item), row Hours/search rules, `RowAggregates`, `Format`. Runs in a **plain
-  test host (no XAML runtime)**: never touch the `Brush` getters (`SecondsBackground`/`HoursBackground` need
-  `Application.Current`) — those stay app-verified. `TestEnv` blanks `TCM_DIAG` so VM tests can't write the
-  user's session log.
+  via `InternalsVisibleTo`), `MainViewModel` filter/toggle pipeline (`SetRowsForTest` seam), row Hours/search
+  rules, `RowAggregates`, `Format`, `ExpansionState`, and `TsDatabaseResolver` (moved here from the retired
+  `Cli.Tests`). Runs in a **plain test host (no XAML runtime)**: never touch the `Brush` getters
+  (`SecondsBackground`/`HoursBackground` need `Application.Current`) — those stay app-verified. `TestEnv` blanks
+  `TCM_DIAG` so VM tests can't write the user's session log.
 
 The heavy logic (schema / scan / resolve / write-back) is covered in the **library repo**:
 

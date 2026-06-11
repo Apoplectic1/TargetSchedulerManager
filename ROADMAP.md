@@ -19,6 +19,17 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
+**▶ SHIPPED 2026-06-11 — CLI removed; TCM is app-only.** The transitional `tcm` console host (`Program.cs`,
+`Cli\`, the root csproj, `Cli.Tests`) was deleted — it had become a dual-head maintenance tax (every feature done
+twice). TCM is now purely the WinUI **TS-database manager**. `DevDefaults` + `TsDatabaseResolver` moved into the
+App (`App\Shared\`); the resolver tests moved to `App.Tests` (43 green, 0 warnings). **Nothing lost:** the
+catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `tsDb: null`) and the write-back
+engine stays in AL. Catalog-build moves to a planned **LibraryCatalogManager (LCM)** (sibling dir
+`..\LibraryCatalogManager`, ROADMAP template there); write-back resurfaces later as a TCM app action. `Catalog.db`
+is currently unbuilt — unconsumed, so fine. Reframe: TS = disposable (TCM manages it), `Catalog.db`/IS = permanent
+(LCM owns it); the two no longer tangle. Phases 1–4 below describe the **library's** catalog/write-back engine,
+which is unchanged and still consumed by TCM (in-memory) + the future LCM.
+
 **▶ SHIPPED 2026-06-11 — live BIRDWATCHER TS db (read + write), local fallback.** TCM no longer edits only a
 local copy. `TsDatabaseResolver` (`Shared\`, both heads) probes `\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`
 under a ~1.5 s timeout (so a down host can't hang startup on SMB) → **LIVE when reachable, else the local working
