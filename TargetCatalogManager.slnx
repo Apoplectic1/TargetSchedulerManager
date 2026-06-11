@@ -13,13 +13,7 @@
   <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
-  <Project Path="TargetCatalogManager.csproj">
-    <Platform Solution="*|*" Project="x64" />
-  </Project>
   <Project Path="TargetCatalogManager.App/TargetCatalogManager.App.csproj">
-    <Platform Solution="*|*" Project="x64" />
-  </Project>
-  <Project Path="TargetCatalogManager.Cli.Tests/TargetCatalogManager.Cli.Tests.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
   <Project Path="TargetCatalogManager.App.Tests/TargetCatalogManager.App.Tests.csproj">

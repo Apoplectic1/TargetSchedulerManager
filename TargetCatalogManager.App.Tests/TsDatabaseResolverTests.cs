@@ -1,8 +1,8 @@
 using Xunit;
 
-namespace TargetCatalogManager.Cli.Tests;
+namespace TargetCatalogManager.App.Tests;
 
-// TsDatabaseResolver lives in Shared\ (compiled into the CLI head; internal, visible here via InternalsVisibleTo).
+// TsDatabaseResolver lives in the App's Shared\ folder (internal, visible here via InternalsVisibleTo).
 // A real temp file stands in for a reachable BIRDWATCHER db; a missing path stands in for an unreachable host.
 public class TsDatabaseResolverTests
 {
