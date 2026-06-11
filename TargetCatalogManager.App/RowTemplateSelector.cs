@@ -12,10 +12,15 @@ namespace TargetCatalogManager.App;
 public sealed partial class RowTemplateSelector : DataTemplateSelector
 {
     public DataTemplate? GroupTemplate { get; set; }
+    public DataTemplate? PanelTemplate { get; set; }
     public DataTemplate? FilterTemplate { get; set; }
 
-    protected override DataTemplate? SelectTemplateCore(object item) =>
-        item is TargetGroupRow ? GroupTemplate : FilterTemplate;
+    protected override DataTemplate? SelectTemplateCore(object item) => item switch
+    {
+        TargetGroupRow => GroupTemplate,
+        PanelGroupRow => PanelTemplate,
+        _ => FilterTemplate,
+    };
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container) =>
         SelectTemplateCore(item);

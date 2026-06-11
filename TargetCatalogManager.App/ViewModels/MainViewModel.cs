@@ -32,10 +32,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;
 
-    // Grouping state. Expansion is keyed by target name (and target|filter|purpose for the nested
-    // mixed-seconds rollups) so it survives filter changes and reloads; collapsed is the default
-    // for anything never touched.
+    // Grouping state. Expansion is keyed by target name (plus target|panel for mosaic panels and
+    // target|panel|filter|purpose for the nested mixed-seconds rollups) so it survives filter changes
+    // and reloads; collapsed is the default for anything never touched.
     private readonly HashSet<string> _expandedTargets = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _expandedPanels = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _expandedRollups = new(StringComparer.OrdinalIgnoreCase);
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
@@ -144,21 +145,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         if (group.IsExpanded)
         {
-            // Remove everything under this header (children + any expanded rollup detail).
+            // Remove everything under this header (panel rows, children, any expanded rollup detail).
             while (index + 1 < _rows.Count && _rows[index + 1] is not TargetGroupRow)
                 _rows.RemoveAt(index + 1);
             _expandedTargets.Remove(group.Target);
         }
         else
         {
-            int at = index + 1;
-            foreach (ReconciliationRow child in group.Children)
-            {
-                _rows.Insert(at++, child);
-                if (child is { Detail: not null, IsExpanded: true })
-                    foreach (ReconciliationRow d in child.Detail)
-                        _rows.Insert(at++, d);
-            }
+            List<object> content = [];
+            AppendGroupContent(content, group);
+            for (int i = 0; i < content.Count; i++)
+                _rows.Insert(index + 1 + i, content[i]);
             _expandedTargets.Add(group.Target);
         }
         group.IsExpanded = !group.IsExpanded;
@@ -167,6 +164,67 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             Support.Log.Diag("UI",
                 $"group {(group.IsExpanded ? "expand" : "collapse")}: \"{group.Target}\" ({group.Children.Count} rows)");
+        }
+    }
+
+    /// <summary>Expand/collapse a mosaic panel into its filter rows, in place.</summary>
+    public void TogglePanel(PanelGroupRow panel)
+    {
+        int index = _rows.IndexOf(panel);
+        if (index < 0) return;
+        string key = $"{panel.Target}|{panel.Key}";
+
+        if (panel.IsExpanded)
+        {
+            // Remove the panel's content (leaves + any expanded rollup detail), stopping at the next
+            // panel or target header.
+            while (index + 1 < _rows.Count && _rows[index + 1] is ReconciliationRow)
+                _rows.RemoveAt(index + 1);
+            _expandedPanels.Remove(key);
+        }
+        else
+        {
+            List<object> content = [];
+            AppendLeaves(content, panel.Children);
+            for (int i = 0; i < content.Count; i++)
+                _rows.Insert(index + 1 + i, content[i]);
+            _expandedPanels.Add(key);
+        }
+        panel.IsExpanded = !panel.IsExpanded;
+
+        if (Support.Log.IsDiagEnabled("UI"))
+        {
+            Support.Log.Diag("UI",
+                $"panel {(panel.IsExpanded ? "expand" : "collapse")}: \"{panel.Target}\" {panel.Label} " +
+                $"({panel.Children.Count} rows)");
+        }
+    }
+
+    // A group's visible content: panel rows (with their remembered expansion) for a mosaic, plain leaves
+    // otherwise — shared by the wholesale rebuild and the in-place ToggleGroup insert.
+    private static void AppendGroupContent(IList<object> sink, TargetGroupRow group)
+    {
+        if (group.Panels is not null)
+        {
+            foreach (PanelGroupRow panel in group.Panels)
+            {
+                sink.Add(panel);
+                if (panel.IsExpanded)
+                    AppendLeaves(sink, panel.Children);
+            }
+            return;
+        }
+        AppendLeaves(sink, group.Children);
+    }
+
+    private static void AppendLeaves(IList<object> sink, IReadOnlyList<ReconciliationRow> leaves)
+    {
+        foreach (ReconciliationRow leaf in leaves)
+        {
+            sink.Add(leaf);
+            if (leaf is { Detail: not null, IsExpanded: true })
+                foreach (ReconciliationRow d in leaf.Detail)
+                    sink.Add(d);
         }
     }
 
@@ -199,7 +257,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private static string RollupKey(ReconciliationRow r) => $"{r.Target}|{r.Filter}|{r.Purpose}";
+    private static string RollupKey(ReconciliationRow r) => $"{r.Target}|{r.PanelKey}|{r.Filter}|{r.Purpose}";
 
     public void ExpandAll()
     {
@@ -228,12 +286,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(_searchText))
             q = q.Where(r => r.Matches(_searchText.Trim()));
 
-        // _allRows is (target, filter)-ordered, so grouping preserves filter order within each target.
+        // _allRows is (target, panel, filter)-ordered, so grouping preserves order within each level.
         // Headers aggregate only the rows that survived the filters — sums always match what's beneath.
         List<ReconciliationRow> leaves = [.. q];
         List<TargetGroupRow> groups = [.. leaves
             .GroupBy(r => r.Target, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new TargetGroupRow(g.Key, [.. g], _expandedTargets.Contains(g.Key)))];
+            .Select(g =>
+            {
+                List<ReconciliationRow> all = [.. g];
+                List<PanelGroupRow>? panels = null;
+                if (all[0].PanelKey is not null)
+                {
+                    panels = [.. all
+                        .GroupBy(r => r.PanelKey!, StringComparer.OrdinalIgnoreCase)
+                        .Select(p => new PanelGroupRow(
+                            g.Key, p.Key, p.First().PanelLabel ?? p.Key,
+                            p.First().PanelSource ?? all[0].Source, [.. p],
+                            _expandedPanels.Contains($"{g.Key}|{p.Key}")))];
+                }
+                return new TargetGroupRow(g.Key, all, _expandedTargets.Contains(g.Key), panels);
+            })];
 
         // The sort dropdown orders the groups by their aggregates; children stay in filter order.
         groups = _sortMode switch
@@ -253,19 +325,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ObservableCollection<object> visible = [];
         foreach (TargetGroupRow g in groups)
         {
-            visible.Add(g);
+            // Restore nested expansion for every rollup (rows are rebuilt each pass), visible or not,
+            // so a later toggle expands to the remembered state.
             foreach (ReconciliationRow child in g.Children)
             {
-                // Restore nested expansion for every rollup (rows are rebuilt each pass), visible or not,
-                // so a later ToggleGroup expands to the remembered state.
                 if (child.Detail is not null)
                     child.IsExpanded = _expandedRollups.Contains(RollupKey(child));
-                if (!g.IsExpanded) continue;
-                visible.Add(child);
-                if (child is { Detail: not null, IsExpanded: true })
-                    foreach (ReconciliationRow d in child.Detail)
-                        visible.Add(d);
             }
+
+            visible.Add(g);
+            if (!g.IsExpanded) continue;
+            AppendGroupContent(visible, g);
         }
         Rows = visible;
 
@@ -284,7 +354,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             SummaryText =
                 $"Both {r.BothCount} · TS-only {r.PlannedOnlyCount} · Disk-only {r.ActualOnlyCount}" +
                 $"  —  aliases {r.AliasTsTargets.Count} · duplicates {r.DuplicateTsTargets.Count}" +
-                $" · mosaics {r.MosaicsResolved} ({r.PanelsFolded} panels)" +
+                $" · mosaics {r.MosaicsResolved} ({r.PanelsMatched + r.PanelsPlannedOnly + r.PanelsActualOnly} panels)" +
                 $"  —  showing {groups.Count} targets · {leaves.Count}/{_allRows.Count} rows";
         }
     }

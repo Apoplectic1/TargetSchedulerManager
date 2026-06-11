@@ -17,7 +17,7 @@
             <DataTemplate x:Key="GroupRowTemplate" x:DataType="m:TargetGroupRow">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="110"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
@@ -57,7 +57,7 @@
             <DataTemplate x:Key="FilterRowTemplate" x:DataType="m:ReconciliationRow">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="110"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
@@ -104,8 +104,48 @@
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
             </DataTemplate>
+            <!-- A mosaic panel's mini-header: the group template's shape, indented one step, showing the
+                 panel's own source/aggregates. Click toggles its filter rows like a target group. -->
+            <DataTemplate x:Key="PanelRowTemplate" x:DataType="m:PanelGroupRow">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="45"/>
+                        <ColumnDefinition Width="150"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="18,0,0,0">
+                        <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{x:Bind Label}" Opacity="0.9"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="6" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
+                    <Border Grid.Column="10" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind HoursText}"/>
+                    </Border>
+                    <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                               TextTrimming="CharacterEllipsis"/>
+                </Grid>
+            </DataTemplate>
             <local:RowTemplateSelector x:Key="RowTemplateSelector"
                                        GroupTemplate="{StaticResource GroupRowTemplate}"
+                                       PanelTemplate="{StaticResource PanelRowTemplate}"
                                        FilterTemplate="{StaticResource FilterRowTemplate}"/>
         </Grid.Resources>
         <!-- WinUI's ProcessCmdKey: accelerators attach declaratively to an element subtree. -->
@@ -154,7 +194,7 @@
              column headers — that's the DataGridView feature we're hand-rolling for M1). -->
         <Grid Grid.Row="2" Padding="12,0,12,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="110"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="170"/>
                 <ColumnDefinition Width="60"/>

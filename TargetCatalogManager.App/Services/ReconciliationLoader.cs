@@ -49,7 +49,8 @@ public static class ReconciliationLoader
             $"report: both={report.BothCount} tsOnly={report.PlannedOnlyCount} diskOnly={report.ActualOnlyCount}" +
             $" aliases={report.AliasTsTargets.Count} dups={report.DuplicateTsTargets.Count}" +
             $" mismatches={report.NameMismatches.Count} ambiguous={report.AmbiguousMatches.Count}" +
-            $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}/{report.PanelsFolded}");
+            $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}" +
+            $" panels={report.PanelsMatched}/{report.PanelsPlannedOnly}/{report.PanelsActualOnly}");
 
         return new LoadResult(rows, report, sw.Elapsed);
     }
@@ -75,8 +76,54 @@ public static class ReconciliationLoader
                 ambiguousDirs.Add(d);
         HashSet<string> unanchoredNames = new(report.UnanchoredTsTargets.Select(u => u.TsName), StringComparer.OrdinalIgnoreCase);
 
+        ILookup<Guid, Target> childrenByParent = graph.Targets
+            .Where(t => t.ParentTargetId is not null)
+            .ToLookup(t => t.ParentTargetId!.Value);
+
         List<ReconciliationRow> rows = [];
-        foreach (Target t in graph.Targets)
+        Dictionary<string, int> panelOrdinal = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Target top in graph.Targets)
+        {
+            if (top.ParentTargetId is not null) continue;   // panels emit under their parent below
+
+            List<Target> children = [.. childrenByParent[top.Id]];
+            if (children.Count == 0)
+            {
+                EmitRows(top, top.Name, MapSource(top.Source), panelKey: null, panelLabel: null, panelSource: null);
+                continue;
+            }
+
+            // A mosaic family: the parent is a grouping node with no rows of its own; each panel's rows
+            // carry the parent's name (the grid groups by it) plus the panel identity for the nested level.
+            RowSource parentSource = MapSource(top.Source);
+            foreach (Target child in children
+                .OrderBy(c => c.DirectoryName is null ? 1 : 0)   // disk-backed panels first, then planned
+                .ThenBy(c => c.DirectoryName ?? c.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                string? diskLabel = child.DirectoryName is string d ? MosaicConvention.PanelLabel(d) : null;
+                RowSource childSource = MapSource(child.Source);
+                string panelLabel = childSource switch
+                {
+                    RowSource.Both => $"{diskLabel} · {child.Name}",
+                    RowSource.TsOnly => child.Name,
+                    _ => diskLabel ?? child.Name,
+                };
+                string panelKey = child.DirectoryName ?? $"ts:{child.ImportedFromTsGuid ?? child.Name}";
+                panelOrdinal[$"{top.Name}|{panelKey}"] = panelOrdinal.Count;
+                EmitRows(child, top.Name, parentSource, panelKey, panelLabel, childSource);
+            }
+        }
+
+        static RowSource MapSource(TargetSource s) => s switch
+        {
+            TargetSource.Both => RowSource.Both,
+            TargetSource.Planned => RowSource.TsOnly,
+            _ => RowSource.DiskOnly,
+        };
+
+        void EmitRows(Target t, string groupName, RowSource source,
+            string? panelKey, string? panelLabel, RowSource? panelSource)
         {
             string project = t.ProjectId is Guid pid && projects.TryGetValue(pid, out Project? proj) ? proj.Name : "—";
             string? dir = t.DirectoryName;
@@ -86,13 +133,6 @@ public static class ReconciliationLoader
             bool isMismatch = dir is not null && mismatchDirs.Contains(dir);
             bool isAmbiguous = dir is not null && ambiguousDirs.Contains(dir);
             bool isUnanchored = t.Source == TargetSource.Planned && unanchoredNames.Contains(t.Name);
-
-            RowSource source = t.Source switch
-            {
-                TargetSource.Both => RowSource.Both,
-                TargetSource.Planned => RowSource.TsOnly,
-                _ => RowSource.DiskOnly,
-            };
 
             // Aggregate plans and inventory per (filter, purpose, exposure seconds), filter case-insensitive;
             // the pairing pass below decides which cells merge into Both rows and which stay one-plane.
@@ -123,9 +163,9 @@ public static class ReconciliationLoader
             foreach (IGrouping<(string Filter, FilterPurpose Purpose), Cell> fp in cells.Values
                 .GroupBy(c => (c.Filter.ToUpperInvariant(), c.Purpose)))
             {
-                // A multi-plan group is explained (mosaic panels fold, alias members fold) or it's the
-                // same-purpose multiplicity that routes write-back to manual — only the latter is a flag.
-                bool multiPlan = fp.Sum(c => c.PlanCount) > 1 && !isMosaic && !isAlias;
+                // A multi-plan group is explained (alias members fold) or it's the same-purpose
+                // multiplicity that routes write-back to manual — only the latter is a flag.
+                bool multiPlan = fp.Sum(c => c.PlanCount) > 1 && !isAlias;
                 List<string> badges = [];
                 if (isMosaic) badges.Add("mosaic");
                 if (isAlias) badges.Add("alias");
@@ -161,7 +201,7 @@ public static class ReconciliationLoader
                         || planCells[0].Seconds != diskCells[0].Seconds;
 
                     rows.Add(new ReconciliationRow(
-                        t.Name, project, planCells[0].Filter, fp.Key.Purpose.ToString(),
+                        groupName, project, planCells[0].Filter, fp.Key.Purpose.ToString(),
                         planSeconds: planCells[0].Seconds, diskSeconds: diskCells[0].Seconds,
                         source, RowPlane.Both,
                         desired: planCells.Sum(c => c.Desired),
@@ -173,7 +213,8 @@ public static class ReconciliationLoader
                         planHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
                         diskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
                         secondsMixed: mixed,
-                        detail: mixed ? detail : null));
+                        detail: mixed ? detail : null,
+                        panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource));
                 }
                 else
                 {
@@ -182,37 +223,41 @@ public static class ReconciliationLoader
                 }
 
                 ReconciliationRow BothRow(Cell c) => new(
-                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
                     c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged,
                     planHours: c.Desired * (double)c.Seconds / 3600.0,
                     diskHours: c.Disk * (double)c.Seconds / 3600.0,
-                    isDetail: true);
+                    isDetail: true,
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
 
                 ReconciliationRow TsRow(Cell c, bool isDetail) => new(
-                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
                     c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged,
                     planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
-                    isDetail: isDetail);
+                    isDetail: isDetail,
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
 
                 ReconciliationRow DiskRow(Cell c, bool isDetail) => new(
-                    t.Name, project, c.Filter, c.Purpose.ToString(),
+                    groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged,
                     planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
-                    isDetail: isDetail);
+                    isDetail: isDetail,
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
             if (cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
-                    t.Name, project, "—", "—", planSeconds: 0, diskSeconds: 0, source,
+                    groupName, project, "—", "—", planSeconds: 0, diskSeconds: 0, source,
                     plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
-                    isFlagged: false, planHours: null, diskHours: null));
+                    isFlagged: false, planHours: null, diskHours: null,
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource));
             }
         }
 
@@ -220,6 +265,8 @@ public static class ReconciliationLoader
         {
             int byTarget = string.Compare(a.Target, b.Target, StringComparison.OrdinalIgnoreCase);
             if (byTarget != 0) return byTarget;
+            int byPanel = PanelOrd(a).CompareTo(PanelOrd(b));
+            if (byPanel != 0) return byPanel;
             int byFilter = string.Compare(a.Filter, b.Filter, StringComparison.OrdinalIgnoreCase);
             if (byFilter != 0) return byFilter;
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
@@ -228,6 +275,10 @@ public static class ReconciliationLoader
             return bySeconds != 0 ? bySeconds : a.Plane.CompareTo(b.Plane);
         });
         return rows;
+
+        // Panels keep their emit order (disk-backed by label, then planned); normal rows have no panel.
+        int PanelOrd(ReconciliationRow r) =>
+            r.PanelKey is null ? -1 : panelOrdinal[$"{r.Target}|{r.PanelKey}"];
 
         // Plan seconds when the row has a plan side, the disk bucket otherwise — keeps a filter's rows
         // in sub-length order with merged rows sitting where their plan does.

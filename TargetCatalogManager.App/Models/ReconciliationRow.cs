@@ -62,7 +62,10 @@ public sealed class ReconciliationRow(
     double? diskHours,
     bool secondsMixed = false,
     bool isDetail = false,
-    IReadOnlyList<ReconciliationRow>? detail = null) : INotifyPropertyChanged
+    IReadOnlyList<ReconciliationRow>? detail = null,
+    string? panelKey = null,
+    string? panelLabel = null,
+    RowSource? panelSource = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -122,6 +125,15 @@ public sealed class ReconciliationRow(
     /// <summary>The rollup's one-plane source lines; null when the row has nothing to disclose.</summary>
     public IReadOnlyList<ReconciliationRow>? Detail { get; } = detail;
 
+    /// <summary>Stable key of the mosaic panel this row belongs to; null on a normal target's rows.</summary>
+    public string? PanelKey { get; } = panelKey;
+
+    /// <summary>The panel's display label ("Panel 01of16 · CygnusLoop P1"; one name when one-sided).</summary>
+    public string? PanelLabel { get; } = panelLabel;
+
+    /// <summary>The panel's own classification (the row's <see cref="Source"/> stays the parent's).</summary>
+    public RowSource? PanelSource { get; } = panelSource;
+
     /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
     public bool IsExpanded
     {
@@ -153,10 +165,18 @@ public sealed class ReconciliationRow(
     public Visibility ChevronVisibility => Detail is null ? Visibility.Collapsed : Visibility.Visible;
 
     /// <summary>Indent ladder for the Source column: rollups carry their chevron at the leaf level, plain
-    /// leaf text aligns just past it, and detail source lines step in once more.</summary>
-    public Thickness SourceMargin => Detail is not null
-        ? new Thickness(18, 0, 0, 0)
-        : IsDetail ? new Thickness(50, 0, 0, 0) : new Thickness(36, 0, 0, 0);
+    /// leaf text aligns just past it, and detail source lines step in once more. Rows under a mosaic panel
+    /// shift one extra step so they read as the panel's children.</summary>
+    public Thickness SourceMargin
+    {
+        get
+        {
+            int extra = PanelKey is null ? 0 : 14;
+            return Detail is not null
+                ? new Thickness(18 + extra, 0, 0, 0)
+                : IsDetail ? new Thickness(50 + extra, 0, 0, 0) : new Thickness(36 + extra, 0, 0, 0);
+        }
+    }
 
     public string SourceText => Plane switch
     {
@@ -206,5 +226,6 @@ public sealed class ReconciliationRow(
         Target.Contains(search, StringComparison.OrdinalIgnoreCase)
         || Project.Contains(search, StringComparison.OrdinalIgnoreCase)
         || Filter.Contains(search, StringComparison.OrdinalIgnoreCase)
-        || Badge.Contains(search, StringComparison.OrdinalIgnoreCase);
+        || Badge.Contains(search, StringComparison.OrdinalIgnoreCase)
+        || (PanelLabel?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
 }

@@ -34,12 +34,14 @@ public sealed partial class MainWindow : Window
     private void Sort_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         ViewModel.SortMode = (SortMode)SortPicker.SelectedIndex;
 
-    // Whole-row click toggles a disclosure: target group headers and mixed-seconds rollups; clicks on
-    // plain one-plane rows fall through.
+    // Whole-row click toggles a disclosure: target group headers, mosaic panels, and mixed-seconds
+    // rollups; clicks on plain one-plane rows fall through.
     private void Row_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is Models.TargetGroupRow group)
             ViewModel.ToggleGroup(group);
+        else if (e.ClickedItem is Models.PanelGroupRow panel)
+            ViewModel.TogglePanel(panel);
         else if (e.ClickedItem is Models.ReconciliationRow { Detail: not null } rollup)
             ViewModel.ToggleRollup(rollup);
     }
