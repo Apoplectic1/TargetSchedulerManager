@@ -19,6 +19,19 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
+**▶ SHIPPED 2026-06-11 — M2 editing slice 1: target-enable checkbox (immediate write).** First TS edit. A compact
+checkbox is the grid's new **leftmost column**, on the **target group-header only** (hidden on disk-only +
+mosaic-parent rows — no TS target behind them). Toggling writes `target.active` to the **local TS working copy
+immediately** — read-back verified + audited to `tcm.log` (`EDIT target.active …`), off the UI thread, **no grid
+reload** (active changes no counts/hours); a failed/unverified write reverts the box. `target.active` is the
+**one T1 edit that doesn't touch filter cadence**, so it's a plain `UPDATE` — the safest first edit. New library
+`TargetSchedulerEditor` (`SetTargetActive`, resolves by-guid-or-Id + verify; mirrors the Writer's hardening —
+private cache, column guards); `TargetCells` now carries `Enabled` + TS provenance (the provenance R1 deferred).
+A VM override keeps a flip consistent across filter/sort rebuilds (cleared on Reload). Real data: 102 TS targets
+all guid-keyed, 59 active. Library 134 tests (+5), TCM 53, 0 warnings. **Pending: user's click-test** (toggle a
+target, confirm via `py`+`sqlite3` that `target.active` flipped). Next T1 edits (`desired`, `priority`, per-filter
+`enabled`) reuse this editor; `enabled` adds the filtercadence-clear.
+
 **▶ SHIPPED 2026-06-11 — M2 prep refactor: R1 cell-projection → library + ExpansionState.** Behaviour-preserving
 cleanup of the 215-line `BuildRows` ahead of the TS editor (own reviewable slice, no functional change). **R1:**
 the cell join (plans + inventory → per-`(target, filter, purpose, seconds)` cells tagged with match-state) moved
