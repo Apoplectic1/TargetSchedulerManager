@@ -1,3 +1,4 @@
+using Astronomy.Diagnostics;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -232,34 +233,12 @@ internal sealed class ObservationWindow : Window
         return path;
     }
 
-    // Capture the owner window's screen pixels (AppWindow position/size are physical pixels — the same
-    // space CopyFromScreen works in) and save a PNG under Logs\screenshots\. Screen-grab rather than
-    // RenderTargetBitmap so the capture is the literal rendered truth, window chrome included. The filename is
-    // stamped in LOCAL time to millisecond (matching tcm.log's local stamps + unique across rapid captures).
+    // Adapt the owner's physical-pixel bounds to the shared screen capture + the shared obs-<id>-<stamp> filename
+    // convention; Astronomy.Diagnostics owns the grab, encode, local-time stamp, and best-effort failure path.
     private string? TryCaptureScreenshot()
     {
-        try
-        {
-            PointInt32 pos = mOwner.AppWindow.Position;
-            SizeInt32 size = mOwner.AppWindow.Size;
-            if (size.Width <= 0 || size.Height <= 0) return null;
-
-            string dir = Path.Combine(Log.NotesFolderPath, "screenshots");
-            Directory.CreateDirectory(dir);
-            string path = Path.Combine(dir, $"obs-{mId}-{DateTime.Now:yyyyMMdd-HHmmss-fff}.png");
-
-            using System.Drawing.Bitmap bmp = new(size.Width, size.Height);
-            using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
-            {
-                g.CopyFromScreen(pos.X, pos.Y, 0, 0, new System.Drawing.Size(size.Width, size.Height));
-            }
-            bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
-            return path;
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Observation screenshot capture failed", ex);
-            return null;
-        }
+        PointInt32 pos = mOwner.AppWindow.Position;
+        SizeInt32 size = mOwner.AppWindow.Size;
+        return ScreenCapture.ToPng(pos.X, pos.Y, size.Width, size.Height, Log.NewObservationScreenshotPath(mId));
     }
 }

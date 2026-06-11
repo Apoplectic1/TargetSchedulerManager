@@ -7,7 +7,7 @@ using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
-using TargetCatalogManager.App.Support;
+using Astronomy.Diagnostics;
 
 namespace TargetCatalogManager.App.Services;
 

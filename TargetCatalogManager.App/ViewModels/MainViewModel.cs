@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
+using Astronomy.Diagnostics;
 using Microsoft.Data.Sqlite;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
@@ -174,7 +175,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _liveDisabled = true;
             _tsMode = TsMode.Local;
             RaiseTsSource();
-            Support.Log.Warn("BIRDWATCHER unreachable — switched to LOCAL for this session");
+            Log.Warn("BIRDWATCHER unreachable — switched to LOCAL for this session");
         }
 
         _tsDbPath = _tsMode == TsMode.Live ? DevDefaults.TsDatabaseLive : DevDefaults.TsDatabase;
@@ -190,7 +191,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Support.Log.Error("reconciliation load failed", ex);
+            Log.Error("reconciliation load failed", ex);
             _lastLoad = null;
             _allRows = [];
             SummaryText = "";
@@ -246,9 +247,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         group.IsExpanded = !group.IsExpanded;
 
-        if (Support.Log.IsDiagEnabled("UI"))
+        if (Log.IsDiagEnabled("UI"))
         {
-            Support.Log.Diag("UI",
+            Log.Diag("UI",
                 $"group {(group.IsExpanded ? "expand" : "collapse")}: \"{group.Target}\" ({group.Children.Count} rows)");
         }
     }
@@ -278,9 +279,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         panel.IsExpanded = !panel.IsExpanded;
 
-        if (Support.Log.IsDiagEnabled("UI"))
+        if (Log.IsDiagEnabled("UI"))
         {
-            Support.Log.Diag("UI",
+            Log.Diag("UI",
                 $"panel {(panel.IsExpanded ? "expand" : "collapse")}: \"{panel.Target}\" {panel.Label} " +
                 $"({panel.Children.Count} rows)");
         }
@@ -335,9 +336,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         rollup.IsExpanded = !rollup.IsExpanded;
 
-        if (Support.Log.IsDiagEnabled("UI"))
+        if (Log.IsDiagEnabled("UI"))
         {
-            Support.Log.Diag("UI",
+            Log.Diag("UI",
                 $"rollup {(rollup.IsExpanded ? "expand" : "collapse")}: \"{rollup.Target}\" " +
                 $"{rollup.Filter} {rollup.Purpose} ({detail.Count} lines)");
         }
@@ -390,13 +391,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             if (refusal is not null)
             {
-                Support.Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
+                Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
                 StatusText = $"can't change {label}: {refusal}";
                 return false;
             }
             if (result is not { Succeeded: true })
             {
-                Support.Log.Error(
+                Log.Error(
                     $"{table}.{column} write failed for \"{label}\" (found={result?.RowFound} verified={result?.Verified})");
                 StatusText = $"edit failed for {label} — see tcm.log";
                 return false;
@@ -406,13 +407,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             // reader can otherwise serve stale cached pages, making a reload show the pre-edit value (a write that
             // succeeded but "didn't take"). The reader's 0.00s re-read was the tell.
             SqliteConnection.ClearAllPools();
-            Support.Log.Info(
+            Log.Info(
                 $"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on {(_tsMode == TsMode.Live ? "LIVE" : "local")} {_tsDbPath}");
             return true;
         }
         catch (Exception ex)
         {
-            Support.Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
+            Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
             // A LIVE write that throws because BIRDWATCHER dropped sticky-disables LIVE and falls to LOCAL for the
             // session (re-launch to retry); any other fault just reports.
             if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
@@ -542,9 +543,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         // One line per applied filter state (incl. each search keystroke) — between USER_OBS markers this
         // is the trail of what the user was looking at. TCM_DIAG-gated; zero overhead when off.
-        if (Support.Log.IsDiagEnabled("UI"))
+        if (Log.IsDiagEnabled("UI"))
         {
-            Support.Log.Diag("UI",
+            Log.Diag("UI",
                 $"filters: rows={leaves.Count}/{_allRows.Count} groups={groups.Count} " +
                 $"expanded={groups.Count(g => g.IsExpanded)} search=\"{_searchText}\" " +
                 $"source={SourceFilterName()} flagged={_flaggedOnly} sort={_sortMode}");

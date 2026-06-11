@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Astronomy.Diagnostics;
 
 namespace TargetCatalogManager.App;
 
@@ -17,7 +18,15 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        Support.Log.StartNewSession();   // rotate tcm.log/screenshots; each run's trail is self-contained
+        // Configure the shared diagnostics log for this app, then rotate so each run's trail is self-contained.
+        // Diag channels default to all in Debug / off in Release; TCM_DIAG overrides either at runtime.
+#if DEBUG
+        const DiagDefault diag = DiagDefault.All;
+#else
+        const DiagDefault diag = DiagDefault.None;
+#endif
+        Log.Init(new AppLogIdentity("TargetCatalogManager", "tcm.log", "TCM_DIAG", diag));
+        Log.StartNewSession();
         _window = new MainWindow();
         _window.Activate();
     }

@@ -10,6 +10,9 @@
   <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
+  <Project Path="../Library/Astronomy.Diagnostics/Astronomy.Diagnostics.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
   <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
