@@ -22,7 +22,9 @@ internal static class CliLog
             lock (sGate)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(sPath)!);
-                File.AppendAllText(sPath, $"{DateTime.UtcNow:o} {message}{Environment.NewLine}");
+                // Local time with offset ("o" keeps it sortable + unambiguous): the audit trail is read
+                // alongside the user's own notes, and UTC rolls a day ahead during evening sessions.
+                File.AppendAllText(sPath, $"{DateTimeOffset.Now:o} {message}{Environment.NewLine}");
             }
         }
         catch

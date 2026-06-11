@@ -47,7 +47,7 @@ internal static class Log
                     if (File.Exists(prevPath)) File.Delete(prevPath);
                     File.Move(sPath, prevPath);
                 }
-                File.WriteAllText(sPath, $"{DateTime.UtcNow:o} INFO new session build={TryGetBuildVersion()}{Environment.NewLine}");
+                File.WriteAllText(sPath, $"{DateTimeOffset.Now:o} INFO new session build={TryGetBuildVersion()}{Environment.NewLine}");
 
                 string shotsDir = Path.Combine(dir, "screenshots");
                 string shotsPrev = Path.Combine(dir, "screenshots.prev");
@@ -114,9 +114,11 @@ internal static class Log
             lock (sGate)
             {
                 Directory.CreateDirectory(NotesFolderPath);
+                // Local time with offset ("o" keeps it sortable + unambiguous): the user reads these
+                // alongside their own notes, and UTC rolls a day ahead during evening sessions.
                 string body = ex is null
-                    ? $"{DateTime.UtcNow:o} {level} {message}{Environment.NewLine}"
-                    : $"{DateTime.UtcNow:o} {level} {message}: {ex}{Environment.NewLine}";
+                    ? $"{DateTimeOffset.Now:o} {level} {message}{Environment.NewLine}"
+                    : $"{DateTimeOffset.Now:o} {level} {message}: {ex}{Environment.NewLine}";
                 File.AppendAllText(sPath, body);
             }
         }
