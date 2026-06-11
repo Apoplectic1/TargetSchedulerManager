@@ -175,14 +175,18 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
             <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"/>
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
-            <!-- TS source badge: caution-colored LIVE when writes hit BIRDWATCHER, muted LOCAL on the copy. -->
-            <TextBlock Text="● LIVE — BIRDWATCHER" VerticalAlignment="Center" FontWeight="SemiBold"
-                       Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                       Visibility="{x:Bind ViewModel.LiveBadgeVisibility, Mode=OneWay}"
-                       ToolTipService.ToolTip="{x:Bind ViewModel.TsSourceTooltip, Mode=OneWay}"/>
-            <TextBlock Text="○ LOCAL copy" VerticalAlignment="Center" Opacity="0.7"
-                       Visibility="{x:Bind ViewModel.LocalBadgeVisibility, Mode=OneWay}"
-                       ToolTipService.ToolTip="{x:Bind ViewModel.TsSourceTooltip, Mode=OneWay}"/>
+            <!-- TS source: edit the LIVE BIRDWATCHER db (caution-colored — writes hit the rig) or the LOCAL copy.
+                 LIVE greys out for the session if BIRDWATCHER is unreachable (re-launch TCM to retry). Switching
+                 reloads from the chosen db. -->
+            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.TsSourceTooltip, Mode=OneWay}">
+                <RadioButton Content="LIVE — BIRDWATCHER" GroupName="TsSource" MinWidth="0"
+                             Foreground="{ThemeResource SystemFillColorCautionBrush}" FontWeight="SemiBold"
+                             IsEnabled="{x:Bind ViewModel.LiveEnabled, Mode=OneWay}"
+                             IsChecked="{x:Bind ViewModel.IsLiveSelected, Mode=OneWay}" Checked="Live_Checked"/>
+                <RadioButton Content="LOCAL copy" GroupName="TsSource" MinWidth="0" Opacity="0.85"
+                             IsChecked="{x:Bind ViewModel.IsLocalSelected, Mode=OneWay}" Checked="Local_Checked"/>
+            </StackPanel>
             <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
         </StackPanel>

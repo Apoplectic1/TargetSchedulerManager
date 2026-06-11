@@ -2,59 +2,35 @@ using Xunit;
 
 namespace TargetCatalogManager.App.Tests;
 
-// TsDatabaseResolver lives in the App's Shared\ folder (internal, visible here via InternalsVisibleTo).
-// A real temp file stands in for a reachable BIRDWATCHER db; a missing path stands in for an unreachable host.
+// TsDatabaseResolver.IsReachable is the probe the LIVE/LOCAL radios rely on (internal, visible via
+// InternalsVisibleTo). A real temp file stands in for a reachable BIRDWATCHER db; a missing path for a down host.
 public class TsDatabaseResolverTests
 {
     [Fact]
-    public void NetworkReachable_PrefersLive()
+    public void ExistingPath_IsReachable()
     {
-        string net = Path.GetTempFileName();
-        string local = Path.GetTempFileName();
+        string path = Path.GetTempFileName();
         try
         {
-            TsDatabaseChoice c = TsDatabaseResolver.Resolve(net, local, TimeSpan.FromSeconds(2));
-            Assert.True(c.IsLive);
-            Assert.Equal(net, c.Path);
+            Assert.True(TsDatabaseResolver.IsReachable(path, TimeSpan.FromSeconds(2)));
         }
         finally
         {
-            File.Delete(net);
-            File.Delete(local);
+            File.Delete(path);
         }
     }
 
     [Fact]
-    public void NetworkMissing_FallsBackToLocal()
+    public void MissingPath_IsNotReachable()
     {
-        string net = Path.Combine(Path.GetTempPath(), $"no-such-{Guid.NewGuid():N}.sqlite");
-        string local = Path.GetTempFileName();
-        try
-        {
-            TsDatabaseChoice c = TsDatabaseResolver.Resolve(net, local, TimeSpan.FromSeconds(2));
-            Assert.False(c.IsLive);
-            Assert.Equal(local, c.Path);
-        }
-        finally
-        {
-            File.Delete(local);
-        }
+        string path = Path.Combine(Path.GetTempPath(), $"no-such-{Guid.NewGuid():N}.sqlite");
+        Assert.False(TsDatabaseResolver.IsReachable(path, TimeSpan.FromSeconds(2)));
     }
 
     [Fact]
-    public void Resolve_NeverThrows_OnUnusablePath_FallsBackToLocal()
+    public void UnusablePath_NeverThrows_IsNotReachable()
     {
-        // The resolver must never bubble an exception onto the startup path — a bad path resolves to local.
-        string local = Path.GetTempFileName();
-        try
-        {
-            TsDatabaseChoice c = TsDatabaseResolver.Resolve("\\\\?\\bogus|path", local, TimeSpan.FromMilliseconds(500));
-            Assert.False(c.IsLive);
-            Assert.Equal(local, c.Path);
-        }
-        finally
-        {
-            File.Delete(local);
-        }
+        // The probe must never bubble an exception onto the startup path — a bad path is simply "not reachable".
+        Assert.False(TsDatabaseResolver.IsReachable("\\\\?\\bogus|path", TimeSpan.FromMilliseconds(500)));
     }
 }

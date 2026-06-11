@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
-using Microsoft.UI.Xaml;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
@@ -18,6 +17,9 @@ public enum SortMode
     DiskDesc,
     DeltaDesc,
 }
+
+/// <summary>Which TS database this session reads + edits — the user's LIVE/LOCAL radio choice.</summary>
+public enum TsMode { Live, Local }
 
 /// <summary>
 /// State + filter logic for the main grid. In WinForms terms: the fields and "refresh the ListView" code
@@ -45,10 +47,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // state consistent until the next full reload re-reads TS authoritatively (then it's cleared).
     private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
 
-    // The TS db this session reads + writes: the live BIRDWATCHER db when reachable, else the local copy
-    // (resolved fresh each load, so Reload re-probes). _tsIsLive drives the loud LIVE/LOCAL toolbar badge.
+    // The TS source for this session. _tsMode is the user's LIVE/LOCAL radio choice; _liveDisabled goes
+    // sticky-true once a probe finds BIRDWATCHER unreachable (the LIVE radio greys out — re-launch TCM to retry).
+    // Probed on the first load; each LIVE load re-probes and sticky-falls to LOCAL if the rig dropped.
+    private TsMode _tsMode = TsMode.Local;
+    private bool _liveDisabled;
+    private bool _tsProbed;
     private string _tsDbPath = DevDefaults.TsDatabase;
-    private bool _tsIsLive;
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -89,16 +94,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => Set(ref _statusText, value);
     }
 
-    /// <summary>"LIVE — BIRDWATCHER" badge, shown (caution-colored in XAML) when this session targets the live db.</summary>
-    public Visibility LiveBadgeVisibility => _tsIsLive ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>True when this session is set to the LIVE BIRDWATCHER db (the LIVE radio's IsChecked).</summary>
+    public bool IsLiveSelected => _tsMode == TsMode.Live;
 
-    /// <summary>"LOCAL copy" badge, shown when BIRDWATCHER is unreachable and edits land on the local working copy.</summary>
-    public Visibility LocalBadgeVisibility => _tsIsLive ? Visibility.Collapsed : Visibility.Visible;
+    /// <summary>True when set to the LOCAL working copy (the LOCAL radio's IsChecked).</summary>
+    public bool IsLocalSelected => _tsMode == TsMode.Local;
 
-    /// <summary>Spells out an edit's blast radius for the current TS source.</summary>
-    public string TsSourceTooltip => _tsIsLive
-        ? "LIVE Target Scheduler db on BIRDWATCHER — edits hit the imaging rig immediately."
-        : "LOCAL working copy — BIRDWATCHER unreachable; copy back to the rig to take effect.";
+    /// <summary>Whether the LIVE radio is selectable — false (greyed) once BIRDWATCHER was found unreachable this
+    /// session (sticky; re-launch TCM to retry).</summary>
+    public bool LiveEnabled => !_liveDisabled;
+
+    /// <summary>Spells out the current source's blast radius (radio tooltip).</summary>
+    public string TsSourceTooltip => _liveDisabled
+        ? "BIRDWATCHER unreachable this session — editing the LOCAL copy. Re-launch TCM to retry LIVE."
+        : _tsMode == TsMode.Live
+            ? "LIVE Target Scheduler db on BIRDWATCHER — edits hit the imaging rig immediately."
+            : "LOCAL working copy — edits do NOT reach the rig until you copy it back.";
 
     public bool IsLoading
     {
@@ -147,18 +158,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsLoading = true;
         _targetActiveEdits.Clear();   // a fresh scan re-reads TS active; in-session overrides are now authoritative-stale
 
-        // Resolve the TS db each load, off the UI thread (a down BIRDWATCHER probes for up to ~1.5 s): the live
-        // db when reachable, else the local copy. Reload therefore re-probes and can switch LIVE↔LOCAL.
-        TsDatabaseChoice tsChoice = await Task.Run(TsDatabaseResolver.Resolve);
-        _tsDbPath = tsChoice.Path;
-        SetTsSource(tsChoice.IsLive);
+        // First load probes BIRDWATCHER (LIVE if reachable, else LOCAL + LIVE greyed); thereafter the radio chooses,
+        // but a LIVE load re-probes and sticky-falls to LOCAL if the rig dropped (re-launch TCM to retry LIVE).
+        if (!_tsProbed)
+        {
+            _tsProbed = true;
+            bool reachable = await Task.Run(TsDatabaseResolver.IsLiveReachable);
+            _liveDisabled = !reachable;
+            _tsMode = reachable ? TsMode.Live : TsMode.Local;
+            RaiseTsSource();
+        }
+        else if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
+        {
+            _liveDisabled = true;
+            _tsMode = TsMode.Local;
+            RaiseTsSource();
+            Support.Log.Warn("BIRDWATCHER unreachable — switched to LOCAL for this session");
+        }
+
+        _tsDbPath = _tsMode == TsMode.Live ? DevDefaults.TsDatabaseLive : DevDefaults.TsDatabase;
         StatusText = $"scanning {DefaultLibrary} …";
         try
         {
             LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, _tsDbPath, DefaultToleranceDegrees);
             _lastLoad = result;
             _allRows = result.Rows;
-            StatusText = $"library {DefaultLibrary}  ·  TS {_tsDbPath} ({(tsChoice.IsLive ? "LIVE BIRDWATCHER" : "local copy")})" +
+            StatusText = $"library {DefaultLibrary}  ·  TS {_tsDbPath} ({(_tsMode == TsMode.Live ? "LIVE BIRDWATCHER" : "local copy")})" +
                 $"  ·  resolved in {result.Elapsed.TotalSeconds:0.0} s";
             ApplyFilters();
         }
@@ -177,13 +202,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    // Flip the LIVE/LOCAL badge (the two visibilities + tooltip are computed off _tsIsLive).
-    private void SetTsSource(bool isLive)
+    // Re-raise the radio bindings after _tsMode / _liveDisabled change.
+    private void RaiseTsSource()
     {
-        _tsIsLive = isLive;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LiveBadgeVisibility)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LocalBadgeVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsLiveSelected)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsLocalSelected)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LiveEnabled)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TsSourceTooltip)));
+    }
+
+    /// <summary>Switch the TS source from the LIVE/LOCAL radios. A sticky-disabled LIVE can't be chosen; a real
+    /// change reloads from the newly selected db.</summary>
+    public void SetTsMode(TsMode mode)
+    {
+        if (mode == TsMode.Live && _liveDisabled) { RaiseTsSource(); return; }   // re-pin the radio to the active source
+        if (mode == _tsMode) return;
+        _tsMode = mode;
+        RaiseTsSource();
+        _ = LoadAsync();
     }
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
@@ -369,13 +405,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             _targetActiveEdits[key] = enabled;
             Support.Log.Info(
-                $"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)} on {(_tsIsLive ? "LIVE" : "local")} {_tsDbPath}");
+                $"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)} on {(_tsMode == TsMode.Live ? "LIVE" : "local")} {_tsDbPath}");
             return true;
         }
         catch (Exception ex)
         {
             Support.Log.Error($"target.active write threw for \"{group.Target}\"", ex);
-            StatusText = $"enable change failed: {ex.Message}";
+            // A LIVE write that throws because BIRDWATCHER dropped sticky-disables LIVE and falls to LOCAL for the
+            // session (re-launch to retry); any other fault just reports.
+            if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
+            {
+                _liveDisabled = true;
+                _tsMode = TsMode.Local;
+                RaiseTsSource();
+                StatusText = "BIRDWATCHER unreachable — switched to LOCAL for this session (re-launch TCM to retry LIVE).";
+                _ = LoadAsync();
+            }
+            else
+            {
+                StatusText = $"enable change failed: {ex.Message}";
+            }
             return false;
         }
     }

@@ -22,6 +22,12 @@ public sealed partial class MainWindow : Window
 
     private void Reload_Click(object sender, RoutedEventArgs e) => _ = ViewModel.LoadAsync();
 
+    // LIVE/LOCAL radios pick the TS db. Checked fires on user selection (and on the IsChecked binding settling),
+    // but SetTsMode no-ops when the mode is unchanged, so binding-driven re-checks don't reload.
+    private void Live_Checked(object sender, RoutedEventArgs e) => ViewModel.SetTsMode(TsMode.Live);
+
+    private void Local_Checked(object sender, RoutedEventArgs e) => ViewModel.SetTsMode(TsMode.Local);
+
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
         ViewModel.SearchText = SearchBox.Text;
 
