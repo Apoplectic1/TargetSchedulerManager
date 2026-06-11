@@ -37,9 +37,11 @@
     <ProjectReference Include="..\..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj" />
   </ItemGroup>
 
-  <!-- Dev-default paths single-sourced with the console host (which compiles the same file via its root glob). -->
+  <!-- Dev-default paths + TS-db resolution single-sourced with the console host (which compiles the same files
+       via its root glob). -->
   <ItemGroup>
     <Compile Include="..\Shared\DevDefaults.cs" Link="Shared\DevDefaults.cs" />
+    <Compile Include="..\Shared\TsDatabaseResolver.cs" Link="Shared\TsDatabaseResolver.cs" />
   </ItemGroup>
 
   <ItemGroup>
