@@ -12,27 +12,28 @@ internal static class BuildCommand
     public static async Task<int> RunAsync(string[] args)
     {
         CliOptions o = CliOptions.Parse(args);
+        TsDatabaseChoice ts = o.ResolveTs();
 
         if (!Directory.Exists(o.Library))
         {
             Console.Error.WriteLine($"image library root not found: {o.Library}");
             return 1;
         }
-        if (!File.Exists(o.TsDb))
+        if (!File.Exists(ts.Path))
         {
-            Console.Error.WriteLine($"Target Scheduler database not found: {o.TsDb}");
+            Console.Error.WriteLine($"Target Scheduler database not found: {ts.Path}");
             return 1;
         }
         Directory.CreateDirectory(Path.GetDirectoryName(o.Catalog)!);
 
         Console.WriteLine($"Building {o.Catalog}");
         Console.WriteLine($"  library  : {o.Library}");
-        Console.WriteLine($"  TS db    : {o.TsDb}");
+        Console.WriteLine($"  TS db    : {ts.Path}  ({(ts.IsLive ? "LIVE — BIRDWATCHER imaging PC" : "local copy")})");
         Console.WriteLine($"  tolerance: {o.Resolve.MatchToleranceDegrees:0.00} deg");
         Console.WriteLine();
 
         Stopwatch sw = Stopwatch.StartNew();
-        CatalogBuildReport report = await CatalogBuilder.BuildAsync(o.Catalog, o.Library, o.TsDb, o.Resolve);
+        CatalogBuildReport report = await CatalogBuilder.BuildAsync(o.Catalog, o.Library, ts.Path, o.Resolve);
         sw.Stop();
 
         ConsoleRenderer.PrintReport(report, sw.Elapsed);

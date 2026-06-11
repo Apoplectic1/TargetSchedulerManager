@@ -12,24 +12,27 @@ namespace TargetCatalogManager.Cli;
 /// writes only its cells, no catalog rebuild. The two forms differ only in how the
 /// <see cref="WriteBackPlan"/> is produced; both finish through the same <see cref="ExecutePlan"/> tail
 /// (guards → execute → render → audit). Dry-run by default; <c>--apply</c> commits. Refuses an
-/// incompatible or apparently-open db. Never touches the live imaging-PC database.
+/// incompatible or apparently-open db. By default targets the <b>live</b> BIRDWATCHER db when reachable
+/// (else the local copy) via <see cref="CliOptions.ResolveTs"/>; the banner + audit say which, and the
+/// open-sidecar guard refuses a write while TS is mid-transaction.
 /// </summary>
 internal static class WriteBackCommand
 {
     public static async Task<int> RunAsync(string[] args)
     {
         CliOptions o = CliOptions.Parse(args);
+        TsDatabaseChoice ts = o.ResolveTs();
 
-        if (!File.Exists(o.TsDb))
+        if (!File.Exists(ts.Path))
         {
-            Console.Error.WriteLine($"Target Scheduler database not found: {o.TsDb}");
+            Console.Error.WriteLine($"Target Scheduler database not found: {ts.Path}");
             return 1;
         }
 
-        return o.Target is not null ? await RunSingleTargetAsync(o) : await RunBulkAsync(o);
+        return o.Target is not null ? await RunSingleTargetAsync(o, ts) : await RunBulkAsync(o, ts);
     }
 
-    private static async Task<int> RunBulkAsync(CliOptions o)
+    private static async Task<int> RunBulkAsync(CliOptions o, TsDatabaseChoice ts)
     {
         if (!Directory.Exists(o.Library))
         {
@@ -40,13 +43,13 @@ internal static class WriteBackCommand
 
         Console.WriteLine($"writeback {(o.Apply ? "(APPLY)" : "(dry-run - pass --apply to commit)")}");
         Console.WriteLine($"  library  : {o.Library}");
-        Console.WriteLine($"  TS db    : {o.TsDb}  (local copy - never the live imaging-PC db)");
+        Console.WriteLine($"  TS db    : {ts.Path}  ({(ts.IsLive ? "LIVE — BIRDWATCHER imaging PC" : "local copy")})");
         Console.WriteLine($"  tolerance: {o.Resolve.MatchToleranceDegrees:0.00} deg");
         Console.WriteLine();
-        WriteBackAuditLog.StartBulk(o.Apply, o.TsDb, o.Catalog, o.Library, o.Resolve);
+        WriteBackAuditLog.StartBulk(o.Apply, ts.IsLive, ts.Path, o.Catalog, o.Library, o.Resolve);
 
         // Fresh re-scan so we never push stale numbers.
-        CatalogBuildReport report = await CatalogBuilder.BuildAsync(o.Catalog, o.Library, o.TsDb, o.Resolve);
+        CatalogBuildReport report = await CatalogBuilder.BuildAsync(o.Catalog, o.Library, ts.Path, o.Resolve);
 
         WriteBackPlan plan;
         using (CatalogStore store = CatalogStore.OpenReadOnly(o.Catalog))
@@ -54,14 +57,14 @@ internal static class WriteBackCommand
                 store.GetTargets(), store.GetExposurePlans(), store.GetExposureTemplates(),
                 store.GetInventoryFilters(), report);
 
-        return ExecutePlan(plan, o.TsDb, o.Apply, listNoOps: false, unitsLine: null);
+        return ExecutePlan(plan, ts.Path, o.Apply, listNoOps: false, unitsLine: null);
     }
 
     /// <summary>
     /// Surgical form: scan one disk target only and push its per-(filter,purpose,binning,seconds) counts to
     /// the matching TS plans. For a mosaic, writes each panel's counts to that panel's own plan.
     /// </summary>
-    private static async Task<int> RunSingleTargetAsync(CliOptions o)
+    private static async Task<int> RunSingleTargetAsync(CliOptions o, TsDatabaseChoice ts)
     {
         // Resolve the directory: an absolute path or one containing separators is used as-is; a bare name is
         // taken relative to the library root.
@@ -83,15 +86,15 @@ internal static class WriteBackCommand
         Console.WriteLine($"writeback --target {(o.Apply ? "(APPLY)" : "(dry-run - pass --apply to commit)")}");
         Console.WriteLine($"  target   : {dirName}{(isMosaic ? "  (mosaic - per panel)" : "")}");
         Console.WriteLine($"  dir      : {dir}");
-        Console.WriteLine($"  TS db    : {o.TsDb}  (local copy - never the live imaging-PC db)");
+        Console.WriteLine($"  TS db    : {ts.Path}  ({(ts.IsLive ? "LIVE — BIRDWATCHER imaging PC" : "local copy")})");
         Console.WriteLine($"  tolerance: {o.Resolve.MatchToleranceDegrees:0.00} deg");
         Console.WriteLine();
-        WriteBackAuditLog.StartTarget(dirName, dir, o.Apply, o.TsDb, o.Resolve);
+        WriteBackAuditLog.StartTarget(dirName, dir, o.Apply, ts.IsLive, ts.Path, o.Resolve);
 
         // Read the TS plan plane directly (no catalog rebuild), closing the reader before the writer opens.
-        TsPlanData ts;
-        using (TargetSchedulerReader reader = new(o.TsDb))
-            ts = reader.ReadPlanData();
+        TsPlanData tsData;
+        using (TargetSchedulerReader reader = new(ts.Path))
+            tsData = reader.ReadPlanData();
 
         IReadOnlyList<TargetReport> units = await ImageLibraryScanner.ScanUnitsAsync(dir);
         if (units.Count == 0)
@@ -100,10 +103,10 @@ internal static class WriteBackCommand
             return 1;
         }
 
-        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic, dirName, ts, o.Resolve);
+        WriteBackPlan plan = SingleTargetPlanner.Plan(units, isMosaic, dirName, tsData, o.Resolve);
 
         // Surgical runs answer "did it touch X?" inline, so they list no-ops too.
-        return ExecutePlan(plan, o.TsDb, o.Apply, listNoOps: true,
+        return ExecutePlan(plan, ts.Path, o.Apply, listNoOps: true,
             unitsLine: $"units scanned: {units.Count}{(isMosaic ? " panel(s)" : "")}");
     }
 

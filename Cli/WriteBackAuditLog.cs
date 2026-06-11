@@ -11,12 +11,12 @@ namespace TargetCatalogManager.Cli;
 /// </summary>
 internal static class WriteBackAuditLog
 {
-    public static void StartBulk(bool apply, string tsDb, string catalog, string library, ResolveOptions resolve) =>
-        CliLog.Line($"writeback start mode=bulk apply={apply} ts=\"{tsDb}\" catalog=\"{catalog}\" " +
+    public static void StartBulk(bool apply, bool live, string tsDb, string catalog, string library, ResolveOptions resolve) =>
+        CliLog.Line($"writeback start mode=bulk apply={apply} live={live} ts=\"{tsDb}\" catalog=\"{catalog}\" " +
             $"library=\"{library}\" tolerance={resolve.MatchToleranceDegrees.ToString("0.00", CultureInfo.InvariantCulture)}");
 
-    public static void StartTarget(string dirName, string dir, bool apply, string tsDb, ResolveOptions resolve) =>
-        CliLog.Line($"writeback start mode=target target=\"{dirName}\" dir=\"{dir}\" apply={apply} " +
+    public static void StartTarget(string dirName, string dir, bool apply, bool live, string tsDb, ResolveOptions resolve) =>
+        CliLog.Line($"writeback start mode=target target=\"{dirName}\" dir=\"{dir}\" apply={apply} live={live} " +
             $"ts=\"{tsDb}\" tolerance={resolve.MatchToleranceDegrees.ToString("0.00", CultureInfo.InvariantCulture)}");
 
     public static void Abort(string reason) => CliLog.Line($"abort reason=\"{reason}\"");

@@ -16,9 +16,17 @@ internal sealed record CliOptions(
     string TsDb,
     string? Target,
     bool Apply,
-    ResolveOptions Resolve)
+    ResolveOptions Resolve,
+    bool TsDbExplicit = false)
 {
     private static readonly string[] KnownKeys = ["catalog", "library", "ts", "tolerance", "target", "apply"];
+
+    /// <summary>The effective TS database for this run: an explicit <c>--ts</c> wins (LIVE iff it's a UNC);
+    /// otherwise <see cref="TsDatabaseResolver"/> prefers the live BIRDWATCHER db and falls back to the local copy.</summary>
+    public TsDatabaseChoice ResolveTs() =>
+        TsDbExplicit
+            ? new TsDatabaseChoice(TsDb, TsDb.TrimStart().StartsWith(@"\\", StringComparison.Ordinal), "explicit --ts")
+            : TsDatabaseResolver.Resolve();
 
     /// <summary>Parses option tokens (the caller has already consumed any leading verb).</summary>
     public static CliOptions Parse(string[] args)
@@ -67,6 +75,7 @@ internal sealed record CliOptions(
             TsDb: opts.GetValueOrDefault("ts", DevDefaults.TsDatabase),
             Target: opts.TryGetValue("target", out string? tv) && !string.IsNullOrWhiteSpace(tv) ? tv : null,
             Apply: apply,
-            resolve);
+            resolve,
+            TsDbExplicit: opts.ContainsKey("ts"));
     }
 }
