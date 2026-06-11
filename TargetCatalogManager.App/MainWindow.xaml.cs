@@ -42,25 +42,16 @@ public sealed partial class MainWindow : Window
 
     // Whole-row click toggles a disclosure: target group headers, mosaic panels, and mixed-seconds
     // rollups; clicks on plain one-plane rows fall through.
+    // Whole-row click toggles a disclosure: target group headers, mosaic panels, and mixed-seconds rollups;
+    // clicks on plain one-plane rows fall through.
     private void Row_ItemClick(object sender, ItemClickEventArgs e)
     {
-        // Whole-row click toggles a disclosure (target/panel/rollup) AND drives the dossier panel — clicking any
-        // row shows that target's disk + TS detail below.
-        switch (e.ClickedItem)
-        {
-            case ViewModels.Rows.TargetGroupRow group:
-                ViewModel.ToggleGroup(group);
-                if (group.TargetId is System.Guid gid) ViewModel.ShowDetail(gid);
-                break;
-            case ViewModels.Rows.PanelGroupRow panel:
-                ViewModel.TogglePanel(panel);
-                ViewModel.ShowDetail(panel.TargetId);
-                break;
-            case ViewModels.Rows.ReconciliationRow row:
-                if (row.Detail is not null) ViewModel.ToggleRollup(row);
-                if (row.TargetId != System.Guid.Empty) ViewModel.ShowDetail(row.TargetId);
-                break;
-        }
+        if (e.ClickedItem is ViewModels.Rows.TargetGroupRow group)
+            ViewModel.ToggleGroup(group);
+        else if (e.ClickedItem is ViewModels.Rows.PanelGroupRow panel)
+            ViewModel.TogglePanel(panel);
+        else if (e.ClickedItem is ViewModels.Rows.ReconciliationRow { Detail: not null } rollup)
+            ViewModel.ToggleRollup(rollup);
     }
 
     // The leftmost enable checkbox on a target header: write target.active to the TS copy immediately. Click

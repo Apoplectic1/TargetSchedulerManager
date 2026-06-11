@@ -4,8 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:TargetCatalogManager.App"
-    xmlns:m="using:TargetCatalogManager.App.ViewModels.Rows"
-    xmlns:vm="using:TargetCatalogManager.App.ViewModels">
+    xmlns:m="using:TargetCatalogManager.App.ViewModels.Rows">
 
     <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
          {x:Bind} is typed, compile-time binding: a path typo is a build error, not a silent empty cell. -->
@@ -253,100 +252,17 @@
         <!-- A flattened tree, not a real TreeView: the VM owns the visible-row list (group headers +
              expanded children), like a WinForms TreeListView in VirtualMode. Still fully virtualized.
              Clicking anywhere on a group row toggles it (ItemClick is a no-op on filter rows). -->
-        <!-- Grid (read-only overview) on top; a docked dossier panel for the selected target below it. -->
-        <Grid Grid.Row="3">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <ListView Grid.Row="0" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
-                      ItemTemplateSelector="{StaticResource RowTemplateSelector}"
-                      SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Row_ItemClick">
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="MinHeight" Value="30"/>
-                        <Setter Property="Padding" Value="12,2,12,2"/>
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                    </Style>
-                </ListView.ItemContainerStyle>
-            </ListView>
-
-            <!-- Target dossier: disk ACTUAL beside TS PLAN for the selected target (read-only in v1). -->
-            <Border Grid.Row="1" BorderThickness="0,1,0,0" Padding="12,8" MaxHeight="360"
-                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <Grid>
-                    <TextBlock Text="Select a target to see its disk + Target Scheduler dossier." Opacity="0.6"
-                               Visibility="{x:Bind ViewModel.NoSelectionVisibility, Mode=OneWay}"/>
-                    <ScrollViewer Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}"
-                                  VerticalScrollBarVisibility="Auto">
-                        <StackPanel Spacing="6">
-                            <!-- Title with RA/Dec to its right. -->
-                            <StackPanel Orientation="Horizontal" Spacing="16">
-                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}"
-                                           Text="{x:Bind ViewModel.DetailPanel.Title, Mode=OneWay}"/>
-                                <TextBlock Opacity="0.8" VerticalAlignment="Bottom" Margin="0,0,0,3"
-                                           Text="{x:Bind ViewModel.DetailPanel.CoordsText, Mode=OneWay}"/>
-                            </StackPanel>
-                            <Grid ColumnSpacing="28">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <!-- DISK (ACTUAL) -->
-                                <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="On disk (ACTUAL)" FontWeight="SemiBold"/>
-                                    <TextBlock Opacity="0.6" TextTrimming="CharacterEllipsis"
-                                               Text="{x:Bind ViewModel.DetailPanel.DirectoryText, Mode=OneWay}"/>
-                                    <ItemsControl ItemsSource="{x:Bind ViewModel.DetailPanel.DiskRows, Mode=OneWay}" Margin="0,3,0,0">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:DiskDossierRow">
-                                                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,1">
-                                                    <Run Text="{x:Bind Filter}" FontWeight="SemiBold"/><Run Text=" "/><Run Text="{x:Bind Purpose}"/>
-                                                    <Run Text="   "/><Run Text="{x:Bind Seconds}"/>
-                                                    <Run Text="   "/><Run Text="{x:Bind Frames}"/><Run Text="f"/>
-                                                    <Run Text="  "/><Run Text="{x:Bind Hours}"/><Run Text="h"/>
-                                                    <Run Text="   g"/><Run Text="{x:Bind GainOffset}"/>
-                                                    <Run Text="  "/><Run Text="{x:Bind Binning}"/>
-                                                    <Run Text="   "/><Run Text="{x:Bind Dates}"/>
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                                <!-- TARGET SCHEDULER (PLAN) -->
-                                <StackPanel Grid.Column="1" Spacing="3">
-                                    <TextBlock Text="Target Scheduler (PLAN)" FontWeight="SemiBold"/>
-                                    <TextBlock Opacity="0.85">
-                                        <Run Text="Project: "/><Run Text="{x:Bind ViewModel.DetailPanel.ProjectName, Mode=OneWay}"/>
-                                        <Run Text="   ·   priority "/><Run Text="{x:Bind ViewModel.DetailPanel.PriorityText, Mode=OneWay}"/>
-                                        <Run Text="   rot "/><Run Text="{x:Bind ViewModel.DetailPanel.RotationText, Mode=OneWay}"/>
-                                        <Run Text="   roi "/><Run Text="{x:Bind ViewModel.DetailPanel.RoiText, Mode=OneWay}"/>
-                                    </TextBlock>
-                                    <TextBlock Opacity="0.6" TextWrapping="Wrap"
-                                               Text="{x:Bind ViewModel.DetailPanel.ProjectText, Mode=OneWay}"/>
-                                    <ItemsControl ItemsSource="{x:Bind ViewModel.DetailPanel.PlanRows, Mode=OneWay}" Margin="0,3,0,0">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:PlanDossierRow">
-                                                <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,1">
-                                                    <Run Text="{x:Bind Filter}" FontWeight="SemiBold"/><Run Text=" ("/><Run Text="{x:Bind Template}"/><Run Text=")"/>
-                                                    <Run Text="   "/><Run Text="{x:Bind Exposure}"/>
-                                                    <Run Text="   desired "/><Run Text="{x:Bind Desired}"/>
-                                                    <Run Text="  acq/acc "/><Run Text="{x:Bind Acquired}"/><Run Text="/"/><Run Text="{x:Bind Accepted}"/>
-                                                    <Run Text="   g"/><Run Text="{x:Bind GainOffset}"/>
-                                                    <Run Text="  "/><Run Text="{x:Bind Binning}"/>
-                                                    <Run Text="   "/><Run Text="{x:Bind EnabledText}"/>
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-        </Grid>
+        <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
+                  ItemTemplateSelector="{StaticResource RowTemplateSelector}"
+                  SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Row_ItemClick">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="MinHeight" Value="30"/>
+                    <Setter Property="Padding" Value="12,2,12,2"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
 
         <TextBlock Grid.Row="4" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                    Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.7" Margin="0,6,0,0"/>
