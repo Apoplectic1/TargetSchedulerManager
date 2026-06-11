@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using TargetCatalogManager.App.Models;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace TargetCatalogManager.App.ViewModels.Rows;
@@ -17,13 +18,14 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     private bool _isExpanded;
 
     public TargetGroupRow(
-        string target, IReadOnlyList<ReconciliationRow> children, bool isExpanded,
+        string target, IReadOnlyList<ReconciliationRow> children, bool isExpanded, bool isTargetEnabled,
         IReadOnlyList<PanelGroupRow>? panels = null)
     {
         Target = target;
         Children = children;
         Panels = panels;
         _isExpanded = isExpanded;
+        IsTargetEnabled = isTargetEnabled;
 
         // Source and Project are per-target upstream (TargetResolver), so the first child speaks for all.
         Source = children[0].Source;
@@ -45,6 +47,19 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
 
     public RowSource Source { get; }
     public string Project { get; }
+
+    /// <summary>Target enable state (TS <c>target.active</c>) bound to the leftmost checkbox. The view-model
+    /// passes the effective value — a pending in-session toggle if any, else the loaded state.</summary>
+    public bool IsTargetEnabled { get; }
+
+    /// <summary>Write-back key for this target's TS row; null when there is no TS target (disk-only / mosaic parent).</summary>
+    public string? TsTargetKey => Children[0].TsTargetKey;
+
+    /// <summary>True when an enable checkbox applies: a normal (non-mosaic) group backed by a TS target.</summary>
+    public bool CanEnable => Panels is null && TsTargetKey is not null;
+
+    /// <summary>Checkbox visibility — mirrors the <c>ChevronVisibility</c> pattern so XAML can x:Bind it directly.</summary>
+    public Visibility CanEnableVisibility => CanEnable ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Summed over the TS children; null when no child has a plan (pure disk-only group).</summary>
     public int? Desired => _sums.Desired;

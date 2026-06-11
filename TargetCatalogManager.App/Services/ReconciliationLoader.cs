@@ -188,7 +188,8 @@ public static class ReconciliationLoader
                         diskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
-                        panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource));
+                        panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey));
                 }
                 else
                 {
@@ -203,7 +204,8 @@ public static class ReconciliationLoader
                     planHours: c.Desired * (double)c.Seconds / 3600.0,
                     diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: true,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -211,7 +213,8 @@ public static class ReconciliationLoader
                     c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged,
                     planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
                     isDetail: isDetail,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -219,7 +222,8 @@ public static class ReconciliationLoader
                     desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged,
                     planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: isDetail,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
@@ -231,7 +235,8 @@ public static class ReconciliationLoader
                     desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
                     badge: isUnanchored ? "no-coords" : "no data",
                     isFlagged: false, planHours: null, diskHours: null,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource));
+                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey));
             }
         }
 

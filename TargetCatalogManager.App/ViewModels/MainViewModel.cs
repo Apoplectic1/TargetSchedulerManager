@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.TargetScheduler;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
@@ -37,6 +38,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // Grouping state. Expansion (targets, mosaic panels, mixed-seconds rollups) survives filter changes and
     // reloads; see ExpansionState for the keying. Collapsed is the default for anything never touched.
     private readonly ExpansionState _expansion = new();
+
+    // In-session target.active toggles, keyed by the target's TS key, so a checkbox flip survives filter/sort
+    // rebuilds (the grid re-derives groups each pass). The write already hit TS; this just keeps the displayed
+    // state consistent until the next full reload re-reads TS authoritatively (then it's cleared).
+    private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -122,6 +128,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         if (IsLoading) return;
         IsLoading = true;
+        _targetActiveEdits.Clear();   // a fresh scan re-reads TS active; in-session overrides are now authoritative-stale
         StatusText = $"scanning {DefaultLibrary} …";
         try
         {
@@ -280,6 +287,52 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ApplyFilters();
     }
 
+    /// <summary>A group's effective enable state: a pending in-session toggle if any, else the loaded value.</summary>
+    private bool EffectiveEnabled(ReconciliationRow representative) =>
+        representative.TsTargetKey is string key && _targetActiveEdits.TryGetValue(key, out bool pending)
+            ? pending
+            : representative.Enabled;
+
+    /// <summary>
+    /// Immediately writes <c>target.active</c> for one group's target into the local TS working copy (read-back
+    /// verified + audited), off the UI thread. Records the new state so it survives filter/sort rebuilds; no grid
+    /// reload (active changes no counts/hours). Returns false on failure so the caller can revert the checkbox.
+    /// </summary>
+    public async Task<bool> SetTargetEnabledAsync(TargetGroupRow group, bool enabled)
+    {
+        if (group.TsTargetKey is not string key)
+            return false;   // no TS target behind this group (the checkbox should be hidden)
+
+        try
+        {
+            TargetEditResult result = await Task.Run(() =>
+            {
+                using TargetSchedulerEditor editor = new(DefaultTs);
+                if (!editor.HasRequiredColumns || editor.IsReadOnly)
+                    return new TargetEditResult(RowFound: false, OldActive: null, Verified: false);
+                return editor.SetTargetActive(key, enabled);
+            });
+
+            if (!result.Succeeded)
+            {
+                Support.Log.Error(
+                    $"target.active write failed for \"{group.Target}\" (found={result.RowFound} verified={result.Verified})");
+                StatusText = $"enable change failed for {group.Target} — see tcm.log";
+                return false;
+            }
+
+            _targetActiveEdits[key] = enabled;
+            Support.Log.Info($"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Support.Log.Error($"target.active write threw for \"{group.Target}\"", ex);
+            StatusText = $"enable change failed: {ex.Message}";
+            return false;
+        }
+    }
+
     private void ApplyFilters()
     {
         IEnumerable<ReconciliationRow> q = _allRows;
@@ -312,7 +365,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
                             p.First().PanelSource ?? all[0].Source, [.. p],
                             _expansion.IsPanelExpanded($"{g.Key}|{p.Key}")))];
                 }
-                return new TargetGroupRow(g.Key, all, _expansion.IsTargetExpanded(g.Key), panels);
+                return new TargetGroupRow(
+                    g.Key, all, _expansion.IsTargetExpanded(g.Key), EffectiveEnabled(all[0]), panels);
             })];
 
         // The sort dropdown orders the groups by their aggregates; children stay in filter order.

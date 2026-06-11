@@ -15,7 +15,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = "Target Catalog Manager — TS plan vs disk (M1, read-only)";
+        Title = "Target Catalog Manager — TS plan vs disk (editing: target enable)";
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1560, 980));
         _ = ViewModel.LoadAsync();   // initial load; VM surfaces progress/errors via IsLoading/StatusText
     }
@@ -44,6 +44,19 @@ public sealed partial class MainWindow : Window
             ViewModel.TogglePanel(panel);
         else if (e.ClickedItem is ViewModels.Rows.ReconciliationRow { Detail: not null } rollup)
             ViewModel.ToggleRollup(rollup);
+    }
+
+    // The leftmost enable checkbox on a target header: write target.active to the TS copy immediately. Click
+    // fires only on user interaction (not on the IsChecked binding), so there's no spurious write at bind time;
+    // on a failed/unverified write we put the box back. The checkbox swallows the click, so Row_ItemClick
+    // (whole-row expand) does not also fire.
+    private async void TargetEnable_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox box || box.DataContext is not ViewModels.Rows.TargetGroupRow group)
+            return;
+        bool now = box.IsChecked == true;
+        if (!await ViewModel.SetTargetEnabledAsync(group, now))
+            box.IsChecked = !now;   // write failed — restore the prior state
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();

@@ -64,6 +64,10 @@ internal static class Log
         }
     }
 
+    /// <summary>Always-on audit/info line (not <c>TCM_DIAG</c>-gated) — e.g. the standing M2 rule that every TS
+    /// write is recorded, so the trail survives in Release where diag is off.</summary>
+    public static void Info(string message) => Append("INFO", message, null);
+
     public static void Warn(string message) => Append("WARN", message, null);
 
     public static void Warn(string message, Exception ex) => Append("WARN", message, ex);

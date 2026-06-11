@@ -38,7 +38,9 @@ public sealed class ReconciliationRow(
     IReadOnlyList<ReconciliationRow>? detail = null,
     string? panelKey = null,
     string? panelLabel = null,
-    RowSource? panelSource = null) : INotifyPropertyChanged
+    RowSource? panelSource = null,
+    bool enabled = true,
+    string? tsTargetKey = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -106,6 +108,13 @@ public sealed class ReconciliationRow(
 
     /// <summary>The panel's own classification (the row's <see cref="Source"/> stays the parent's).</summary>
     public RowSource? PanelSource { get; } = panelSource;
+
+    /// <summary>The target's TS-enable state (<c>target.active</c>); true by default for a target with no TS row.</summary>
+    public bool Enabled { get; } = enabled;
+
+    /// <summary>Write-back key for the target's TS row (guid, or integer Id as a string); null when there is no
+    /// TS target behind this row (disk-only target, mosaic parent) — the enable checkbox is then hidden.</summary>
+    public string? TsTargetKey { get; } = tsTargetKey;
 
     /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
     public bool IsExpanded
