@@ -30,8 +30,6 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
         Project = children[0].Project;
 
         _sums = RowAggregates.Compute(children);
-        // Distinct filters, not child rows — a filter split by plane or sub length is still one filter.
-        FilterCount = children.Select(r => r.Filter).Distinct(StringComparer.OrdinalIgnoreCase).Count();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -97,8 +95,8 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     };
 
     public string TargetText => Panels is null
-        ? $"{Target}  ·  {FilterCount} {(FilterCount == 1 ? "filter" : "filters")}"
-        : $"{Target}  ·  {Panels.Count} {(Panels.Count == 1 ? "panel" : "panels")}  ·  {FilterCount} {(FilterCount == 1 ? "filter" : "filters")}";
+        ? Target
+        : $"{Target}  ·  {Panels.Count} {(Panels.Count == 1 ? "panel" : "panels")}";
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";
