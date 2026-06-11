@@ -11,10 +11,12 @@ using TargetCatalogManager.App.Support;
 
 namespace TargetCatalogManager.App.Services;
 
-/// <summary>Result of one load: the grid rows plus the build report the summary/badges came from.</summary>
+/// <summary>Result of one load: the grid rows, the build report the summary/badges came from, and the resolved
+/// <see cref="CatalogGraph"/> retained so the detail panel can pull a target's full disk + TS dossier.</summary>
 public sealed record LoadResult(
     IReadOnlyList<ReconciliationRow> Rows,
     CatalogBuildReport Report,
+    CatalogGraph Graph,
     TimeSpan Elapsed);
 
 /// <summary>
@@ -54,7 +56,7 @@ public static class ReconciliationLoader
             $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}" +
             $" panels={report.PanelsMatched}/{report.PanelsPlannedOnly}/{report.PanelsActualOnly}");
 
-        return new LoadResult(rows, report, sw.Elapsed);
+        return new LoadResult(rows, report, graph, sw.Elapsed);
     }
 
     /// <summary>
@@ -189,7 +191,7 @@ public static class ReconciliationLoader
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
                         panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey));
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId));
                 }
                 else
                 {
@@ -205,7 +207,7 @@ public static class ReconciliationLoader
                     diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: true,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -214,7 +216,7 @@ public static class ReconciliationLoader
                     planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -223,7 +225,7 @@ public static class ReconciliationLoader
                     planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
@@ -236,7 +238,7 @@ public static class ReconciliationLoader
                     badge: isUnanchored ? "no-coords" : "no data",
                     isFlagged: false, planHours: null, diskHours: null,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey));
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId));
             }
         }
 

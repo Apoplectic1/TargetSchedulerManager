@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
+using Microsoft.UI.Xaml;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
@@ -54,6 +55,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _liveDisabled;
     private bool _tsProbed;
     private string _tsDbPath = DevDefaults.TsDatabase;
+
+    // The selected target's dossier, built on demand from the retained graph (_lastLoad.Graph).
+    private DetailPanelViewModel? _detailPanel;
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -93,6 +97,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _statusText;
         private set => Set(ref _statusText, value);
     }
+
+    /// <summary>The selected target's disk+TS dossier for the docked detail panel; null until a target is picked.</summary>
+    public DetailPanelViewModel? DetailPanel => _detailPanel;
+
+    /// <summary>Panel shown once a target is selected; the "select a target" placeholder shown until then.</summary>
+    public Visibility DetailVisibility => _detailPanel is null ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility NoSelectionVisibility => _detailPanel is null ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>True when this session is set to the LIVE BIRDWATCHER db (the LIVE radio's IsChecked).</summary>
     public bool IsLiveSelected => _tsMode == TsMode.Live;
@@ -220,6 +231,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _tsMode = mode;
         RaiseTsSource();
         _ = LoadAsync();
+    }
+
+    /// <summary>Build the dossier for the selected target from the retained graph (no-op until a load completes).</summary>
+    public void ShowDetail(Guid targetId)
+    {
+        if (_lastLoad is not { Graph: { } graph }) return;
+        _detailPanel = new DetailPanelViewModel(graph, targetId);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DetailPanel)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DetailVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NoSelectionVisibility)));
     }
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>

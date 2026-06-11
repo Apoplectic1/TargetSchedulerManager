@@ -55,6 +55,10 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     /// <summary>Write-back key for this target's TS row; null when there is no TS target (disk-only / mosaic parent).</summary>
     public string? TsTargetKey => Children[0].TsTargetKey;
 
+    /// <summary>Canonical target id for the detail panel — the shared id of a normal group's rows; null for a
+    /// mosaic parent (a grouping node — its panels carry their own ids, so select a panel for detail).</summary>
+    public Guid? TargetId => Panels is null ? Children[0].TargetId : null;
+
     /// <summary>True when an enable checkbox applies: a normal (non-mosaic) group backed by a TS target.</summary>
     public bool CanEnable => Panels is null && TsTargetKey is not null;
 

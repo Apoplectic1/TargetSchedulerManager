@@ -43,6 +43,9 @@ public sealed class PanelGroupRow : INotifyPropertyChanged
     /// <summary>The panel's leaf rows — already filtered/ordered by the view-model.</summary>
     public IReadOnlyList<ReconciliationRow> Children { get; }
 
+    /// <summary>This panel's canonical target id — the detail panel's key into the retained graph.</summary>
+    public Guid TargetId => Children[0].TargetId;
+
     public int? Desired => _sums.Desired;
     public int? Acquired => _sums.Acquired;
     public int? Accepted => _sums.Accepted;

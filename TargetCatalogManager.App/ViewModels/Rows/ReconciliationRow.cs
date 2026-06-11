@@ -40,7 +40,8 @@ public sealed class ReconciliationRow(
     string? panelLabel = null,
     RowSource? panelSource = null,
     bool enabled = true,
-    string? tsTargetKey = null) : INotifyPropertyChanged
+    string? tsTargetKey = null,
+    Guid targetId = default) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -115,6 +116,9 @@ public sealed class ReconciliationRow(
     /// <summary>Write-back key for the target's TS row (guid, or integer Id as a string); null when there is no
     /// TS target behind this row (disk-only target, mosaic parent) — the enable checkbox is then hidden.</summary>
     public string? TsTargetKey { get; } = tsTargetKey;
+
+    /// <summary>Canonical catalog target id — keys the detail panel into the retained graph for the full dossier.</summary>
+    public Guid TargetId { get; } = targetId;
 
     /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
     public bool IsExpanded
