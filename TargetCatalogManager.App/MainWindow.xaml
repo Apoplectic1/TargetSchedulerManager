@@ -281,9 +281,13 @@
                     <ScrollViewer Visibility="{x:Bind ViewModel.DetailVisibility, Mode=OneWay}"
                                   VerticalScrollBarVisibility="Auto">
                         <StackPanel Spacing="6">
-                            <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}"
-                                       Text="{x:Bind ViewModel.DetailPanel.Title, Mode=OneWay}"/>
-                            <TextBlock Opacity="0.7" Text="{x:Bind ViewModel.DetailPanel.SourceText, Mode=OneWay}"/>
+                            <!-- Title with RA/Dec to its right. -->
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}"
+                                           Text="{x:Bind ViewModel.DetailPanel.Title, Mode=OneWay}"/>
+                                <TextBlock Opacity="0.8" VerticalAlignment="Bottom" Margin="0,0,0,3"
+                                           Text="{x:Bind ViewModel.DetailPanel.CoordsText, Mode=OneWay}"/>
+                            </StackPanel>
                             <Grid ColumnSpacing="28">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -292,7 +296,6 @@
                                 <!-- DISK (ACTUAL) -->
                                 <StackPanel Grid.Column="0" Spacing="3">
                                     <TextBlock Text="On disk (ACTUAL)" FontWeight="SemiBold"/>
-                                    <TextBlock Opacity="0.85" Text="{x:Bind ViewModel.DetailPanel.CoordsText, Mode=OneWay}"/>
                                     <TextBlock Opacity="0.6" TextTrimming="CharacterEllipsis"
                                                Text="{x:Bind ViewModel.DetailPanel.DirectoryText, Mode=OneWay}"/>
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.DetailPanel.DiskRows, Mode=OneWay}" Margin="0,3,0,0">
