@@ -2,7 +2,7 @@
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-06-10)
+## Status — pick up here (2026-06-11)
 
 Phases 1–2 are **done and working on real data**. The headless host (`tcm`) rebuilds `Catalog.db` from the image
 library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-actual in ~1s:
@@ -18,6 +18,19 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 --tolerance`). DB at `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`. Match tolerance is **0.5°**
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
+
+**▶ SHIPPED 2026-06-11 — M2 prep refactor: R1 cell-projection → library + ExpansionState.** Behaviour-preserving
+cleanup of the 215-line `BuildRows` ahead of the TS editor (own reviewable slice, no functional change). **R1:**
+the cell join (plans + inventory → per-`(target, filter, purpose, seconds)` cells tagged with match-state) moved
+to the library as `Reconcile/ReconciliationProjection.Project` → `IReadOnlyList<TargetCells>` (UI-agnostic;
+reusable by IS); the app's `BuildRows` shrank to **shaping only** (planes / rollups / signed hours / fills /
+panels / sort over the cells) with its signature unchanged, so the 7 `BuildRowsTests` pin behaviour. **ExpansionState:**
+the three expansion `HashSet`s left `MainViewModel` for a tested `ExpansionState` value object. Library 129 tests
+(+8 projection); TCM 53 (+6 ExpansionState); 0 warnings; grid output unchanged. **Next — the editing slice:** a
+**dialog-based** TS editor (select target → `desired`/`enabled` per filter + `active`/`priority` → Save in one
+txn via a new library `TargetSchedulerEditor`, clearing the target's `filtercadence` iff `enabled` toggled,
+audited; reader gains the `enabled` column). Structural add/remove of projects + filter-plans stays M3.
+**Pending: user's visual grid pass** (confirm 786 rows / 102 groups / 44·25·33 unchanged).
 
 **▶ Phase 4 — `TargetSchedulerWriter` — DONE (built 2026-06-08).** `tcm writeback [--apply]` fresh-rebuilds the
 catalog, then pushes disk-derived counts into a **local** TS copy (dry-run by default). Validated on real data:
