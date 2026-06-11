@@ -97,6 +97,17 @@ rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
+**▶ SHIPPED 2026-06-11 — code-review slice 1** (review in `docs\CODE-REVIEW-2026-06-10.md`, executed-status
+table at its top; library `c381a2e`+`8bf1aef`, host `b3d8b5d`, app `651abb6`). Three drift hazards
+single-sourced into the library — `EffectiveExposure` (THE effective sub-length rule; was 3 hand copies),
+`CatalogBuildReport.IssuesFor(...)` issue-membership API (planner + loader stop hand-indexing the report),
+`Reconciler.MergeFamilies` (parent rollup; console consumes) — plus host `Program.cs` split into
+`Cli\{CliOptions, BuildCommand, WriteBackCommand, ConsoleRenderer, WriteBackAuditLog}` with one shared
+writeback `ExecutePlan` tail and unknown-option warnings; app row VMs → `ViewModels\Rows\` (V1) and dev
+defaults single-sourced via linked `Shared\DevDefaults.cs` + `ResolveOptions.Default` (V2). 121 library
+tests (+13); tcm output + app DIAG verified number-identical. **R1 (full cell projection → library) +
+M2-prep (TsEditSession, loader interface, app tests) deferred as M2's opening move.**
+
 **▶ SHIPPED 2026-06-11 — mosaic panels are first-class targets** (library `b296d58`→`f11bee5`, host
 `8c1b7ee`, app `1191278`). *A panel is a normal target whose key is composite* (user's architectural
 principle): the scanner's one walk retains per-panel sub-reports; `target` gains `parent_target_id` (schema

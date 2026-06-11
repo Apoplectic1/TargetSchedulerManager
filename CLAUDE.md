@@ -8,8 +8,9 @@ TargetCatalogManager (TCM) is a .NET 10 app whose sole job is to **own and maint
 (`Catalog.db`) for the astrophotography portfolio. TCM is the **single writer**; XFM, TargetPlanner (TP), and
 IntervalScheduler (IS/ISP) are read-only consumers.
 
-This repo holds the headless console host (`Program.cs` at the repo root, assembly name `tcm`) and the WinUI 3
-app (`TargetCatalogManager.App\`, assembly name `tcmui` — Phase 3, read-only grid so far). **Almost all logic
+This repo holds the headless console host (assembly name `tcm`; `Program.cs` routes verbs, the commands /
+renderer / audit log live in `Cli\`) and the WinUI 3 app (`TargetCatalogManager.App\`, assembly name `tcmui` —
+Phase 3, read-only grid so far). **Almost all logic
 lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`). When a change
 is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files under
 `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` for the library's own guidance.
@@ -54,11 +55,12 @@ tcm writeback --apply      # commit to the --ts db (defaults to the TS Database 
 tcm writeback --target "NGC 6888 - Crescent"           # dry-run scoped to that target
 tcm writeback --target "Mosaic - Cygnus Loop" --apply  # each panel's counts -> its own TS plan
 
-# Override any path; all four are optional and default to this dev machine (see Program.cs)
+# Override any path; all four are optional and default to this dev machine (see Shared\DevDefaults.cs)
 tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
 ```
 
-Defaults (in `Program.cs`): catalog `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
+Defaults (in `Shared\DevDefaults.cs`, a linked source file both heads compile): catalog
+`E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
 library `E:\Photography\Astro Photography\Processing`, TS db the shared working copy under
 `Processing\Catalog\TS Database\schedulerdb.sqlite` (one location TCM + IS read, re-copyable from **BIRDWATCHER**;
 `schedulerdb - Copy.sqlite` restores it). The live TS database lives on BIRDWATCHER (cross-machine), so the
