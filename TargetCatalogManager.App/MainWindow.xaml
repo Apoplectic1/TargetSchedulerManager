@@ -34,7 +34,7 @@
                     </Grid.ColumnDefinitions>
                     <!-- Target enable (TS target.active): only on TS-backed target headers (CanEnableVisibility
                          hides it on disk-only and mosaic-parent rows). Click writes to the TS copy immediately. -->
-                    <CheckBox Grid.Column="0" MinWidth="0" Padding="0"
+                    <CheckBox Grid.Column="0" MinWidth="0" MinHeight="0" Padding="0" Margin="0"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Visibility="{x:Bind CanEnableVisibility}"
                               IsChecked="{x:Bind IsTargetEnabled}" IsThreeState="False"
