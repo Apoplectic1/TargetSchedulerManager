@@ -19,6 +19,20 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
+**▶ SHIPPED 2026-06-11 — logging extracted to shared `Astronomy.Diagnostics`; TCM + TP adopt it.** The
+hand-ported `Support/Log.cs` (TCM had copied it from TP, and they'd drifted) became a new pure-managed library
+**`Astronomy.Diagnostics`** in the `Library` repo (lib `f0b0fda`) — *convention-as-code*: `Log` (two verbosity
+axes — always-on Info/Warn/Error + gated Diag channels, default all-in-Debug / off-in-Release via the app's env
+var; session rotation; `%APPDATA%\<app>\Logs\` structure; USER_OBS protocol — all driven by `AppLogIdentity`) +
+`ScreenCapture.ToPng`. **TCM** (`7e908f1`) deleted its `Support/Log.cs` and calls `Log.Init("TargetCatalogManager",
+"tcm.log", "TCM_DIAG", …)` at startup (the Debug/Release diag default is passed by the app — a shared lib can't read
+the consumer's `#if DEBUG`); `System.Drawing.Common` moved to the library. **TP** (WinForms, `2a60d65`) adopts the
+*same* lib — **proving the contract is consumer-agnostic (one engine, two UI frameworks)**; a `global using` kept
+its ~140 call sites. TCM's Ctrl+N observation window also gained a **repeatable Capture button** (mid-session
+screenshots + a status readout) and **local-time** filenames (`8491e3b`). 47 TCM + 187 TP + 148 library tests, 0
+warnings. The per-app dialog stays per-app (WinForms `Form` vs WinUI `Window`); an `ObservationSession` to share the
+START/CAP/END/CANCEL orchestration is deferred.
+
 **▶ SHIPPED 2026-06-11 — M2 editing slice 2: in-grid `desired` editing + the `TsEditableSchema` reference.**
 The Desired cell on a **1:1 plan leaf row** is now an editable `NumberBox` (headers, disk rows, and mixed-seconds
 rollups stay read-only — the 1:1 rule, tested); committing on focus-loss writes `exposureplan.desired` to the
