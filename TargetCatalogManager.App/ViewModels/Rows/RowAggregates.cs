@@ -1,4 +1,4 @@
-namespace TargetCatalogManager.App.Models;
+namespace TargetCatalogManager.App.ViewModels.Rows;
 
 /// <summary>
 /// The column sums a collapsible header row shows for its leaves, computed one way for every level of the

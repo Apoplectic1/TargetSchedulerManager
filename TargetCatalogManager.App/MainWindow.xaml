@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:TargetCatalogManager.App"
-    xmlns:m="using:TargetCatalogManager.App.Models">
+    xmlns:m="using:TargetCatalogManager.App.ViewModels.Rows">
 
     <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
          {x:Bind} is typed, compile-time binding: a path typo is a build error, not a silent empty cell. -->

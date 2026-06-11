@@ -1,7 +1,8 @@
 using System.ComponentModel;
+using TargetCatalogManager.App.Models;
 using Microsoft.UI.Xaml.Media;
 
-namespace TargetCatalogManager.App.Models;
+namespace TargetCatalogManager.App.ViewModels.Rows;
 
 /// <summary>
 /// The collapsible header row for one target group: aggregates of the per-plane rows beneath it.

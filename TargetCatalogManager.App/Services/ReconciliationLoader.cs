@@ -5,6 +5,7 @@ using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetCatalogManager.App.Models;
+using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Support;
 
 namespace TargetCatalogManager.App.Services;
@@ -67,15 +68,6 @@ public static class ReconciliationLoader
         ILookup<Guid, ExposurePlan> plansByTarget = graph.Plans.ToLookup(p => p.TargetId);
         ILookup<Guid, InventoryFilter> invByTarget = graph.InventoryFilters.ToLookup(i => i.TargetId);
 
-        HashSet<string> aliasDirs = new(report.AliasTsTargets.Select(a => a.DiskDirectory), StringComparer.OrdinalIgnoreCase);
-        HashSet<string> dupDirs = new(report.DuplicateTsTargets.Select(d => d.DiskDirectory), StringComparer.OrdinalIgnoreCase);
-        HashSet<string> mismatchDirs = new(report.NameMismatches.Select(m => m.DiskDirectory), StringComparer.OrdinalIgnoreCase);
-        HashSet<string> ambiguousDirs = new(StringComparer.OrdinalIgnoreCase);
-        foreach (AmbiguousMatch a in report.AmbiguousMatches)
-            foreach (string d in a.CandidateDirectories)
-                ambiguousDirs.Add(d);
-        HashSet<string> unanchoredNames = new(report.UnanchoredTsTargets.Select(u => u.TsName), StringComparer.OrdinalIgnoreCase);
-
         ILookup<Guid, Target> childrenByParent = graph.Targets
             .Where(t => t.ParentTargetId is not null)
             .ToLookup(t => t.ParentTargetId!.Value);
@@ -128,11 +120,12 @@ public static class ReconciliationLoader
             string project = t.ProjectId is Guid pid && projects.TryGetValue(pid, out Project? proj) ? proj.Name : "—";
             string? dir = t.DirectoryName;
             bool isMosaic = dir is not null && MosaicConvention.IsMosaicDirectory(dir);
-            bool isAlias = dir is not null && aliasDirs.Contains(dir);
-            bool isDup = dir is not null && dupDirs.Contains(dir);
-            bool isMismatch = dir is not null && mismatchDirs.Contains(dir);
-            bool isAmbiguous = dir is not null && ambiguousDirs.Contains(dir);
-            bool isUnanchored = t.Source == TargetSource.Planned && unanchoredNames.Contains(t.Name);
+            TargetMatchIssues issues = report.IssuesFor(dir);
+            bool isAlias = issues.HasFlag(TargetMatchIssues.Alias);
+            bool isDup = issues.HasFlag(TargetMatchIssues.Duplicate);
+            bool isMismatch = issues.HasFlag(TargetMatchIssues.NameMismatch);
+            bool isAmbiguous = issues.HasFlag(TargetMatchIssues.AmbiguousMatch);
+            bool isUnanchored = t.Source == TargetSource.Planned && report.IsUnanchoredName(t.Name);
 
             // Aggregate plans and inventory per (filter, purpose, exposure seconds), filter case-insensitive;
             // the pairing pass below decides which cells merge into Both rows and which stay one-plane.
@@ -140,9 +133,7 @@ public static class ReconciliationLoader
             foreach (ExposurePlan p in plansByTarget[t.Id])
             {
                 if (!templates.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
-                // Effective planned sub length: the plan's own value, else its template default
-                // (the resolver already normalized TS's -1 sentinel to null). 0 = unknown.
-                int seconds = (int)Math.Round(p.ExposureSeconds ?? tpl.DefaultExposureSeconds ?? 0.0);
+                int seconds = EffectiveExposure.Seconds(p, tpl);
                 Cell c = GetCell(cells, tpl.FilterName, FilterPurposeClassifier.Classify(tpl.Name), seconds);
                 c.Desired += p.DesiredCount;
                 c.Acquired += p.AcquiredCount;

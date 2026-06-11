@@ -1,7 +1,8 @@
 using System.ComponentModel;
+using TargetCatalogManager.App.Models;
 using Microsoft.UI.Xaml.Media;
 
-namespace TargetCatalogManager.App.Models;
+namespace TargetCatalogManager.App.ViewModels.Rows;
 
 /// <summary>
 /// The collapsible mini-header for one mosaic panel inside its target group: the panel's own classification

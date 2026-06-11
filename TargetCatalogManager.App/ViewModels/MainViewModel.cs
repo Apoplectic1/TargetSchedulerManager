@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Astronomy.Catalog.Build;
 using TargetCatalogManager.App.Models;
+using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
 
 namespace TargetCatalogManager.App.ViewModels;
@@ -23,11 +25,11 @@ public enum SortMode
 /// </summary>
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    // Dev defaults, mirroring Program.cs in the console host (kept in the app, not the shared library —
-    // they're machine-specific). A settings page can replace these later.
-    public const string DefaultLibrary = @"E:\Photography\Astro Photography\Processing";
-    public const string DefaultTs = @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";
-    public const double DefaultToleranceDegrees = 0.5;
+    // Dev defaults: paths come from the linked Shared\DevDefaults.cs (one definition with the console
+    // host); the tolerance is the library's own resolver default. A settings page can replace these later.
+    public const string DefaultLibrary = DevDefaults.Library;
+    public const string DefaultTs = DevDefaults.TsDatabase;
+    public static readonly double DefaultToleranceDegrees = ResolveOptions.Default.MatchToleranceDegrees;
 
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;

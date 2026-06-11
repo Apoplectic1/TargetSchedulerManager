@@ -38,11 +38,11 @@ public sealed partial class MainWindow : Window
     // rollups; clicks on plain one-plane rows fall through.
     private void Row_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is Models.TargetGroupRow group)
+        if (e.ClickedItem is ViewModels.Rows.TargetGroupRow group)
             ViewModel.ToggleGroup(group);
-        else if (e.ClickedItem is Models.PanelGroupRow panel)
+        else if (e.ClickedItem is ViewModels.Rows.PanelGroupRow panel)
             ViewModel.TogglePanel(panel);
-        else if (e.ClickedItem is Models.ReconciliationRow { Detail: not null } rollup)
+        else if (e.ClickedItem is ViewModels.Rows.ReconciliationRow { Detail: not null } rollup)
             ViewModel.ToggleRollup(rollup);
     }
 

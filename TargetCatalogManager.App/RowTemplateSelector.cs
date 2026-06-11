@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using TargetCatalogManager.App.Models;
+using TargetCatalogManager.App.ViewModels.Rows;
 
 namespace TargetCatalogManager.App;
 

@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
-namespace TargetCatalogManager.App.Models;
+namespace TargetCatalogManager.App.ViewModels.Rows;
 
 /// <summary>
 /// The soft system fills behind delta cells, resolved from the app's theme resources. One convention

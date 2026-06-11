@@ -37,4 +37,9 @@
     <ProjectReference Include="..\..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj" />
   </ItemGroup>
 
+  <!-- Dev-default paths single-sourced with the console host (which compiles the same file via its root glob). -->
+  <ItemGroup>
+    <Compile Include="..\Shared\DevDefaults.cs" Link="Shared\DevDefaults.cs" />
+  </ItemGroup>
+
 </Project>
