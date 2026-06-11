@@ -97,6 +97,14 @@ rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
+**▶ SHIPPED 2026-06-10 — review round 2: verified + XS fixes** (`docs\CODE-REVIEW-2026-06-10-round2.md`,
+fixes `b67ddfa` + library `7ce569d`). Independent re-review verified every slice-1 claim against the code
+(library mounted; all round-1 caveats resolved; no regressions). Fixed its findings: **B1** `--apply <value>`
+now warns + stays dry-run (was: any value armed apply on a db-writing verb), **B2** unknown options warn AND
+are ignored (key + value pair), **B3** thread-safety doc line on the report's lazy indexes, **B4**
+console-capture caveat comment. Cli tests 11 → 13 (48 TCM total). M2 backlog confirmed: R1 opening move,
+§7.2 cancellation threading, TsEditSession + loader seam, §7.5 ExpansionState.
+
 **▶ SHIPPED 2026-06-10 — TCM test projects** (`2f74a9f`): the repo's "no tests, thin host" rationale retired.
 `TargetCatalogManager.Cli.Tests` (11 — `CliOptions` parsing/warnings; dies with the transitional CLI head) +
 `TargetCatalogManager.App.Tests` (34 — `BuildRows` cell projection pinned ahead of R1, `MainViewModel`
