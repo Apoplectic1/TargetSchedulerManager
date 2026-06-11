@@ -1,6 +1,6 @@
 # TCM Code Review — 2026-06-10
 
-> **Executed status (2026-06-11, "slice 1"):**
+> **Executed status (2026-06-10, "slice 1"):**
 >
 > | # | Status | Where |
 > |---|---|---|
