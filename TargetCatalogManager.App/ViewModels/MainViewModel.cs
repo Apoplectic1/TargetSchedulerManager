@@ -34,12 +34,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;
 
-    // Grouping state. Expansion is keyed by target name (plus target|panel for mosaic panels and
-    // target|panel|filter|purpose for the nested mixed-seconds rollups) so it survives filter changes
-    // and reloads; collapsed is the default for anything never touched.
-    private readonly HashSet<string> _expandedTargets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _expandedPanels = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _expandedRollups = new(StringComparer.OrdinalIgnoreCase);
+    // Grouping state. Expansion (targets, mosaic panels, mixed-seconds rollups) survives filter changes and
+    // reloads; see ExpansionState for the keying. Collapsed is the default for anything never touched.
+    private readonly ExpansionState _expansion = new();
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -160,7 +157,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             // Remove everything under this header (panel rows, children, any expanded rollup detail).
             while (index + 1 < _rows.Count && _rows[index + 1] is not TargetGroupRow)
                 _rows.RemoveAt(index + 1);
-            _expandedTargets.Remove(group.Target);
+            _expansion.SetTarget(group.Target, expanded: false);
         }
         else
         {
@@ -168,7 +165,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             AppendGroupContent(content, group);
             for (int i = 0; i < content.Count; i++)
                 _rows.Insert(index + 1 + i, content[i]);
-            _expandedTargets.Add(group.Target);
+            _expansion.SetTarget(group.Target, expanded: true);
         }
         group.IsExpanded = !group.IsExpanded;
 
@@ -192,7 +189,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             // panel or target header.
             while (index + 1 < _rows.Count && _rows[index + 1] is ReconciliationRow)
                 _rows.RemoveAt(index + 1);
-            _expandedPanels.Remove(key);
+            _expansion.SetPanel(key, expanded: false);
         }
         else
         {
@@ -200,7 +197,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             AppendLeaves(content, panel.Children);
             for (int i = 0; i < content.Count; i++)
                 _rows.Insert(index + 1 + i, content[i]);
-            _expandedPanels.Add(key);
+            _expansion.SetPanel(key, expanded: true);
         }
         panel.IsExpanded = !panel.IsExpanded;
 
@@ -251,13 +248,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             for (int i = 0; i < detail.Count; i++)
                 _rows.RemoveAt(index + 1);
-            _expandedRollups.Remove(RollupKey(rollup));
+            _expansion.SetRollup(RollupKey(rollup), expanded: false);
         }
         else
         {
             for (int i = 0; i < detail.Count; i++)
                 _rows.Insert(index + 1 + i, detail[i]);
-            _expandedRollups.Add(RollupKey(rollup));
+            _expansion.SetRollup(RollupKey(rollup), expanded: true);
         }
         rollup.IsExpanded = !rollup.IsExpanded;
 
@@ -273,14 +270,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public void ExpandAll()
     {
-        foreach (TargetGroupRow g in _groups)
-            _expandedTargets.Add(g.Target);
+        _expansion.ExpandTargets(_groups.Select(g => g.Target));
         ApplyFilters();
     }
 
     public void CollapseAll()
     {
-        _expandedTargets.Clear();
+        _expansion.CollapseAllTargets();
         ApplyFilters();
     }
 
@@ -314,9 +310,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         .Select(p => new PanelGroupRow(
                             g.Key, p.Key, p.First().PanelLabel ?? p.Key,
                             p.First().PanelSource ?? all[0].Source, [.. p],
-                            _expandedPanels.Contains($"{g.Key}|{p.Key}")))];
+                            _expansion.IsPanelExpanded($"{g.Key}|{p.Key}")))];
                 }
-                return new TargetGroupRow(g.Key, all, _expandedTargets.Contains(g.Key), panels);
+                return new TargetGroupRow(g.Key, all, _expansion.IsTargetExpanded(g.Key), panels);
             })];
 
         // The sort dropdown orders the groups by their aggregates; children stay in filter order.
@@ -342,7 +338,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             foreach (ReconciliationRow child in g.Children)
             {
                 if (child.Detail is not null)
-                    child.IsExpanded = _expandedRollups.Contains(RollupKey(child));
+                    child.IsExpanded = _expansion.IsRollupExpanded(RollupKey(child));
             }
 
             visible.Add(g);
