@@ -90,10 +90,14 @@ The pipeline `Program.Main` runs (all in `Astronomy.Catalog`):
 TS is read via the hardened read-only `TargetSchedulerReader` (TargetScheduler/).
 
 Load-bearing invariants (full detail in `ARCHITECTURE.md`):
-- **Coordinate-primary matching** — each TS target anchors to the nearest disk target within a haversine
-  tolerance (default **0.5°**); name only validates; **disk plate-solved coords win** on merge; the TS guid is
-  retained on `Both` as `imported_from_ts_guid` for Phase-4 write-back. Mismatches / ambiguous / duplicates /
+- **Coordinate-primary, scope-equal matching** — each TS target anchors to the nearest disk unit *of its own
+  scope* within a haversine tolerance (default **0.5°**); name validates (panels via their directory token);
+  an aligned claim outranks an unaligned one; **disk plate-solved coords win** on merge; the TS guid is
+  retained on `Both` as `imported_from_ts_guid` for write-back. Mismatches / ambiguous / duplicates /
   unanchored / coerced rows are **reported in `CatalogBuildReport`, not dropped**.
+- **A mosaic panel is a normal target** with a composite key: one parent row (grouping node, no plans or
+  inventory) + one child target per panel (`parent_target_id`); plans and inventory hang off children;
+  write-back treats panels like any other target. `GetShotTargets()` is top-level only.
 - **No migration framework** — the catalog is fully derived (scan + TS) and rebuildable. A schema change just
   means deleting `Catalog.db`. There is no `schema_migration` / `user_version`. Schema is an embedded idempotent
   `schema.sql`.

@@ -97,6 +97,20 @@ rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
+**▶ SHIPPED 2026-06-11 — mosaic panels are first-class targets** (library `b296d58`→`f11bee5`, host
+`8c1b7ee`, app `1191278`). *A panel is a normal target whose key is composite* (user's architectural
+principle): the scanner's one walk retains per-panel sub-reports; `target` gains `parent_target_id` (schema
+change → Catalog.db deleted/rebuilt); the resolver flows panels through the ONE standard loop — **scope
+keys** (anchor within your key-space; no mosaic conditional in matching), token name-validation
+(`Panel 01of16` → `P1`), and the **aligned-outranks-unaligned rule** (an unshot panel inside tolerance of
+its shot neighbour stays planned instead of becoming a false duplicate — the Witch Head fix). Bulk
+write-back auto-writes panels (`ManualReason.Mosaic` retired; manual went 38 mosaic groups → 6 flagged
+Rosette `Panel Center` cells + 1 MultiPlan); console rolls panels up under parents (`Reconciler.Merge`);
+the grid gains the panel level (target → panel → filter → seconds detail, collapsed by default, labels
+"Panel 01of16 · CygnusLoop P1"). Real data: 6 mosaics → 28 matched / 10 planned-only / 7 disk-only panels;
+786 rows / 102 groups; 108 library tests. "Rig" (telescope/camera/mode) flagged as a future key dimension —
+deliberately deferred. **Pending: user's visual pass on the panel level; `--apply` not yet run post-panels.**
+
 **▶ SHIPPED 2026-06-10 — exposure-aware write-back (library `87ae471`, host `ba23f06`).** The write key is now
 **(target, filter, purpose, whole-second exposure)** — *the plan's seconds is the spec* (user-decided strict
 semantics): each plan receives the disk count at exactly its effective duration (plan exposure ?? template

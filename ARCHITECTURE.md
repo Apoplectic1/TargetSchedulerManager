@@ -48,20 +48,24 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
 ## Key facts
 
 - **DB location:** `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db` (co-located with the data it indexes).
-- **Reconciliation:** coordinate-primary — each TS target anchors to the nearest disk target within a tolerance
-  (default 0.5° haversine); name only validates; disk plate-solved coords win on merge; the TS guid is retained
-  on `Both` for write-back. TS duplicates fold onto one canonical, and name-mismatch / ambiguous / unanchored /
-  out-of-range rows are reported in `CatalogBuildReport`, not dropped. First real run (2026-06): 70 disk × 102 TS
-  → 39 Both / 62 Planned / 31 Actual, 1 name-mismatch (`CygnusLoop P3` ↔ `NGC 6995`, coords-matched despite the
-  name — since fixed by mosaic handling), 1 TS duplicate (`M27` / `Dumbell`) in ~1s.
-- **Mosaics & disk identity:** disk identity is the **`directory_name`** (`UNIQUE`), never RA/Dec — overlapping
-  dirs (a mosaic and a sub-region) are distinct targets. A `Mosaic - <Name>` dir nests an extra opaque *panel*
-  level (the scanner descends it, aggregating per filter into one target) and **name-matches** the same-named
-  `isMosaic` TS project, folding its panels' goals onto that one disk target → mosaic-level goal-vs-actual;
-  **bulk** write-back routes mosaics to manual, while **`tcm writeback --target`** writes each panel's counts to
-  that panel's own TS plan (see Phase 4). Panels are excluded from coordinate matching so they can't mis-anchor onto
-  an overlapping standalone dir (`CygnusLoop P3` no longer grabs `NGC 6995 - Eastern Veil`). Real run: 6 mosaics,
-  38 panels folded, name-mismatches now 0.
+- **Reconciliation:** coordinate-primary, scope-equal — every disk unit (a top-level dir OR one mosaic panel)
+  carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
+  none for a mosaic parent, which matches by project name); each TS target derives its scope from its own
+  grouping (isMosaic project → that scope, else default). ONE rule: anchor to the nearest in-tolerance unit
+  of the same scope (default 0.5° haversine); name validates (a panel validates via its directory token —
+  `Panel 01of16` → `P1`); **an aligned claim outranks an unaligned one** (a nearby-but-differently-named
+  target releases back to planned instead of piling onto a directory a correctly-named target owns — the
+  Witch Head shape). Disk plate-solved coords win on merge; the TS guid is retained on `Both` for write-back.
+  Cross-scope matches are impossible by construction (`CygnusLoop P3` can never grab `NGC 6995`). Duplicates /
+  aliases / mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped.
+- **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
+  dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
+  sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one
+  **child target per panel** (`parent_target_id` set; `directory_name` = `<mosaic dir>/<panel label>`; own
+  centroid, own TS provenance, own plans + inventory). Bulk write-back therefore treats panels as ordinary
+  targets (the old mosaic→manual routing is gone); `GetShotTargets()` returns top-level rows only (panels
+  via `GetChildTargets`); the console rolls panel reconciliations up under the parent's name
+  (`Reconciler.Merge`). Real run: 6 mosaics → 28 matched / 10 planned-only / 7 disk-only panels.
 - **Schema rules:** GUID `BLOB(16)` PKs (big-endian, see `GuidBlob`), `snake_case`, NULL not sentinels, enum
   lookup tables + CHECK, every FK indexed, UNIX-seconds timestamps. **No `schema_migration` / `user_version`** —
   a schema change just means deleting the regenerable `Catalog.db`.
