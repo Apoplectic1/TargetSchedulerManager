@@ -1,23 +1,32 @@
-# TargetCatalogManager (TCM) — Roadmap
+# TargetSchedulerManager (TSM) — Roadmap
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
+> **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
+> keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
+
 ## Status — pick up here (2026-06-11)
 
-Phases 1–2 are **done and working on real data**. The headless host (`tcm`) rebuilds `Catalog.db` from the image
-library (ACTUAL) + the TS snapshot (PLAN) and prints reconciliation + goal-vs-actual in ~1s:
+TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
+disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
+prefers the **live BIRDWATCHER TS db** over SMB (LIVE/LOCAL badge, guarded + read-back-verified writes). Editing
+shipped so far: target enable checkbox + in-grid `desired` (verified live in NINA). Real data: 77 disk × 102 TS
+targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panels), 783 grid rows. Match tolerance
+**0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
+before code) → load-split; write-back resurfaces as an app action.
 
-- **77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only**, 6 mosaics (38 panels folded); **0
-  name-mismatches / 0 ambiguous** (mosaic handling fixed the old `CygnusLoop P3` ↔ `NGC 6995`), 1 TS
-  alias-duplicate (`M27` / `Dumbell` — see Open decision below).
-- **goal vs actual:** 69 planned targets (6 complete / 38 in-progress / 25 not-started), **12235 / 30088 frames
-  done**, 17853 remaining.
-
-All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings). The TCM project itself is just
-`Program.cs` (the headless host) so far — **no UI yet**. Run it: `tcm` (override `--catalog --library --ts
---tolerance`). DB at `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`. Match tolerance is **0.5°**
-(validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
-0.569° just outside — left as-is by choice).
+**▶ SHIPPED 2026-06-11 — project renamed TargetCatalogManager → TargetSchedulerManager (TSM).** The "Catalog"
+name was legacy (the catalog builder left with the CLI; `Catalog.db` goes to the planned LCM) — the app manages
+the N.I.N.A. **Target Scheduler** db, so it is now named for what it does. Deep rename: solution
+`TargetSchedulerManager.slnx`, projects/namespaces `TargetSchedulerManager.App[.Tests]`, assembly **`tsmui`**,
+log identity **`tsm.log` / `TSM_DIAG` / `%APPDATA%\TargetSchedulerManager\Logs\`** (old notes stay in the old
+folder; no migration by design), window title, app.manifest, docs (CLAUDE / ARCHITECTURE re-framed to app-only
+reality; dated history kept verbatim). Top source dir renamed `…\Astronomy\TargetCatalogManager` →
+`…\Astronomy\TargetSchedulerManager` (user-performed). Same day, earlier: the Ctrl+N window was renamed
+**Observation → Diagnostics** (`ca97d89`; helper label dropped; TP mirrored in `a48f7f2` incl. its verify-ui
+literals) — the shared `USER_OBS_*` log protocol keeps its name in `Astronomy.Diagnostics`. Library doc-comments
+that named TCM were degenericized to consumer-neutral wording per shared-lib discipline (separate Library
+commit). 47 tests green, 0 warnings.
 
 **▶ SHIPPED 2026-06-11 — logging extracted to shared `Astronomy.Diagnostics`; TCM + TP adopt it.** The
 hand-ported `Support/Log.cs` (TCM had copied it from TP, and they'd drifted) became a new pure-managed library
@@ -369,4 +378,4 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
 ## Phase 5 — Consumer cutover
 
 - Point XFM / TP / IS at `Astronomy.Catalog` to read `Catalog.db`; remove XFM's scheduler tab.
-- Add TCM to TP's glossary; reconcile the IS design docs (Catalog.db is the hub; IS is a consumer).
+- Add TSM to TP's glossary; reconcile the IS design docs (Catalog.db is the hub; IS is a consumer).

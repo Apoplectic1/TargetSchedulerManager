@@ -1,0 +1,25 @@
+<Solution>
+  <!-- Pin the solution to x64 only: TSM is x64-only and the AL libraries support x64 (they keep AnyCPU as well for
+       standalone `dotnet build <csproj>`). Without this block VS auto-derives an "Any CPU" platform from the AL
+       libraries that x64-only TSM can't map to. -->
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <!-- Every project carries an explicit all-configs mapping: VS excludes unmapped projects from the build
+       (F5 then can't launch them), while CLI MSBuild default-includes them — keep both interpreters agreeing. -->
+  <Project Path="../Library/Astronomy.Catalog/Astronomy.Catalog.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="../Library/Astronomy.Diagnostics/Astronomy.Diagnostics.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="../Library/Astronomy.XISF/Astronomy.XISF.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="TargetSchedulerManager.App/TargetSchedulerManager.App.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="TargetSchedulerManager.App.Tests/TargetSchedulerManager.App.Tests.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+</Solution>
