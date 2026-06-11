@@ -19,6 +19,36 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
+**▶ SHIPPED 2026-06-11 — M2 editing slice 2: in-grid `desired` editing + the `TsEditableSchema` reference.**
+The Desired cell on a **1:1 plan leaf row** is now an editable `NumberBox` (headers, disk rows, and mixed-seconds
+rollups stay read-only — the 1:1 rule, tested); committing on focus-loss writes `exposureplan.desired` to the
+**live BIRDWATCHER db**, **verified end-to-end in NINA**. Built **reference-driven** (the user's "a global
+reference to our copy of the TS tables, not guess-per-field" call): new library **`TsEditableSchema`** — one
+declarative row per editable TS column (table · exact SQLite column · type · cadence-safe? · enum/range), authored
+from the TS plugin schema, since `PRAGMA` yields column names/types but not *which* are user-editable vs stats/keys
+nor which break cadence (domain knowledge). The editor drives off it: generic **`SetField`/`ReadField`** validated
+against the reference (which doubles as the SQL-injection whitelist) + **`IsFieldAvailable`** (a `PRAGMA` drift
+guard); the three typed setters became thin wrappers. Cadence-breakers (`exposureplan.enabled`,
+`project.filterswitchfrequency`) are **flagged, not handled** — a plain UPDATE, so a caller must warn/defer. App
+side: one guarded primitive **`ApplyFieldEditAsync(table, key, column, value)`** now shared by the enable checkbox
+*and* desired (LIVE/LOCAL + open-sidecar/read-only/column-absent refusal + read-back verify + audit +
+BIRDWATCHER-drop sticky-fall). Edits apply **in place** — the leaf takes the new count and its group/panel totals
+re-aggregate via INPC — instead of reloading, so **scroll position and a half-typed next cell survive and rapid
+edits aren't torn down**; `SqliteConnection.ClearAllPools()` after each write fixes a stale read over SMB (a pooled
+reader was serving cached pages, `tsRead=0.00s`, showing a verified write as if it hadn't taken). Library
+`ReconciliationCell` now carries `PlanTsKey`/`TemplateTsKey` (single-plan) + `TargetCells.ProjectTsKey` as the
+write-back addresses. Library 148 tests, TCM 46, 0 warnings. Commits: library `563836d`, TCM `d4dc39d`
+(on `70bace1` panel-removal).
+
+**Two UI decisions this session — recorded so they're not re-litigated.** (1) The **docked dossier panel was
+built then dropped** ("a waste of space") — editing goes **in-grid**, in the existing flattened-`ListView` idiom.
+(2) **WinUI.TableView was evaluated and rejected** as the editing surface: the overview grid is a *hierarchical
+tree* (target → panel → leaf → rollup) a flat data-grid can't render, and the app's coherence — one paradigm, zero
+deps, DB-as-truth re-derive — wins over a foreign editable grid (re-addable on a branch if a flat whole-catalog
+spreadsheet ever emerges). **NEXT (same lane, ~one field each):** `priority` (target/project, cadence-safe) →
+per-filter `enabled` (cadence-**breaking** — adds the `FilterCadenceItem` clear, lifting TS's `ToggleExposurePlan`)
+→ the **load-split** (Reload re-reads TS-only against the cached disk scan, ~0.3 s vs ~2 s).
+
 **▶ SHIPPED 2026-06-11 — CLI removed; TCM is app-only.** The transitional `tcm` console host (`Program.cs`,
 `Cli\`, the root csproj, `Cli.Tests`) was deleted — it had become a dual-head maintenance tax (every feature done
 twice). TCM is now purely the WinUI **TS-database manager**. `DevDefaults` + `TsDatabaseResolver` moved into the

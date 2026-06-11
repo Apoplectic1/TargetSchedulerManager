@@ -206,6 +206,29 @@ public class BuildRowsTests
         Assert.Contains(rollup.Detail!, d => d.PlanTsKey == "ep-b");
     }
 
+    [Fact]
+    public void EditingDesiredInPlace_ReaggregatesTheGroupHeaderTotals()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, tsKey: "ep-1")], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+        ReconciliationRow leaf = Assert.Single(rows);
+        TargetGroupRow header = new("M 81", rows, isExpanded: false, isTargetEnabled: true);
+        Assert.Equal(10, header.Desired);
+
+        // What SetPlanDesiredAsync does after a verified write — no grid rebuild:
+        leaf.ApplyDesired(25);
+        header.Recompute();
+
+        Assert.Equal(25, leaf.Desired);
+        Assert.Equal(25 * 300 / 3600.0, leaf.PlanHours!.Value, precision: 10);   // derived hours follow
+        Assert.Equal(25, header.Desired);                                        // the title row's total follows
+        Assert.Equal(4, header.Disk);                                            // disk untouched by a desired edit
+    }
+
     // ---- builders (mirroring Astronomy.Catalog.Tests') ----------------------
 
     private static CatalogGraph Graph(
