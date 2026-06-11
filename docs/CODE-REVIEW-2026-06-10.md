@@ -10,7 +10,8 @@
 > | C1 + §7.1 | ✅ `Program.cs` → `Cli\{CliOptions, BuildCommand, WriteBackCommand, ConsoleRenderer, WriteBackAuditLog, CliLog}` + shared `ExecutePlan` tail; unknown-option/stray-arg warnings | TCM `b3d8b5d` |
 > | V1 | ✅ row types → `ViewModels\Rows\` (incl. `RowAggregates` — it consumes `ReconciliationRow`, so leaving it in `Models\` would invert the layering); UI-free `RowSource`/`RowPlane` stay in `Models\RowEnums.cs` with `Format` | TCM `651abb6` |
 > | V2 | ✅ `Shared\DevDefaults.cs` linked source file (option 1); VM tolerance from `ResolveOptions.Default` | TCM `b3d8b5d`, `651abb6` |
-> | R1 (full cell projection), M2-prep, §7.2/§7.5 | ⏳ deferred — agreed as M2's opening move |
+> | §6 tests | ✅ two test projects (user chose split: Cli tests retire with the transitional CLI): `TargetCatalogManager.Cli.Tests` (11 — CliOptions) + `TargetCatalogManager.App.Tests` (34 — `BuildRows` pinned pre-R1, VM pipeline, row/aggregate/format rules; plain test host, brush getters excluded; `SetRowsForTest` internal seam) | TCM `2f74a9f` |
+> | R1 (full cell projection), TsEditSession + loader interface, §7.2/§7.5 | ⏳ deferred — agreed as M2's opening move |
 >
 > Verified after each slice: library tests 108 → 121; `tcm` build/writeback output number-identical; app launch DIAG identical (786 rows / 102 groups / panels 28/10/7).
 

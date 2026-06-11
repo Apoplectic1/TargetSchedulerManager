@@ -97,6 +97,15 @@ rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
+**▶ SHIPPED 2026-06-10 — TCM test projects** (`2f74a9f`): the repo's "no tests, thin host" rationale retired.
+`TargetCatalogManager.Cli.Tests` (11 — `CliOptions` parsing/warnings; dies with the transitional CLI head) +
+`TargetCatalogManager.App.Tests` (34 — `BuildRows` cell projection pinned ahead of R1, `MainViewModel`
+filter/toggle/expansion pipeline via the internal `SetRowsForTest` seam, Hours sign convention, `RowAggregates`
+additivity, `Format.Hours`). The WinUI head tests run in a **plain test host** — no XAML runtime; only the two
+`Brush` getters are out of bounds. `dotnet test TargetCatalogManager.slnx` runs everything. Also this date:
+no-migration rule confirmed portfolio-wide (none present; TS guards are refusal-only), doc dates corrected to
+user-local (machine clock runs ahead in the evening), logs switched to local-time stamps (`603f3a9`).
+
 **▶ SHIPPED 2026-06-10 — code-review slice 1** (review in `docs\CODE-REVIEW-2026-06-10.md`, executed-status
 table at its top; library `c381a2e`+`8bf1aef`, host `b3d8b5d`, app `651abb6`). Three drift hazards
 single-sourced into the library — `EffectiveExposure` (THE effective sub-length rule; was 3 hand copies),

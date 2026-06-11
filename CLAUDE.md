@@ -68,8 +68,18 @@ default is a local copy — `writeback --apply` against it is restorable, never 
 
 ## Tests
 
-There are **no tests in this repo** — `Program.cs` is a thin host. The logic it drives is covered by tests in
-the **library repo**:
+Two test projects in this repo (`dotnet test TargetCatalogManager.slnx` runs both):
+
+- **`TargetCatalogManager.Cli.Tests`** — `CliOptions` parsing + warnings. Scoped to the transitional CLI
+  head; retires with it at the IS/ISP cutover.
+- **`TargetCatalogManager.App.Tests`** — the app's real logic: `ReconciliationLoader.BuildRows` (internal,
+  via `InternalsVisibleTo`), `MainViewModel` filter/toggle pipeline (`SetRowsForTest` seam — the injectable
+  loader interface is an M2 item), row Hours/search rules, `RowAggregates`, `Format`. Runs in a **plain
+  test host (no XAML runtime)**: never touch the `Brush` getters (`SecondsBackground`/`HoursBackground` need
+  `Application.Current`) — those stay app-verified. `TestEnv` blanks `TCM_DIAG` so VM tests can't write the
+  user's session log.
+
+The heavy logic (schema / scan / resolve / write-back) is covered in the **library repo**:
 
 ```bash
 # from ..\Library
