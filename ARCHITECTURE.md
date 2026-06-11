@@ -78,8 +78,11 @@ not yet shot), `Both` (planned **and** shot — the two resolved onto one row). 
   column lists, schema-version aware). Write-back shipped in Phase 4 (`tcm writeback`, see below). All TS interop
   (read *and* write) is a **stop-gap** until IS/ISP reads `Catalog.db` directly — though a *long* one (TS is the
   daily scheduler until IS exists), and the Phase-3 UI shell built on it is permanent; only the TS data layer is
-  disposable. The live TS DB lives on the imaging PC (cross-machine), so write-back and the Phase-3 editor
-  operate on a local copy.
+  disposable. The live TS DB lives on the imaging PC (BIRDWATCHER, cross-machine). **TCM now reads + writes that
+  live db directly over SMB when it is network-reachable, falling back to the local working copy when it is not**
+  (`TsDatabaseResolver`, ~1.5 s probe; a loud LIVE/LOCAL indicator says which). The risk of live SQLite-over-SMB is
+  accepted and mitigated: a daily Macrium image of BIRDWATCHER (corruption → restore) and a night-image/day-edit
+  rhythm (the rig is idle when editing, so the open-sidecar guard rarely even trips).
 - **Reuse:** the scan is `Astronomy.Catalog.Scan.ImageLibraryScanner` (on `Astronomy.XISF`'s header reader); the
   SQLite mapper pattern came from XFM.
 
@@ -106,10 +109,11 @@ invariants (full spec in `ROADMAP.md` Phase 4):
   multi-plan or a dup-fold target), **and** any target whose match is flagged (name-mismatch / ambiguous coord),
   are held for manual resolution with full info, never auto-written — a false-positive coordinate match must not
   overwrite a real TS target.
-- **Safe by construction.** Operates on a local DB copy (never the live imaging-PC db) with hard guards
-  (open-connection sidecars, read-only file, and `exposureplan` column presence — *not* an exact schema version,
-  which the NINA-nightly bumps), dry-run by default, one transaction + read-back verify. No backups — both DBs are
-  recreatable. The writer uses a private SQLite cache (so it doesn't inherit the build-reader's read-only shared
+- **Guarded, not copy-isolated.** Targets the **live** BIRDWATCHER db when reachable (else the local copy) via
+  `TsDatabaseResolver`; the hard guards do the protecting — refuse an open `-wal`/`-shm`/`-journal` sidecar (TS
+  mid-transaction), a read-only file, or missing `exposureplan` columns (*not* an exact schema version, which the
+  NINA-nightly bumps) — plus dry-run by default and one transaction + read-back verify. No app-side backups — the
+  daily Macrium image is the recovery path and both DBs are recreatable. The writer uses a private SQLite cache (so it doesn't inherit the build-reader's read-only shared
   cache); a fresh re-scan each run can't push stale numbers.
 - **Surgical single-target (`--target`).** `tcm writeback --target "<dir>"` scans one directory only (no catalog
   rebuild) and writes just its cells; a **mosaic writes per panel** — each panel dir coordinate-anchors to its TS

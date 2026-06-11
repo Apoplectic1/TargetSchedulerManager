@@ -19,6 +19,17 @@ All logic lives in the shared `Astronomy.Catalog` library (75 tests, 0 warnings)
 (validated 2026-06-04: a sweep showed a clean gap, two near-misses `Forsaken` 0.50° / `Pickering↔CygnusLoop P11`
 0.569° just outside — left as-is by choice).
 
+**▶ SHIPPED 2026-06-11 — live BIRDWATCHER TS db (read + write), local fallback.** TCM no longer edits only a
+local copy. `TsDatabaseResolver` (`Shared\`, both heads) probes `\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`
+under a ~1.5 s timeout (so a down host can't hang startup on SMB) → **LIVE when reachable, else the local working
+copy**. The CLI `--ts` default + the app's load both flow through it (an explicit `--ts` still wins); the CLI
+banner + a caution-colored app toolbar badge say which, and writeback's audit logs `live=`. This **reverses the
+old "never the live db" invariant** — risk accepted + mitigated: daily Macrium image of BIRDWATCHER (corruption →
+restore), night-image/day-edit rhythm (rig idle when editing), plus the existing open-sidecar / read-only refusals
++ read-back verify. Verified: `tcm` reads the live db over SMB (banner LIVE, 102 TS / 44·25·33, 2.0 s); resolver
+tests (reachable→live, missing/bad-path→local); 56 TCM tests, 0 warnings. **Pending user's pass:** app badge reads
+LIVE, a target-enable toggle lands on the live db (`py`+sqlite3 on the UNC), BIRDWATCHER-off shows LOCAL.
+
 **▶ SHIPPED 2026-06-11 — M2 editing slice 1: target-enable checkbox (immediate write).** First TS edit. A compact
 checkbox is the grid's new **leftmost column**, on the **target group-header only** (hidden on disk-only +
 mosaic-parent rows — no TS target behind them). Toggling writes `target.active` to the **local TS working copy

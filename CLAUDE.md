@@ -61,10 +61,12 @@ tcm --catalog PATH --library PATH --ts PATH --tolerance DEG
 
 Defaults (in `Shared\DevDefaults.cs`, a linked source file both heads compile): catalog
 `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`,
-library `E:\Photography\Astro Photography\Processing`, TS db the shared working copy under
-`Processing\Catalog\TS Database\schedulerdb.sqlite` (one location TCM + IS read, re-copyable from **BIRDWATCHER**;
-`schedulerdb - Copy.sqlite` restores it). The live TS database lives on BIRDWATCHER (cross-machine), so the
-default is a local copy — `writeback --apply` against it is restorable, never the live db.
+library `E:\Photography\Astro Photography\Processing`. **TS db: `TsDatabaseResolver` prefers the LIVE BIRDWATCHER
+db (`\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`, over SMB) when network-reachable, else the local working
+copy** under `Processing\Catalog\TS Database\schedulerdb.sqlite` (one location TCM + IS read; `schedulerdb -
+Copy.sqlite` restores it). The CLI banner + app toolbar badge say LIVE vs LOCAL; an explicit `--ts <path>` bypasses
+the resolver. Live writes are guarded (refuse open sidecar / read-only) + read-back verified; daily Macrium imaging
+of BIRDWATCHER is the recovery path.
 
 ## Tests
 
