@@ -14,7 +14,7 @@ namespace TargetCatalogManager.App.ViewModels.Rows;
 /// </summary>
 public sealed class TargetGroupRow : INotifyPropertyChanged
 {
-    private readonly RowAggregates _sums;
+    private RowAggregates _sums;
     private bool _isExpanded;
 
     public TargetGroupRow(
@@ -35,6 +35,18 @@ public sealed class TargetGroupRow : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Re-aggregates over the children after one was edited in place, refreshing the bound total cells
+    /// (Desired/Hours) without a grid rebuild — keeps the header the literal sum of its children.</summary>
+    public void Recompute()
+    {
+        _sums = RowAggregates.Compute(Children);
+        Raise(nameof(DesiredText));
+        Raise(nameof(HoursText));
+        Raise(nameof(HoursBackground));
+    }
+
+    private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     public string Target { get; }
 

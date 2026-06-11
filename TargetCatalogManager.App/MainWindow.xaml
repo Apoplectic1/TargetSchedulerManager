@@ -24,7 +24,7 @@
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -49,14 +49,14 @@
                     <TextBlock Grid.Column="2" Text="{x:Bind TargetText}" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
                     <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
-                        <TextBlock Text="{x:Bind HoursText}"/>
+                        <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -73,7 +73,7 @@
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -98,15 +98,31 @@
                         <TextBlock Text="{x:Bind SecondsText}"/>
                     </Border>
                     <TextBlock Grid.Column="6" Text="{x:Bind Purpose}" Opacity="0.7"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                               Visibility="{x:Bind DesiredTextVisibility}"/>
+                    <!-- A 1:1 plan row's desired is editable in place; committing (focus-loss) writes to the TS db.
+                         Spin buttons hidden to fit the 70px column; the write only fires when the value changed. -->
+                    <NumberBox Grid.Column="7" Value="{x:Bind DesiredValue}"
+                               Visibility="{x:Bind DesiredEditVisibility}"
+                               Minimum="0" SmallChange="1" LargeChange="10"
+                               SpinButtonPlacementMode="Hidden"
+                               MinWidth="0" Margin="0" Padding="2,2" VerticalAlignment="Center"
+                               HorizontalContentAlignment="Stretch" LostFocus="Desired_Committed">
+                        <NumberBox.Resources>
+                            <!-- NumberBox exposes no TextAlignment; center the text on its inner input box. -->
+                            <Style TargetType="TextBox">
+                                <Setter Property="TextAlignment" Value="Center"/>
+                            </Style>
+                        </NumberBox.Resources>
+                    </NumberBox>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right"
                                FontWeight="SemiBold"/>
                     <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
-                        <TextBlock Text="{x:Bind HoursText}"/>
+                        <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="12" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
@@ -126,7 +142,7 @@
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -142,13 +158,13 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="{x:Bind Label}" Opacity="0.9"
                                TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText}" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind AcceptedText}" TextAlignment="Right" Opacity="0.7"/>
                     <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground}" CornerRadius="4"
+                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
-                        <TextBlock Text="{x:Bind HoursText}"/>
+                        <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -225,7 +241,7 @@
                 <ColumnDefinition Width="60"/>
                 <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="70"/>
-                <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="88"/>
                 <ColumnDefinition Width="60"/>
                 <ColumnDefinition Width="60"/>
                 <ColumnDefinition Width="60"/>

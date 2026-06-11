@@ -67,6 +67,24 @@ public sealed partial class MainWindow : Window
             box.IsChecked = !now;   // write failed — restore the prior state
     }
 
+    // A 1:1 plan row's Desired NumberBox committed (focus left): if the integer actually changed, write it to the
+    // TS db through the guarded path (which reloads on success); on a failed write or an empty/NaN box, snap the
+    // box back to the row's current value. Only fires when the value differs, so re-focusing without editing — and
+    // the binding settling the value on realization — write nothing.
+    private async void Desired_Committed(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NumberBox box || box.DataContext is not ViewModels.Rows.ReconciliationRow row)
+            return;
+        if (row.PlanTsKey is null) return;
+
+        int current = row.Desired ?? 0;
+        int wanted = double.IsNaN(box.Value) ? current : (int)System.Math.Round(box.Value);
+        if (wanted == current) { box.Value = current; return; }
+
+        if (!await ViewModel.SetPlanDesiredAsync(row, wanted))
+            box.Value = current;   // write failed — restore the prior value
+    }
+
     private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();
 
     private void CollapseAll_Click(object sender, RoutedEventArgs e) => ViewModel.CollapseAll();

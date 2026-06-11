@@ -157,6 +157,55 @@ public class BuildRowsTests
         Assert.Equal(RowPlane.Ts, rows[1].Detail![0].Plane);   // within a cell: TS above Disk
     }
 
+    [Fact]
+    public void OnePlanCell_CarriesPlanKey_AndIsDesiredEditable()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, tsKey: "ep-7")], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal("ep-7", r.PlanTsKey);       // the lone plan's write-back key
+        Assert.True(r.CanEditDesired);
+    }
+
+    [Fact]
+    public void DiskOnlyRow_HasNoPlanKey_AndIsNotEditable()
+    {
+        Guid t = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Done", TargetSource.Actual, dir: "Done")], [], [],
+                [Inv(t, "L", FilterPurpose.Light, 12, 120.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Null(r.PlanTsKey);
+        Assert.False(r.CanEditDesired);
+    }
+
+    [Fact]
+    public void MixedRollup_AggregateNotEditable_ButEachSubLengthDetailIs()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, tsKey: "ep-a"),
+                 Plan(t, tpl, desired: 5, seconds: 600.0, tsKey: "ep-b")],
+                [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.True(rollup.SecondsMixed);
+        Assert.Null(rollup.PlanTsKey);            // two plan sub-lengths → ambiguous, the sum isn't editable
+        Assert.False(rollup.CanEditDesired);
+        Assert.Contains(rollup.Detail!, d => d.PlanTsKey == "ep-a");   // but each sub-length addresses its plan
+        Assert.Contains(rollup.Detail!, d => d.PlanTsKey == "ep-b");
+    }
+
     // ---- builders (mirroring Astronomy.Catalog.Tests') ----------------------
 
     private static CatalogGraph Graph(
@@ -178,9 +227,9 @@ public class BuildRowsTests
         new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
             DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null);
 
-    private static ExposurePlan Plan(Guid target, Guid template, int desired, double? seconds) =>
+    private static ExposurePlan Plan(Guid target, Guid template, int desired, double? seconds, string? tsKey = null) =>
         new(Guid.NewGuid(), target, template, seconds, desired, AcquiredCount: 0, AcceptedCount: 0,
-            Enabled: true, ImportedFromTsGuid: null);
+            Enabled: true, ImportedFromTsGuid: tsKey);
 
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds) =>

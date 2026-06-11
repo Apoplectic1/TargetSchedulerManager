@@ -191,7 +191,9 @@ public static class ReconciliationLoader
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
                         panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId));
+                        enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                        // 1:1 only: a single plan sub-length is editable; a mixed rollup's sum is not.
+                        planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null));
                 }
                 else
                 {
@@ -207,7 +209,8 @@ public static class ReconciliationLoader
                     diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: true,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                    planTsKey: c.PlanTsKey);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -216,7 +219,8 @@ public static class ReconciliationLoader
                     planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                    planTsKey: c.PlanTsKey);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),

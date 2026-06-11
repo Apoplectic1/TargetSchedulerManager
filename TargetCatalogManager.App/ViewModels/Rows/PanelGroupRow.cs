@@ -11,7 +11,7 @@ namespace TargetCatalogManager.App.ViewModels.Rows;
 /// </summary>
 public sealed class PanelGroupRow : INotifyPropertyChanged
 {
-    private readonly RowAggregates _sums;
+    private RowAggregates _sums;
     private bool _isExpanded;
 
     public PanelGroupRow(
@@ -28,6 +28,18 @@ public sealed class PanelGroupRow : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Re-aggregates over the panel's leaves after one was edited in place, refreshing its bound total
+    /// cells (Desired/Hours) without a grid rebuild.</summary>
+    public void Recompute()
+    {
+        _sums = RowAggregates.Compute(Children);
+        Raise(nameof(DesiredText));
+        Raise(nameof(HoursText));
+        Raise(nameof(HoursBackground));
+    }
+
+    private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     public string Target { get; }
 

@@ -41,7 +41,8 @@ public sealed class ReconciliationRow(
     RowSource? panelSource = null,
     bool enabled = true,
     string? tsTargetKey = null,
-    Guid targetId = default) : INotifyPropertyChanged
+    Guid targetId = default,
+    string? planTsKey = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -64,8 +65,9 @@ public sealed class ReconciliationRow(
     /// <summary>Which plane(s) this row carries; leaf rows show it in the Source column.</summary>
     public RowPlane Plane { get; } = plane;
 
-    /// <summary>Summed <c>desired</c> across the row's plans; null on Disk rows.</summary>
-    public int? Desired { get; } = desired;
+    /// <summary>Summed <c>desired</c> across the row's plans; null on Disk rows. Settable for an in-place
+    /// inline edit (see <see cref="ApplyDesired"/>) so committing one doesn't rebuild the grid.</summary>
+    public int? Desired { get; private set; } = desired;
 
     /// <summary>Summed TS <c>acquired</c> (the cached column write-back owns); null on Disk rows.</summary>
     public int? Acquired { get; } = acquired;
@@ -85,8 +87,9 @@ public sealed class ReconciliationRow(
     /// <summary>True when the target needs human attention (duplicate / name-mismatch / ambiguous / multi-plan).</summary>
     public bool IsFlagged { get; } = isFlagged;
 
-    /// <summary>Planned commitment in decimal hours, summed per sub length by the loader; null without a plan side.</summary>
-    public double? PlanHours { get; } = planHours;
+    /// <summary>Planned commitment in decimal hours, summed per sub length by the loader; null without a plan
+    /// side. Recomputed in place when <see cref="ApplyDesired"/> edits the count.</summary>
+    public double? PlanHours { get; private set; } = planHours;
 
     /// <summary>Actual integration in decimal hours, summed per sub length by the loader; null without a disk side.</summary>
     public double? DiskHours { get; } = diskHours;
@@ -117,8 +120,38 @@ public sealed class ReconciliationRow(
     /// TS target behind this row (disk-only target, mosaic parent) — the enable checkbox is then hidden.</summary>
     public string? TsTargetKey { get; } = tsTargetKey;
 
-    /// <summary>Canonical catalog target id — keys the detail panel into the retained graph for the full dossier.</summary>
+    /// <summary>Canonical catalog target id — a reusable key into the retained graph.</summary>
     public Guid TargetId { get; } = targetId;
+
+    /// <summary>Write-back key for this row's single TS exposure plan — set only on a one-plan cell, so a value
+    /// here marks the row's <c>desired</c> as 1:1 editable; null on multi-plan rollups, disk rows, and headers.</summary>
+    public string? PlanTsKey { get; } = planTsKey;
+
+    /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side present.</summary>
+    public bool CanEditDesired => PlanTsKey is not null && Desired is not null;
+
+    /// <summary>Desired as a NumberBox value (the real count on editable rows; a 0 stand-in elsewhere).</summary>
+    public double DesiredValue => Desired ?? 0;
+
+    /// <summary>NumberBox visibility for an editable Desired cell (read-only text shows otherwise).</summary>
+    public Visibility DesiredEditVisibility => CanEditDesired ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Read-only Desired text visibility — the inverse of <see cref="DesiredEditVisibility"/>.</summary>
+    public Visibility DesiredTextVisibility => CanEditDesired ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Applies a committed inline desired edit (after the TS write verified): updates the count and the
+    /// derived plan hours and refreshes the bound Hours cell — in place, no grid rebuild, so the scroll position
+    /// and any in-progress edit survive. The caller re-aggregates the owning group/panel.</summary>
+    public void ApplyDesired(int newDesired)
+    {
+        if (Desired == newDesired) return;
+        Desired = newDesired;
+        PlanHours = PlanSeconds > 0 ? newDesired * (double)PlanSeconds / 3600.0 : null;
+        Raise(nameof(HoursText));
+        Raise(nameof(HoursBackground));
+    }
+
+    private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
     public bool IsExpanded

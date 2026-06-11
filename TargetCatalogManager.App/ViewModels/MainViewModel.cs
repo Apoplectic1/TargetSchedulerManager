@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
+using Microsoft.Data.Sqlite;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
@@ -363,54 +364,55 @@ public sealed class MainViewModel : INotifyPropertyChanged
             : representative.Enabled;
 
     /// <summary>
-    /// Immediately writes <c>target.active</c> for one group's target into the local TS working copy (read-back
-    /// verified + audited), off the UI thread. Records the new state so it survives filter/sort rebuilds; no grid
-    /// reload (active changes no counts/hours). Returns false on failure so the caller can revert the checkbox.
+    /// The guarded write primitive every field edit shares: writes one editable TS field (per
+    /// <see cref="TsEditableSchema"/>) into the current TS db (LIVE or LOCAL) off the UI thread — refusing an
+    /// unsafe db (incompatible schema / read-only / open <c>-wal</c>/<c>-shm</c>/<c>-journal</c> sidecar, i.e. TS
+    /// mid-transaction on the rig / the column absent on this TS version), then read-back verifying and auditing.
+    /// A LIVE write that throws because BIRDWATCHER dropped sticky-falls to LOCAL. Returns whether the value was
+    /// applied; the caller decides what happens next (record an override, or reload). <paramref name="label"/>
+    /// names the row for the log/status line.
     /// </summary>
-    public async Task<bool> SetTargetEnabledAsync(TargetGroupRow group, bool enabled)
+    private async Task<bool> ApplyFieldEditAsync(TsTable table, string tsKey, string column, object? value, string label)
     {
-        if (group.TsTargetKey is not string key)
-            return false;   // no TS target behind this group (the checkbox should be hidden)
-
         try
         {
-            (TargetEditResult? result, string? refusal) = await Task.Run<(TargetEditResult?, string?)>(() =>
+            (FieldEditResult? result, string? refusal) = await Task.Run<(FieldEditResult?, string?)>(() =>
             {
                 using TargetSchedulerEditor editor = new(_tsDbPath);
-                // Refuse a write that isn't safe — esp. an open -wal/-shm/-journal sidecar on the LIVE db, which
-                // means TS is mid-transaction on the imaging rig. Clear reason over a generic failure.
                 string? reason =
                     !editor.HasRequiredColumns ? "TS db schema is incompatible"
                     : editor.IsReadOnly ? "TS db file is read-only"
                     : editor.HasOpenSidecar ? "TS database busy (open in NINA?) — try again"
+                    : !editor.IsFieldAvailable(table, column) ? $"this TS db has no {table}.{column} column"
                     : null;
-                return reason is not null
-                    ? (null, reason)
-                    : (editor.SetTargetActive(key, enabled), null);
+                return reason is not null ? (null, reason) : (editor.SetField(table, tsKey, column, value), null);
             });
 
             if (refusal is not null)
             {
-                Support.Log.Warn($"target.active write refused for \"{group.Target}\": {refusal}");
-                StatusText = $"can't change {group.Target}: {refusal}";
+                Support.Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
+                StatusText = $"can't change {label}: {refusal}";
                 return false;
             }
             if (result is not { Succeeded: true })
             {
                 Support.Log.Error(
-                    $"target.active write failed for \"{group.Target}\" (found={result?.RowFound} verified={result?.Verified})");
-                StatusText = $"enable change failed for {group.Target} — see tcm.log";
+                    $"{table}.{column} write failed for \"{label}\" (found={result?.RowFound} verified={result?.Verified})");
+                StatusText = $"edit failed for {label} — see tcm.log";
                 return false;
             }
 
-            _targetActiveEdits[key] = enabled;
+            // Drop SQLite's connection pool so the next read re-opens and re-reads the file: over SMB a pooled
+            // reader can otherwise serve stale cached pages, making a reload show the pre-edit value (a write that
+            // succeeded but "didn't take"). The reader's 0.00s re-read was the tell.
+            SqliteConnection.ClearAllPools();
             Support.Log.Info(
-                $"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)} on {(_tsMode == TsMode.Live ? "LIVE" : "local")} {_tsDbPath}");
+                $"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on {(_tsMode == TsMode.Live ? "LIVE" : "local")} {_tsDbPath}");
             return true;
         }
         catch (Exception ex)
         {
-            Support.Log.Error($"target.active write threw for \"{group.Target}\"", ex);
+            Support.Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
             // A LIVE write that throws because BIRDWATCHER dropped sticky-disables LIVE and falls to LOCAL for the
             // session (re-launch to retry); any other fault just reports.
             if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
@@ -423,10 +425,51 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
             else
             {
-                StatusText = $"enable change failed: {ex.Message}";
+                StatusText = $"edit failed: {ex.Message}";
             }
             return false;
         }
+    }
+
+    /// <summary>
+    /// Toggles <c>target.active</c> for one group's target via the guarded write, recording an in-session override
+    /// so the checkbox state survives filter/sort rebuilds — no reload, since active changes no counts/hours.
+    /// Returns false on failure so the caller can revert the checkbox.
+    /// </summary>
+    public async Task<bool> SetTargetEnabledAsync(TargetGroupRow group, bool enabled)
+    {
+        if (group.TsTargetKey is not string key)
+            return false;   // no TS target behind this group (the checkbox should be hidden)
+
+        bool ok = await ApplyFieldEditAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target);
+        if (ok) _targetActiveEdits[key] = enabled;
+        return ok;
+    }
+
+    /// <summary>
+    /// Writes one exposure plan's <c>desired</c> via the guarded write, then reloads so the grid re-derives from
+    /// TS (the truth): the new goal changes counts/hours up the whole tree, so — unlike enable — a cheap
+    /// in-session override won't keep the headers consistent. Editable only on a 1:1 plan row
+    /// (<see cref="ReconciliationRow.PlanTsKey"/>). Returns false on failure so the caller can revert the input.
+    /// </summary>
+    public async Task<bool> SetPlanDesiredAsync(ReconciliationRow row, int desired)
+    {
+        if (row.PlanTsKey is not string key)
+            return false;
+
+        bool ok = await ApplyFieldEditAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}");
+        if (!ok) return false;
+
+        // Apply in place rather than reloading: the edited leaf takes the new count, and its group (and panel, if
+        // any) re-aggregate from it. No grid rebuild means the scroll position — and any half-typed next cell —
+        // survive. The write was read-back verified, so memory mirrors TS; the Reload button still re-derives the
+        // whole grid from TS authoritatively.
+        row.ApplyDesired(desired);
+        TargetGroupRow? group = _groups.FirstOrDefault(g => g.Children.Contains(row));
+        group?.Recompute();
+        if (row.PanelKey is not null)
+            group?.Panels?.FirstOrDefault(p => p.Children.Contains(row))?.Recompute();
+        return true;
     }
 
     private void ApplyFilters()
