@@ -33,7 +33,12 @@ internal sealed record CliOptions(
             }
             string key = args[i][2..];
             if (!KnownKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                // Warn AND ignore — the typo'd pair (key + its value, if any) must not influence the run.
                 Console.Error.WriteLine($"warning: unknown option '--{key}' (known: {string.Join(", ", KnownKeys.Select(k => "--" + k))})");
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)) i++;
+                continue;
+            }
             opts[key] = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)
                 ? args[++i]
                 : "";
@@ -45,12 +50,23 @@ internal sealed record CliOptions(
                 ? new ResolveOptions(deg)
                 : ResolveOptions.Default;
 
+        // --apply is a bare flag on a db-writing verb: any value (e.g. "--apply false") stays DRY-RUN and
+        // warns, so a misremembered syntax can never arm a write the user meant to suppress.
+        bool apply = false;
+        if (opts.TryGetValue("apply", out string? applyValue))
+        {
+            apply = applyValue.Length == 0;
+            if (!apply)
+                Console.Error.WriteLine(
+                    $"warning: --apply takes no value; ignoring '--apply {applyValue}' (dry-run). Pass a bare --apply to commit.");
+        }
+
         return new CliOptions(
             Catalog: opts.GetValueOrDefault("catalog", DevDefaults.Catalog),
             Library: opts.GetValueOrDefault("library", DevDefaults.Library),
             TsDb: opts.GetValueOrDefault("ts", DevDefaults.TsDatabase),
             Target: opts.TryGetValue("target", out string? tv) && !string.IsNullOrWhiteSpace(tv) ? tv : null,
-            Apply: opts.ContainsKey("apply"),
+            Apply: apply,
             resolve);
     }
 }
