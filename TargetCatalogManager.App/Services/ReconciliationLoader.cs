@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
@@ -57,29 +58,32 @@ public static class ReconciliationLoader
     }
 
     /// <summary>
-    /// Projects the resolved graph into flat per-plane rows: each (target, filter, purpose, seconds) cell
-    /// yields a TS row (plan commitment) and/or a Disk row (actual integration). Write-back's coarser
+    /// Shapes the library's per-target reconciliation cells (<see cref="ReconciliationProjection"/>) into flat
+    /// per-plane rows: each (target, filter, purpose, seconds) cell yields a TS row (plan commitment) and/or a
+    /// Disk row (actual integration), with mosaic panels nested under their parent. Write-back's coarser
     /// (filter, purpose) key folds these — what the grid shows is still what <c>tcm writeback</c> acts on.
+    /// The cell join lives in the library; everything here (planes, rollups, hours, badges, panels, sort) is
+    /// TCM's grid presentation.
     /// </summary>
     internal static List<ReconciliationRow> BuildRows(CatalogGraph graph, CatalogBuildReport report)
     {
-        Dictionary<Guid, Project> projects = graph.Projects.ToDictionary(p => p.Id);
-        Dictionary<Guid, ExposureTemplate> templates = graph.Templates.ToDictionary(t => t.Id);
-        ILookup<Guid, ExposurePlan> plansByTarget = graph.Plans.ToLookup(p => p.TargetId);
-        ILookup<Guid, InventoryFilter> invByTarget = graph.InventoryFilters.ToLookup(i => i.TargetId);
+        IReadOnlyList<TargetCells> projected = ReconciliationProjection.Project(graph, report);
 
-        ILookup<Guid, Target> childrenByParent = graph.Targets
+        // The panel key falls back to a target's TS guid for a planned-only panel (no directory); that is the
+        // one identity field the shaping needs beyond the projection, so look it up from the graph directly.
+        Dictionary<Guid, Target> targetsById = graph.Targets.ToDictionary(t => t.Id);
+        ILookup<Guid, TargetCells> childrenByParent = projected
             .Where(t => t.ParentTargetId is not null)
             .ToLookup(t => t.ParentTargetId!.Value);
 
         List<ReconciliationRow> rows = [];
         Dictionary<string, int> panelOrdinal = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (Target top in graph.Targets)
+        foreach (TargetCells top in projected)
         {
             if (top.ParentTargetId is not null) continue;   // panels emit under their parent below
 
-            List<Target> children = [.. childrenByParent[top.Id]];
+            List<TargetCells> children = [.. childrenByParent[top.TargetId]];
             if (children.Count == 0)
             {
                 EmitRows(top, top.Name, MapSource(top.Source), panelKey: null, panelLabel: null, panelSource: null);
@@ -89,7 +93,7 @@ public static class ReconciliationLoader
             // A mosaic family: the parent is a grouping node with no rows of its own; each panel's rows
             // carry the parent's name (the grid groups by it) plus the panel identity for the nested level.
             RowSource parentSource = MapSource(top.Source);
-            foreach (Target child in children
+            foreach (TargetCells child in children
                 .OrderBy(c => c.DirectoryName is null ? 1 : 0)   // disk-backed panels first, then planned
                 .ThenBy(c => c.DirectoryName ?? c.Name, StringComparer.OrdinalIgnoreCase))
             {
@@ -101,7 +105,8 @@ public static class ReconciliationLoader
                     RowSource.TsOnly => child.Name,
                     _ => diskLabel ?? child.Name,
                 };
-                string panelKey = child.DirectoryName ?? $"ts:{child.ImportedFromTsGuid ?? child.Name}";
+                string panelKey = child.DirectoryName
+                    ?? $"ts:{targetsById[child.TargetId].ImportedFromTsGuid ?? child.Name}";
                 panelOrdinal[$"{top.Name}|{panelKey}"] = panelOrdinal.Count;
                 EmitRows(child, top.Name, parentSource, panelKey, panelLabel, childSource);
             }
@@ -114,44 +119,22 @@ public static class ReconciliationLoader
             _ => RowSource.DiskOnly,
         };
 
-        void EmitRows(Target t, string groupName, RowSource source,
+        void EmitRows(TargetCells tc, string groupName, RowSource source,
             string? panelKey, string? panelLabel, RowSource? panelSource)
         {
-            string project = t.ProjectId is Guid pid && projects.TryGetValue(pid, out Project? proj) ? proj.Name : "—";
-            string? dir = t.DirectoryName;
-            bool isMosaic = dir is not null && MosaicConvention.IsMosaicDirectory(dir);
-            TargetMatchIssues issues = report.IssuesFor(dir);
-            bool isAlias = issues.HasFlag(TargetMatchIssues.Alias);
-            bool isDup = issues.HasFlag(TargetMatchIssues.Duplicate);
-            bool isMismatch = issues.HasFlag(TargetMatchIssues.NameMismatch);
-            bool isAmbiguous = issues.HasFlag(TargetMatchIssues.AmbiguousMatch);
-            bool isUnanchored = t.Source == TargetSource.Planned && report.IsUnanchoredName(t.Name);
-
-            // Aggregate plans and inventory per (filter, purpose, exposure seconds), filter case-insensitive;
-            // the pairing pass below decides which cells merge into Both rows and which stay one-plane.
-            Dictionary<(string Filter, FilterPurpose Purpose, int Seconds), Cell> cells = [];
-            foreach (ExposurePlan p in plansByTarget[t.Id])
-            {
-                if (!templates.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl)) continue;
-                int seconds = EffectiveExposure.Seconds(p, tpl);
-                Cell c = GetCell(cells, tpl.FilterName, FilterPurposeClassifier.Classify(tpl.Name), seconds);
-                c.Desired += p.DesiredCount;
-                c.Acquired += p.AcquiredCount;
-                c.Accepted += p.AcceptedCount;
-                c.PlanCount++;
-            }
-            foreach (InventoryFilter f in invByTarget[t.Id])
-            {
-                // The scanner already buckets aggregates to whole seconds (ExposureSeconds is identity).
-                Cell c = GetCell(cells, f.FilterName, f.Purpose, (int)Math.Round(f.ExposureSeconds));
-                c.Disk += f.ExposureCount;
-            }
+            string project = tc.ProjectName;
+            bool isMosaic = tc.IsMosaicDirectory;
+            bool isAlias = tc.Issues.HasFlag(TargetMatchIssues.Alias);
+            bool isDup = tc.Issues.HasFlag(TargetMatchIssues.Duplicate);
+            bool isMismatch = tc.Issues.HasFlag(TargetMatchIssues.NameMismatch);
+            bool isAmbiguous = tc.Issues.HasFlag(TargetMatchIssues.AmbiguousMatch);
+            bool isUnanchored = tc.IsUnanchored;
 
             // One rollup per (filter, purpose) that has BOTH a plan side and a disk side, aggregating every
             // sub length. A rollup whose times all agree is a plain merged row; 2+ distinct times reads
             // "mixed" (caution pill) and expands into one source line per sub length — a nested Both line
             // where a bucket has both planes, TS/Disk where one-sided. One-plane filters emit plain lines.
-            foreach (IGrouping<(string Filter, FilterPurpose Purpose), Cell> fp in cells.Values
+            foreach (IGrouping<(string Filter, FilterPurpose Purpose), ReconciliationCell> fp in tc.Cells
                 .GroupBy(c => (c.Filter.ToUpperInvariant(), c.Purpose)))
             {
                 // A multi-plan group is explained (alias members fold) or it's the same-purpose
@@ -169,8 +152,8 @@ public static class ReconciliationLoader
                 string badge = string.Join(" · ", badges);
                 bool flagged = isDup || isMismatch || isAmbiguous || multiPlan;
 
-                List<Cell> planCells = [], diskCells = [];
-                foreach (Cell c in fp.OrderBy(c => c.Seconds))
+                List<ReconciliationCell> planCells = [], diskCells = [];
+                foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))
                 {
                     if (c.PlanCount > 0) planCells.Add(c);
                     if (c.Disk > 0) diskCells.Add(c);   // a cell carrying both planes sits in both lists
@@ -181,7 +164,7 @@ public static class ReconciliationLoader
                     // One detail line per sub length, seconds ascending: a bucket carrying both planes is
                     // a nested Both line (plan + disk together, gap hours); one-sided buckets stay TS/Disk.
                     List<ReconciliationRow> detail = [];
-                    foreach (Cell c in fp.OrderBy(c => c.Seconds))
+                    foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))
                     {
                         if (c.PlanCount > 0 && c.Disk > 0) detail.Add(BothRow(c));
                         else if (c.PlanCount > 0) detail.Add(TsRow(c, isDetail: true));
@@ -209,11 +192,11 @@ public static class ReconciliationLoader
                 }
                 else
                 {
-                    foreach (Cell c in planCells) rows.Add(TsRow(c, isDetail: false));
-                    foreach (Cell c in diskCells) rows.Add(DiskRow(c, isDetail: false));
+                    foreach (ReconciliationCell c in planCells) rows.Add(TsRow(c, isDetail: false));
+                    foreach (ReconciliationCell c in diskCells) rows.Add(DiskRow(c, isDetail: false));
                 }
 
-                ReconciliationRow BothRow(Cell c) => new(
+                ReconciliationRow BothRow(ReconciliationCell c) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
                     c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged,
@@ -222,7 +205,7 @@ public static class ReconciliationLoader
                     isDetail: true,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
 
-                ReconciliationRow TsRow(Cell c, bool isDetail) => new(
+                ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
                     c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged,
@@ -230,7 +213,7 @@ public static class ReconciliationLoader
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource);
 
-                ReconciliationRow DiskRow(Cell c, bool isDetail) => new(
+                ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
                     planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
                     desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged,
@@ -240,7 +223,7 @@ public static class ReconciliationLoader
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
-            if (cells.Count == 0)
+            if (tc.Cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
                     groupName, project, "—", "—", planSeconds: 0, diskSeconds: 0, source,
@@ -277,28 +260,4 @@ public static class ReconciliationLoader
     }
 
     private static string Sec(TimeSpan t) => t.TotalSeconds.ToString("0.00", CultureInfo.InvariantCulture);
-
-    private static Cell GetCell(
-        Dictionary<(string, FilterPurpose, int), Cell> cells, string filter, FilterPurpose purpose, int seconds)
-    {
-        (string, FilterPurpose, int) key = (filter.ToUpperInvariant(), purpose, seconds);
-        if (!cells.TryGetValue(key, out Cell? cell))
-            cells[key] = cell = new Cell { Filter = filter, Purpose = purpose, Seconds = seconds };
-        return cell;
-    }
-
-    private sealed class Cell
-    {
-        public required string Filter { get; init; }
-        public required FilterPurpose Purpose { get; init; }
-
-        /// <summary>Whole-second sub length — part of the cell key; 0 = unknown.</summary>
-        public required int Seconds { get; init; }
-
-        public int Desired;
-        public int Acquired;
-        public int Accepted;
-        public int Disk;
-        public int PlanCount;
-    }
 }

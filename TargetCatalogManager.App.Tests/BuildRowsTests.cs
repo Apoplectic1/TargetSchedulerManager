@@ -9,8 +9,10 @@ using Xunit;
 namespace TargetCatalogManager.App.Tests;
 
 /// <summary>
-/// The loader's cell projection — the highest-leverage untested logic per the code review (R1 will move it
-/// into the library; these tests pin its contract first). Graph/report builders mirror the library tests'.
+/// The loader's row shaping over the library cell projection — R1 moved the cell join into
+/// <see cref="Astronomy.Catalog.Reconcile.ReconciliationProjection"/>; these pin the planes / rollups / hours
+/// the App layers on top (still driven through the unchanged <c>BuildRows</c> entry point). Graph/report
+/// builders mirror the library tests'.
 /// </summary>
 public class BuildRowsTests
 {
