@@ -8,7 +8,7 @@ using Windows.Graphics;
 namespace TargetCatalogManager.App.Support;
 
 /// <summary>
-/// Ctrl+N observation window, ported from TargetPlanner's UserObservationDialog. A separate modeless
+/// Ctrl+N diagnostics window, ported from TargetPlanner's UserObservationDialog. A separate modeless
 /// always-on-top <see cref="Window"/> (NOT a ContentDialog — that would block the main UI, defeating the
 /// point: the open period brackets the user's actions in tcm.log between USER_OBS_START and USER_OBS_END,
 /// so intervening DIAG lines are chronologically scoped). OK captures notes + a context snapshot + a
@@ -20,12 +20,15 @@ namespace TargetCatalogManager.App.Support;
 /// stamped in local time (matching tcm.log), and a USER_OBS_CAP line records each, so images and notes can be
 /// ordered against each other after the fact. (TP's dialog shoots only at OK; the repeatable button is TCM's.)</para>
 ///
+/// <para>The window is the TCM-side UI; the underlying log protocol (USER_OBS_START/END/CAP markers) is the
+/// shared Astronomy.Diagnostics contract and keeps its name.</para>
+///
 /// Built in code rather than XAML — WinUI controls construct imperatively exactly like WinForms, and this
 /// stays close to the TP original it ports.
 /// </summary>
-internal sealed class ObservationWindow : Window
+internal sealed class DiagnosticsWindow : Window
 {
-    private static ObservationWindow? sCurrent;
+    private static DiagnosticsWindow? sCurrent;
 
     private readonly string mId;
     private readonly Window mOwner;
@@ -36,13 +39,13 @@ internal sealed class ObservationWindow : Window
     // True when END/CANCEL was logged from a button handler; stops Closed from double-logging.
     private bool mTerminationLogged;
 
-    private ObservationWindow(Window owner, Func<string> contextProvider)
+    private DiagnosticsWindow(Window owner, Func<string> contextProvider)
     {
         mId = Guid.NewGuid().ToString("N")[..4];
         mOwner = owner;
         mContextProvider = contextProvider;
 
-        Title = $"Observation (id={mId})";
+        Title = $"Diagnostics (id={mId})";
         AppWindow.Resize(new SizeInt32(560, 360));
         CenterOverOwner();              // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
@@ -51,13 +54,6 @@ internal sealed class ObservationWindow : Window
             p.IsMinimizable = false;
             p.IsMaximizable = false;
         }
-
-        TextBlock label = new()
-        {
-            Text = "Notes (Enter = newline, Ctrl+Enter = OK). Capture = screenshot the main window now "
-                 + "(repeatable); leave notes blank for a checkpoint:",
-            TextWrapping = TextWrapping.Wrap,
-        };
 
         mNotes = new TextBox
         {
@@ -113,13 +109,10 @@ internal sealed class ObservationWindow : Window
         buttons.Children.Add(rightButtons);
 
         Grid root = new() { Padding = new Thickness(12), RowSpacing = 10 };
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Grid.SetRow(label, 0);
-        Grid.SetRow(mNotes, 1);
-        Grid.SetRow(buttons, 2);
-        root.Children.Add(label);
+        Grid.SetRow(mNotes, 0);
+        Grid.SetRow(buttons, 1);
         root.Children.Add(mNotes);
         root.Children.Add(buttons);
         Content = root;
@@ -127,7 +120,7 @@ internal sealed class ObservationWindow : Window
         Closed += OnClosed;
     }
 
-    /// <summary>Open the observation window over <paramref name="owner"/>, or focus the existing one.
+    /// <summary>Open the diagnostics window over <paramref name="owner"/>, or focus the existing one.
     /// <paramref name="contextProvider"/> is called at OK time so the END line carries the app state
     /// as of the moment the user committed the note, not the moment the window opened.</summary>
     public static void ShowOrFocus(Window owner, Func<string> contextProvider)
@@ -139,7 +132,7 @@ internal sealed class ObservationWindow : Window
             return;
         }
 
-        ObservationWindow w = new(owner, contextProvider);
+        DiagnosticsWindow w = new(owner, contextProvider);
         sCurrent = w;
         Log.UserObservationStart(w.mId);
         w.Activate();

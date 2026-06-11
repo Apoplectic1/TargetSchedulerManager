@@ -178,7 +178,7 @@
         </Grid.Resources>
         <!-- WinUI's ProcessCmdKey: accelerators attach declaratively to an element subtree. -->
         <Grid.KeyboardAccelerators>
-            <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="Observation_Invoked"/>
+            <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="Diagnostics_Invoked"/>
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- toolbar: reload + summary -->

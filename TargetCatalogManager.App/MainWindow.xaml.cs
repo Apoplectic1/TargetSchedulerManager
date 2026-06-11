@@ -89,11 +89,11 @@ public sealed partial class MainWindow : Window
 
     private void CollapseAll_Click(object sender, RoutedEventArgs e) => ViewModel.CollapseAll();
 
-    // Ctrl+N: open (or focus) the observation window — notes + screenshot into the tcm.log stream.
-    private void Observation_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+    // Ctrl+N: open (or focus) the diagnostics window — notes + screenshot into the tcm.log stream.
+    private void Diagnostics_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
         Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
     {
-        Support.ObservationWindow.ShowOrFocus(this, ViewModel.GetObservationContext);
+        Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
         args.Handled = true;
     }
 }

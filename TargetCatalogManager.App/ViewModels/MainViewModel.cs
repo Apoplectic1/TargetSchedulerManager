@@ -561,9 +561,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>App-state snapshot for the Ctrl+N observation window's USER_OBS_END line — captures what
+    /// <summary>App-state snapshot for the Ctrl+N diagnostics window's USER_OBS_END line — captures what
     /// the grid showed when the user committed the note, without them having to type it.</summary>
-    public string GetObservationContext()
+    public string GetDiagnosticsContext()
     {
         string counts = _lastLoad is { Report: var r }
             ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} aliases={r.AliasTsTargets.Count} mosaics={r.MosaicsResolved}"
