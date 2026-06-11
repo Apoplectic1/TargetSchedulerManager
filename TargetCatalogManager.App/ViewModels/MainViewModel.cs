@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
+using Microsoft.UI.Xaml;
 using TargetCatalogManager.App.Models;
 using TargetCatalogManager.App.ViewModels.Rows;
 using TargetCatalogManager.App.Services;
@@ -43,6 +44,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // rebuilds (the grid re-derives groups each pass). The write already hit TS; this just keeps the displayed
     // state consistent until the next full reload re-reads TS authoritatively (then it's cleared).
     private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
+
+    // The TS db this session reads + writes: the live BIRDWATCHER db when reachable, else the local copy
+    // (resolved fresh each load, so Reload re-probes). _tsIsLive drives the loud LIVE/LOCAL toolbar badge.
+    private string _tsDbPath = DevDefaults.TsDatabase;
+    private bool _tsIsLive;
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -82,6 +88,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
         get => _statusText;
         private set => Set(ref _statusText, value);
     }
+
+    /// <summary>"LIVE — BIRDWATCHER" badge, shown (caution-colored in XAML) when this session targets the live db.</summary>
+    public Visibility LiveBadgeVisibility => _tsIsLive ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>"LOCAL copy" badge, shown when BIRDWATCHER is unreachable and edits land on the local working copy.</summary>
+    public Visibility LocalBadgeVisibility => _tsIsLive ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Spells out an edit's blast radius for the current TS source.</summary>
+    public string TsSourceTooltip => _tsIsLive
+        ? "LIVE Target Scheduler db on BIRDWATCHER — edits hit the imaging rig immediately."
+        : "LOCAL working copy — BIRDWATCHER unreachable; copy back to the rig to take effect.";
 
     public bool IsLoading
     {
@@ -129,13 +146,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (IsLoading) return;
         IsLoading = true;
         _targetActiveEdits.Clear();   // a fresh scan re-reads TS active; in-session overrides are now authoritative-stale
+
+        // Resolve the TS db each load, off the UI thread (a down BIRDWATCHER probes for up to ~1.5 s): the live
+        // db when reachable, else the local copy. Reload therefore re-probes and can switch LIVE↔LOCAL.
+        TsDatabaseChoice tsChoice = await Task.Run(TsDatabaseResolver.Resolve);
+        _tsDbPath = tsChoice.Path;
+        SetTsSource(tsChoice.IsLive);
         StatusText = $"scanning {DefaultLibrary} …";
         try
         {
-            LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, DefaultTs, DefaultToleranceDegrees);
+            LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, _tsDbPath, DefaultToleranceDegrees);
             _lastLoad = result;
             _allRows = result.Rows;
-            StatusText = $"library {DefaultLibrary}  ·  TS {DefaultTs}  ·  resolved in {result.Elapsed.TotalSeconds:0.0} s";
+            StatusText = $"library {DefaultLibrary}  ·  TS {_tsDbPath} ({(tsChoice.IsLive ? "LIVE BIRDWATCHER" : "local copy")})" +
+                $"  ·  resolved in {result.Elapsed.TotalSeconds:0.0} s";
             ApplyFilters();
         }
         catch (Exception ex)
@@ -151,6 +175,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             IsLoading = false;
         }
+    }
+
+    // Flip the LIVE/LOCAL badge (the two visibilities + tooltip are computed off _tsIsLive).
+    private void SetTsSource(bool isLive)
+    {
+        _tsIsLive = isLive;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LiveBadgeVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LocalBadgeVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TsSourceTooltip)));
     }
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
@@ -305,24 +338,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            TargetEditResult result = await Task.Run(() =>
+            (TargetEditResult? result, string? refusal) = await Task.Run<(TargetEditResult?, string?)>(() =>
             {
-                using TargetSchedulerEditor editor = new(DefaultTs);
-                if (!editor.HasRequiredColumns || editor.IsReadOnly)
-                    return new TargetEditResult(RowFound: false, OldActive: null, Verified: false);
-                return editor.SetTargetActive(key, enabled);
+                using TargetSchedulerEditor editor = new(_tsDbPath);
+                // Refuse a write that isn't safe — esp. an open -wal/-shm/-journal sidecar on the LIVE db, which
+                // means TS is mid-transaction on the imaging rig. Clear reason over a generic failure.
+                string? reason =
+                    !editor.HasRequiredColumns ? "TS db schema is incompatible"
+                    : editor.IsReadOnly ? "TS db file is read-only"
+                    : editor.HasOpenSidecar ? "TS database busy (open in NINA?) — try again"
+                    : null;
+                return reason is not null
+                    ? (null, reason)
+                    : (editor.SetTargetActive(key, enabled), null);
             });
 
-            if (!result.Succeeded)
+            if (refusal is not null)
+            {
+                Support.Log.Warn($"target.active write refused for \"{group.Target}\": {refusal}");
+                StatusText = $"can't change {group.Target}: {refusal}";
+                return false;
+            }
+            if (result is not { Succeeded: true })
             {
                 Support.Log.Error(
-                    $"target.active write failed for \"{group.Target}\" (found={result.RowFound} verified={result.Verified})");
+                    $"target.active write failed for \"{group.Target}\" (found={result?.RowFound} verified={result?.Verified})");
                 StatusText = $"enable change failed for {group.Target} — see tcm.log";
                 return false;
             }
 
             _targetActiveEdits[key] = enabled;
-            Support.Log.Info($"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)}");
+            Support.Log.Info(
+                $"EDIT target.active \"{group.Target}\": {result.OldActive} -> {(enabled ? 1 : 0)} on {(_tsIsLive ? "LIVE" : "local")} {_tsDbPath}");
             return true;
         }
         catch (Exception ex)
