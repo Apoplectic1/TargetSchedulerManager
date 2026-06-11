@@ -61,7 +61,7 @@ public static class ReconciliationLoader
     /// yields a TS row (plan commitment) and/or a Disk row (actual integration). Write-back's coarser
     /// (filter, purpose) key folds these — what the grid shows is still what <c>tcm writeback</c> acts on.
     /// </summary>
-    private static List<ReconciliationRow> BuildRows(CatalogGraph graph, CatalogBuildReport report)
+    internal static List<ReconciliationRow> BuildRows(CatalogGraph graph, CatalogBuildReport report)
     {
         Dictionary<Guid, Project> projects = graph.Projects.ToDictionary(p => p.Id);
         Dictionary<Guid, ExposureTemplate> templates = graph.Templates.ToDictionary(t => t.Id);

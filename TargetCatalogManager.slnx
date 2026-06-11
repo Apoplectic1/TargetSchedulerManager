@@ -19,4 +19,10 @@
   <Project Path="TargetCatalogManager.App/TargetCatalogManager.App.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
+  <Project Path="TargetCatalogManager.Cli.Tests/TargetCatalogManager.Cli.Tests.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="TargetCatalogManager.App.Tests/TargetCatalogManager.App.Tests.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
 </Solution>

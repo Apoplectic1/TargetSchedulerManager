@@ -11,14 +11,18 @@
     <RootNamespace>TargetCatalogManager</RootNamespace>
     <AssemblyName>tcm</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- This csproj lives at the repo root, so the WinUI app project nested below would be swept into the
-         default Compile glob (duplicate AssemblyInfo + unresolvable WinUI types) without this exclusion. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);TargetCatalogManager.App\**</DefaultItemExcludes>
+    <!-- This csproj lives at the repo root, so any nested project would be swept into the default Compile
+         glob (duplicate AssemblyInfo + unresolvable types) without these exclusions. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);TargetCatalogManager.App\**;TargetCatalogManager.App.Tests\**;TargetCatalogManager.Cli.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Cross-repo local ProjectReference (local disk is source of truth): the shared schema/build contract. -->
   <ItemGroup>
     <ProjectReference Include="..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TargetCatalogManager.Cli.Tests" />
   </ItemGroup>
 
 </Project>

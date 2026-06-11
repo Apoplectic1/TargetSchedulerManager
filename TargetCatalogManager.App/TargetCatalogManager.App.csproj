@@ -42,4 +42,8 @@
     <Compile Include="..\Shared\DevDefaults.cs" Link="Shared\DevDefaults.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="TargetCatalogManager.App.Tests" />
+  </ItemGroup>
+
 </Project>

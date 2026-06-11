@@ -110,6 +110,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         set { if (Set(ref _sortMode, value)) ApplyFilters(); }
     }
 
+    /// <summary>Test seam: install rows directly (no scan, no logging) and run the filter pipeline —
+    /// everything downstream of the load is exercised exactly as <see cref="LoadAsync"/> drives it.
+    /// The real loader seam (an injectable interface) is an M2 item.</summary>
+    internal void SetRowsForTest(IReadOnlyList<ReconciliationRow> rows)
+    {
+        _lastLoad = null;
+        _allRows = rows;
+        ApplyFilters();
+    }
+
     /// <summary>Fresh scan + TS read + resolve; safe to call again (Reload). Runs the heavy work off the UI thread.</summary>
     public async Task LoadAsync()
     {
