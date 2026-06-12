@@ -294,7 +294,7 @@ TS target's counts).
   reconciliation report and goal-vs-actual summary.
 - 42 Catalog tests + 45 NINA tests pass.
 
-## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ NEXT (planned 2026-06-10)
+## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 underway · M3 pending — see Status above)
 
 **Purpose.** TS remains the daily scheduler until IS exists; TCM is the bridge: view + edit TS's database with
 disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data
