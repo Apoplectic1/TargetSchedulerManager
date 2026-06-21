@@ -72,6 +72,11 @@ One test project in this repo (`dotnet test TargetSchedulerManager.slnx`):
   (`SecondsBackground`/`HoursBackground` need `Application.Current`) — those stay app-verified. `TestEnv` blanks
   `TSM_DIAG` so VM tests can't write the user's session log.
 
+> **Trap (xUnit v3):** `App.Tests` is xUnit v3 (`OutputType=Exe`). **Never let `xunit.v3` land on
+> `TargetSchedulerManager.App`** (or any non-test project) — a "Manage NuGet Packages for Solution → all
+> projects" action sprays it silently, and the `mtp-v1` targets then fail the build with "test projects must
+> be executable" (this hit the whole `.slnx` graph on 2026-06-21). Full detail in `..\Library\CLAUDE.md`.
+
 The heavy logic (schema / scan / resolve / write-back) is covered in the **library repo**:
 
 ```bash
