@@ -4,7 +4,7 @@ A living record of the **settled** look-and-feel rules — the design language t
 lands against. **Current state only**: *how we got here* lives in `ROADMAP.md`, *why the system is shaped this
 way* in `ARCHITECTURE.md`. Update this when a UI decision settles (like the other docs — often a separate small
 commit). It is **not** a frozen spec; look-and-feel is still developed idea→implement→adjust, and this captures
-only what's stable. (Reflects the grid as of the count-column + centering work, 2026-06-20.)
+only what's stable. (Reflects the grid as of the natural-sort + edit-box work, 2026-06-21.)
 
 > The author is a WinForms expert / WinUI novice — idioms below are flagged against their WinForms analogues
 > where it helps.
@@ -30,7 +30,7 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 
 ## Columns (current)
 
-`[enable] · Source · Target · Project · Filter · Seconds · Purpose · Desired · TS · Actual · Hours · Plans · Badges`
+`[enable] · Source · Target · Project · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
 
 - **Desired** = TS goal · **TS** = TS's recorded `acquired` (the count TS schedules on with the grader off) ·
   **Actual** = on-disk frames (ground truth). TS `accepted` is **not** a column — write-back keeps it ==
@@ -39,6 +39,15 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   this token (author's call).
 - Widths are fixed per column except **Target** (`*`). The header `Grid` and all three templates must stay in
   lockstep — changing a column means editing **four grids** and renumbering `Grid.Column`.
+
+## Sorting
+
+Sort precedence follows the columns **left-to-right**: `Target → Project → Filter → Purpose → Seconds`, **natural
+order** on the text columns (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21"). Project
+only separates same-named targets in different projects. Structural keys sit outside the column order: a mosaic's
+**panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell. The toolbar
+sort picker's other modes (`remaining` / `disk` / `Δ ↓`) are **number-first** with a natural `Target → Project`
+tiebreak. `NaturalComparer` is pure-managed (no `shlwapi` P/Invoke).
 
 ## em-dash convention
 
@@ -64,12 +73,10 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
 
 ## Alignment & spacing
 
-- **Every item on a line is vertically centered, line by line.** Set `VerticalAlignment="Center"` **explicitly
-  per cell** — *not* a window-wide implicit `TextBlock` style: WinUI applies an implicit style unevenly inside a
-  `ListView` `DataTemplate` and leaks it into control internals (tried 2026-06-20, reverted). Add it on every new
-  cell.
-- Numeric columns right-align (`TextAlignment="Right"`); text columns left; the enable checkbox centers in its
-  36px gutter.
+- **Every item on a line is vertically centered, line by line** — `VerticalAlignment="Center"` **explicitly per
+  cell** (not a window-wide implicit style; see *WinUI gotchas*). Add it on every new cell.
+- Numeric **columns** right-align (`TextAlignment="Right"`); text columns left; the enable checkbox centers in its
+  36 px gutter. (Numeric **edit boxes** center — see *Editing*.)
 
 ## Editing
 
@@ -80,6 +87,10 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   mixed rollups).
 - Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
   and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
+- **Integer edit boxes are ~3 characters wide** (fit 999; ≥ 1000 clips in the box but the full value still
+  commits). Real/decimal fields are exempt — they need room for the ".". Fixed `Width` (~40 px) + trimmed inner
+  padding; the text is **centered in code-behind** (a NumberBox can't center via XAML — see *WinUI gotchas*). The
+  clear (✕) button doesn't appear on these, so there's nothing to suppress.
 
 ## TS source (LIVE / LOCAL)
 
@@ -95,12 +106,30 @@ for the session if BIRDWATCHER is unreachable. The summary/badge says which; swi
 - **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
   hover-hint is suppressed.
 
+## WinUI gotchas (and the workarounds)
+
+Platform landmines we've hit — they're *why* some of the rules above look the way they do. (The author runs and
+screenshots the app to confirm visual fixes; the build only proves the code compiles.)
+
+- **Implicit `TextBlock` styles apply unevenly inside a `ListView` `DataTemplate`** and leak into control
+  internals — so vertical centering is set **explicitly per cell**, not via a window-wide implicit style. (Tried
+  the implicit route 2026-06-20; it produced uneven columns and was reverted.)
+- **A `NumberBox` can't center its text via XAML.** `TextAlignment` doesn't reach its template-internal TextBox
+  (microsoft-ui-xaml [#7399](https://github.com/microsoft/microsoft-ui-xaml/issues/7399) /
+  [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: a `Loaded` handler
+  (`DesiredBox_Loaded`) walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its
+  `Padding`/`MinWidth` so digits fit a narrow box.
+- **`NumberBox`/`TextBox` vertical centering** breaks under a fixed `Height` (the inner ScrollViewer top-aligns).
+  Give the box **no fixed `Height`** (let it auto-size; center the box with `VerticalAlignment`) — or template the
+  `ContentElement` ScrollViewer to `VerticalAlignment=Center`.
+
 ## When you add a UI element — checklist
 
-1. New **column**? Edit all four grids (header + 3 templates) in lockstep; renumber `Grid.Column`; pick a fixed width.
+1. New **column**? Edit all four grids (header + 3 templates) in lockstep; renumber `Grid.Column`; pick a fixed width. Its sort slot follows its header position (left-to-right, per *Sorting*).
 2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric.
 3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
-6. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
+6. New **integer edit box**? ~3 chars wide; center its text in code-behind (NumberBox can't via XAML — see *WinUI gotchas*).
+7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).

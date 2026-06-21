@@ -261,6 +261,23 @@ public class BuildRowsTests
         Assert.False(r.IsFlagged);
     }
 
+    [Fact]
+    public void Rows_OrderTargetsNaturally()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(a, "IC 1318", TargetSource.Actual, dir: "IC 1318"),
+                   T(b, "IC 405", TargetSource.Actual, dir: "IC 405")],
+                [], [],
+                [Inv(a, "H", FilterPurpose.Light, 1, 300.0), Inv(b, "H", FilterPurpose.Light, 1, 300.0)]),
+            Report());
+
+        // Natural order: IC 405 precedes IC 1318 (an ordinal compare would put 1318 first).
+        Assert.Equal(2, rows.Count);
+        Assert.Equal("IC 405", rows[0].Target);
+        Assert.Equal("IC 1318", rows[1].Target);
+    }
+
     // ---- builders (mirroring Astronomy.Catalog.Tests') ----------------------
 
     private static CatalogGraph Graph(

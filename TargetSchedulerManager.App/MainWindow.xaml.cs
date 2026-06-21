@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.ViewModels;
 
 namespace TargetSchedulerManager.App;
@@ -95,5 +96,30 @@ public sealed partial class MainWindow : Window
     {
         Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
         args.Handled = true;
+    }
+
+    // WinUI 3 NumberBox can't center its inner input via TextAlignment/HorizontalContentAlignment — the property
+    // doesn't reach the template-internal TextBox (microsoft-ui-xaml#7399 / #2896). Set it on the realized
+    // instance instead. Fires per container realization in the virtualized list; idempotent.
+    private void DesiredBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is NumberBox box && FindDescendant<TextBox>(box) is TextBox input)
+        {
+            input.TextAlignment = TextAlignment.Center;
+            input.MinWidth = 0;                          // default MinWidth can overflow a narrow box
+            input.Padding = new Thickness(2, 0, 2, 0);   // trim inner padding so 3 digits fit centered when narrow
+        }
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is T nested) return nested;
+        }
+        return null;
     }
 }

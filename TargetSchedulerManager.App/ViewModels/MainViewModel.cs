@@ -6,6 +6,7 @@ using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using Microsoft.Data.Sqlite;
 using TargetSchedulerManager.App.Models;
+using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
 using TargetSchedulerManager.App.Services;
 
@@ -513,12 +514,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         groups = _sortMode switch
         {
             SortMode.RemainingDesc => [.. groups.OrderByDescending(g => g.Remaining)
-                                                .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
+                                                .ThenBy(g => g.Target, NaturalComparer.Instance)
+                                                .ThenBy(g => g.Project, NaturalComparer.Instance)],
             SortMode.DiskDesc => [.. groups.OrderByDescending(g => g.Disk)
-                                           .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
+                                           .ThenBy(g => g.Target, NaturalComparer.Instance)
+                                           .ThenBy(g => g.Project, NaturalComparer.Instance)],
             SortMode.DeltaDesc => [.. groups.OrderByDescending(g => g.Delta ?? int.MinValue)
-                                            .ThenBy(g => g.Target, StringComparer.OrdinalIgnoreCase)],
-            _ => groups,   // loader's default order: target name
+                                            .ThenBy(g => g.Target, NaturalComparer.Instance)
+                                            .ThenBy(g => g.Project, NaturalComparer.Instance)],
+            _ => groups,   // loader's default order: target, project, filter (natural)
         };
 
         _groups = groups;

@@ -6,6 +6,7 @@ using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetSchedulerManager.App.Models;
+using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
 using Astronomy.Diagnostics;
 
@@ -255,11 +256,17 @@ public static class ReconciliationLoader
 
         rows.Sort((a, b) =>
         {
-            int byTarget = string.Compare(a.Target, b.Target, StringComparison.OrdinalIgnoreCase);
+            // Sort precedence follows the columns left-to-right: Target → Project → Filter → Purpose → Seconds,
+            // natural order on the text columns ("IC 405" before "IC 1318"). Project only separates same-named
+            // targets in different projects; Panel keeps a mosaic's panels under their parent; Plane (TS above
+            // Disk) is the final tiebreak within a cell.
+            int byTarget = NaturalComparer.Instance.Compare(a.Target, b.Target);
             if (byTarget != 0) return byTarget;
+            int byProject = NaturalComparer.Instance.Compare(a.Project, b.Project);
+            if (byProject != 0) return byProject;
             int byPanel = PanelOrd(a).CompareTo(PanelOrd(b));
             if (byPanel != 0) return byPanel;
-            int byFilter = string.Compare(a.Filter, b.Filter, StringComparison.OrdinalIgnoreCase);
+            int byFilter = NaturalComparer.Instance.Compare(a.Filter, b.Filter);
             if (byFilter != 0) return byFilter;
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
             if (byPurpose != 0) return byPurpose;

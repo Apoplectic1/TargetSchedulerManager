@@ -15,10 +15,8 @@
          grading off TS keeps accepted == acquired, and write-back re-sets them equal; a rare acc≠acq drift surfaces
          as a badge (see ReconciliationLoader) rather than a permanent column. The "TS" header doubles the token the
          Source column prints per row by design (user's call). -->
-    <!-- UI rule: every item on a line is vertically centered. WinUI gives no reliable self-enforcing path for this
-         inside a ListView's DataTemplate (a window-wide implicit TextBlock style applies unevenly there and leaks
-         into control internals), so it is set explicitly per cell: VerticalAlignment="Center" on every text cell,
-         and the checkbox / pills / NumberBox carry their own. Add it on any new cell. -->
+    <!-- Per-cell VerticalAlignment="Center" on every text cell (NOT a window-wide implicit TextBlock style — it
+         applies unevenly in DataTemplates + leaks into controls). Rule + gotcha: docs/UI-CONVENTIONS.md. -->
     <Grid Padding="12,8,12,8" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.Resources>
             <!-- The grid's rows mix two item types (group header / filter row); the selector below picks the
@@ -31,8 +29,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -83,8 +81,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -106,28 +104,23 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="4" Text="{x:Bind Filter}" VerticalAlignment="Center"/>
                     <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise. -->
-                    <Border Grid.Column="5" Background="{x:Bind SecondsBackground}" CornerRadius="4"
+                    <Border Grid.Column="6" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
                         <TextBlock Text="{x:Bind SecondsText}"/>
                     </Border>
-                    <TextBlock Grid.Column="6" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="5" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
-                    <!-- A 1:1 plan row's desired is editable in place; committing (focus-loss) writes to the TS db.
-                         Spin buttons hidden to fit the 70px column; the write only fires when the value changed. -->
+                    <!-- 1:1 plan row's desired, editable in place; focus-loss writes to TS. Width ~3 chars +
+                         centered in code-behind (DesiredBox_Loaded) per the integer-edit-box rule —
+                         see docs/UI-CONVENTIONS.md. Spin buttons hidden; write fires only on a real change. -->
                     <NumberBox Grid.Column="7" Value="{x:Bind DesiredValue}"
                                Visibility="{x:Bind DesiredEditVisibility}"
                                Minimum="0" SmallChange="1" LargeChange="10"
                                SpinButtonPlacementMode="Hidden"
                                MinWidth="0" Margin="0" Padding="2,2" VerticalAlignment="Center"
-                               HorizontalContentAlignment="Stretch" LostFocus="Desired_Committed">
-                        <NumberBox.Resources>
-                            <!-- NumberBox exposes no TextAlignment; center the text on its inner input box. -->
-                            <Style TargetType="TextBox">
-                                <Setter Property="TextAlignment" Value="Center"/>
-                            </Style>
-                        </NumberBox.Resources>
-                    </NumberBox>
+                               Width="40" HorizontalAlignment="Right" HorizontalContentAlignment="Stretch"
+                               Loaded="DesiredBox_Loaded" LostFocus="Desired_Committed"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right"
@@ -155,8 +148,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="80"/>
                         <ColumnDefinition Width="88"/>
                         <ColumnDefinition Width="60"/>
                         <ColumnDefinition Width="60"/>
@@ -257,8 +250,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="170"/>
                 <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="88"/>
                 <ColumnDefinition Width="60"/>
                 <ColumnDefinition Width="60"/>
@@ -271,8 +264,8 @@
             <TextBlock Grid.Column="2" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="3" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="4" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="5" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="6" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="6" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="5" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="7" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
             <!-- "TS" = TS's recorded acquired (what it schedules on); "Actual" = on-disk frames. "Acc" (accepted)
                  is not shown — see the count-columns note at the top of this file. -->
