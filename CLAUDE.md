@@ -20,8 +20,9 @@ Scheduler database** — view + edit TS plans with disk-ACTUAL beside every numb
 When a change is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files
 under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` for the library's own guidance.
 
-`ARCHITECTURE.md` (design) and `ROADMAP.md` (phased plan + current status) are load-bearing — keep them current
-after substantive changes, per the user's docs-as-memory convention.
+`ARCHITECTURE.md` (design), `ROADMAP.md` (phased plan + current status), and `docs/UI-CONVENTIONS.md` (the grid's
+settled look-and-feel rules + a "when you add a UI element" checklist) are load-bearing — keep them current after
+substantive changes, per the user's docs-as-memory convention.
 
 ## Two-repo layout
 

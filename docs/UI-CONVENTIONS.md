@@ -1,0 +1,106 @@
+# TargetSchedulerManager — UI Conventions
+
+A living record of the **settled** look-and-feel rules — the design language the (still piecemeal) UI work
+lands against. **Current state only**: *how we got here* lives in `ROADMAP.md`, *why the system is shaped this
+way* in `ARCHITECTURE.md`. Update this when a UI decision settles (like the other docs — often a separate small
+commit). It is **not** a frozen spec; look-and-feel is still developed idea→implement→adjust, and this captures
+only what's stable. (Reflects the grid as of the count-column + centering work, 2026-06-20.)
+
+> The author is a WinForms expert / WinUI novice — idioms below are flagged against their WinForms analogues
+> where it helps.
+
+## The grid idiom
+
+- The home screen is a **flattened, fully-virtualized tree**, not a real `TreeView`: the view-model owns the
+  visible-row list (group headers + expanded children), like a WinForms `TreeListView` in VirtualMode.
+  (`MainWindow.xaml` `ListView` + `RowTemplateSelector`.)
+- **Three row templates**, one `DataTemplateSelector`: `GroupRowTemplate` (target header), `PanelRowTemplate`
+  (mosaic-panel mini-header), `FilterRowTemplate` (filter/leaf + nested detail). All share the header's column
+  widths so everything lines up.
+- **Column headers are hand-rolled** — a separate header `Grid` mirroring the row widths. WinUI's `ListView` has
+  no built-in column headers (the one DataGridView feature being reproduced).
+- **Collapsed by default.** Whole-row click toggles a group/panel/rollup (no-op on plain leaf rows); chevron
+  discloses; Expand/Collapse-all in the toolbar. Expansion is keyed so it survives filter changes + reloads, and
+  toggling edits the bound list **in place** so scroll position holds.
+
+## Levels & indentation
+
+Target group → mosaic panel → filter/leaf → nested detail (one source line per sub-length under a mixed rollup).
+Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel children shift one extra step.
+
+## Columns (current)
+
+`[enable] · Source · Target · Project · Filter · Seconds · Purpose · Desired · TS · Actual · Hours · Plans · Badges`
+
+- **Desired** = TS goal · **TS** = TS's recorded `acquired` (the count TS schedules on with the grader off) ·
+  **Actual** = on-disk frames (ground truth). TS `accepted` is **not** a column — write-back keeps it ==
+  acquired; a drift shows as an `acc≠acq` badge. (Full rationale: `ARCHITECTURE.md` → *Grid count columns*.)
+- **Source** column shows the row's *plane*: `TS` / `Disk` / `Both`. The `TS` count-header deliberately doubles
+  this token (author's call).
+- Widths are fixed per column except **Target** (`*`). The header `Grid` and all three templates must stay in
+  lockstep — changing a column means editing **four grids** and renumbering `Grid.Column`.
+
+## em-dash convention
+
+`—` = this row's plane has nothing for that cell (like an empty DataGridView cell). A Disk-only row shows `—`
+under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing — keep it.
+
+## Visual language
+
+- **Signed Hours (additive):** every row's Hours is its signed contribution to its parent's total, so a parent
+  is the literal sum of its children. TS rows show **−(desired×sec)** (deficit), Disk rows **+(frames×sec)**,
+  Both rollups the **disk−desired gap**. Tiny non-zero values render F2 so they never read `0.0`
+  (`Format.Hours`); a positive Both gap is prefixed `+`.
+- **Fills** (`ThemeBrushes`): **caution** = needs telescope time / outstanding commitment · **success** (green)
+  = goal met · **critical** = data that shouldn't exist (e.g. a desired-0 plan). Disk lines stay **plain** —
+  quiet positive facts. Dark-theme fills are intentionally subtle (stronger brushes are a one-line swap in
+  `ThemeBrushes.cs`).
+- **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
+  sub-lengths; Hours carries the caution/success fill by sign.
+- **Badges** (caution-colored, rightmost): `mosaic · alias · duplicate · name≠ · ambiguous · no-coords ·
+  multi-plan · acc≠acq`. Built in `ReconciliationLoader.BuildRows`; they **bubble to the header** (distinct
+  union, `RowAggregates`). `IsFlagged` (duplicate / name≠ / ambiguous / multi-plan / acc≠acq) drives the
+  **flagged-only** filter.
+
+## Alignment & spacing
+
+- **Every item on a line is vertically centered, line by line.** Set `VerticalAlignment="Center"` **explicitly
+  per cell** — *not* a window-wide implicit `TextBlock` style: WinUI applies an implicit style unevenly inside a
+  `ListView` `DataTemplate` and leaks it into control internals (tried 2026-06-20, reverted). Add it on every new
+  cell.
+- Numeric columns right-align (`TextAlignment="Right"`); text columns left; the enable checkbox centers in its
+  36px gutter.
+
+## Editing
+
+- **In-grid only.** A docked dossier panel was built then dropped; `WinUI.TableView` was evaluated and rejected
+  (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.**
+- Editable today: the **target-enable checkbox** (leftmost, on target headers only — hidden on disk-only +
+  mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows; read-only on headers, disk rows, and
+  mixed rollups).
+- Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
+  and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
+
+## TS source (LIVE / LOCAL)
+
+Toolbar radios: **LIVE — BIRDWATCHER** (caution-colored — writes hit the rig) vs **LOCAL copy**. LIVE greys out
+for the session if BIRDWATCHER is unreachable. The summary/badge says which; switching reloads from the chosen db.
+
+## Chrome
+
+- **Toolbar:** Reload (rescan) · progress ring · LIVE/LOCAL radios · summary line.
+- **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
+  Expand/Collapse all.
+- **Status bar:** library + TS paths + resolve time.
+- **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
+  hover-hint is suppressed.
+
+## When you add a UI element — checklist
+
+1. New **column**? Edit all four grids (header + 3 templates) in lockstep; renumber `Grid.Column`; pick a fixed width.
+2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric.
+3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
+4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
+5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
+6. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
+   run/screenshot the app (don't do it unprompted).
