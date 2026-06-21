@@ -15,6 +15,10 @@
          grading off TS keeps accepted == acquired, and write-back re-sets them equal; a rare acc≠acq drift surfaces
          as a badge (see ReconciliationLoader) rather than a permanent column. The "TS" header doubles the token the
          Source column prints per row by design (user's call). -->
+    <!-- UI rule: every item on a line is vertically centered. WinUI gives no reliable self-enforcing path for this
+         inside a ListView's DataTemplate (a window-wide implicit TextBlock style applies unevenly there and leaks
+         into control internals), so it is set explicitly per cell: VerticalAlignment="Center" on every text cell,
+         and the checkbox / pills / NumberBox carry their own. Add it on any new cell. -->
     <Grid Padding="12,8,12,8" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.Resources>
             <!-- The grid's rows mix two item types (group header / filter row); the selector below picks the
@@ -44,24 +48,29 @@
                               IsChecked="{x:Bind IsTargetEnabled}" IsThreeState="False"
                               Click="TargetEnable_Click"
                               ToolTipService.ToolTip="Enable/disable this target in Target Scheduler"/>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <!-- The disclosure chevron; OneWay because IsExpanded flips in place on toggle. -->
                         <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"
                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="{x:Bind TargetText}" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
                     <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
                     <Border Grid.Column="10" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                               VerticalAlignment="Center"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -85,23 +94,25 @@
                     </Grid.ColumnDefinitions>
                     <!-- Column 0 (enable checkbox) is blank on filter rows. Indent ladder: mixed rollups carry
                          their own chevron; their source lines step in one more level (SourceMargin all three). -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                 Margin="{x:Bind SourceMargin}">
                         <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"
                                   VerticalAlignment="Center" Visibility="{x:Bind ChevronVisibility}"/>
                         <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="4" Text="{x:Bind Filter}"/>
+                    <TextBlock Grid.Column="2" Text="{x:Bind Target}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="4" Text="{x:Bind Filter}" VerticalAlignment="Center"/>
                     <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise. -->
                     <Border Grid.Column="5" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
                         <TextBlock Text="{x:Bind SecondsText}"/>
                     </Border>
-                    <TextBlock Grid.Column="6" Text="{x:Bind Purpose}" Opacity="0.7"/>
+                    <TextBlock Grid.Column="6" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
-                               Visibility="{x:Bind DesiredTextVisibility}"/>
+                               VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
                     <!-- A 1:1 plan row's desired is editable in place; committing (focus-loss) writes to the TS db.
                          Spin buttons hidden to fit the 70px column; the write only fires when the value changed. -->
                     <NumberBox Grid.Column="7" Value="{x:Bind DesiredValue}"
@@ -117,16 +128,19 @@
                             </Style>
                         </NumberBox.Resources>
                     </NumberBox>
-                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                               VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right"
-                               FontWeight="SemiBold"/>
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
                     <Border Grid.Column="10" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="11" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"/>
+                    <TextBlock Grid.Column="11" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
+                               VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                               VerticalAlignment="Center"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -151,21 +165,26 @@
                         <ColumnDefinition Width="150"/>
                     </Grid.ColumnDefinitions>
                     <!-- Column 0 (enable checkbox) is blank on panel rows; the 18px panel indent lives in column 1. -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="18,0,0,0">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="18,0,0,0"
+                                VerticalAlignment="Center">
                         <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"
                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="{x:Bind Label}" Opacity="0.9"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"/>
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="9" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
                     <Border Grid.Column="10" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="12" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                               VerticalAlignment="Center"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -248,20 +267,20 @@
                 <ColumnDefinition Width="150"/>
             </Grid.ColumnDefinitions>
             <!-- Column 0 header is blank: the enable checkboxes below it are self-evident. -->
-            <TextBlock Grid.Column="1" Text="Source" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="2" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="3" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="4" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="5" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0"/>
-            <TextBlock Grid.Column="6" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}"/>
-            <TextBlock Grid.Column="7" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
+            <TextBlock Grid.Column="1" Text="Source" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="3" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="4" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="5" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="6" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="7" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
             <!-- "TS" = TS's recorded acquired (what it schedules on); "Actual" = on-disk frames. "Acc" (accepted)
                  is not shown — see the count-columns note at the top of this file. -->
-            <TextBlock Grid.Column="8" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="9" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="10" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="11" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right"/>
-            <TextBlock Grid.Column="12" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0"/>
+            <TextBlock Grid.Column="8" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="9" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="10" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="11" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="12" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- A flattened tree, not a real TreeView: the VM owns the visible-row list (group headers +
@@ -280,6 +299,7 @@
         </ListView>
 
         <TextBlock Grid.Row="4" Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                   Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.7" Margin="0,6,0,0"/>
+                   Style="{ThemeResource CaptionTextBlockStyle}" Opacity="0.7" Margin="0,6,0,0"
+                   VerticalAlignment="Center"/>
     </Grid>
 </Window>
