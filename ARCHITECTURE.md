@@ -88,6 +88,16 @@ Tom Palmer's TS database, which lets XFM retire its Target Scheduler tab into TS
   probe; a loud LIVE/LOCAL indicator says which). The risk of live SQLite-over-SMB is accepted and mitigated:
   a daily Macrium image of BIRDWATCHER (corruption → restore) and a night-image/day-edit rhythm (the rig is
   idle when editing, so the open-sidecar guard rarely even trips).
+- **Grid count columns (display):** after `Desired` (TS goal) the grid shows **`TS`** = TS's recorded
+  `exposureplan.acquired` (the count TS schedules on with the grader off) and **`Actual`** = on-disk frames
+  (ground truth). TS `accepted` is deliberately **not** a column — with grading off TS increments acquired and
+  accepted together (`ImageSaveWatcher` auto-accepts) and write-back re-sets them equal, so accepted only mirrors
+  acquired; a rare in-session `accepted ≠ acquired` drift surfaces as a flagged **`acc≠acq` badge** instead
+  (`BuildRows`; the data stays in the row model). *Why `TS`, not a TS %:* TS's grader-off `PercentComplete`
+  divides acquired by `ExposureThrottle × Desired` (default **125 %**), so a target shot to `Desired` reads ~80 %
+  and TS keeps scheduling it — TSM's `remaining = max(0, Desired − Actual)` is the honest completion. The
+  `acc = acq = disk` *write* is the write-back contract (below), deferred to a future **WriteBack** action; the
+  app writes only `enable`/`desired` today.
 - **Reuse:** the scan is `Astronomy.Catalog.Scan.ImageLibraryScanner` (on `Astronomy.XISF`'s header reader); the
   SQLite mapper pattern came from XFM.
 

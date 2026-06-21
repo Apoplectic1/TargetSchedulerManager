@@ -229,6 +229,38 @@ public class BuildRowsTests
         Assert.Equal(4, header.Disk);                                            // disk untouched by a desired edit
     }
 
+    [Fact]
+    public void PlanAcceptedNotEqualAcquired_GetsAccNeAcqBadge_AndIsFlagged()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, acquired: 10, accepted: 12)],   // TS drift: acc > acq
+                [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Contains("acc≠acq", r.Badge);
+        Assert.True(r.IsFlagged);
+    }
+
+    [Fact]
+    public void PlanAcceptedEqualsAcquired_HasNoAccNeAcqBadge()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, acquired: 8, accepted: 8)],     // healthy: acc == acq
+                [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.DoesNotContain("acc≠acq", r.Badge);
+        Assert.False(r.IsFlagged);
+    }
+
     // ---- builders (mirroring Astronomy.Catalog.Tests') ----------------------
 
     private static CatalogGraph Graph(
@@ -250,8 +282,9 @@ public class BuildRowsTests
         new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
             DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null);
 
-    private static ExposurePlan Plan(Guid target, Guid template, int desired, double? seconds, string? tsKey = null) =>
-        new(Guid.NewGuid(), target, template, seconds, desired, AcquiredCount: 0, AcceptedCount: 0,
+    private static ExposurePlan Plan(Guid target, Guid template, int desired, double? seconds, string? tsKey = null,
+        int acquired = 0, int accepted = 0) =>
+        new(Guid.NewGuid(), target, template, seconds, desired, AcquiredCount: acquired, AcceptedCount: accepted,
             Enabled: true, ImportedFromTsGuid: tsKey);
 
     private static InventoryFilter Inv(

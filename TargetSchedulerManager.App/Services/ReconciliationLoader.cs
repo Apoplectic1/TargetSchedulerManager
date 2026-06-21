@@ -143,6 +143,11 @@ public static class ReconciliationLoader
                 // A multi-plan group is explained (alias members fold) or it's the same-purpose
                 // multiplicity that routes write-back to manual — only the latter is a flag.
                 bool multiPlan = fp.Sum(c => c.PlanCount) > 1 && !isAlias;
+                // TS records out of sync: a plan whose accepted ≠ acquired. With the grader off TS increments
+                // both together (accepted == acquired) and write-back re-sets them equal, so any divergence is the
+                // in-session TS drift the user reconciles — surface it as a flag rather than re-showing the hidden
+                // Accepted column.
+                bool accNeAcq = fp.Any(c => c.PlanCount > 0 && c.Accepted != c.Acquired);
                 List<string> badges = [];
                 if (isMosaic) badges.Add("mosaic");
                 if (isAlias) badges.Add("alias");
@@ -151,9 +156,10 @@ public static class ReconciliationLoader
                 if (isAmbiguous) badges.Add("ambiguous");
                 if (isUnanchored) badges.Add("no-coords");
                 if (multiPlan) badges.Add("multi-plan");
+                if (accNeAcq) badges.Add("acc≠acq");
 
                 string badge = string.Join(" · ", badges);
-                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan;
+                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan || accNeAcq;
 
                 List<ReconciliationCell> planCells = [], diskCells = [];
                 foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))

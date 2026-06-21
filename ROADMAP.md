@@ -15,6 +15,23 @@ targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panel
 **0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
 before code) → load-split; write-back resurfaces as an app action.
 
+**▶ SHIPPED 2026-06-20 — count columns reframed: `Acq`→`TS`, `Disk`→`Actual`, `Acc` hidden + `acc≠acq` badge.**
+Display-only grid change (grill-me design). The old `Acq`/`Acc`/`Disk` trio mixed two TS-side bookkeeping numbers
+with the on-disk truth; now it reads **`Desired`** (TS goal) · **`TS`** (TS's recorded `acquired` — the number TS
+schedules on with the grader off) · **`Actual`** (on-disk frames). `Acc` (accepted) left the grid: with grading
+off TS increments acquired + accepted together (`ImageSaveWatcher` auto-accepts) and write-back re-sets them
+equal, so it only mirrors acquired — a rare in-session `accepted ≠ acquired` drift now shows as a flagged
+**`acc≠acq` badge** (data kept in the row model, column gone). The `TS` header intentionally doubles the per-row
+Source token (user's call); the em-dash on a Disk-only row (no TS plan) survives. *Rationale from the grill:*
+TS's grader-off `PercentComplete` divides acquired by `ExposureThrottle × Desired` (default **125 %**), so a
+target shot to `Desired` reads ~80 % and TS over-schedules it — TSM's `remaining = max(0, Desired − Actual)` is
+the honest view, which is why `Actual` is the headline. **Deferred:** the `acc = acq = disk` *write* stays the
+Phase-4 contract and lands with a future **WriteBack button** (today the app writes only `enable`/`desired`).
+Caveat for that button: NINA's TS plugin can ignore external db writes mid-session until a NINA restart
+(user-reported, unfixed upstream) — live write-back will want a between-sessions / restart-to-apply note. Reflow
+across the header + 3 row templates; `BuildRows` adds the badge + flag; 49 App.Tests (+2), 0 errors. **Pending:
+user's visual grid pass.**
+
 **▶ SHIPPED 2026-06-11 — project renamed TargetCatalogManager → TargetSchedulerManager (TSM).** The "Catalog"
 name was legacy (the catalog builder left with the CLI; `Catalog.db` goes to the planned LCM) — the app manages
 the N.I.N.A. **Target Scheduler** db, so it is now named for what it does. Deep rename: solution
