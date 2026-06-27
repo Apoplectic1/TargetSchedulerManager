@@ -28,10 +28,11 @@ internal static class Make
         IReadOnlyList<ReconciliationRow>? detail = null,
         string? panelKey = null,
         string? panelLabel = null,
-        RowSource? panelSource = null) =>
+        RowSource? panelSource = null,
+        string? planTsKey = null) =>
         new(target, "proj", filter, purpose, planSeconds, diskSeconds, source, plane,
             desired, acquired, accepted, disk, planCount, badge, flagged, planHours, diskHours,
-            mixed, isDetail, detail, panelKey, panelLabel, panelSource);
+            mixed, isDetail, detail, panelKey, panelLabel, panelSource, planTsKey: planTsKey);
 
     /// <summary>A one-plane TS leaf: commitment only (no disk side).</summary>
     public static ReconciliationRow Ts(string target = "T", string filter = "H", int desired = 10,

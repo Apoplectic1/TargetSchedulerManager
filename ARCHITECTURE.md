@@ -42,6 +42,15 @@ Tom Palmer's TS database, which lets XFM retire its Target Scheduler tab into TS
   project knobs → structural). Each load runs scan → resolve → project **in memory** (`ReconciliationLoader`);
   no `Catalog.db` is needed or written. Its TS data layer is a deletable stop-gap; the **UI shell is permanent**
   and retargets `Catalog.db` when IS arrives.
+  Guarded TS writes go through two App-side modules: **`TsSource`** (`Shared/`) owns the LIVE/LOCAL paths, the
+  injected reachability probe, and the mode + sticky-disabled state (consulted by the load and the gate);
+  **`TsEditGate`** (`Shared/`) is the one guarded write — `ApplyAsync(...) → EditOutcome`
+  (`Applied`/`Refused`/`Failed`/`LiveDropped`) over an injected `ITsEditor`, delegating the sticky-fall to
+  `TsSource` on a live drop. Both take their dependencies by injection, so the LIVE/LOCAL machine and the guarded
+  write are unit-tested without SQLite or SMB. The library half is the consumer-neutral
+  `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the four open-db guard
+  predicates into one structured-refusal call (a future WriteBack app action reuses the same gate via an
+  `ApplyPlanAsync` sibling).
 - **`Catalog.db` and its consumers** — the persistent catalog is the planned **LCM**'s output (was the retired
   CLI's job). XFM / TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly`. XFM's actual-only
   world is `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).

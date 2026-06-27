@@ -142,10 +142,35 @@ public class MainViewModelTests
         Assert.Equal(["B", "A"], vm.Rows.OfType<TargetGroupRow>().Select(g => g.Target).ToArray());
     }
 
+    [Fact]
+    public async Task SetPlanDesired_AppliedWrite_UpdatesLeafAndHeaderInPlace()
+    {
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "10", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1");
+        vm.SetRowsForTest([row]);
+        vm.ToggleGroup((TargetGroupRow)vm.Rows[0]);
+
+        Assert.True(await vm.SetPlanDesiredAsync(row, 25));
+        Assert.Equal(25, row.Desired);
+        Assert.Equal(25, vm.Rows.OfType<TargetGroupRow>().Single().Desired);
+    }
+
     private static MainViewModel Vm(params ReconciliationRow[] rows)
     {
         MainViewModel vm = new();
         vm.SetRowsForTest(rows);
         return vm;
     }
+}
+
+internal sealed class TsEditGateTests_Stub : TargetSchedulerManager.App.Shared.ITsEditor
+{
+    public (Astronomy.Catalog.TargetScheduler.FieldEditResult? Result, Astronomy.Catalog.TargetScheduler.RefusalReason Refusal) Next;
+    public (Astronomy.Catalog.TargetScheduler.FieldEditResult? Result, Astronomy.Catalog.TargetScheduler.RefusalReason Refusal) TrySetField(
+        Astronomy.Catalog.TargetScheduler.TsTable table, string tsKey, string column, object? value) => Next;
+    public void Dispose() { }
 }

@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
-using Microsoft.Data.Sqlite;
 using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
@@ -42,18 +41,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // reloads; see ExpansionState for the keying. Collapsed is the default for anything never touched.
     private readonly ExpansionState _expansion = new();
 
-    // In-session target.active toggles, keyed by the target's TS key, so a checkbox flip survives filter/sort
-    // rebuilds (the grid re-derives groups each pass). The write already hit TS; this just keeps the displayed
-    // state consistent until the next full reload re-reads TS authoritatively (then it's cleared).
-    private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
+    // The guarded TS write + the LIVE/LOCAL source state (probe + sticky-fall) live in TsEditGate/TsSource;
+    // the view-model holds the gate and reads its Source for the load path and the radio bindings.
+    private readonly TsEditGate _gate;
+    private TsSource Source => _gate.Source;
 
-    // The TS source for this session. _tsMode is the user's LIVE/LOCAL radio choice; _liveDisabled goes
-    // sticky-true once a probe finds BIRDWATCHER unreachable (the LIVE radio greys out — re-launch TSM to retry).
-    // Probed on the first load; each LIVE load re-probes and sticky-falls to LOCAL if the rig dropped.
-    private TsMode _tsMode = TsMode.Local;
-    private bool _liveDisabled;
-    private bool _tsProbed;
-    private string _tsDbPath = DevDefaults.TsDatabase;
+    private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
@@ -67,6 +60,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private SortMode _sortMode = SortMode.TargetName;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public MainViewModel() : this(TsEditGate.CreateDefault()) { }
+
+    /// <summary>Test seam: inject a gate backed by a stub editor + a probe-controlled <see cref="TsSource"/>.</summary>
+    internal MainViewModel(TsEditGate gate) => _gate = gate;
 
     /// <summary>
     /// The flattened tree the ListView shows: one <see cref="TargetGroupRow"/> header per target, followed
@@ -95,19 +93,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     /// <summary>True when this session is set to the LIVE BIRDWATCHER db (the LIVE radio's IsChecked).</summary>
-    public bool IsLiveSelected => _tsMode == TsMode.Live;
+    public bool IsLiveSelected => Source.IsLive;
 
     /// <summary>True when set to the LOCAL working copy (the LOCAL radio's IsChecked).</summary>
-    public bool IsLocalSelected => _tsMode == TsMode.Local;
+    public bool IsLocalSelected => !Source.IsLive;
 
     /// <summary>Whether the LIVE radio is selectable — false (greyed) once BIRDWATCHER was found unreachable this
     /// session (sticky; re-launch TSM to retry).</summary>
-    public bool LiveEnabled => !_liveDisabled;
+    public bool LiveEnabled => Source.LiveEnabled;
 
     /// <summary>Spells out the current source's blast radius (radio tooltip).</summary>
-    public string TsSourceTooltip => _liveDisabled
+    public string TsSourceTooltip => !Source.LiveEnabled
         ? "BIRDWATCHER unreachable this session — editing the LOCAL copy. Re-launch TSM to retry LIVE."
-        : _tsMode == TsMode.Live
+        : Source.IsLive
             ? "LIVE Target Scheduler db on BIRDWATCHER — edits hit the imaging rig immediately."
             : "LOCAL working copy — edits do NOT reach the rig until you copy it back.";
 
@@ -158,32 +156,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsLoading = true;
         _targetActiveEdits.Clear();   // a fresh scan re-reads TS active; in-session overrides are now authoritative-stale
 
-        // First load probes BIRDWATCHER (LIVE if reachable, else LOCAL + LIVE greyed); thereafter the radio chooses,
-        // but a LIVE load re-probes and sticky-falls to LOCAL if the rig dropped (re-launch TSM to retry LIVE).
-        if (!_tsProbed)
-        {
-            _tsProbed = true;
-            bool reachable = await Task.Run(TsDatabaseResolver.IsLiveReachable);
-            _liveDisabled = !reachable;
-            _tsMode = reachable ? TsMode.Live : TsMode.Local;
-            RaiseTsSource();
-        }
-        else if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
-        {
-            _liveDisabled = true;
-            _tsMode = TsMode.Local;
-            RaiseTsSource();
-            Log.Warn("BIRDWATCHER unreachable — switched to LOCAL for this session");
-        }
-
-        _tsDbPath = _tsMode == TsMode.Live ? DevDefaults.TsDatabaseLive : DevDefaults.TsDatabase;
+        string tsDbPath = await Task.Run(Source.ResolvePathForLoad);
+        RaiseTsSource();
         StatusText = $"scanning {DefaultLibrary} …";
         try
         {
-            LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, _tsDbPath, DefaultToleranceDegrees);
+            LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, tsDbPath, DefaultToleranceDegrees);
             _lastLoad = result;
             _allRows = result.Rows;
-            StatusText = $"library {DefaultLibrary}  ·  TS {_tsDbPath} ({(_tsMode == TsMode.Live ? "LIVE BIRDWATCHER" : "local copy")})" +
+            StatusText = $"library {DefaultLibrary}  ·  TS {tsDbPath} ({(Source.IsLive ? "LIVE BIRDWATCHER" : "local copy")})" +
                 $"  ·  resolved in {result.Elapsed.TotalSeconds:0.0} s";
             ApplyFilters();
         }
@@ -215,11 +196,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// change reloads from the newly selected db.</summary>
     public void SetTsMode(TsMode mode)
     {
-        if (mode == TsMode.Live && _liveDisabled) { RaiseTsSource(); return; }   // re-pin the radio to the active source
-        if (mode == _tsMode) return;
-        _tsMode = mode;
-        RaiseTsSource();
-        _ = LoadAsync();
+        if (Source.TrySelectMode(mode)) { RaiseTsSource(); _ = LoadAsync(); }
+        else RaiseTsSource();   // re-pin the radio to the active source
     }
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
@@ -362,107 +340,57 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ? pending
             : representative.Enabled;
 
-    /// <summary>
-    /// The guarded write primitive every field edit shares: writes one editable TS field (per
-    /// <see cref="TsEditableSchema"/>) into the current TS db (LIVE or LOCAL) off the UI thread — refusing an
-    /// unsafe db (incompatible schema / read-only / open <c>-wal</c>/<c>-shm</c>/<c>-journal</c> sidecar, i.e. TS
-    /// mid-transaction on the rig / the column absent on this TS version), then read-back verifying and auditing.
-    /// A LIVE write that throws because BIRDWATCHER dropped sticky-falls to LOCAL. Returns whether the value was
-    /// applied; the caller decides what happens next (record an override, or reload). <paramref name="label"/>
-    /// names the row for the log/status line.
-    /// </summary>
-    private async Task<bool> ApplyFieldEditAsync(TsTable table, string tsKey, string column, object? value, string label)
+    // Maps one guarded-write outcome to the status line + side effects, returning whether the value was applied.
+    // A live drop greys the LIVE radio and reloads from LOCAL; a refusal/failure leaves the db untouched.
+    private bool ApplyOutcome(EditOutcome outcome, string label)
     {
-        try
+        switch (outcome)
         {
-            (FieldEditResult? result, string? refusal) = await Task.Run<(FieldEditResult?, string?)>(() =>
-            {
-                using TargetSchedulerEditor editor = new(_tsDbPath);
-                string? reason =
-                    !editor.HasRequiredColumns ? "TS db schema is incompatible"
-                    : editor.IsReadOnly ? "TS db file is read-only"
-                    : editor.HasOpenSidecar ? "TS database busy (open in NINA?) — try again"
-                    : !editor.IsFieldAvailable(table, column) ? $"this TS db has no {table}.{column} column"
-                    : null;
-                return reason is not null ? (null, reason) : (editor.SetField(table, tsKey, column, value), null);
-            });
-
-            if (refusal is not null)
-            {
-                Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
-                StatusText = $"can't change {label}: {refusal}";
+            case EditOutcome.Applied:
+                return true;
+            case EditOutcome.Refused refused:
+                StatusText = $"can't change {label}: {RefusalText(refused.Reason)}";
                 return false;
-            }
-            if (result is not { Succeeded: true })
-            {
-                Log.Error(
-                    $"{table}.{column} write failed for \"{label}\" (found={result?.RowFound} verified={result?.Verified})");
+            case EditOutcome.Failed:
                 StatusText = $"edit failed for {label} — see tsm.log";
                 return false;
-            }
-
-            // Drop SQLite's connection pool so the next read re-opens and re-reads the file: over SMB a pooled
-            // reader can otherwise serve stale cached pages, making a reload show the pre-edit value (a write that
-            // succeeded but "didn't take"). The reader's 0.00s re-read was the tell.
-            SqliteConnection.ClearAllPools();
-            Log.Info(
-                $"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on {(_tsMode == TsMode.Live ? "LIVE" : "local")} {_tsDbPath}");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
-            // A LIVE write that throws because BIRDWATCHER dropped sticky-disables LIVE and falls to LOCAL for the
-            // session (re-launch to retry); any other fault just reports.
-            if (_tsMode == TsMode.Live && !await Task.Run(TsDatabaseResolver.IsLiveReachable))
-            {
-                _liveDisabled = true;
-                _tsMode = TsMode.Local;
+            case EditOutcome.LiveDropped:
                 RaiseTsSource();
                 StatusText = "BIRDWATCHER unreachable — switched to LOCAL for this session (re-launch TSM to retry LIVE).";
                 _ = LoadAsync();
-            }
-            else
-            {
-                StatusText = $"edit failed: {ex.Message}";
-            }
-            return false;
+                return false;
+            default:
+                return false;
         }
     }
 
-    /// <summary>
-    /// Toggles <c>target.active</c> for one group's target via the guarded write, recording an in-session override
-    /// so the checkbox state survives filter/sort rebuilds — no reload, since active changes no counts/hours.
-    /// Returns false on failure so the caller can revert the checkbox.
-    /// </summary>
+    private static string RefusalText(RefusalReason reason) => reason switch
+    {
+        RefusalReason.SchemaIncompatible => "TS db schema is incompatible",
+        RefusalReason.ReadOnly => "TS db file is read-only",
+        RefusalReason.OpenSidecar => "TS database busy (open in NINA?) — try again",
+        RefusalReason.ColumnAbsent => "this TS db has no such column",
+        _ => "refused",
+    };
+
     public async Task<bool> SetTargetEnabledAsync(TargetGroupRow group, bool enabled)
     {
         if (group.TsTargetKey is not string key)
-            return false;   // no TS target behind this group (the checkbox should be hidden)
-
-        bool ok = await ApplyFieldEditAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target);
-        if (ok) _targetActiveEdits[key] = enabled;
-        return ok;
+            return false;
+        EditOutcome outcome = await _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target);
+        bool applied = ApplyOutcome(outcome, group.Target);
+        if (applied) _targetActiveEdits[key] = enabled;
+        return applied;
     }
 
-    /// <summary>
-    /// Writes one exposure plan's <c>desired</c> via the guarded write, then reloads so the grid re-derives from
-    /// TS (the truth): the new goal changes counts/hours up the whole tree, so — unlike enable — a cheap
-    /// in-session override won't keep the headers consistent. Editable only on a 1:1 plan row
-    /// (<see cref="ReconciliationRow.PlanTsKey"/>). Returns false on failure so the caller can revert the input.
-    /// </summary>
     public async Task<bool> SetPlanDesiredAsync(ReconciliationRow row, int desired)
     {
         if (row.PlanTsKey is not string key)
             return false;
+        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}");
+        if (!ApplyOutcome(outcome, $"{row.Target} · {row.Filter}"))
+            return false;
 
-        bool ok = await ApplyFieldEditAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}");
-        if (!ok) return false;
-
-        // Apply in place rather than reloading: the edited leaf takes the new count, and its group (and panel, if
-        // any) re-aggregate from it. No grid rebuild means the scroll position — and any half-typed next cell —
-        // survive. The write was read-back verified, so memory mirrors TS; the Reload button still re-derives the
-        // whole grid from TS authoritatively.
         row.ApplyDesired(desired);
         TargetGroupRow? group = _groups.FirstOrDefault(g => g.Children.Contains(row));
         group?.Recompute();
