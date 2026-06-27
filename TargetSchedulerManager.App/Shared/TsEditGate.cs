@@ -68,9 +68,15 @@ internal sealed class TsEditGate
                 using ITsEditor editor = _editorFactory(_source.CurrentPath);
                 (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(table, key, column, value);
                 if (refusal != RefusalReason.None)
+                {
+                    Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
                     return new EditOutcome.Refused(refusal);
+                }
                 if (result is not { Succeeded: true })
+                {
+                    Log.Error($"{table}.{column} write failed for \"{label}\" (found={result?.RowFound} verified={result?.Verified})");
                     return new EditOutcome.Failed(result?.RowFound ?? false, result?.Verified ?? false);
+                }
 
                 // Over SMB a pooled reader can serve cached pages, making a verified write read as if it hadn't
                 // taken — drop the pool so the next read re-opens the file.
