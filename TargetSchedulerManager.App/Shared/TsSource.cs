@@ -5,11 +5,13 @@ public enum TsMode { Live, Local }
 
 /// <summary>
 /// Owns the TS-source policy for one app session: the LIVE (BIRDWATCHER, over SMB) and LOCAL (working-copy) paths,
-/// the injected reachability <paramref name="probe"/>, and the Live/Local + sticky-disabled state. Consulted by
+/// the injected reachability <c>probe</c>, and the Live/Local + sticky-disabled state. Consulted by
 /// both the load (via <see cref="ResolvePathForLoad"/>) and the write gate (via <see cref="CurrentPath"/> and
 /// <see cref="NotifyLiveWriteFailed"/>). UI-free: it exposes state, never raises change notifications — the
-/// view-model refreshes its bindings after each (awaited) call. Machine/network policy, so it lives in the App's
-/// <c>Shared\</c> folder, never the consumer-neutral library.
+/// view-model refreshes its bindings after each (awaited) call. Assumes a single logical caller per session
+/// (the view-model's serialized load/edit flow): the few fields are mutated without locking — correct for one
+/// desktop user, not a concurrent writer. Machine/network policy, so it lives in the App's <c>Shared\</c>
+/// folder, never the consumer-neutral library.
 /// </summary>
 internal sealed class TsSource
 {
@@ -62,7 +64,9 @@ internal sealed class TsSource
     }
 
     /// <summary>Honours a LIVE/LOCAL radio choice; a sticky-disabled LIVE is ignored. Returns true when the mode
-    /// actually changed (the caller then reloads).</summary>
+    /// actually changed (the caller then reloads). Assumes <see cref="ResolvePathForLoad"/> has run first (the
+    /// load→radio sequence): selecting LIVE before the first probe sets it un-probed, and that first load may then
+    /// re-derive it.</summary>
     public bool TrySelectMode(TsMode mode)
     {
         if (mode == TsMode.Live && _liveDisabled) return false;

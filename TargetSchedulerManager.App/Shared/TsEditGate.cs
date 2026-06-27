@@ -86,9 +86,12 @@ internal sealed class TsEditGate
             }
             catch (Exception ex)
             {
+                // Log the cause on EVERY throw, before classifying: the editor's db-open is the usual throw site
+                // when BIRDWATCHER vanishes, so a real fault must not be erased by a "fell to LOCAL" relabel
+                // (logs-every-write, fail-loud). Mirrors the original ApplyFieldEditAsync ordering.
+                Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
                 if (_source.NotifyLiveWriteFailed())
                     return new EditOutcome.LiveDropped();
-                Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
                 return new EditOutcome.Failed(Found: false, Verified: false);
             }
         });

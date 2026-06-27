@@ -67,4 +67,14 @@ public class TsSourceTests
         Assert.False(s.NotifyLiveWriteFailed()); // some other fault, not a drop
         Assert.True(s.IsLive);
     }
+
+    [Fact]
+    public void TrySelectMode_RealChange_ReturnsTrue_SameMode_ReturnsFalse()
+    {
+        TsSource s = New(() => true);
+        s.ResolvePathForLoad();                       // → Live, LiveEnabled
+        Assert.True(s.TrySelectMode(TsMode.Local));   // a real Live→Local switch
+        Assert.False(s.IsLive);
+        Assert.False(s.TrySelectMode(TsMode.Local));  // already Local → no change
+    }
 }
