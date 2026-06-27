@@ -21,9 +21,6 @@ public enum SortMode
     DeltaDesc,
 }
 
-/// <summary>Which TS database this session reads + edits — the user's LIVE/LOCAL radio choice.</summary>
-public enum TsMode { Live, Local }
-
 /// <summary>
 /// State + filter logic for the main grid. In WinForms terms: the fields and "refresh the ListView" code
 /// you'd have on MainForm, isolated from any UI types. The XAML binds these properties with
