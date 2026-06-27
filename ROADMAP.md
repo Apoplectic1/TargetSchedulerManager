@@ -15,6 +15,15 @@ targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panel
 **0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
 before code) → load-split; write-back resurfaces as an app action.
 
+**▶ SHIPPED 2026-06-26 — closed the `TargetCells` projection leak (review's full set now done).** `BuildRows`
+was indexing `graph.Targets` to read one target's `ImportedFromTsGuid` for a planned-only mosaic panel's key —
+reaching past the projection into graph internals. It turns out `TargetCells` already carries that value as
+`TsTargetKey` (the projection assigns `t.ImportedFromTsGuid` to it), so the fix was a 2-line consumer-side swap
+(`child.TsTargetKey ?? child.Name`) that drops the `graph.Targets` dictionary — `TargetCells` is now the complete
+contract for the grid shaping (`graph` stays only as the projection's input). No library change, zero behavior
+change (identical value, same source), 85 App.Tests, 0 warnings. Candidate C — the last of the four
+architecture-review candidates (A/B/D shipped above).
+
 **▶ SHIPPED 2026-06-26 — the two header rows share an `AggregateHeaderRow` base.** `TargetGroupRow` and
 `PanelGroupRow` were ~90% identical — both wrapped `RowAggregates` and hand-rolled the same `IsExpanded`/chevron,
 `*Text`, `HoursText`/`HoursBackground`, and `Recompute` (a fill/format change meant editing both — a live drift

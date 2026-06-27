@@ -73,9 +73,6 @@ public static class ReconciliationLoader
     {
         IReadOnlyList<TargetCells> projected = ReconciliationProjection.Project(graph, report);
 
-        // The panel key falls back to a target's TS guid for a planned-only panel (no directory); that is the
-        // one identity field the shaping needs beyond the projection, so look it up from the graph directly.
-        Dictionary<Guid, Target> targetsById = graph.Targets.ToDictionary(t => t.Id);
         ILookup<Guid, TargetCells> childrenByParent = projected
             .Where(t => t.ParentTargetId is not null)
             .ToLookup(t => t.ParentTargetId!.Value);
@@ -109,8 +106,9 @@ public static class ReconciliationLoader
                     RowSource.TsOnly => child.Name,
                     _ => diskLabel ?? child.Name,
                 };
-                string panelKey = child.DirectoryName
-                    ?? $"ts:{targetsById[child.TargetId].ImportedFromTsGuid ?? child.Name}";
+                // A planned-only panel has no directory; key it by its TS guid — TsTargetKey, the target's
+                // imported_from_ts_guid the projection already carries — so the shaping needs only TargetCells.
+                string panelKey = child.DirectoryName ?? $"ts:{child.TsTargetKey ?? child.Name}";
                 panelOrdinal[$"{top.Name}|{panelKey}"] = panelOrdinal.Count;
                 EmitRows(child, top.Name, parentSource, panelKey, panelLabel, childSource);
             }
