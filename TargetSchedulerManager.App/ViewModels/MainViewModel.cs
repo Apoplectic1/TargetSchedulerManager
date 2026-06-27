@@ -37,9 +37,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private IReadOnlyList<ReconciliationRow> _allRows = [];
     private LoadResult? _lastLoad;
 
-    // Grouping state. Expansion (targets, mosaic panels, mixed-seconds rollups) survives filter changes and
-    // reloads; see ExpansionState for the keying. Collapsed is the default for anything never touched.
-    private readonly ExpansionState _expansion = new();
+    // Grouping state. The VisibleRowTree flattens the filtered groups into the bound row list and splices one
+    // node's children in/out on a toggle (insert == remove, one rule), and owns the expansion-key identity over
+    // a string-set ExpansionState. Expansion survives filter changes + reloads; collapsed is the default.
+    private readonly VisibleRowTree _tree = new(new ExpansionState());
 
     // The guarded TS write + the LIVE/LOCAL source state (probe + sticky-fall) live in TsEditGate/TsSource;
     // the view-model holds the gate and reads its Source for the load path and the radio bindings.
@@ -203,134 +204,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
     public void ToggleGroup(TargetGroupRow group)
     {
-        int index = _rows.IndexOf(group);
-        if (index < 0) return;
-
-        if (group.IsExpanded)
-        {
-            // Remove everything under this header (panel rows, children, any expanded rollup detail).
-            while (index + 1 < _rows.Count && _rows[index + 1] is not TargetGroupRow)
-                _rows.RemoveAt(index + 1);
-            _expansion.SetTarget(group.Target, expanded: false);
-        }
-        else
-        {
-            List<object> content = [];
-            AppendGroupContent(content, group);
-            for (int i = 0; i < content.Count; i++)
-                _rows.Insert(index + 1 + i, content[i]);
-            _expansion.SetTarget(group.Target, expanded: true);
-        }
-        group.IsExpanded = !group.IsExpanded;
-
+        _tree.Toggle(_rows, group);
         if (Log.IsDiagEnabled("UI"))
-        {
             Log.Diag("UI",
                 $"group {(group.IsExpanded ? "expand" : "collapse")}: \"{group.Target}\" ({group.Children.Count} rows)");
-        }
     }
 
     /// <summary>Expand/collapse a mosaic panel into its filter rows, in place.</summary>
     public void TogglePanel(PanelGroupRow panel)
     {
-        int index = _rows.IndexOf(panel);
-        if (index < 0) return;
-        string key = $"{panel.Target}|{panel.Key}";
-
-        if (panel.IsExpanded)
-        {
-            // Remove the panel's content (leaves + any expanded rollup detail), stopping at the next
-            // panel or target header.
-            while (index + 1 < _rows.Count && _rows[index + 1] is ReconciliationRow)
-                _rows.RemoveAt(index + 1);
-            _expansion.SetPanel(key, expanded: false);
-        }
-        else
-        {
-            List<object> content = [];
-            AppendLeaves(content, panel.Children);
-            for (int i = 0; i < content.Count; i++)
-                _rows.Insert(index + 1 + i, content[i]);
-            _expansion.SetPanel(key, expanded: true);
-        }
-        panel.IsExpanded = !panel.IsExpanded;
-
+        _tree.Toggle(_rows, panel);
         if (Log.IsDiagEnabled("UI"))
-        {
             Log.Diag("UI",
                 $"panel {(panel.IsExpanded ? "expand" : "collapse")}: \"{panel.Target}\" {panel.Label} " +
                 $"({panel.Children.Count} rows)");
-        }
-    }
-
-    // A group's visible content: panel rows (with their remembered expansion) for a mosaic, plain leaves
-    // otherwise — shared by the wholesale rebuild and the in-place ToggleGroup insert.
-    private static void AppendGroupContent(IList<object> sink, TargetGroupRow group)
-    {
-        if (group.Panels is not null)
-        {
-            foreach (PanelGroupRow panel in group.Panels)
-            {
-                sink.Add(panel);
-                if (panel.IsExpanded)
-                    AppendLeaves(sink, panel.Children);
-            }
-            return;
-        }
-        AppendLeaves(sink, group.Children);
-    }
-
-    private static void AppendLeaves(IList<object> sink, IReadOnlyList<ReconciliationRow> leaves)
-    {
-        foreach (ReconciliationRow leaf in leaves)
-        {
-            sink.Add(leaf);
-            if (leaf is { Detail: not null, IsExpanded: true })
-                foreach (ReconciliationRow d in leaf.Detail)
-                    sink.Add(d);
-        }
     }
 
     /// <summary>Expand/collapse a mixed-seconds rollup into its one-plane source lines, in place.</summary>
     public void ToggleRollup(ReconciliationRow rollup)
     {
-        if (rollup.Detail is not { } detail) return;
-        int index = _rows.IndexOf(rollup);
-        if (index < 0) return;
-
-        if (rollup.IsExpanded)
-        {
-            for (int i = 0; i < detail.Count; i++)
-                _rows.RemoveAt(index + 1);
-            _expansion.SetRollup(RollupKey(rollup), expanded: false);
-        }
-        else
-        {
-            for (int i = 0; i < detail.Count; i++)
-                _rows.Insert(index + 1 + i, detail[i]);
-            _expansion.SetRollup(RollupKey(rollup), expanded: true);
-        }
-        rollup.IsExpanded = !rollup.IsExpanded;
-
+        if (rollup.Detail is not { } detail) return;   // only a mixed-seconds rollup discloses
+        _tree.Toggle(_rows, rollup);
         if (Log.IsDiagEnabled("UI"))
-        {
             Log.Diag("UI",
                 $"rollup {(rollup.IsExpanded ? "expand" : "collapse")}: \"{rollup.Target}\" " +
                 $"{rollup.Filter} {rollup.Purpose} ({detail.Count} lines)");
-        }
     }
-
-    private static string RollupKey(ReconciliationRow r) => $"{r.Target}|{r.PanelKey}|{r.Filter}|{r.Purpose}";
 
     public void ExpandAll()
     {
-        _expansion.ExpandTargets(_groups.Select(g => g.Target));
+        _tree.ExpandAllTargets(_groups.Select(g => g.Target));
         ApplyFilters();
     }
 
     public void CollapseAll()
     {
-        _expansion.CollapseAllTargets();
+        _tree.CollapseAllTargets();
         ApplyFilters();
     }
 
@@ -429,10 +338,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         .Select(p => new PanelGroupRow(
                             g.Key, p.Key, p.First().PanelLabel ?? p.Key,
                             p.First().PanelSource ?? all[0].Source, [.. p],
-                            _expansion.IsPanelExpanded($"{g.Key}|{p.Key}")))];
+                            _tree.IsPanelExpanded(g.Key, p.Key)))];
                 }
                 return new TargetGroupRow(
-                    g.Key, all, _expansion.IsTargetExpanded(g.Key), EffectiveEnabled(all[0]), panels);
+                    g.Key, all, _tree.IsTargetExpanded(g.Key), EffectiveEnabled(all[0]), panels);
             })];
 
         // The sort dropdown orders the groups by their aggregates; children stay in filter order.
@@ -453,22 +362,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _groups = groups;
         _visibleLeafCount = leaves.Count;
 
-        ObservableCollection<object> visible = [];
-        foreach (TargetGroupRow g in groups)
-        {
-            // Restore nested expansion for every rollup (rows are rebuilt each pass), visible or not,
-            // so a later toggle expands to the remembered state.
-            foreach (ReconciliationRow child in g.Children)
-            {
-                if (child.Detail is not null)
-                    child.IsExpanded = _expansion.IsRollupExpanded(RollupKey(child));
-            }
-
-            visible.Add(g);
-            if (!g.IsExpanded) continue;
-            AppendGroupContent(visible, g);
-        }
-        Rows = visible;
+        // Restore nested rollup expansion (rows are rebuilt each pass, visible or not) so a later toggle
+        // expands to the remembered state, then flatten the groups into the bound list.
+        _tree.RestoreRollupExpansion(groups);
+        Rows = new ObservableCollection<object>(_tree.Flatten(groups));
 
         // One line per applied filter state (incl. each search keystroke) — between USER_OBS markers this
         // is the trail of what the user was looking at. TSM_DIAG-gated; zero overhead when off.

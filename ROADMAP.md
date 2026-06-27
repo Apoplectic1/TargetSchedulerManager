@@ -15,6 +15,22 @@ targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panel
 **0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
 before code) → load-split; write-back resurfaces as an app action.
 
+**▶ SHIPPED 2026-06-26 — grid flatten/splice extracted to a tested `VisibleRowTree`.** The "visible rows"
+derivation was encoded twice — a wholesale rebuild (`AppendGroupContent`/`AppendLeaves`) and three toggle
+methods whose **remove** side re-derived the structure by scanning runtime types (`while next is not
+TargetGroupRow`, `while next is ReconciliationRow`, `remove detail.Count`) while their **insert** side already
+shared the rebuild rule. New `ViewModels/VisibleRowTree.cs` owns ONE `ExpandedContent(node)` ("the rows a node
+contributes when expanded") driving the rebuild **and** every toggle's insert *and* remove, the in-place
+`Toggle` splice, and the node-identity / expansion-key formats (target · `target|panel` ·
+`target|panel|filter|purpose`) that were scattered across the loader, `MainViewModel.RollupKey`, and
+`ExpansionState`. The three `MainViewModel` toggles collapse to one-liners; `AppendGroupContent`/`AppendLeaves`/
+`RollupKey` + the type-scanning removes are gone; `ExpansionState` is now a dumb string-set behind the tree.
+**Zero behavior change** (the existing toggle/filter/sort tests pass unchanged); +11 module tests pin
+`ExpandedContent` per node type, the key formats, and the headline **splice == rebuild** invariant (collapse
+removes exactly what expand inserts). Pure over the row objects' `IsExpanded` flags — no VM, no XAML. 82
+App.Tests, 0 warnings. The second "Strong" deepening from the architecture review (Candidate A; B = the TS-write
+seam below).
+
 **▶ SHIPPED 2026-06-26 — guarded TS write extracted to `TsSource` + `TsEditGate` (deep, injected, tested).**
 The LIVE/LOCAL state machine + the guarded write — previously smeared across `MainViewModel` + `TsDatabaseResolver`
 + the library editor (the safety-critical rig-write path, with **zero test coverage**) — became two App-side

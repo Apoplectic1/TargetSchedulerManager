@@ -13,7 +13,9 @@ only what's stable. (Reflects the grid as of the natural-sort + edit-box work, 2
 
 - The home screen is a **flattened, fully-virtualized tree**, not a real `TreeView`: the view-model owns the
   visible-row list (group headers + expanded children), like a WinForms `TreeListView` in VirtualMode.
-  (`MainWindow.xaml` `ListView` + `RowTemplateSelector`.)
+  (`MainWindow.xaml` `ListView` + `RowTemplateSelector`.) The flatten + in-place splice + expansion-key identity
+  live in `ViewModels/VisibleRowTree.cs` — one `ExpandedContent(node)` rule drives the rebuild and every toggle's
+  insert *and* remove (so they can't drift); the VM keeps the `ObservableCollection`, filter/sort, and logging.
 - **Three row templates**, one `DataTemplateSelector`: `GroupRowTemplate` (target header), `PanelRowTemplate`
   (mosaic-panel mini-header), `FilterRowTemplate` (filter/leaf + nested detail). All share the header's column
   widths so everything lines up.
