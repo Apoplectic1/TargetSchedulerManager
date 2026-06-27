@@ -15,6 +15,25 @@ targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panel
 **0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
 before code) → load-split; write-back resurfaces as an app action.
 
+**▶ SHIPPED 2026-06-26 — guarded TS write extracted to `TsSource` + `TsEditGate` (deep, injected, tested).**
+The LIVE/LOCAL state machine + the guarded write — previously smeared across `MainViewModel` + `TsDatabaseResolver`
++ the library editor (the safety-critical rig-write path, with **zero test coverage**) — became two App-side
+`Shared\` modules: **`TsSource`** (LIVE/LOCAL paths · injected reachability probe · mode + sticky state; consulted
+by the load *and* the gate) and **`TsEditGate`** (one `ApplyAsync(...) → EditOutcome` =
+`Applied`/`Refused`/`Failed`/`LiveDropped`, over an injected `ITsEditor`; delegates the sticky-fall to `TsSource`
+on a live drop; audits every write attempt). The library half is the consumer-neutral
+**`TargetSchedulerEditor.TrySetField → (FieldEditResult?, RefusalReason)`**, folding the four open-db guard
+predicates (required-columns / read-only / open-sidecar / column-present) into one structured-refusal call.
+`MainViewModel.ApplyFieldEditAsync` (~60 lines) + the four `_tsMode/_liveDisabled/_tsProbed/_tsDbPath` fields
+deleted; the VM now holds the gate and maps `EditOutcome` to status + side-effects. **~16 new tests** drive the
+whole machine (first-probe / re-probe-drop / sticky / `TrySelectMode` / refusal / verify-fail / live-drop-on-write)
+with **no SQLite or SMB** — the probe and editor are injected. Built **subagent-driven** from
+`docs/PLAN-2026-06-26-guarded-ts-write.md` (per-task TDD + reviews + an opus whole-branch review that caught a
+swallowed live-drop exception, now fixed). 71 App.Tests + 153 library, **0 warnings**. A future **WriteBack** app
+action reuses the gate via an `ApplyPlanAsync` sibling (deliberately not built — YAGNI). Commits: TSM
+`1cda326`→`6150b7d`, Library `8d863e5`. **Pending: user's live-app pass** — one `desired`/`enable` write hitting
+the actual TS db (unit tests can't cover the live write).
+
 **▶ SHIPPED 2026-06-20 — count columns reframed: `Acq`→`TS`, `Disk`→`Actual`, `Acc` hidden + `acc≠acq` badge.**
 Display-only grid change (grill-me design). The old `Acq`/`Acc`/`Disk` trio mixed two TS-side bookkeeping numbers
 with the on-disk truth; now it reads **`Desired`** (TS goal) · **`TS`** (TS's recorded `acquired` — the number TS
