@@ -68,7 +68,7 @@ One test project in this repo (`dotnet test TargetSchedulerManager.slnx`):
 - **`TargetSchedulerManager.App.Tests`** — the app's real logic: `ReconciliationLoader.BuildRows` (internal,
   via `InternalsVisibleTo`), `MainViewModel` filter/toggle pipeline (`SetRowsForTest` seam), row Hours/search
   rules, `RowAggregates`, `Format`, `ExpansionState`, `VisibleRowTree` (the flatten==splice invariant),
-  `TsDatabaseResolver` (moved here from the retired
+  `AggregateHeaderRow` (the two header rows render identically), `TsDatabaseResolver` (moved here from the retired
   `Cli.Tests`), and the guarded-TS-write seam — `TsSource` (LIVE/LOCAL state machine, probe injected) and
   `TsEditGate` (one guarded write over a stub `ITsEditor`). Runs in a **plain test host (no XAML runtime)**: never touch the `Brush` getters
   (`SecondsBackground`/`HoursBackground` need `Application.Current`) — those stay app-verified. `TestEnv` blanks

@@ -15,6 +15,16 @@ targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panel
 **0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
 before code) → load-split; write-back resurfaces as an app action.
 
+**▶ SHIPPED 2026-06-26 — the two header rows share an `AggregateHeaderRow` base.** `TargetGroupRow` and
+`PanelGroupRow` were ~90% identical — both wrapped `RowAggregates` and hand-rolled the same `IsExpanded`/chevron,
+`*Text`, `HoursText`/`HoursBackground`, and `Recompute` (a fill/format change meant editing both — a live drift
+risk). New `ViewModels/Rows/AggregateHeaderRow.cs` (an abstract **base class** — not an interface, so WinUI
+`x:Bind` resolves the members on each template's concrete `x:DataType`) owns every shared aggregate-display rule
+once; the two concretes keep only their specifics (target: enable checkbox · panels · project · target id;
+panel: key · label). The vestigial always-0 `TargetGroupRow.FilterCount` was deleted. Zero behavior change (the
+chevron glyphs are byte-identical); +3 parity tests prove the two headers render identically for the same
+children. 85 App.Tests, 0 warnings. Candidate D from the architecture review.
+
 **▶ SHIPPED 2026-06-26 — grid flatten/splice extracted to a tested `VisibleRowTree`.** The "visible rows"
 derivation was encoded twice — a wholesale rebuild (`AppendGroupContent`/`AppendLeaves`) and three toggle
 methods whose **remove** side re-derived the structure by scanning runtime types (`while next is not
