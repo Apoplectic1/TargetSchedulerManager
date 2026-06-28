@@ -26,7 +26,7 @@ Reference docs (current truth — update in the same commit as the code):
 - **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants.
 - **`ROADMAP.md`** — phased plan + current status + a Recently-shipped digest.
 - **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions.
-- **`VERIFYING.md`** — how to build, run, test, and verify a change.
+- **`VERIFICATION.md`** — how to build, run, test, and verify a change.
 
 Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings).
 
@@ -47,7 +47,7 @@ here; the native PCL projects are not in TSM's solution).
 
 ## Build, run, test, verify
 
-See **`VERIFYING.md`** — build/run commands, the test projects, and the xUnit-v3 build trap. TSM is
+See **`VERIFICATION.md`** — build/run commands, the test projects, and the xUnit-v3 build trap. TSM is
 pure-managed (plain `dotnet build`); visual/UX correctness is verified by **running the app**, not the build.
 
 ## The source-of-truth model (why the code is shaped this way)
