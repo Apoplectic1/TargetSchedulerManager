@@ -1,5 +1,8 @@
 # TargetSchedulerManager (TSM) — Architecture
 
+**Charter:** how TSM works — design, components, and the load-bearing invariants (matching/harden
+rules, mosaic model, single-writer). Read it for *why the code is shaped this way*; grep by subsystem.
+
 TSM is a .NET 10 WinUI 3 app that **manages the N.I.N.A. Target Scheduler database**: view + edit TS plans live,
 with disk-ACTUAL beside every number from a fresh read-only in-memory scan each load.
 

@@ -1,5 +1,8 @@
 # TargetSchedulerManager (TSM) — Roadmap
 
+**Charter:** the forward-looking plan + current status + a Recently-shipped digest (git is the full
+changelog). Read it for *what's next / where things stand*.
+
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename

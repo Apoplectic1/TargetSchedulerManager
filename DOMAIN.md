@@ -1,10 +1,11 @@
-# TargetSchedulerManager — UI Conventions
+# DOMAIN.md — TargetSchedulerManager
 
-A living record of the **settled** look-and-feel rules — the design language the (still piecemeal) UI work
-lands against. **Current state only**: *how we got here* lives in `ROADMAP.md`, *why the system is shaped this
-way* in `ARCHITECTURE.md`. Update this when a UI decision settles (like the other docs — often a separate small
-commit). It is **not** a frozen spec; look-and-feel is still developed idea→implement→adjust, and this captures
-only what's stable. (Reflects the grid as of the natural-sort + edit-box work, 2026-06-21.)
+**Charter:** the human/strategy home — the TS-management domain + UX/design language + conventions that fit
+neither `ARCHITECTURE.md` (how it works) nor `ROADMAP.md` (what's next). Today its main content is the
+**UI conventions** (the grid's settled look-and-feel + the "when you add a UI element" checklist); other
+domain/strategy notes accrue here. **Current state only** — *how we got here* → `ROADMAP.md`; *why the code
+is shaped this way* → `ARCHITECTURE.md`. Not a frozen spec; look-and-feel is still idea→implement→adjust
+(reflects the grid as of the natural-sort + edit-box work, 2026-06-21).
 
 > The author is a WinForms expert / WinUI novice — idioms below are flagged against their WinForms analogues
 > where it helps.
