@@ -16,7 +16,7 @@
          as a badge (see ReconciliationLoader) rather than a permanent column. The "TS" header doubles the token the
          Source column prints per row by design (user's call). -->
     <!-- Per-cell VerticalAlignment="Center" on every text cell (NOT a window-wide implicit TextBlock style — it
-         applies unevenly in DataTemplates + leaks into controls). Rule + gotcha: docs/UI-CONVENTIONS.md. -->
+         applies unevenly in DataTemplates + leaks into controls). Rule + gotcha: DOMAIN.md. -->
     <Grid Padding="12,8,12,8" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.Resources>
             <!-- The grid's rows mix two item types (group header / filter row); the selector below picks the
@@ -113,7 +113,7 @@
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
                     <!-- 1:1 plan row's desired, editable in place; focus-loss writes to TS. Width ~3 chars +
                          centered in code-behind (DesiredBox_Loaded) per the integer-edit-box rule —
-                         see docs/UI-CONVENTIONS.md. Spin buttons hidden; write fires only on a real change. -->
+                         see DOMAIN.md. Spin buttons hidden; write fires only on a real change. -->
                     <NumberBox Grid.Column="7" Value="{x:Bind DesiredValue}"
                                Visibility="{x:Bind DesiredEditVisibility}"
                                Minimum="0" SmallChange="1" LargeChange="10"
