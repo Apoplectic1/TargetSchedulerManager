@@ -79,6 +79,13 @@ internal sealed class DiagnosticsWindow : Window
         Button capture = new() { Content = "Capture", MinWidth = 100 };
         capture.Click += OnCaptureClick;
 
+        // Delayed capture for transient UI (flyouts, context menus): those are light-dismiss, so they close the
+        // moment this window takes focus — an immediate Capture can never contain one. This hides the window
+        // right away (focus returns to the main window), leaves 5 s to open the transient state, then grabs
+        // with no focus change at capture time.
+        Button delayedCapture = new() { Content = "Capture in 5 s", MinWidth = 100, Margin = new Thickness(8, 0, 0, 0) };
+        delayedCapture.Click += OnDelayedCaptureClick;
+
         mStatus = new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
@@ -94,6 +101,7 @@ internal sealed class DiagnosticsWindow : Window
 
         StackPanel leftButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
         leftButtons.Children.Add(capture);
+        leftButtons.Children.Add(delayedCapture);
         leftButtons.Children.Add(mStatus);
 
         StackPanel rightButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
@@ -144,11 +152,25 @@ internal sealed class DiagnosticsWindow : Window
     private async void OnCaptureClick(object sender, RoutedEventArgs e)
     {
         string? path = await CaptureHidingSelfAsync(reshow: true);
+        RecordCapture(path, delayed: false);
+    }
+
+    // The delayed variant: same grab, but the hidden period is 5 s instead of a DWM settle — time to open a
+    // flyout / context menu on the main window, which then survives into the shot (no focus change at capture).
+    // The window is hidden for the whole countdown, so a second click can't stack timers.
+    private async void OnDelayedCaptureClick(object sender, RoutedEventArgs e)
+    {
+        string? path = await CaptureHidingSelfAsync(reshow: true, delayMs: 5000);
+        RecordCapture(path, delayed: true);
+    }
+
+    private void RecordCapture(string? path, bool delayed)
+    {
         if (path is not null)
         {
             mCaptureCount++;
             Log.UserObservationCapture(mId, path);
-            mStatus.Text = $"captured {mCaptureCount} · {DateTime.Now:HH:mm:ss}";
+            mStatus.Text = $"captured {mCaptureCount}{(delayed ? " (delayed)" : string.Empty)} · {DateTime.Now:HH:mm:ss}";
         }
         else
         {
@@ -211,11 +233,12 @@ internal sealed class DiagnosticsWindow : Window
 
     // Hide this always-on-top window, let its fade-out + a DWM recomposite settle, grab the owner's pixels,
     // then (for a mid-session Capture) bring this window back and refocus the notes. 450 ms: 150 ms left a
-    // translucent ghost of this window in the shot (observed 2026-06-10); 450 ms grabs clean.
-    private async Task<string?> CaptureHidingSelfAsync(bool reshow)
+    // translucent ghost of this window in the shot (observed 2026-06-10); 450 ms grabs clean. A longer
+    // delayMs turns the hidden period into the delayed-capture countdown.
+    private async Task<string?> CaptureHidingSelfAsync(bool reshow, int delayMs = 450)
     {
         AppWindow.Hide();
-        await Task.Delay(450);
+        await Task.Delay(delayMs);
         string? path = TryCaptureScreenshot();
         if (reshow)
         {

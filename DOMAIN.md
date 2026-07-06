@@ -119,7 +119,9 @@ for the session if BIRDWATCHER is unreachable. The summary/badge says which; swi
   Expand/Collapse all.
 - **Status bar:** library + TS paths + resolve time.
 - **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
-  hover-hint is suppressed.
+  hover-hint is suppressed. **Capture in 5 s** hides the window for the countdown so transient light-dismiss UI
+  (edit flyouts, context menus) can be opened and survives into the shot — plain Capture can never contain one
+  (focus shift dismisses it).
 
 ## WinUI gotchas (and the workarounds)
 
