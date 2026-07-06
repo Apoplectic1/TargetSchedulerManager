@@ -22,7 +22,9 @@
             <!-- The grid's rows mix two item types (group header / filter row); the selector below picks the
                  template per item. Both templates share the header's column widths so everything lines up. -->
             <DataTemplate x:Key="GroupRowTemplate" x:DataType="m:TargetGroupRow">
-                <Grid>
+                <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
+                <Grid Background="Transparent"
+                      PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="110"/>
@@ -43,7 +45,7 @@
                     <CheckBox Grid.Column="0" MinWidth="0" MinHeight="0" Padding="0" Margin="0"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Visibility="{x:Bind CanEnableVisibility}"
-                              IsChecked="{x:Bind IsTargetEnabled}" IsThreeState="False"
+                              IsChecked="{x:Bind IsTargetEnabled, Mode=OneWay}" IsThreeState="False"
                               Click="TargetEnable_Click"
                               ToolTipService.ToolTip="Enable/disable this target in Target Scheduler"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -52,8 +54,20 @@
                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{x:Bind TargetText}" FontWeight="SemiBold"
-                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind TargetText}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <!-- Hover-revealed edit glyph (Opacity flips in Row_PointerEntered/Exited); gated to
+                             TS-backed non-mosaic-parent groups. Opens the target edit flyout; swallows the
+                             click so the whole-row expand doesn't also fire. -->
+                        <Button x:Name="EditGlyph" Opacity="0" Visibility="{x:Bind EditGlyphVisibility}"
+                                Background="Transparent" BorderThickness="0"
+                                MinWidth="0" MinHeight="0" Padding="3,1" VerticalAlignment="Center"
+                                Click="EditTarget_Click"
+                                ToolTipService.ToolTip="Edit target…">
+                            <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                        </Button>
+                    </StackPanel>
                     <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
@@ -74,7 +88,9 @@
                 </Grid>
             </DataTemplate>
             <DataTemplate x:Key="FilterRowTemplate" x:DataType="m:ReconciliationRow">
-                <Grid>
+                <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
+                <Grid Background="Transparent"
+                      PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="110"/>
@@ -102,7 +118,18 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="3" Text="{x:Bind Project}" Opacity="0.7"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="4" Text="{x:Bind Filter}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind Filter}" VerticalAlignment="Center"/>
+                        <!-- Hover-revealed edit glyph; only on 1:1 TS plan rows (PlanTsKey). Opens the
+                             exposure-plan edit flyout. -->
+                        <Button x:Name="EditGlyph" Opacity="0" Visibility="{x:Bind EditGlyphVisibility}"
+                                Background="Transparent" BorderThickness="0"
+                                MinWidth="0" MinHeight="0" Padding="3,1" VerticalAlignment="Center"
+                                Click="EditPlan_Click"
+                                ToolTipService.ToolTip="Edit exposure plan…">
+                            <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                        </Button>
+                    </StackPanel>
                     <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise. -->
                     <Border Grid.Column="6" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
@@ -281,7 +308,8 @@
              Clicking anywhere on a group row toggles it (ItemClick is a no-op on filter rows). -->
         <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                   ItemTemplateSelector="{StaticResource RowTemplateSelector}"
-                  SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Row_ItemClick">
+                  SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Row_ItemClick"
+                  RightTapped="Row_RightTapped">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="MinHeight" Value="30"/>

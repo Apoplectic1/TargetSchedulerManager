@@ -27,7 +27,16 @@ public sealed class TargetGroupRow : AggregateHeaderRow
 
     /// <summary>Target enable state (TS <c>target.active</c>) bound to the leftmost checkbox. The view-model
     /// passes the effective value — a pending in-session toggle if any, else the loaded state.</summary>
-    public bool IsTargetEnabled { get; }
+    public bool IsTargetEnabled { get; private set; }
+
+    /// <summary>In-place mirror after a verified <c>active</c> write (checkbox or edit flyout): refreshes the
+    /// bound checkbox without a grid rebuild, keeping both edit paths visibly consistent.</summary>
+    public void ApplyEnabled(bool enabled)
+    {
+        if (IsTargetEnabled == enabled) return;
+        IsTargetEnabled = enabled;
+        Raise(nameof(IsTargetEnabled));
+    }
 
     /// <summary>Write-back key for this target's TS row; null when there is no TS target (disk-only / mosaic parent).</summary>
     public string? TsTargetKey => Children[0].TsTargetKey;
@@ -41,6 +50,10 @@ public sealed class TargetGroupRow : AggregateHeaderRow
 
     /// <summary>Checkbox visibility — mirrors the chevron-visibility pattern so XAML can x:Bind it directly.</summary>
     public Visibility CanEnableVisibility => CanEnable ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Edit-glyph/menu gate: same predicate as the checkbox — a TS-backed non-mosaic-parent group.
+    /// (A mosaic parent is a grouping node; its fields are edited per panel target.)</summary>
+    public Visibility EditGlyphVisibility => CanEnable ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>The target name, plus the panel count for a mosaic ("M101  ·  4 panels").</summary>
     public string TargetText => Panels is null

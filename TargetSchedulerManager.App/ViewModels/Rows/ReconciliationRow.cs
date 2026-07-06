@@ -133,6 +133,10 @@ public sealed class ReconciliationRow(
     /// <summary>Desired as a NumberBox value (the real count on editable rows; a 0 stand-in elsewhere).</summary>
     public double DesiredValue => Desired ?? 0;
 
+    /// <summary>Edit-glyph/menu gate for the plan flyout: only a 1:1 TS plan row is editable (same key the
+    /// write path needs; rollups, disk-only rows, and headers have no plan key).</summary>
+    public Visibility EditGlyphVisibility => PlanTsKey is not null ? Visibility.Visible : Visibility.Collapsed;
+
     /// <summary>NumberBox visibility for an editable Desired cell (read-only text shows otherwise).</summary>
     public Visibility DesiredEditVisibility => CanEditDesired ? Visibility.Visible : Visibility.Collapsed;
 

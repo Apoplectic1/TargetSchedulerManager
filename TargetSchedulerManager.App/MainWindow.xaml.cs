@@ -1,8 +1,13 @@
+using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using TargetSchedulerManager.App.Controls;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels;
+using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App;
 
@@ -85,6 +90,90 @@ public sealed partial class MainWindow : Window
 
         if (!await ViewModel.SetPlanDesiredAsync(row, wanted))
             box.Value = current;   // write failed — restore the prior value
+    }
+
+    // ---- context-sensitive field editing (edit glyph + right-click → flyout) --------------------------------
+
+    // The hover-revealed edit glyph: the row templates name their glyph button "EditGlyph" (Opacity 0 at rest,
+    // Visibility gated by the row's TS key), and the template-root Grid flips its opacity on pointer over.
+    private void Row_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement root && root.FindName("EditGlyph") is UIElement glyph)
+            glyph.Opacity = 1;
+    }
+
+    private void Row_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement root && root.FindName("EditGlyph") is UIElement glyph)
+            glyph.Opacity = 0;
+    }
+
+    private void EditTarget_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement el && el.DataContext is TargetGroupRow { TsTargetKey: string key } group)
+            _ = ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null);
+    }
+
+    private void EditPlan_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement el && el.DataContext is ReconciliationRow { PlanTsKey: string key } row)
+            _ = ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row);
+    }
+
+    // Right-click anywhere on a TS-backed row: a context menu whose items are gated by the row's data — the
+    // extension point for future per-row actions (template editing, cadence actions). Handled centrally on the
+    // ListView so the templates stay menu-free.
+    private void Row_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (e.OriginalSource is not FrameworkElement el)
+            return;
+
+        MenuFlyout menu = new();
+        switch (el.DataContext)
+        {
+            case TargetGroupRow { CanEnable: true, TsTargetKey: string key } group:
+                menu.Items.Add(EditMenuItem("Edit target…",
+                    () => ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null)));
+                break;
+            case ReconciliationRow { PlanTsKey: string key } row:
+                menu.Items.Add(EditMenuItem("Edit exposure plan…",
+                    () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row)));
+                break;
+            default:
+                return;   // disk-only rows, panels, rollups: no menu
+        }
+
+        menu.ShowAt(el, new FlyoutShowOptions { Position = e.GetPosition(el) });
+        e.Handled = true;
+    }
+
+    private static MenuFlyoutItem EditMenuItem(string text, Func<Task> open)
+    {
+        MenuFlyoutItem item = new() { Text = text, Icon = new FontIcon { Glyph = "" } };
+        item.Click += (_, _) => _ = open();
+        return item;
+    }
+
+    // Seeds the schema-driven form from the current db (off the UI thread), then shows it in a flyout anchored
+    // at the gesture's row. Every field commits itself through the guarded gate; fields with dedicated in-grid
+    // controls route through their specific setters so their cells refresh in place. Per-field commit means
+    // light-dismiss can never lose work — no confirmation needed on close.
+    private async Task ShowEditFlyoutAsync(
+        FrameworkElement anchor, TsTable table, string key, string title,
+        TargetGroupRow? group, ReconciliationRow? row)
+    {
+        IReadOnlyDictionary<string, object?>? seed = await ViewModel.ReadTsFieldsAsync(table, key, title);
+        UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
+        {
+            if (group is not null && string.Equals(column, "active", StringComparison.OrdinalIgnoreCase))
+                return await ViewModel.SetTargetEnabledAsync(group, System.Convert.ToInt64(value) != 0);
+            if (row is not null && string.Equals(column, "desired", StringComparison.OrdinalIgnoreCase))
+                return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
+            return await ViewModel.SetTsFieldAsync(table, key, column, value, title);
+        });
+
+        Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
+        flyout.ShowAt(anchor);
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();

@@ -288,8 +288,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return false;
         EditOutcome outcome = await _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target);
         bool applied = ApplyOutcome(outcome, group.Target);
-        if (applied) _targetActiveEdits[key] = enabled;
+        if (applied)
+        {
+            _targetActiveEdits[key] = enabled;
+            group.ApplyEnabled(enabled);   // mirror the in-grid checkbox (a flyout edit must show immediately)
+        }
         return applied;
+    }
+
+    /// <summary>Seeds a field-editor form: the current db values of one TS row's editable columns
+    /// (null = row missing or read fault — show an error, not a form).</summary>
+    public Task<IReadOnlyDictionary<string, object?>?> ReadTsFieldsAsync(TsTable table, string key, string label) =>
+        _gate.ReadFieldsAsync(table, key, label);
+
+    /// <summary>Writes one editable TS field through the guarded gate; true when applied + verified. The generic
+    /// path for fields with no in-grid mirror — `target.active` and plan `desired` route through their specific
+    /// setters so their grid cells refresh in place.</summary>
+    public async Task<bool> SetTsFieldAsync(TsTable table, string key, string column, object? value, string label)
+    {
+        EditOutcome outcome = await _gate.ApplyAsync(table, key, column, value, label);
+        return ApplyOutcome(outcome, label);
     }
 
     public async Task<bool> SetPlanDesiredAsync(ReconciliationRow row, int desired)

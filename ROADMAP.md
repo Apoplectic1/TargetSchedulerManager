@@ -8,15 +8,34 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-06-11)
+## Status — pick up here (2026-07-06)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
 prefers the **live BIRDWATCHER TS db** over SMB (LIVE/LOCAL badge, guarded + read-back-verified writes). Editing
-shipped so far: target enable checkbox + in-grid `desired` (verified live in NINA). Real data: 77 disk × 102 TS
-targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics (28/10/7 panels), 783 grid rows. Match tolerance
-**0.5°** (validated 2026-06-04). **Next:** in-grid `priority` → per-filter `enabled` (cadence-BREAKING — explain
-before code) → load-split; write-back resurfaces as an app action.
+shipped so far: target enable checkbox + in-grid `desired` (verified live in NINA) + the **edit flyout** (hover
+glyph / right-click on target + filter rows → schema-generated form: target `priority`/`rotation`/`roi`, plan
+`exposure`; per-field guarded commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only /
+33 Actual-only, 6 mosaics (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
+**Next (editing-surface parts, explored 2026-07-06):** Part 2 project-settings flyout (needs an anchor — projects
+are a column, not rows) → Part 3 exposure-template manager, edit-only (app-level menu; ~11 new schema rows) →
+Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
+cadence clear). Then load-split; write-back resurfaces as an app action.
+
+**▶ SHIPPED 2026-07-06 — context-sensitive edit flyout (editing-surface Part 1;
+`openspec/changes/field-editor-flyout`).** One schema-generated form (`Controls/TsFieldsEditor.cs`) renders any
+TS row's cadence-safe editable fields straight from the library's `TsEditableSchema` (Bool→ToggleSwitch,
+Whole/Real→NumberBox with Min/Max clamp, Enum→ComboBox from the new `EnumValues` maps, Text→TextBox; Unit
+suffix, Notes tooltip) — adding a field to the reference lights it up with zero UI code. Triggers: a
+hover-revealed pencil glyph and a right-click menu on TS-backed target rows ("Edit target…") and 1:1 plan rows
+("Edit exposure plan…"), both opening a row-anchored `Flyout`. Values seed **fresh from the current db**
+(`TsEditGate.ReadFieldsAsync`; drifted columns omitted, row-missing/read-fault → error content, never fabricated
+defaults); each field commits independently through the guarded gate (light-dismiss can't lose work), failures
+revert the control, `active`/`desired` route through their existing setters so the grid mirrors in place (the
+enable checkbox went `Mode=OneWay` + `ApplyEnabled`). Cadence-breaking fields are excluded via
+`IsCadenceBreaking` until the parked cadence change ships. Library side: declarative `TsEnumValue` maps
+(`6a2cabf`, 156 lib tests). 89 App.Tests, 0 warnings; ships the queued "target `priority` editing" item.
+**Visual verification pending (user).**
 
 **▶ SHIPPED 2026-06-26 — closed the `TargetCells` projection leak (review's full set now done).** `BuildRows`
 was indexing `graph.Targets` to read one target's `ImportedFromTsGuid` for a planned-only mosaic panel's key —

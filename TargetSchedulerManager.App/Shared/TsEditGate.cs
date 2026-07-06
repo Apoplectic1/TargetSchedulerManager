@@ -4,11 +4,13 @@ using Microsoft.Data.Sqlite;
 
 namespace TargetSchedulerManager.App.Shared;
 
-/// <summary>The minimal write surface the gate needs from a TS editor — the seam tests stub. The production
-/// adapter wraps the library's <see cref="TargetSchedulerEditor"/>.</summary>
+/// <summary>The minimal read/write surface the gate needs from a TS editor — the seam tests stub. The
+/// production adapter wraps the library's <see cref="TargetSchedulerEditor"/>.</summary>
 internal interface ITsEditor : IDisposable
 {
     (FieldEditResult? Result, RefusalReason Refusal) TrySetField(TsTable table, string tsKey, string column, object? value);
+    (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column);
+    bool IsFieldAvailable(TsTable table, string column);
 }
 
 /// <summary>Production adapter: opens a real <see cref="TargetSchedulerEditor"/> on the given path.</summary>
@@ -18,6 +20,10 @@ internal sealed class TsEditorAdapter : ITsEditor
     public TsEditorAdapter(string path) => _editor = new TargetSchedulerEditor(path);
     public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(TsTable table, string tsKey, string column, object? value) =>
         _editor.TrySetField(table, tsKey, column, value);
+    public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) =>
+        _editor.ReadField(table, tsKey, column);
+    public bool IsFieldAvailable(TsTable table, string column) =>
+        _editor.IsFieldAvailable(table, column);
     public void Dispose() => _editor.Dispose();
 }
 
@@ -58,6 +64,44 @@ internal sealed class TsEditGate
 
     /// <summary>The TS-source policy this gate writes through — the view-model reads it for the load path and the radio bindings.</summary>
     public TsSource Source => _source;
+
+    /// <summary>
+    /// Reads the current values of every editable field of <paramref name="table"/> for the row keyed by
+    /// <paramref name="key"/>, off the UI thread — the seed for a field-editor form. Fields the open db lacks
+    /// (TS schema drift) are skipped, so the dictionary holds exactly the columns a form should render.
+    /// Returns <c>null</c> when the row is missing or the read faults: the caller shows an error instead of a
+    /// form with fabricated values (no defaults, fail-loud).
+    /// </summary>
+    public Task<IReadOnlyDictionary<string, object?>?> ReadFieldsAsync(TsTable table, string key, string label) =>
+        Task.Run<IReadOnlyDictionary<string, object?>?>(() =>
+        {
+            try
+            {
+                using ITsEditor editor = _editorFactory(_source.CurrentPath);
+                Dictionary<string, object?> values = new(StringComparer.OrdinalIgnoreCase);
+                foreach (TsField field in TsEditableSchema.For(table))
+                {
+                    if (!editor.IsFieldAvailable(table, field.Column))
+                    {
+                        Log.Warn($"{table}.{field.Column} absent on this db — omitted from the \"{label}\" edit form");
+                        continue;
+                    }
+                    (bool found, object? value) = editor.ReadField(table, key, field.Column);
+                    if (!found)
+                    {
+                        Log.Error($"{table} read-seed for \"{label}\": row not found (key {key})");
+                        return null;
+                    }
+                    values[field.Column] = value;
+                }
+                return values;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"{table} read-seed threw for \"{label}\"", ex);
+                return null;
+            }
+        });
 
     /// <summary>Guard-checks and applies one field edit to the currently-selected TS db, off the UI thread.</summary>
     public Task<EditOutcome> ApplyAsync(TsTable table, string key, string column, object? value, string label) =>

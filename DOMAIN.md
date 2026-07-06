@@ -83,11 +83,23 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
 
 ## Editing
 
-- **In-grid only.** A docked dossier panel was built then dropped; `WinUI.TableView` was evaluated and rejected
-  (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.**
-- Editable today: the **target-enable checkbox** (leftmost, on target headers only — hidden on disk-only +
-  mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows; read-only on headers, disk rows, and
-  mixed rollups).
+- **In/at the grid only.** A docked dossier panel was built then dropped; `WinUI.TableView` was evaluated and
+  rejected (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.** The edit
+  flyout (below) is per-invocation and anchored to the clicked row — a popup answering one gesture, not a
+  persistent panel.
+- **Direct in-grid controls** (high-frequency scalars): the **target-enable checkbox** (leftmost, on target
+  headers only — hidden on disk-only + mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows;
+  read-only on headers, disk rows, and mixed rollups).
+- **Edit flyout** (everything else, 2026-07-06): a **hover-revealed pencil glyph** (Opacity 0→1 via the
+  template-root pointer handlers; `x:Name="EditGlyph"`) and a **right-click menu** ("Edit target…" / "Edit
+  exposure plan…", built in code — `Row_RightTapped` — so items gate on row data; this menu is the extension
+  point for future row actions). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
+  **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
+  Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields excluded
+  until their confirm flow ships). Values seed fresh from the current db; **each field commits itself** on
+  change/focus-loss (so light-dismiss can never lose work — no Apply button, ever); a failed write reverts the
+  control. Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
+  setters, so the grid mirrors in place.
 - Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
   and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
 - **Integer edit boxes are ~3 characters wide** (fit 999; ≥ 1000 clips in the box but the full value still

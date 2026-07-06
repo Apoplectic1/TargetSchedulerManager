@@ -172,5 +172,8 @@ internal sealed class TsEditGateTests_Stub : TargetSchedulerManager.App.Shared.I
     public (Astronomy.Catalog.TargetScheduler.FieldEditResult? Result, Astronomy.Catalog.TargetScheduler.RefusalReason Refusal) Next;
     public (Astronomy.Catalog.TargetScheduler.FieldEditResult? Result, Astronomy.Catalog.TargetScheduler.RefusalReason Refusal) TrySetField(
         Astronomy.Catalog.TargetScheduler.TsTable table, string tsKey, string column, object? value) => Next;
+    public (bool Found, object? Value) ReadField(
+        Astronomy.Catalog.TargetScheduler.TsTable table, string tsKey, string column) => (false, null);
+    public bool IsFieldAvailable(Astronomy.Catalog.TargetScheduler.TsTable table, string column) => true;
     public void Dispose() { }
 }

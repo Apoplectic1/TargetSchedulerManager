@@ -49,11 +49,16 @@ Tom Palmer's TS database, which lets XFM retire its Target Scheduler tab into TS
   injected reachability probe, and the mode + sticky-disabled state (consulted by the load and the gate);
   **`TsEditGate`** (`Shared/`) is the one guarded write — `ApplyAsync(...) → EditOutcome`
   (`Applied`/`Refused`/`Failed`/`LiveDropped`) over an injected `ITsEditor`, delegating the sticky-fall to
-  `TsSource` on a live drop. Both take their dependencies by injection, so the LIVE/LOCAL machine and the guarded
-  write are unit-tested without SQLite or SMB. The library half is the consumer-neutral
-  `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the four open-db guard
-  predicates into one structured-refusal call (a future WriteBack app action reuses the same gate via an
-  `ApplyPlanAsync` sibling).
+  `TsSource` on a live drop — plus the read half, `ReadFieldsAsync(table, key)`: the current db values of one
+  row's editable columns (drift-absent columns omitted via `IsFieldAvailable`; row-missing/fault → null, never
+  fabricated defaults), which seeds the edit-flyout form. Both take their dependencies by injection, so the
+  LIVE/LOCAL machine and the guarded write are unit-tested without SQLite or SMB. The library half is the
+  consumer-neutral `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the
+  four open-db guard predicates into one structured-refusal call (a future WriteBack app action reuses the same
+  gate via an `ApplyPlanAsync` sibling). UI-side, `Controls/TsFieldsEditor` generates the edit form from
+  `TsEditableSchema` (control type per `TsFieldType`, bounds/enum maps/units from the reference; cadence-breaking
+  fields excluded until their confirm flow ships) and commits per field back through the gate — the reference is
+  the single source of truth from SQL whitelist to rendered control.
 - **`Catalog.db` and its consumers** — the persistent catalog is the planned **LCM**'s output (was the retired
   CLI's job). XFM / TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly`. XFM's actual-only
   world is `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).

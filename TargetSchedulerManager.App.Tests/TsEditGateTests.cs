@@ -11,9 +11,16 @@ public class TsEditGateTests
     {
         public (FieldEditResult? Result, RefusalReason Refusal) Next = (null, RefusalReason.None);
         public bool Throw;
+        public Dictionary<string, object?> Row = new(StringComparer.OrdinalIgnoreCase);   // read-seed source
+        public HashSet<string> AbsentColumns = new(StringComparer.OrdinalIgnoreCase);     // simulated schema drift
+        public bool RowFound = true;
         public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(
             TsTable table, string tsKey, string column, object? value) =>
             Throw ? throw new InvalidOperationException("boom") : Next;
+        public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) =>
+            Throw ? throw new InvalidOperationException("boom")
+                  : RowFound ? (true, Row.TryGetValue(column, out object? v) ? v : null) : (false, null);
+        public bool IsFieldAvailable(TsTable table, string column) => !AbsentColumns.Contains(column);
         public void Dispose() { }
     }
 
@@ -72,5 +79,48 @@ public class TsEditGateTests
         StubEditor ed = new() { Throw = true };
         TsEditGate gate = new(src, _ => ed);
         Assert.IsType<EditOutcome.Failed>(await gate.ApplyAsync(TsTable.Target, "g-1", "active", 1, "A"));
+    }
+
+    [Fact]
+    public async Task ReadFields_ReturnsEveryEditableColumnFromTheDb()
+    {
+        StubEditor ed = new()
+        {
+            Row = new(StringComparer.OrdinalIgnoreCase)
+            { ["active"] = 1L, ["priority"] = -1L, ["rotation"] = 12.5, ["roi"] = 100.0 },
+        };
+        TsEditGate gate = new(Live(), _ => ed);
+        IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
+        Assert.NotNull(seed);
+        Assert.Equal(TsEditableSchema.For(TsTable.Target).Count, seed.Count);
+        Assert.Equal(12.5, seed["rotation"]);
+        Assert.Equal(-1L, seed["priority"]);
+    }
+
+    [Fact]
+    public async Task ReadFields_SkipsColumnsAbsentOnThisDb()
+    {
+        StubEditor ed = new() { AbsentColumns = ["roi"] };
+        TsEditGate gate = new(Live(), _ => ed);
+        IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
+        Assert.NotNull(seed);
+        Assert.False(seed.ContainsKey("roi"));
+        Assert.Equal(TsEditableSchema.For(TsTable.Target).Count - 1, seed.Count);
+    }
+
+    [Fact]
+    public async Task ReadFields_RowMissing_ReturnsNull()
+    {
+        StubEditor ed = new() { RowFound = false };
+        TsEditGate gate = new(Live(), _ => ed);
+        Assert.Null(await gate.ReadFieldsAsync(TsTable.Target, "no-such", "A"));
+    }
+
+    [Fact]
+    public async Task ReadFields_EditorThrows_ReturnsNull()
+    {
+        StubEditor ed = new() { Throw = true };
+        TsEditGate gate = new(Live(), _ => ed);
+        Assert.Null(await gate.ReadFieldsAsync(TsTable.ExposurePlan, "ep-1", "A · H"));
     }
 }
