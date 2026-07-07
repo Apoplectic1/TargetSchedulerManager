@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Scan;
+using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using TargetSchedulerManager.App.Models;
@@ -12,6 +13,11 @@ using TargetSchedulerManager.App.ViewModels.Rows;
 using TargetSchedulerManager.App.Services;
 
 namespace TargetSchedulerManager.App.ViewModels;
+
+/// <summary>One exposure template for the Templates… picker and the plan-row trigger: its TS key, identity,
+/// and how many loaded plans point at it — the blast radius a template edit carries (a template is shared;
+/// editing it affects every plan using it).</summary>
+internal sealed record TemplateInfo(string TsKey, string Name, string Filter, int UsedByPlans);
 
 /// <summary>How the grid is ordered (a sort dropdown for M1; column-header sorting can come later).</summary>
 public enum SortMode
@@ -190,6 +196,51 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _lastLoad = null;
         _allRows = rows;
         ApplyFilters();
+    }
+
+    /// <summary>Test seam: install a load result directly (the template surface reads its graph).</summary>
+    internal void SetLoadForTest(LoadResult load) => _lastLoad = load;
+
+    /// <summary>The loaded graph's templates for the Templates… picker: name-ordered, with used-by counts
+    /// from the plan edges — zero-use templates included (they have no rows to anchor from). Empty before a
+    /// load completes; the caller notes "load first" rather than showing an empty list.</summary>
+    internal IReadOnlyList<TemplateInfo> ListTemplates()
+    {
+        if (_lastLoad is not { Graph: { } graph })
+            return [];
+        Dictionary<Guid, int> usedBy = graph.Plans
+            .GroupBy(p => p.ExposureTemplateId)
+            .ToDictionary(g => g.Key, g => g.Count());
+        List<TemplateInfo> templates = [];
+        foreach (ExposureTemplate template in graph.Templates)
+        {
+            if (template.ImportedFromTsGuid is not string key)
+            {
+                // TS-sourced templates always carry their key; a keyless one can't be edited — skip loudly.
+                Log.Warn($"template \"{template.Name}\" has no TS key — omitted from the Templates… picker");
+                continue;
+            }
+            templates.Add(new TemplateInfo(key, template.Name, template.FilterName, usedBy.GetValueOrDefault(template.Id)));
+        }
+        return [.. templates.OrderBy(t => t.Name, NaturalComparer.Instance)];
+    }
+
+    /// <summary>Resolves the template behind one plan (the row menu's "Edit template…") through the loaded
+    /// graph: plan by TS key → its template + used-by count. Null when unresolved (no load, unknown plan,
+    /// keyless template) — the caller offers no item.</summary>
+    internal TemplateInfo? TryGetTemplateForPlan(string planTsKey)
+    {
+        if (_lastLoad is not { Graph: { } graph })
+            return null;
+        ExposurePlan? plan = graph.Plans.FirstOrDefault(p =>
+            string.Equals(p.ImportedFromTsGuid, planTsKey, StringComparison.OrdinalIgnoreCase));
+        if (plan is null)
+            return null;
+        ExposureTemplate? template = graph.Templates.FirstOrDefault(t => t.Id == plan.ExposureTemplateId);
+        if (template?.ImportedFromTsGuid is not string key)
+            return null;
+        return new TemplateInfo(key, template.Name, template.FilterName,
+            graph.Plans.Count(p => p.ExposureTemplateId == template.Id));
     }
 
     /// <summary>

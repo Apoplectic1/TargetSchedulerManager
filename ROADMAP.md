@@ -19,11 +19,24 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next (editing-surface parts):** Part 2 project-settings flyout **shipped + verified 2026-07-06** (below) →
-Part 3 exposure-template manager, edit-only (app-level menu; ~11 new schema rows) → Part 4
-`openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
+**Next (editing-surface parts):** Parts 2 + 3 **shipped 2026-07-06** (below; Part 3's user-run pass pending) →
+Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
 cadence clear; composes with the sync model — its transactional edits land locally and replay at push). Then
 load-split.
+
+**▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/template-manager`; library
+`201dd50`).** The full exposure-template surface, edit-only: the library's `TsEditableSchema` grew 11
+exposuretemplate rows (18 total) — `twilightlevel` (new `TwilightLevel` enum map, codes from the TS source;
+column spelling is TS's EF rename of `twilightlevel_col`), `minutesoffset` (±720, negatives legal), the moon
+avoidance suite (relax min altitude floor −90° — TS ships −15), `moondownenabled`, `ditherevery`,
+`maximumhumidity` — all cadence-safe, so the schema-generated form renders them with zero UI code. Two entry
+points (user decision — templates have no grid rows): toolbar **Templates…** picker (graph-sourced: name ·
+filter · used-by count, zero-use included; empty before a load → status note) and plan-row **"Edit template…"**
+(plan → template resolved through the retained graph, no row-model change). Blast radius always stated:
+flyout title + push-review label read "Template '<name>' — used by N plan(s)". Add/delete/duplicate stay TS
+functions. 163 library tests (surface/bounds/enum pins) + 128 App.Tests (picker list order/used-by/zero-use/
+keyless-skip, plan→template resolution, template journal seam). **User-run pass pending** (picker sanity,
+row item, moon-suite + twilight edits, gain/offset sentinels intact, push → NINA verify).
 
 **▶ SHIPPED 2026-07-06 — project-settings flyout (editing-surface Part 2; `openspec/changes/project-settings-flyout`).**
 Right-click "Edit project…" on any row resolving a TS project key (target groups, panels, plan rows — the

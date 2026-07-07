@@ -71,6 +71,20 @@ public class TsEditGateTests
     }
 
     [Fact]
+    public async Task TemplateFieldWrite_JournalsWithTheTemplateKeyAndLabel()
+    {
+        StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "0", Verified: true), RefusalReason.None) };
+        TsEditGate gate = Gate(ed, out TsSync sync);
+        Assert.IsType<EditOutcome.Applied>(await gate.ApplyAsync(
+            TsTable.ExposureTemplate, "11", "moonavoidanceenabled", 1, "Template 'Ha 300' — used by 12 plan(s)"));
+
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);
+        Assert.Equal(TsTable.ExposureTemplate, entry.Table);
+        Assert.Equal("11", entry.Key);
+        Assert.Equal("Template 'Ha 300' — used by 12 plan(s)", entry.Label);   // the push review states the scope
+    }
+
+    [Fact]
     public async Task RefusedWrite_PassesTheReasonThrough_NoJournalEntry()
     {
         StubEditor ed = new() { Next = (null, RefusalReason.OpenSidecar) };

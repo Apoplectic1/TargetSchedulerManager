@@ -110,6 +110,12 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
   inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
   glyph/flyout on the panel mini-header rows.
+- **Templates are shared config with no rows — so their editor is list-first (user decision 2026-07-06):**
+  the toolbar **Templates…** picker lists every template from the loaded graph (name · filter · used-by count,
+  zero-use templates included), and plan rows offer "Edit template…" for the template behind that plan. The
+  flyout title and the push-review label always state the **blast radius** — "Template '<name>' — used by
+  N plan(s)" — because one template edit affects every plan using it. Caution: editing a template's
+  `filtername` re-keys its write-back cells at the next resolve (legitimate, but know what it does).
 - **Projects are a column, not rows — so their editor is right-click-only (user decision 2026-07-06):**
   "Edit project…" appears in the context menu of any row that resolves a TS project key (target groups,
   panels, plan rows) and opens the schema-generated project flyout; no second hover glyph (the hover-reveal
@@ -153,7 +159,7 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
 
 ## Chrome
 
-- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · summary line.
+- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · Templates… · summary line.
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
 - **Status bar:** library path + sync/write-back notes + load time.

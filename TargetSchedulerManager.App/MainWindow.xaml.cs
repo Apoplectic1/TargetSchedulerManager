@@ -174,8 +174,14 @@ public sealed partial class MainWindow : Window
                 break;
             case ReconciliationRow row:
                 if (row.PlanTsKey is string planKey)
+                {
                     menu.Items.Add(EditMenuItem("Edit exposure plan…",
                         () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, planKey, $"{row.Target} · {row.Filter}", null, row)));
+                    // The template BEHIND this plan — shared config, so the flyout title carries the blast radius.
+                    if (ViewModel.TryGetTemplateForPlan(planKey) is { } template)
+                        menu.Items.Add(EditMenuItem("Edit template…",
+                            () => ShowEditFlyoutAsync(el, TsTable.ExposureTemplate, template.TsKey, TemplateTitle(template), null, null)));
+                }
                 (projectKey, projectName) = (row.ProjectTsKey, row.Project);
                 break;
         }
@@ -278,6 +284,27 @@ public sealed partial class MainWindow : Window
         item.Click += (_, _) => _ = open();
         return item;
     }
+
+    // The Templates… picker: every template from the loaded graph (zero-use ones included — they have no
+    // rows to anchor from), each opening the standard schema-generated flyout with the shared-scope title.
+    private void Templates_Click(object sender, RoutedEventArgs e)
+    {
+        IReadOnlyList<TemplateInfo> templates = ViewModel.ListTemplates();
+        if (templates.Count == 0)
+        {
+            ViewModel.NoteStatus("no templates to edit — they come from the loaded TS read (load first)");
+            return;
+        }
+        MenuFlyout menu = new();
+        foreach (TemplateInfo template in templates)
+            menu.Items.Add(EditMenuItem($"{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
+                () => ShowEditFlyoutAsync((FrameworkElement)sender, TsTable.ExposureTemplate, template.TsKey,
+                    TemplateTitle(template), null, null)));
+        menu.ShowAt((FrameworkElement)sender);
+    }
+
+    private static string TemplateTitle(TemplateInfo template) =>
+        $"Template '{template.Name}' — used by {template.UsedByPlans} plan(s)";
 
     // Seeds the schema-driven form from the current db (off the UI thread), then shows it in a flyout anchored
     // at the gesture's row. Every field commits itself through the guarded gate; fields with dedicated in-grid

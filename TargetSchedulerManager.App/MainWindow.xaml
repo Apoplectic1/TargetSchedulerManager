@@ -257,6 +257,10 @@
                     ToolTipService.ToolTip="Review + replay the journaled edits onto BIRDWATCHER (only edited fields are written)"/>
             <Button Content="Pull now" Click="PullNow_Click" MinWidth="0" Opacity="0.85"
                     ToolTipService.ToolTip="Force a fresh copy from BIRDWATCHER (unpushed edits prompt first)"/>
+            <!-- Templates have no grid rows (they're shared config), so the picker is the app-level entry;
+                 plan rows also offer "Edit template…" for the template behind that plan. -->
+            <Button Content="Templates…" Click="Templates_Click" MinWidth="0" Opacity="0.85"
+                    ToolTipService.ToolTip="Edit an exposure template (shared — an edit affects every plan using it)"/>
             <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
         </StackPanel>
