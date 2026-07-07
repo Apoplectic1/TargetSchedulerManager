@@ -14,7 +14,7 @@ TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a r
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
 over the **local TS working copy** under the pull → edit-local → push-as-replay **sync model** (shipped
 2026-07-06: baseline-skipped pull at open, journaled local edits, reviewed Push to BIRDWATCHER, automatic
-write-back each load — code-complete, **user-run pass pending**). Editing shipped so far: target enable checkbox
+write-back each load — user-verified against the rig same day). Editing shipped so far: target enable checkbox
 + in-grid `desired` (verified live in NINA pre-sync-model) + the **edit flyout** (hover glyph / right-click on
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
@@ -40,9 +40,9 @@ retain loudly; full success ends in a fresh pull (baseline invariant: recorded �
 load and journals them; the push review lists them decreases-first. Open-with-dirty prompts push/discard/not-now
 BEFORE any pull; offline sessions journal and become pushable at reconnect (softened rule — Discard preserves
 the debug path). Toolbar: sync badge (`synced HH:mm · N unpushed`) + Push… + Pull now; Reload never pulls.
-111 App.Tests (pull/skip matrix on real temp SQLite, push-replay seams, journal round-trip/collapse/torn-line,
-write-back step). **User-run pass pending** (fresh pull / skip / offline / edit→push→NINA verify / decreases
-review / dirty-prompt-after-kill).
+113 App.Tests (pull/skip matrix on real temp SQLite, push-replay seams, journal round-trip/collapse/torn-line,
+write-back step). **User-run pass verified clean 2026-07-06** (fresh pull / skip / offline / edit→push→NINA
+verify / decreases review / dirty-prompt-after-kill).
 
 **▶ SHIPPED 2026-07-06 — context-sensitive edit flyout (editing-surface Part 1;
 `openspec/changes/field-editor-flyout`).** One schema-generated form (`Controls/TsFieldsEditor.cs`) renders any

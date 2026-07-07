@@ -39,5 +39,5 @@ write-back → UI → verify. Each group leaves the build green.
 
 ## 7. Verify + docs
 
-- [ ] 7.1 Build + full App.Tests ✅ (111 pass, 0 warnings); **user-run pass PENDING**: fresh pull, skip on relaunch, offline session, edit → badge → push (verify in NINA's TS editor), write-back decreases review, dirty-prompt after kill
+- [x] 7.1 Build + full App.Tests (113 pass, 0 warnings); user-run pass verified clean 2026-07-06 (fresh pull, skip on relaunch, offline session, edit → badge → push verified in NINA's TS editor, write-back decreases review, dirty-prompt after kill)
 - [x] 7.2 Update `ARCHITECTURE.md` (sync model replaces the live-db invariant — the "prefers the live BIRDWATCHER db" story reverses), `VERIFICATION.md` (new flows), `DOMAIN.md` (badge/Push conventions + the buttons-decisions/guards-facts principle), `ROADMAP.md`, root `CLAUDE.md` router line — same commit as the code
