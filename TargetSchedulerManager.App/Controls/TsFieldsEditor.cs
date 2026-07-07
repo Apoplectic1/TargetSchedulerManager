@@ -139,18 +139,21 @@ internal sealed class TsFieldsEditor : UserControl
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        box.LostFocus += async (_, _) =>
+        // ValueChanged, not LostFocus: inside a flyout, focus rarely leaves the box before dismissal, which
+        // made typed edits commit only at close while toggle/checkbox edits committed instantly. ValueChanged
+        // fires when the value is CONFIRMED (Enter / focus loss / spin) — same immediacy as the toggles.
+        box.ValueChanged += async (_, _) =>
         {
             if (_reverting) return;
             double current = ToDouble(_lastKnown[field.Column]);
-            if (double.IsNaN(box.Value)) { box.Value = current; return; }   // cleared box → put the value back
+            if (double.IsNaN(box.Value)) { Revert(() => box.Value = current); return; }   // cleared → put back
 
             // Clamp to the schema bounds so no out-of-range value reaches the gate.
             double wanted = box.Value;
             if (field.Min is double min && wanted < min) wanted = min;
             if (field.Max is double max && wanted > max) wanted = max;
             if (field.Type == TsFieldType.Whole) wanted = Math.Round(wanted);
-            box.Value = wanted;
+            Revert(() => box.Value = wanted);
             if (wanted == current) return;
 
             object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
@@ -231,14 +234,16 @@ internal sealed class TsFieldsEditor : UserControl
             box.Focus(FocusState.Programmatic);
         };
 
-        box.LostFocus += async (_, _) =>
+        // ValueChanged, not LostFocus — same reasoning as the plain number box: a typed override must commit
+        // (and mirror) the moment it's confirmed, matching the checkbox's immediacy.
+        box.ValueChanged += async (_, _) =>
         {
             if (_reverting || !box.IsEnabled) return;
             double current = ToDouble(_lastKnown[field.Column]);
             if (double.IsNaN(box.Value))
             {
                 // Cleared: restore the last real value, or stay blank while the column still holds the sentinel.
-                if (current != sentinel) box.Value = current;
+                if (current != sentinel) Revert(() => box.Value = current);
                 return;
             }
 
@@ -246,7 +251,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (field.Min is double min && wanted < min) wanted = min;
             if (field.Max is double max && wanted > max) wanted = max;
             if (field.Type == TsFieldType.Whole) wanted = Math.Round(wanted);
-            box.Value = wanted;
+            Revert(() => box.Value = wanted);
             if (wanted == current) return;
 
             object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
