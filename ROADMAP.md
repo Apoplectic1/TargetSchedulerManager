@@ -8,7 +8,7 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-06)
+## Status — pick up here (2026-07-07)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -22,7 +22,7 @@ commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33
 **Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). Then the
 load-split (fast TS-only Reload against the cached scan — `ScanLibraryAsync`/`ResolveAsync` already split).
 
-**▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/cadence-safe-ts-edits`; library
+**▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/archive/2026-07-07-cadence-safe-ts-edits`; library
 `76bbae0` + `c606ba5`).** Per-filter `enabled` (checkbox on 1:1 plan rows + plan flyout) and
 `project.filterswitchfrequency` (project flyout) with the **transactional cadence clear**: library
 `TsField.Clears` (`None`/`Target`/`Project`, replaced `CadenceSafe` — breaking, no shim);
@@ -38,7 +38,7 @@ flows reader → resolver → projection cell → row
 (1:1 rule like `PlanTsKey`). 170 lib tests (scoped clears, no-op, OEO, rollback-atomicity via RAISE(ABORT)
 trigger) + 131 App.Tests. **User-run pass verified clean 2026-07-07** (direct toggles — no dialog — local `filtercadenceitem` cleared + journaled, push → BIRDWATCHER cleared + TS regenerates, fsf via project flyout).
 
-**▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/template-manager`; library
+**▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/archive/2026-07-06-template-manager`; library
 `201dd50`).** The full exposure-template surface, edit-only: the library's `TsEditableSchema` grew 11
 exposuretemplate rows (18 total) — `twilightlevel` (new `TwilightLevel` enum map, codes from the TS source;
 column spelling is TS's EF rename of `twilightlevel_col`), `minutesoffset` (±720, negatives legal), the moon
@@ -52,7 +52,7 @@ functions. 163 library tests (surface/bounds/enum pins) + 128 App.Tests (picker 
 keyless-skip, plan→template resolution, template journal seam). **User-run pass verified clean 2026-07-06**
 (picker sanity, row item, moon-suite + twilight edits, gain/offset sentinels intact, push → NINA verify).
 
-**▶ SHIPPED 2026-07-06 — project-settings flyout (editing-surface Part 2; `openspec/changes/project-settings-flyout`).**
+**▶ SHIPPED 2026-07-06 — project-settings flyout (editing-surface Part 2; `openspec/changes/archive/2026-07-06-project-settings-flyout`).**
 Right-click "Edit project…" on any row resolving a TS project key (target groups, panels, plan rows — the
 context menu went additive: a row offers its own editor plus the project's; mosaic parents keep "Edit mosaic
 project…") opens the schema-generated flyout for `TsTable.Project` — all 12 cadence-safe fields including
@@ -66,7 +66,7 @@ existing gate → journal → reviewed push untouched. 122 App.Tests (+ pair-rul
 seam). **User-run pass verified clean 2026-07-06** (each row shape's menu, a knob per field type, state
 flip in the push review, warn appear/clear, push → NINA verify).
 
-**▶ SHIPPED 2026-07-06 — TS sync model: pull → edit local → push-as-replay (`openspec/changes/sync-model`).**
+**▶ SHIPPED 2026-07-06 — TS sync model: pull → edit local → push-as-replay (`openspec/changes/archive/2026-07-06-sync-model`).**
 Replaces the LIVE/LOCAL two-world editing (radios, direct SMB writes, sticky-fall, `EditOutcome.LiveDropped`,
 post-write `ClearAllPools` — all deleted) with one editing world: **`Shared/TsSync`** pulls BIRDWATCHER's db
 over the local copy at open via the SQLite **online backup API**, skipped when the persisted baseline
@@ -86,7 +86,7 @@ write-back step). **User-run pass verified clean 2026-07-06** (fresh pull / skip
 verify / decreases review / dirty-prompt-after-kill).
 
 **▶ SHIPPED 2026-07-06 — context-sensitive edit flyout (editing-surface Part 1;
-`openspec/changes/field-editor-flyout`).** One schema-generated form (`Controls/TsFieldsEditor.cs`) renders any
+`openspec/changes/archive/2026-07-06-field-editor-flyout`).** One schema-generated form (`Controls/TsFieldsEditor.cs`) renders any
 TS row's cadence-safe editable fields straight from the library's `TsEditableSchema` (Bool→ToggleSwitch,
 Whole/Real→NumberBox with Min/Max clamp, Enum→ComboBox from the new `EnumValues` maps, Text→TextBox; Unit
 suffix, Notes tooltip) — adding a field to the reference lights it up with zero UI code. Triggers: a
@@ -450,7 +450,7 @@ TS target's counts).
   reconciliation report and goal-vs-actual summary.
 - 42 Catalog tests + 45 NINA tests pass.
 
-## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 underway · M3 pending — see Status above)
+## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 ✅ editing surface shipped, load-split tail remains · M3 pending — see Status above)
 
 **Purpose.** TS remains the daily scheduler until IS exists; TCM is the bridge: view + edit TS's database with
 disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data
@@ -494,40 +494,13 @@ back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/I
 minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
 tests). Verb: `tcm writeback [--apply]` (dry-run default).
 
-- **Scope:** counts only — no `desired` edits, no two-way sync.
-- **What's written:** cached columns only — `exposureplan.acquired` *and* `.accepted`, both set = disk count
-  (disk = post-cull "kept" = accepted-equivalent), so TS halts scheduling under any grading mode. **No**
-  synthesized `acquiredimage` rows — TS never recomputes counts from them; its own Database-Manager UI hand-edits
-  these columns (confirmed `SchedulerDatabaseContext.cs` / `TargetViewVM.cs`).
-- **Conflict:** **disk wins** — `acquired`/`accepted` overwrite up or down (ACTUAL is master); `desired` is ratcheted
-  **up** to the disk count (never lowered) so a goal is never below what was kept (over-shot targets read exactly 100%).
-- **Mapping key — `(target, filter, purpose)`:** purpose ∈ {Light, Stars} from the `"Stars "` prefix, identical on
-  disk dir names *and* TS template names (`B300`→Light, `Stars B`→Stars). Light plan ← `LightCount`, Stars plan ←
-  `StarsCount`. **Never** the `Combined` sum. Resolves 126/127 multi-plan RGB pairs in the snapshot.
-- **Manual bucket (presented with full info, never auto-written):** ≥2 plans on one `(target,filter,purpose)`
-  (same-purpose multi-plan, or a dup-fold of two TS targets onto one disk target — `M27`/`Dumbell`), **and**
-  identity conflicts — the whole flagged target is held when its match is a name-mismatch or ambiguous coord match
-  (e.g. `CygnusLoop P3` ↔ `NGC 6995`), so a false-positive match can't zero a real TS target's counts.
-- **Safety:** local-copy only; **no backups** (both DBs are recreatable); refuse on `-wal`/`-shm`/`-journal`
-  sidecar, a read-only db file, or `exposureplan` missing its `acquired`/`accepted`/`Id` columns — validated by
-  **column presence, not exact `user_version`** (TS bumps that every NINA-nightly migration; it's 25 now). Dry-run
-  default, `--apply` to commit; one transaction + read-back verify. Writer uses a **private** SQLite cache so it
-  doesn't inherit the build-reader's read-only shared cache (`SQLITE_READONLY` otherwise).
-- **Source:** fresh re-scan each run (`tcm writeback`, ~1 s, self-contained — can't push stale numbers).
-- **Surface:** `FilterPurposeClassifier` (shared `"Stars "` rule) + `WriteBackPlanner` (pure) + `WriteBackPlan`
-  records + `TargetSchedulerWriter` (thin I/O); TCM `Program.cs` = dry-run print + `--apply` gate + manual report.
-  Tests: hermetic planner cases + classifier + integration (snapshot copy → apply → verify).
-- **Write key:** catalog `exposure_plan.imported_from_ts_guid` already holds the TS `exposureplan.Id` (integer PK)
-  → direct `UPDATE exposureplan SET acquired=?, accepted=? WHERE Id=?`.
-- **Surgical single-target — `tcm writeback --target "<dir>"`:** scans **one** directory only (no catalog rebuild)
-  and writes just its cells. The unit is a **filter-cell** = `(filter, purpose, binning)`: a normal target is one
-  unit, a **mosaic is N panel units**. Each unit coordinate-anchors to its TS target (a mosaic panel only within the
-  same-named `isMosaic` project — name-matched first, then coord-matched), and each cell matches the TS plan by
-  `(filter, purpose, binning)` so a 2×2 cell can't write a 1×1 plan. Unmatched units (beyond tolerance / ambiguous →
-  `ReconcileNote`) and cells (no / multiple plans → `ManualGroup`, new `ManualReason.NoMatchingPlan`) are reported,
-  never forced. Reuses the bulk writer (acq/acc + `desired` ratchet + read-back verify) + `Program.PrintWriteBack`;
-  new `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync`. Tests: per-panel match, binning
-  disambiguation, no-bin-match→manual, unit-beyond-tolerance→note, normal-doesn't-grab-a-panel. (75 library tests.)
+The full write-back contract — cached-columns-only writes (`acquired`=`accepted`=disk, `desired` ratchets up
+only), disk-wins one-way conflict, the `(target, filter, purpose, seconds)` join, manual-bucket gating, the
+open-sidecar / read-only / private-cache guards, and the surgical single-target (`--target "<dir>"`, per-panel
+for mosaics) path — is the load-bearing spec in **`ARCHITECTURE.md` → TS write-back** (single-sourced there;
+don't re-document the mechanism here). Real-data validation: **182 plans written / 13 held manual / 92
+ignored-missing**, motivating `Sh2-142 Wizard H 0 → 140` fixed, re-apply idempotent; surgical
+`Mosaic - Cygnus Loop` → 16 panels, 96 cells matched / 80 writes, apply-verify OK. (75 library tests.)
 - ~~**Out of scope (later phase):** automated network push of the local copy back to the imaging PC~~ —
   **shipped 2026-07-06** as the sync model's push-as-replay (never a file copy; see the Status digest).
   Creating missing targets (TS-only kept, disk-only deferred) remains a UI-phase item.
@@ -536,3 +509,6 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
 
 - Point XFM / TP / IS at `Astronomy.Catalog` to read `Catalog.db`; remove XFM's scheduler tab.
 - Add TSM to TP's glossary; reconcile the IS design docs (Catalog.db is the hub; IS is a consumer).
+
+> **Plan supersession:** this replaces the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and
+> IS becomes a consumer.

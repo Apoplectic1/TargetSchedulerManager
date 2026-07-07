@@ -54,8 +54,8 @@ internal sealed class TsFieldsEditor : UserControl
         int rowIndex = 0;
         foreach (TsField field in TsEditableSchema.For(table))
         {
-            // Cadence-breaking fields wait for their confirm-dialog flow (cadence-safe-ts-edits); fields the
-            // open db lacks were omitted from the seed (schema drift) and get no control either.
+            // Fields the open db lacks were omitted from the seed (schema drift) and get no control either.
+            // (Cadence-breaking fields commit directly now — the library clears filtercadenceitem atomically.)
             if (!seed.ContainsKey(field.Column)) continue;
 
             form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });

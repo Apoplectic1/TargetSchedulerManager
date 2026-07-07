@@ -1,4 +1,4 @@
-# VERIFYING.md — TargetSchedulerManager
+# VERIFICATION.md — TargetSchedulerManager
 
 **Charter:** how to build, run, test, and verify a change here. Read before calling a change done.
 TSM is a WinUI app — the build proves *code-correct*; **visual/UX correctness is feature-verified

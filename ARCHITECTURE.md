@@ -27,7 +27,8 @@ canonical `target`**:
 Each `target` carries both facets, distinguished by `source_id`: `Actual` (on disk only), `Planned` (in TS only /
 not yet shot), `Both` (planned **and** shot — the two resolved onto one row). `inventory_filter` (actuals) and
 `exposure_plan` (goals) both hang off the one target, so "goal vs actual" is a single join. TSM reads and writes
-Tom Palmer's TS database, which lets XFM retire its Target Scheduler tab into TSM.
+Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (XFM's is deleted at the Phase 5
+cutover — see `ROADMAP.md`).
 
 ## Components
 
@@ -58,8 +59,9 @@ Tom Palmer's TS database, which lets XFM retire its Target Scheduler tab into TS
   `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the four open-db
   guard predicates into one structured-refusal call. UI-side, `Controls/TsFieldsEditor` generates the edit
   form from `TsEditableSchema` (control type per `TsFieldType`, bounds/enum maps/units from the reference;
-  cadence-breaking fields excluded until their confirm flow ships) and commits per field back through the
-  gate — the reference is the single source of truth from SQL whitelist to rendered control.
+  cadence-breaking fields commit directly — the library clears `filtercadenceitem` atomically with the
+  write, so no confirm dialog is needed) and commits per field back through the gate — the reference is the
+  single source of truth from SQL whitelist to rendered control.
 - **`Catalog.db` and its consumers** — the persistent catalog is the planned **LCM**'s output (was the retired
   CLI's job). XFM / TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly`. XFM's actual-only
   world is `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
@@ -203,5 +205,3 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
   writes with old→new and flags, manual groups, unplanned buckets, verify results — to the diagnostics log
   (the standing M2 rule: the writer logs every TS write; today that is `tsm.log` under
   `%APPDATA%\TargetSchedulerManager\Logs\`).
-
-This supersedes the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and IS becomes a consumer.
