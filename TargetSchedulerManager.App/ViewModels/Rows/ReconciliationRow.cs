@@ -53,8 +53,9 @@ public sealed class ReconciliationRow(
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
 
-    /// <summary>The plan side's whole-second sub length (representative when mixed); 0 = none/unknown.</summary>
-    public int PlanSeconds { get; } = planSeconds;
+    /// <summary>The plan side's whole-second sub length (representative when mixed); 0 = none/unknown. Settable
+    /// for an in-place inline exposure edit (see <see cref="ApplyPlanSeconds"/>).</summary>
+    public int PlanSeconds { get; private set; } = planSeconds;
 
     /// <summary>The disk side's whole-second sub length (representative when mixed); 0 = none.</summary>
     public int DiskSeconds { get; } = diskSeconds;
@@ -151,6 +152,21 @@ public sealed class ReconciliationRow(
         if (Desired == newDesired) return;
         Desired = newDesired;
         PlanHours = PlanSeconds > 0 ? newDesired * (double)PlanSeconds / 3600.0 : null;
+        Raise(nameof(HoursText));
+        Raise(nameof(HoursBackground));
+    }
+
+    /// <summary>Applies a committed inline exposure edit (after the TS write verified): updates the plan-side
+    /// seconds + derived plan hours and refreshes the bound Seconds/Hours cells in place. Display-only mirror —
+    /// the reconciliation keys cell identity on seconds at load time, so the row may split from (or rejoin) its
+    /// disk frames on the next reload; that split is correct reconciliation, not drift. The caller re-aggregates
+    /// the owning group/panel.</summary>
+    public void ApplyPlanSeconds(int newSeconds)
+    {
+        if (PlanSeconds == newSeconds) return;
+        PlanSeconds = newSeconds;
+        PlanHours = newSeconds > 0 && Desired is int d ? d * (double)newSeconds / 3600.0 : null;
+        Raise(nameof(SecondsText));
         Raise(nameof(HoursText));
         Raise(nameof(HoursBackground));
     }

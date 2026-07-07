@@ -164,11 +164,16 @@ public sealed partial class MainWindow : Window
     {
         IReadOnlyDictionary<string, object?>? seed = await ViewModel.ReadTsFieldsAsync(table, key, title);
 
-        // Resolved values behind sentinel columns: a plan's effective seconds (the Seconds column) backs the
-        // "template default (300 s)" label when exposure holds TS's -1 defer-to-template sentinel.
+        // Resolved value behind the exposure sentinel: only when the plan currently holds -1 is the row's
+        // effective seconds the TEMPLATE's default (an overridden plan's PlanSeconds is the override itself,
+        // which must not masquerade as "template default (…)").
         Dictionary<string, double>? effective = null;
-        if (row is not null && row.PlanSeconds > 0)
+        if (row is not null && row.PlanSeconds > 0 && seed is not null
+            && seed.TryGetValue("exposure", out object? rawExposure)
+            && System.Convert.ToDouble(rawExposure ?? 0.0, System.Globalization.CultureInfo.InvariantCulture) == -1)
+        {
             effective = new() { ["exposure"] = row.PlanSeconds };
+        }
 
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
@@ -176,6 +181,15 @@ public sealed partial class MainWindow : Window
                 return await ViewModel.SetTargetEnabledAsync(group, System.Convert.ToInt64(value) != 0);
             if (row is not null && string.Equals(column, "desired", StringComparison.OrdinalIgnoreCase))
                 return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
+            if (row is not null && string.Equals(column, "exposure", StringComparison.OrdinalIgnoreCase))
+            {
+                // Mirror the Seconds cell: the rounded override, or the template default when reverting to
+                // the sentinel (known only when the plan sat at the default when the flyout opened).
+                double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+                int? mirror = v > 0 ? (int)System.Math.Round(v)
+                    : effective is not null && effective.TryGetValue("exposure", out double tpl) ? (int)tpl : null;
+                return await ViewModel.SetPlanExposureAsync(row, v, mirror);
+            }
             return await ViewModel.SetTsFieldAsync(table, key, column, value, title);
         }, effective);
 

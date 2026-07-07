@@ -319,11 +319,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
             return false;
 
         row.ApplyDesired(desired);
+        RecomputeOwners(row);
+        return true;
+    }
+
+    /// <summary>Writes <c>exposureplan.exposure</c> (a positive override, or TS's −1 defer-to-template
+    /// sentinel) through the guarded gate. <paramref name="mirrorSeconds"/> is what the Seconds cell should
+    /// show afterwards — the rounded override, or the template default when reverting to the sentinel; null
+    /// when the caller can't know it (the cell then catches up on the next reload).</summary>
+    public async Task<bool> SetPlanExposureAsync(ReconciliationRow row, double exposure, int? mirrorSeconds)
+    {
+        if (row.PlanTsKey is not string key)
+            return false;
+        string label = $"{row.Target} · {row.Filter}";
+        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "exposure", exposure, label);
+        if (!ApplyOutcome(outcome, label))
+            return false;
+
+        if (mirrorSeconds is int seconds)
+        {
+            row.ApplyPlanSeconds(seconds);
+            RecomputeOwners(row);
+        }
+        return true;
+    }
+
+    // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has one).
+    private void RecomputeOwners(ReconciliationRow row)
+    {
         TargetGroupRow? group = _groups.FirstOrDefault(g => g.Children.Contains(row));
         group?.Recompute();
         if (row.PanelKey is not null)
             group?.Panels?.FirstOrDefault(p => p.Children.Contains(row))?.Recompute();
-        return true;
     }
 
     private void ApplyFilters()

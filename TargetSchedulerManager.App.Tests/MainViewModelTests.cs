@@ -159,6 +159,28 @@ public class MainViewModelTests
         Assert.Equal(25, vm.Rows.OfType<TargetGroupRow>().Single().Desired);
     }
 
+    [Fact]
+    public async Task SetPlanExposure_AppliedWrite_MirrorsSecondsAndHoursInPlace()
+    {
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "-1", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1");
+        vm.SetRowsForTest([row]);
+        vm.ToggleGroup((TargetGroupRow)vm.Rows[0]);
+
+        Assert.True(await vm.SetPlanExposureAsync(row, 301, mirrorSeconds: 301));
+        Assert.Equal(301, row.PlanSeconds);
+        Assert.Equal("301", row.SecondsText);
+        Assert.Equal(10 * 301.0 / 3600.0, row.PlanHours!.Value, 6);
+
+        // Unknown mirror (reverting an already-overridden plan): write succeeds, display left for reload.
+        Assert.True(await vm.SetPlanExposureAsync(row, -1, mirrorSeconds: null));
+        Assert.Equal(301, row.PlanSeconds);
+    }
+
     private static MainViewModel Vm(params ReconciliationRow[] rows)
     {
         MainViewModel vm = new();
