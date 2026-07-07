@@ -34,5 +34,5 @@ stay separate, each with its docs updated in the same commit as the code).
 
 ## 5. Verify + docs
 
-- [ ] 5.1 Build + all tests ✔ (0 warnings, 89/89 App.Tests, 156/156 lib) — **user-run visual verification pending** (glyph hover, menu items, seeding freshness, priority/rotation/roi/exposure edits incl. clamp + refusal revert, LOCAL then LIVE)
+- [x] 5.1 Build + all tests ✔ (final: 0 warnings, 91/91 App.Tests, 160/160 lib) — visual pass done on LOCAL across four USER_OBS sessions (glyphs, menus, seeding, edits, sentinel, mosaic, rotation guard — all "works"-confirmed); LIVE-mode spot-check accepted-by-use at archive time (same guarded gate `desired` already proved live in NINA)
 - [x] 5.2 Update TSM `ARCHITECTURE.md` (flyout editing seam), `ROADMAP.md` (priority editing shipped; Parts 2/3 queued), `DOMAIN.md` (trigger/flyout conventions) — same commit as the TSM code
