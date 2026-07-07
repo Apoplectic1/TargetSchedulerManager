@@ -8,19 +8,32 @@ TSM's TS-database editor performs plain single-column UPDATEs. For two editable 
 
 - **Library (`Astronomy.Catalog`)**: `TsField.CadenceSafe` (bool) becomes a clear-scope enum (`None` / `Target` / `Project`) declaring which derived `filtercadence` rows an edit invalidates. `TargetSchedulerEditor.SetField` deletes those rows **in the same transaction** as the UPDATE when the scope is non-`None` and the value actually changed. Deliberately invalidate-only: TSM never emulates TS scheduling behavior, it just refuses to leave derived rows contradicting the data it wrote (empty is always safe — TS regenerates).
 - **Library**: edits to a target with `overrideexposureorder` rows are **refused** (new `RefusalReason`), not auto-cleared — OEO is user-authored data; deleting it is TS-editor business.
-- **TSM app**: per-filter `enabled` checkbox on filter rows (first cadence-breaking consumer), riding the existing `TsEditGate` path, with a confirmation dialog that states the cadence reset and escalates wording when the source is LIVE (a target NINA is actively imaging cannot be safely cadence-edited externally; any other target can).
-- Cadence-clear behavior is keyed to the declarative `TsEditableSchema` — `project.filterswitchfrequency` becomes shippable later with **no further library work**, just UI.
+- **TSM app**: per-filter `enabled` checkbox on filter rows (first cadence-breaking consumer), riding the
+  existing `TsEditGate` path, with a confirmation dialog stating the cadence reset (it lands in the **local**
+  copy and reaches BIRDWATCHER at the reviewed push — the sync model, shipped 2026-07-06, replaced the LIVE
+  direct-write world this proposal originally warned about; pushing while NINA holds the db is already
+  refused by the sidecar guard).
+- **TSM app**: cadence-breaking fields **light up in the schema-generated flyouts** behind the same
+  confirm-first commit (the Part-1 exclusion was explicitly "until their confirm flow ships") — which ships
+  `project.filterswitchfrequency` in the project flyout (revised 2026-07-06: fsf UI is in scope, per the
+  user's unparking message; its confirm names the whole-project fan-out).
+- **Sync-model composition (added 2026-07-06):** the transactional clear lives inside the library's
+  `SetField`, so the push replay inherits it with zero push changes — replaying a journaled cadence-breaking
+  field re-derives the DELETE's scope on the remote db in the same call. The unchanged-value skip makes replay
+  semantically exact: a locally toggled-back field replays as a no-op and correctly leaves the remote's still
+  valid cadence rows alone. An OEO refusal at replay surfaces as a retained push failure (loud, recoverable).
 
 ## Capabilities
 
 ### New Capabilities
 
 - `cadence-safe-ts-editing`: the library contract for editing cadence-affecting TS fields — clear-scope metadata on `TsField`, transactional invalidation of derived `filtercadence` rows, value-unchanged skip, and OEO refusal.
-- `per-filter-enabled-editing`: the TSM UI capability — in-grid enable/disable of individual exposure plans with cadence-reset confirmation and LIVE-mode warning.
+- `per-filter-enabled-editing`: the TSM UI capability — in-grid enable/disable of individual exposure plans with cadence-reset confirmation.
 
 ### Modified Capabilities
 
-_None (no existing specs; `openspec/specs/` is empty)._
+- `schema-driven-field-editor`: the "exclude cadence-breaking fields" requirement becomes "render them gated
+  by a confirm-first commit" (their confirm flow now exists).
 
 ## Impact
 

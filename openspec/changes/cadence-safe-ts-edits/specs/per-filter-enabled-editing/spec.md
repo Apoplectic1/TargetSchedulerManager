@@ -17,18 +17,17 @@ actuals) SHALL NOT present the checkbox.
 ### Requirement: Cadence-breaking edits confirm before writing
 A click on the enabled checkbox SHALL NOT write immediately: because `TsEditableSchema` marks the field
 cadence-breaking, TSM SHALL first show a confirmation dialog stating that TS's filter rotation for that target
-resets and is regenerated on TS's next planning pass. When the current source is LIVE, the dialog SHALL
-additionally warn that a target NINA is actively imaging right now must be edited in TS itself, not TSM.
-Cancel SHALL revert the checkbox with no write. The trigger SHALL be driven by
-`TsEditableSchema.IsCadenceBreaking`, not a hard-coded column list.
+resets (regenerated on TS's next planning pass) and that the edit lands in the local copy, reaching
+BIRDWATCHER at the reviewed push. Cancel SHALL revert the checkbox with no write. The trigger SHALL be driven
+by `TsEditableSchema.IsCadenceBreaking`, not a hard-coded column list.
 
 #### Scenario: Cancel leaves everything untouched
 - **WHEN** the user unchecks a filter row's enabled checkbox and cancels the confirmation
-- **THEN** the checkbox returns to checked and no write reaches the TS db
+- **THEN** the checkbox returns to checked and no write reaches the local TS db (and nothing journals)
 
-#### Scenario: LIVE source escalates the wording
-- **WHEN** the confirmation dialog opens while the LIVE source is selected
-- **THEN** it includes the actively-imaging warning; on LOCAL it does not
+#### Scenario: Confirmed toggle journals and replays with its clear
+- **WHEN** the user confirms disabling a filter and later pushes
+- **THEN** the local write cleared the target's local cadence rows atomically, one journal entry exists, and the push replay performs the same transactional write + clear on BIRDWATCHER
 
 ### Requirement: Confirmed edits ride the guarded gate and update in place
 A confirmed toggle SHALL route through `TsEditGate.ApplyAsync` (guarded, read-back-verified, audited,

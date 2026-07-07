@@ -82,15 +82,32 @@ leaves OEO untouched.
 - The guarded checks run inside `TrySetField` in the existing order, new check last (schema → read-only →
   sidecar → column-present → OEO).
 
-### D4 — TSM UI: checkbox on filter rows through the existing gate, confirm-first
+### D4 — TSM UI: checkbox on filter rows through the existing gate, confirm-first (revised for the sync model)
 
 Filter rows get an `enabled` checkbox (visual pattern of the shipped target-`active` checkbox). Because the
 field is cadence-breaking, the click is intercepted **before** any write: a `ContentDialog` states that TS's
-filter rotation for the target resets and, when the source is LIVE, adds that a target NINA is *currently
-imaging* must be edited in TS instead (external writes can't trip TS's in-process `TargetEditGuard`; any
-non-active target is safe). Cancel reverts the checkbox; confirm routes through `TsEditGate.ApplyAsync`
-unchanged. A `HasOverrideOrder` refusal surfaces like other refusals, with wording pointing at the TS editor.
-In-place row update on success (no reload, scroll preserved — the shipped `desired` pattern).
+filter rotation for the target resets (regenerated on TS's next planning pass) and that the edit lands in the
+local copy, reaching BIRDWATCHER at the reviewed push. Cancel reverts the checkbox; confirm routes through
+`TsEditGate.ApplyAsync` unchanged (local write + journal). A `HasOverrideOrder` refusal surfaces like other
+refusals, with wording pointing at the TS editor. In-place row update on success (no reload, scroll
+preserved — the shipped `desired` pattern). *The original LIVE-mode escalation is retired with the LIVE
+world:* the actively-imaging risk now lives at push time, where the remote sidecar guard already refuses
+while NINA holds the db; the residual mid-sequence-idle race is unchanged from the original accepted risk.
+
+### D4b — Flyout inclusion + fsf (added 2026-07-06)
+
+`TsFieldsEditor` stops skipping `IsCadenceBreaking` fields; the window's commit callback intercepts them with
+the same confirm dialog before the write (the callback IS the write path — returning false reverts the
+control, machinery that already exists). This ships `project.filterswitchfrequency` in the project flyout
+with a fan-out-aware confirm ("resets the filter rotation of every target in this project") and lets plan
+`enabled` appear in the plan flyout consistently with its in-grid checkbox.
+
+### D4c — Push replay composition (added 2026-07-06)
+
+No push changes: the replay's `TrySetField` on the remote runs the same library transaction (scope re-derived
+from table+key on the remote db). Collapse gives one clear per final value; the unchanged-value skip means a
+toggled-back field replays as a no-op and correctly preserves the remote's still-valid cadence rows; an OEO
+refusal at replay is a retained per-entry push failure. One seam test pins the routing.
 
 ### D5 — Editing surface stays schema-first
 
