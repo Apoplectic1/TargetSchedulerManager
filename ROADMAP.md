@@ -14,7 +14,7 @@ TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a r
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
 prefers the **live BIRDWATCHER TS db** over SMB (LIVE/LOCAL badge, guarded + read-back-verified writes). Editing
 shipped so far: target enable checkbox + in-grid `desired` (verified live in NINA) + the **edit flyout** (hover
-glyph / right-click on target + filter rows → schema-generated form: target `priority`/`rotation`/`roi`, plan
+glyph / right-click on target + filter rows → schema-generated form: target `priority`/`rotation`, plan
 `exposure`; per-field guarded commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only /
 33 Actual-only, 6 mosaics (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
 **Next (editing-surface parts, explored 2026-07-06):** Part 2 project-settings flyout (needs an anchor — projects

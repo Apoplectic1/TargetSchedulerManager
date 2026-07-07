@@ -46,7 +46,7 @@ internal sealed class DiagnosticsWindow : Window
         mContextProvider = contextProvider;
 
         Title = $"Diagnostics (id={mId})";
-        AppWindow.Resize(new SizeInt32(560, 360));
+        AppWindow.Resize(new SizeInt32(660, 360));   // wide enough for the button row + "captured N (delayed) · hh:mm:ss"
         CenterOverOwner();              // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
         {

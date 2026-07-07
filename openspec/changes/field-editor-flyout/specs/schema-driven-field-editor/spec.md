@@ -24,7 +24,7 @@ field-specific UI code SHALL be required to add a future field.
 
 #### Scenario: Target form contents
 - **WHEN** the editor is opened for `TsTable.Target`
-- **THEN** it shows Enabled (toggle), Priority (dropdown: Default/Low/Normal/High), Rotation (decimal, 0–360 °), ROI (decimal, 0–100 %) — and nothing else
+- **THEN** it shows Enabled (toggle), Priority (dropdown: Default/Low/Normal/High), Rotation (decimal, 0–360 °) — and nothing else (`roi` was removed from the editable surface on user feedback, 2026-07-06)
 
 #### Scenario: Exposure-plan form excludes cadence-breaking fields
 - **WHEN** the editor is opened for `TsTable.ExposurePlan`

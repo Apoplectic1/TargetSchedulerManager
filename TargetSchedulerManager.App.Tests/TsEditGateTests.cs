@@ -87,7 +87,7 @@ public class TsEditGateTests
         StubEditor ed = new()
         {
             Row = new(StringComparer.OrdinalIgnoreCase)
-            { ["active"] = 1L, ["priority"] = -1L, ["rotation"] = 12.5, ["roi"] = 100.0 },
+            { ["active"] = 1L, ["priority"] = -1L, ["rotation"] = 12.5 },
         };
         TsEditGate gate = new(Live(), _ => ed);
         IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
@@ -100,11 +100,11 @@ public class TsEditGateTests
     [Fact]
     public async Task ReadFields_SkipsColumnsAbsentOnThisDb()
     {
-        StubEditor ed = new() { AbsentColumns = ["roi"] };
+        StubEditor ed = new() { AbsentColumns = ["rotation"] };
         TsEditGate gate = new(Live(), _ => ed);
         IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
         Assert.NotNull(seed);
-        Assert.False(seed.ContainsKey("roi"));
+        Assert.False(seed.ContainsKey("rotation"));
         Assert.Equal(TsEditableSchema.For(TsTable.Target).Count - 1, seed.Count);
     }
 
