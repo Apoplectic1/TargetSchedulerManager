@@ -17,9 +17,9 @@ Library (`Astronomy.Catalog`) contract for editing TS fields whose change invali
 - **THEN** the returned field's clear scope is `Target` / `Project` / `None` respectively, and `IsCadenceBreaking` returns true exactly for the first two
 
 ### Requirement: Cadence-affecting edits atomically invalidate derived rows
-When the editor writes a field whose scope is not `None` and the new value differs from the stored value, the
-column UPDATE and the deletion of the invalidated `filtercadenceitem` rows SHALL execute in a single SQLite
-transaction (both applied or neither). Scope `Target` SHALL delete rows whose `targetid` is the edited
+The column UPDATE and the deletion of the invalidated `filtercadenceitem` rows SHALL execute in a single
+SQLite transaction (both applied or neither) whenever the editor writes a field whose scope is not `None`
+and the new value differs from the stored value. Scope `Target` SHALL delete rows whose `targetid` is the edited
 exposure plan's `TargetId`; scope `Project` SHALL delete rows whose `targetid` belongs to any target of the
 edited project. Read-back verification of the updated column SHALL be preserved. The editor SHALL NOT write
 `filtercadenceitem` in any way other than these deletions, and SHALL NOT modify `overrideexposureorderitem`.

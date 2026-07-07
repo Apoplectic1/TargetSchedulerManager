@@ -31,5 +31,5 @@ Two-repo change (revised 2026-07-06 for the sync model + fsf UI scope): groups 1
 
 ## 5. Verify + docs
 
-- [ ] 5.1 Build + both suites ✅ (170 lib + 131 app); user-run pass PENDING: toggle a filter locally → local `filtercadenceitem` cleared + journal entry → push → BIRDWATCHER cleared + TS regenerates on next pass; fsf via project flyout with fan-out confirm; OEO refusal if any target has one; cancel paths
+- [x] 5.1 Build + both suites (170 lib + 131 app, 0 warnings); user-run pass verified clean 2026-07-07 (direct toggle, local filtercadenceitem cleared + journal, push -> BIRDWATCHER cleared + TS regenerates, fsf via project flyout, cancel-free flow)
 - [x] 5.2 Docs same-commit: TSM ARCHITECTURE (cadence invariant + replay composition), DOMAIN (confirm-first convention + checkbox), ROADMAP (digest + Parts queue), memory update

@@ -19,7 +19,7 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next:** editing-surface Parts 1–4 all shipped (Part 4 below, 2026-07-07, user-run pass pending). Then the
+**Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). Then the
 load-split (fast TS-only Reload against the cached scan — `ScanLibraryAsync`/`ResolveAsync` already split).
 
 **▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/cadence-safe-ts-edits`; library
@@ -36,8 +36,7 @@ partial failure. UI: direct commits, no confirm (revised 2026-07-07 -
 the atomic clear makes toggles produce the TS-expected result; push review stays the gate); plan `enabled`
 flows reader → resolver → projection cell → row
 (1:1 rule like `PlanTsKey`). 170 lib tests (scoped clears, no-op, OEO, rollback-atomicity via RAISE(ABORT)
-trigger) + 131 App.Tests. **User-run pass pending** (checkbox confirm/cancel — wording says CADENCE, not rotation (user caught the angle collision) — local `filtercadenceitem`
-cleared, push → BIRDWATCHER cleared + TS regenerates, fsf fan-out confirm, OEO refusal wording).
+trigger) + 131 App.Tests. **User-run pass verified clean 2026-07-07** (direct toggles — no dialog — local `filtercadenceitem` cleared + journaled, push → BIRDWATCHER cleared + TS regenerates, fsf via project flyout).
 
 **▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/template-manager`; library
 `201dd50`).** The full exposure-template surface, edit-only: the library's `TsEditableSchema` grew 11

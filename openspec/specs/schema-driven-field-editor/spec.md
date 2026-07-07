@@ -17,20 +17,20 @@ committing per field through the guarded gate. Library portion (enum maps) is co
 - **WHEN** a consumer resolves the `EnumName` of every `TsFieldType.Enum` field in the reference
 - **THEN** each yields a non-empty ordered code/label list, and `TargetPriority` includes code −1 labeled "Default"
 
-### Requirement: The editor form is generated from the reference
-`TsFieldsEditor` SHALL render, for a given `TsTable`, exactly the schema's editable fields for that table that
-are not cadence-breaking (`IsCadenceBreaking` = false), in schema order, choosing the control by `TsFieldType`
-(Bool→toggle, Whole→integer numeric, Real→decimal numeric, Enum→dropdown from the enum map, Text→text box),
-applying `Min`/`Max` as input bounds, showing `Unit` beside the control and `Notes` as a tooltip. No
-field-specific UI code SHALL be required to add a future field.
+### Requirement: The form renders every editable field, cadence-breaking ones included
+The generated form SHALL render every TsEditableSchema field of the entity's table that is present on the
+open db, in schema order, choosing the control by TsFieldType - including cadence-breaking fields, which
+SHALL commit like any other (no confirmation; the editor's atomic cadence clear and the reviewed push are the
+safety - user decision 2026-07-07). All per-field commit semantics (guarded gate, revert on failure,
+immediate in-place mirrors) are unchanged.
 
-#### Scenario: Target form contents
-- **WHEN** the editor is opened for `TsTable.Target`
-- **THEN** it shows Enabled (toggle), Priority (dropdown: Default/Low/Normal/High), Rotation (decimal, 0–360 °) — and nothing else (`roi` was removed from the editable surface on user feedback, 2026-07-06)
+#### Scenario: Exposure-plan form includes enabled
+- **WHEN** the user opens a plan flyout and toggles enabled
+- **THEN** the write applies through the guarded gate (with its transactional cadence clear) and the in-grid checkbox mirrors
 
-#### Scenario: Exposure-plan form excludes cadence-breaking fields
-- **WHEN** the editor is opened for `TsTable.ExposurePlan`
-- **THEN** it shows Desired (integer) and Exposure (decimal, s) but not `enabled` (cadence-breaking today)
+#### Scenario: Project form ships filter switch frequency
+- **WHEN** the user commits a new filterswitchfrequency in the project flyout
+- **THEN** the write applies and every target's cadence rows in that project were cleared atomically with it
 
 ### Requirement: The form seeds from current database values
 Opening the editor SHALL read each rendered field's current value from the currently-selected TS db
