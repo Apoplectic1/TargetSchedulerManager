@@ -361,9 +361,10 @@ public sealed partial class MainWindow : Window
                 return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
             if (row is not null && string.Equals(column, "exposure", StringComparison.OrdinalIgnoreCase))
             {
-                // Seconds-cell mirror: the rounded override; a sentinel write (null) resolves via the db.
+                // Seconds-cell mirror: the rounded override (0 is a literal zero-second exposure); only the
+                // negative defer-to-template sentinel (null) resolves via the db.
                 double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
-                return await ViewModel.SetPlanExposureAsync(row, v, v > 0 ? (int)System.Math.Round(v) : null);
+                return await ViewModel.SetPlanExposureAsync(row, v, v >= 0 ? (int)System.Math.Round(v) : null);
             }
             bool applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
             if (applied && pairWarn is not null)

@@ -202,6 +202,25 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SetPlanExposure_ZeroIsLiteral_MirrorsZeroInPlace()
+    {
+        // 0 is a literal zero-second exposure (Library adjudication 2026-07-07: TS's planner defers only
+        // on -1), so a resolved effective 0 mirrors the cell — it is not "unknown".
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "300", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1");
+        vm.SetRowsForTest([row]);
+        vm.ToggleGroup((TargetGroupRow)vm.Rows[0]);
+
+        ed.EffectiveExposure = (true, 0.0);
+        Assert.True(await vm.SetPlanExposureAsync(row, 0, mirrorSeconds: null));
+        Assert.Equal(0, row.PlanSeconds);
+        Assert.Equal("0", row.SecondsText);
+    }
+
+    [Fact]
     public async Task MosaicEnable_FansOutToEveryPanel_AndAggregatesState()
     {
         var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "1", true),

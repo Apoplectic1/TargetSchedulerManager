@@ -103,9 +103,10 @@ internal sealed class TsEditGate
             }
         });
 
-    /// <summary>Reads one plan's effective exposure (override, else template default) as whole seconds, off the
-    /// UI thread — the Seconds-cell mirror after a revert-to-default write. Null when unknown (missing row/
-    /// template, non-positive value, or a fault): the caller leaves the cell for the next reload.</summary>
+    /// <summary>Reads one plan's effective exposure (its own value — 0 taken literally — unless the negative
+    /// defer-to-template sentinel, then the template default) as whole seconds, off the UI thread — the
+    /// Seconds-cell mirror after a revert-to-default write. Null only when unknown (missing row/template, or
+    /// a fault): the caller leaves the cell for the next reload.</summary>
     public Task<int?> ReadPlanEffectiveSecondsAsync(string key, string label) =>
         Task.Run<int?>(() =>
         {
@@ -113,7 +114,7 @@ internal sealed class TsEditGate
             {
                 using ITsEditor editor = _editorFactory(_sync.LocalPath);
                 (bool found, double? value) = editor.ReadPlanEffectiveExposure(key);
-                return found && value > 0 ? (int)Math.Round(value.Value) : null;
+                return found && value >= 0 ? (int)Math.Round(value.Value) : null;
             }
             catch (Exception ex)
             {
