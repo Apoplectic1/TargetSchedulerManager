@@ -325,8 +325,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     /// <summary>Writes <c>exposureplan.exposure</c> (a positive override, or TS's −1 defer-to-template
     /// sentinel) through the guarded gate. <paramref name="mirrorSeconds"/> is what the Seconds cell should
-    /// show afterwards — the rounded override, or the template default when reverting to the sentinel; null
-    /// when the caller can't know it (the cell then catches up on the next reload).</summary>
+    /// show afterwards — the rounded override, or the template default when the caller knows it; when null,
+    /// the effective value is resolved from the db (plan→template join) so the cell mirrors immediately
+    /// either way (standing rule: a flyout edit reflects in its column at once).</summary>
     public async Task<bool> SetPlanExposureAsync(ReconciliationRow row, double exposure, int? mirrorSeconds)
     {
         if (row.PlanTsKey is not string key)
@@ -336,6 +337,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (!ApplyOutcome(outcome, label))
             return false;
 
+        mirrorSeconds ??= await _gate.ReadPlanEffectiveSecondsAsync(key, label);
         if (mirrorSeconds is int seconds)
         {
             row.ApplyPlanSeconds(seconds);

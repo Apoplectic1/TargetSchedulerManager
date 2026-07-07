@@ -21,6 +21,9 @@ public class TsEditGateTests
             Throw ? throw new InvalidOperationException("boom")
                   : RowFound ? (true, Row.TryGetValue(column, out object? v) ? v : null) : (false, null);
         public bool IsFieldAvailable(TsTable table, string column) => !AbsentColumns.Contains(column);
+        public (bool Found, double? Value) EffectiveExposure = (false, null);
+        public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) =>
+            Throw ? throw new InvalidOperationException("boom") : EffectiveExposure;
         public void Dispose() { }
     }
 

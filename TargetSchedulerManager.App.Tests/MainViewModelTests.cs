@@ -176,9 +176,16 @@ public class MainViewModelTests
         Assert.Equal("301", row.SecondsText);
         Assert.Equal(10 * 301.0 / 3600.0, row.PlanHours!.Value, 6);
 
-        // Unknown mirror (reverting an already-overridden plan): write succeeds, display left for reload.
+        // Null mirror (reverting an already-overridden plan): the effective value resolves from the db
+        // (plan→template join) so the cell still mirrors immediately.
+        ed.EffectiveExposure = (true, 300.0);
         Assert.True(await vm.SetPlanExposureAsync(row, -1, mirrorSeconds: null));
-        Assert.Equal(301, row.PlanSeconds);
+        Assert.Equal(300, row.PlanSeconds);
+
+        // Resolution unavailable (e.g. template row missing): display left for the next reload.
+        ed.EffectiveExposure = (false, null);
+        Assert.True(await vm.SetPlanExposureAsync(row, -1, mirrorSeconds: null));
+        Assert.Equal(300, row.PlanSeconds);
     }
 
     private static MainViewModel Vm(params ReconciliationRow[] rows)
@@ -197,5 +204,7 @@ internal sealed class TsEditGateTests_Stub : TargetSchedulerManager.App.Shared.I
     public (bool Found, object? Value) ReadField(
         Astronomy.Catalog.TargetScheduler.TsTable table, string tsKey, string column) => (false, null);
     public bool IsFieldAvailable(Astronomy.Catalog.TargetScheduler.TsTable table, string column) => true;
+    public (bool Found, double? Value) EffectiveExposure = (false, null);
+    public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => EffectiveExposure;
     public void Dispose() { }
 }

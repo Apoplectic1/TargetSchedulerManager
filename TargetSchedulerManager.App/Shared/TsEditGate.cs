@@ -11,6 +11,7 @@ internal interface ITsEditor : IDisposable
     (FieldEditResult? Result, RefusalReason Refusal) TrySetField(TsTable table, string tsKey, string column, object? value);
     (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column);
     bool IsFieldAvailable(TsTable table, string column);
+    (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey);
 }
 
 /// <summary>Production adapter: opens a real <see cref="TargetSchedulerEditor"/> on the given path.</summary>
@@ -24,6 +25,8 @@ internal sealed class TsEditorAdapter : ITsEditor
         _editor.ReadField(table, tsKey, column);
     public bool IsFieldAvailable(TsTable table, string column) =>
         _editor.IsFieldAvailable(table, column);
+    public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) =>
+        _editor.ReadPlanEffectiveExposure(tsPlanKey);
     public void Dispose() => _editor.Dispose();
 }
 
@@ -99,6 +102,25 @@ internal sealed class TsEditGate
             catch (Exception ex)
             {
                 Log.Error($"{table} read-seed threw for \"{label}\"", ex);
+                return null;
+            }
+        });
+
+    /// <summary>Reads one plan's effective exposure (override, else template default) as whole seconds, off the
+    /// UI thread — the Seconds-cell mirror after a revert-to-default write. Null when unknown (missing row/
+    /// template, non-positive value, or a fault): the caller leaves the cell for the next reload.</summary>
+    public Task<int?> ReadPlanEffectiveSecondsAsync(string key, string label) =>
+        Task.Run<int?>(() =>
+        {
+            try
+            {
+                using ITsEditor editor = _editorFactory(_source.CurrentPath);
+                (bool found, double? value) = editor.ReadPlanEffectiveExposure(key);
+                return found && value > 0 ? (int)Math.Round(value.Value) : null;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"effective-exposure read threw for \"{label}\"", ex);
                 return null;
             }
         });

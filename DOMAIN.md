@@ -106,6 +106,12 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   number commits).
 - Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
   and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
+- **Mirror rule (user-set, 2026-07-06):** any flyout-editable value that is also a visible grid column must
+  reflect **immediately on commit** (flyout still open), never waiting for a reload — including header
+  re-aggregation. Row **positions hold** even when the edit changes a sort key (order refreshes on the next
+  reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
+  overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
+  `ReadPlanEffectiveSecondsAsync`), not left stale.
 - **Integer edit boxes are ~3 characters wide** (fit 999; ≥ 1000 clips in the box but the full value still
   commits). Real/decimal fields are exempt — they need room for the ".". Fixed `Width` (~40 px) + trimmed inner
   padding; the text is **centered in code-behind** (a NumberBox can't center via XAML — see *WinUI gotchas*). The
@@ -154,3 +160,5 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 6. New **integer edit box**? ~3 chars wide; center its text in code-behind (NumberBox can't via XAML — see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).
+8. New **editable field whose value shows in a grid column**? Wire its in-place mirror (an `Apply*` on the row
+   + owner re-aggregation) — the mirror rule above is a hard convention, not polish.
