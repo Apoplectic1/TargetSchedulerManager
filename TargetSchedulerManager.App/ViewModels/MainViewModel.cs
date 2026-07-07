@@ -490,6 +490,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefusalReason.ReadOnly => "local TS copy is read-only",
         RefusalReason.OpenSidecar => "local TS copy busy (another tool has it open?) — try again",
         RefusalReason.ColumnAbsent => "this TS db has no such column",
+        RefusalReason.HasOverrideOrder =>
+            "this target has a custom exposure order (index-coupled to its plans) — re-author it in the TS editor",
         _ => "refused",
     };
 

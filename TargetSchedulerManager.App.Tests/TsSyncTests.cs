@@ -279,6 +279,34 @@ public class TsSyncTests
     }
 
     [Fact]
+    public void Push_CadenceBreakingField_RoutesThroughTheFieldEditor()
+    {
+        // The transactional cadence clear lives INSIDE the library's TrySetField, so the replay inherits it
+        // with no push changes — this pins that a journaled cadence-breaking field reaches that call.
+        RecordingEditor editor = new();
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "enabled", 0, "1", "A · H");
+
+        Assert.Equal(PushOutcome.Success, sync.Push().Outcome);
+        Assert.Contains(editor.Writes, w => w is { Key: "ep-1", Column: "enabled", Value: 0L });
+    }
+
+    [Fact]
+    public void Push_OverrideOrderRefusalAtReplay_RetainsTheEntry()
+    {
+        RecordingEditor editor = new() { RefuseAll = RefusalReason.HasOverrideOrder };
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "enabled", 0, "1", "A · H");
+
+        PushResult result = sync.Push();
+        Assert.Equal(PushOutcome.PartialFailure, result.Outcome);   // loud, entry retained for a later push
+        Assert.True(sync.IsDirty);
+        Assert.Contains("HasOverrideOrder", Assert.Single(result.Failures).Detail);
+    }
+
+    [Fact]
     public void PreparePush_DesiredOnlyRaise_ShowsNoPhantomCountChange()
     {
         TsSync sync = SyncTestEnv.NewSync(out _);

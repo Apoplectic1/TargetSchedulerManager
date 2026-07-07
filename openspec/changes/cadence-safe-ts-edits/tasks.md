@@ -5,22 +5,22 @@ Two-repo change (revised 2026-07-06 for the sync model + fsf UI scope): groups 1
 
 ## 1. Library — schema metadata (`TsEditableSchema.cs`)
 
-- [ ] 1.1 Add `TsCadenceClear` enum (`None`, `Target`, `Project`) with consumer-neutral doc comments pinning the TS source references (`ToggleExposurePlan`, `SaveProject`, `FilterCadenceFactory.Generate`)
-- [ ] 1.2 Replace `TsField.CadenceSafe : bool` with `Clears : TsCadenceClear = None` (breaking, no shim); set `exposureplan.enabled` → `Target`, `project.filterswitchfrequency` → `Project`; update both fields' `Notes`; `IsCadenceBreaking` ≡ `Clears != None`
-- [ ] 1.3 Update `TsEditableSchemaTests` for the new shape (scope values per field; `IsCadenceBreaking` equivalence; the all-cadence-safe template pin becomes all-`None`)
+- [x] 1.1 Add `TsCadenceClear` enum (`None`, `Target`, `Project`) with consumer-neutral doc comments pinning the TS source references (`ToggleExposurePlan`, `SaveProject`, `FilterCadenceFactory.Generate`)
+- [x] 1.2 Replace `TsField.CadenceSafe : bool` with `Clears : TsCadenceClear = None` (breaking, no shim); set `exposureplan.enabled` → `Target`, `project.filterswitchfrequency` → `Project`; update both fields' `Notes`; `IsCadenceBreaking` ≡ `Clears != None`
+- [x] 1.3 Update `TsEditableSchemaTests` for the new shape (scope values per field; `IsCadenceBreaking` equivalence; the all-cadence-safe template pin becomes all-`None`)
 
 ## 2. Library — editor behavior (`TargetSchedulerEditor.cs`)
 
-- [ ] 2.1 Unchanged-value fast path in `UpdateField`: normalized old == new → success (found, verified), no UPDATE, no clear
-- [ ] 2.2 Transactional clear when `Clears != None` and the value changed: UPDATE + scoped `DELETE FROM filtercadenceitem` (scope `Target`: the plan's target id, one SELECT; scope `Project`: `targetid IN (SELECT Id FROM target WHERE projectid = …)`) in one transaction; read-back verify unchanged; exact TS table/column names verified against the TS source EF configs
-- [ ] 2.3 `RefusalReason.HasOverrideOrder`: refuse scope-`Target` edits when the target has `overrideexposureorderitem` rows (guard order preserved, new check last); scope-`Project` unaffected
-- [ ] 2.4 Editor tests over real temp dbs: plan-disable clears only its target's rows; fsf change clears all project targets' rows and spares other projects; unchanged value no-op (rows survive); OEO refusal (target scope) vs pass-through (project scope); failed commit leaves both intact
-- [ ] 2.5 Build + full `Astronomy.Catalog.Tests`; Library ROADMAP digest in the same commit
+- [x] 2.1 Unchanged-value fast path in `UpdateField`: normalized old == new → success (found, verified), no UPDATE, no clear
+- [x] 2.2 Transactional clear when `Clears != None` and the value changed: UPDATE + scoped `DELETE FROM filtercadenceitem` (scope `Target`: the plan's target id, one SELECT; scope `Project`: `targetid IN (SELECT Id FROM target WHERE projectid = …)`) in one transaction; read-back verify unchanged; exact TS table/column names verified against the TS source EF configs
+- [x] 2.3 `RefusalReason.HasOverrideOrder`: refuse scope-`Target` edits when the target has `overrideexposureorderitem` rows (guard order preserved, new check last); scope-`Project` unaffected
+- [x] 2.4 Editor tests over real temp dbs: plan-disable clears only its target's rows; fsf change clears all project targets' rows and spares other projects; unchanged value no-op (rows survive); OEO refusal (target scope) vs pass-through (project scope); failed commit leaves both intact
+- [x] 2.5 Build + full `Astronomy.Catalog.Tests`; Library ROADMAP digest in the same commit
 
 ## 3. TSM — gate, replay, plumbing
 
-- [ ] 3.1 Rebuild against the changed library; fix `CadenceSafe` → `Clears` fallout; map `HasOverrideOrder` in `RefusalText` (wording points at the TS editor)
-- [ ] 3.2 Seam tests: gate passes the new refusal through (no journal entry); push replay routes a journaled cadence-breaking field through the same `TrySetField` (stub asserts the call; composition is the library's)
+- [x] 3.1 Rebuild against the changed library; fix `CadenceSafe` → `Clears` fallout; map `HasOverrideOrder` in `RefusalText` (wording points at the TS editor)
+- [x] 3.2 Seam tests: gate passes the new refusal through (no journal entry); push replay routes a journaled cadence-breaking field through the same `TrySetField` (stub asserts the call; composition is the library's)
 
 ## 4. TSM — per-filter enabled UI + flyout inclusion
 
