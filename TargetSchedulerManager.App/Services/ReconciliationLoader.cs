@@ -215,7 +215,8 @@ public static class ReconciliationLoader
                         panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
                         enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
                         // 1:1 only: a single plan sub-length is editable; a mixed rollup's sum is not.
-                        planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null));
+                        planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null,
+                        planEnabled: planCells.Count == 1 ? planCells[0].PlanEnabled : null));
                 }
                 else
                 {
@@ -232,7 +233,7 @@ public static class ReconciliationLoader
                     isDetail: true,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
                     enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
-                    planTsKey: c.PlanTsKey);
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),
@@ -242,7 +243,7 @@ public static class ReconciliationLoader
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
                     enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
-                    planTsKey: c.PlanTsKey);
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     groupName, project, c.Filter, c.Purpose.ToString(),

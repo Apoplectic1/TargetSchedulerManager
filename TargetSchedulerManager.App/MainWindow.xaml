@@ -107,8 +107,15 @@
                         <ColumnDefinition Width="45"/>
                         <ColumnDefinition Width="150"/>
                     </Grid.ColumnDefinitions>
-                    <!-- Column 0 (enable checkbox) is blank on filter rows. Indent ladder: mixed rollups carry
-                         their own chevron; their source lines step in one more level (SourceMargin all three). -->
+                    <!-- Column 0: per-plan enable (exposureplan.enabled) on 1:1 TS plan rows only — cadence-
+                         breaking, so the click confirms first (PlanEnable_Click). Indent ladder: mixed rollups
+                         carry their own chevron; their source lines step in one more level (SourceMargin). -->
+                    <CheckBox Grid.Column="0" MinWidth="0" MinHeight="0" Padding="0" Margin="0"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Visibility="{x:Bind PlanEnableVisibility}"
+                              IsChecked="{x:Bind IsPlanEnabled, Mode=OneWay}" IsThreeState="False"
+                              Click="PlanEnable_Click"
+                              ToolTipService.ToolTip="Enable/disable this exposure plan (resets the target's TS filter rotation)"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                 Margin="{x:Bind SourceMargin}">
                         <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"

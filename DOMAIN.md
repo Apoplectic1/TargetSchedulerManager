@@ -110,6 +110,11 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
   inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
   glyph/flyout on the panel mini-header rows.
+- **Cadence-breaking edits confirm first (shipped 2026-07-07):** plan `enabled` (checkbox on 1:1 filter rows
+  + flyout) and project `filterswitchfrequency` (project flyout) show a scope-aware confirm before ANY write
+  ("resets TS's filter rotation for this target" / "…of EVERY target in this project"; lands locally, reaches
+  BIRDWATCHER at push). The library clears `filtercadenceitem` atomically with the write; a target with a
+  hand-authored override exposure order refuses (re-author in the TS editor). Trigger = `IsCadenceBreaking`.
 - **Templates are shared config with no rows — so their editor is list-first (user decision 2026-07-06):**
   the toolbar **Templates…** picker lists every template from the loaded graph (name · filter · used-by count,
   zero-use templates included), and plan rows offer "Edit template…" for the template behind that plan. The

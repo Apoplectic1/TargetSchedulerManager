@@ -43,7 +43,8 @@ public sealed class ReconciliationRow(
     string? tsTargetKey = null,
     Guid targetId = default,
     string? planTsKey = null,
-    string? projectTsKey = null) : INotifyPropertyChanged
+    string? projectTsKey = null,
+    bool? planEnabled = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -132,6 +133,24 @@ public sealed class ReconciliationRow(
     /// <summary>Write-back key for the target's TS project (project-scope edits: priority, constraints);
     /// null when the target has no TS project.</summary>
     public string? ProjectTsKey { get; } = projectTsKey;
+
+    /// <summary>The single TS plan's <c>enabled</c> flag — set only on a one-plan cell (like <see cref="PlanTsKey"/>);
+    /// null hides the plan-enable checkbox (multi-plan rollups, disk rows).</summary>
+    public bool? PlanEnabled { get; private set; } = planEnabled;
+
+    /// <summary>The plan-enable checkbox binding (null-safe for x:Bind).</summary>
+    public bool IsPlanEnabled => PlanEnabled == true;
+
+    public Visibility PlanEnableVisibility =>
+        PlanTsKey is not null && PlanEnabled is not null ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Applies a committed plan-enable toggle (after the local TS write verified) in place.</summary>
+    public void ApplyPlanEnabled(bool enabled)
+    {
+        if (PlanEnabled == enabled) return;
+        PlanEnabled = enabled;
+        Raise(nameof(IsPlanEnabled));
+    }
 
     /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side present.</summary>
     public bool CanEditDesired => PlanTsKey is not null && Desired is not null;

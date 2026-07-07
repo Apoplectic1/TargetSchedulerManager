@@ -19,10 +19,24 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next (editing-surface parts):** Parts 2 + 3 **shipped + verified 2026-07-06** (below) →
-Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
-cadence clear; composes with the sync model — its transactional edits land locally and replay at push). Then
-load-split.
+**Next:** editing-surface Parts 1–4 all shipped (Part 4 below, 2026-07-07, user-run pass pending). Then the
+load-split (fast TS-only Reload against the cached scan — `ScanLibraryAsync`/`ResolveAsync` already split).
+
+**▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/cadence-safe-ts-edits`; library
+`76bbae0` + `c606ba5`).** Per-filter `enabled` (checkbox on 1:1 plan rows + plan flyout) and
+`project.filterswitchfrequency` (project flyout) with the **transactional cadence clear**: library
+`TsField.Clears` (`None`/`Target`/`Project`, replaced `CadenceSafe` — breaking, no shim);
+`TargetSchedulerEditor` deletes the scoped `filtercadenceitem` rows in ONE transaction with the column write
+(TS restores cadence verbatim, regenerates only from empty), skips unchanged values (verified no-op, no
+clear), and refuses target-scope edits with `RefusalReason.HasOverrideOrder` when hand-authored override
+orders exist. **Sync-model composition falls out free:** the clear lives inside `TrySetField`, so the push
+replay re-derives the delete scope on the remote; a locally toggled-back field replays as a no-op and
+correctly keeps the remote's still-valid cadence (seam-tested), and an OEO refusal at replay is a retained
+partial failure. UI: scope-aware confirm-first dialog on every cadence-breaking commit (checkbox + flyouts;
+`TsFieldsEditor` stopped excluding them); plan `enabled` flows reader → resolver → projection cell → row
+(1:1 rule like `PlanTsKey`). 170 lib tests (scoped clears, no-op, OEO, rollback-atomicity via RAISE(ABORT)
+trigger) + 131 App.Tests. **User-run pass pending** (checkbox confirm/cancel, local `filtercadenceitem`
+cleared, push → BIRDWATCHER cleared + TS regenerates, fsf fan-out confirm, OEO refusal wording).
 
 **▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/template-manager`; library
 `201dd50`).** The full exposure-template surface, edit-only: the library's `TsEditableSchema` grew 11

@@ -159,6 +159,21 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SetPlanEnabled_AppliedWrite_MirrorsCheckboxInPlace()
+    {
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "1", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1", planEnabled: true);
+        vm.SetRowsForTest([row]);
+
+        Assert.True(await vm.SetPlanEnabledAsync(row, false));
+        Assert.False(row.IsPlanEnabled);                        // in-place mirror, no reload
+        Assert.True(row.PlanEnableVisibility == Microsoft.UI.Xaml.Visibility.Visible);
+    }
+
+    [Fact]
     public async Task SetPlanExposure_AppliedWrite_MirrorsSecondsAndHoursInPlace()
     {
         var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "-1", true),

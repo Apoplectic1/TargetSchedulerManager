@@ -561,6 +561,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return ApplyOutcome(outcome, label);
     }
 
+    /// <summary>Writes <c>exposureplan.enabled</c> through the guarded gate — the library clears the target's
+    /// cadence rows in the same transaction (the caller confirmed first; see the cadence convention in
+    /// DOMAIN.md). Mirrors the row's checkbox in place on success.</summary>
+    public async Task<bool> SetPlanEnabledAsync(ReconciliationRow row, bool enabled)
+    {
+        if (row.PlanTsKey is not string key)
+            return false;
+        string label = $"{row.Target} · {row.Filter}";
+        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "enabled", enabled ? 1 : 0, label);
+        if (!ApplyOutcome(outcome, label))
+            return false;
+        row.ApplyPlanEnabled(enabled);
+        return true;
+    }
+
     public async Task<bool> SetPlanDesiredAsync(ReconciliationRow row, int desired)
     {
         if (row.PlanTsKey is not string key)

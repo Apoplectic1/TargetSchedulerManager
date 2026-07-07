@@ -24,12 +24,12 @@ Two-repo change (revised 2026-07-06 for the sync model + fsf UI scope): groups 1
 
 ## 4. TSM — per-filter enabled UI + flyout inclusion
 
-- [ ] 4.1 Surface plan `enabled` on filter rows end-to-end (reader SELECTs it if absent → `TsPlanData` → resolver → projection cell → `ReconciliationRow`); no checkbox for disk-only rows
-- [ ] 4.2 Checkbox in the filter-row template (target-`active` pattern; DOMAIN checklist), confirm-first (cadence-reset + lands-locally wording), cancel reverts, in-place update on success, refusal reverts + surfaced
-- [ ] 4.3 `TsFieldsEditor` stops skipping cadence-breaking fields; the window's commit callback confirms them first (scope-aware wording — fsf names the whole-project fan-out); project flyout thereby ships fsf, plan flyout ships enabled (checkbox setter shared so the grid mirrors)
-- [ ] 4.4 Tests: confirm-gating predicate paths; enabled flows into rows (BuildRows); flyout inclusion (cadence field rendered)
+- [x] 4.1 Surface plan `enabled` on filter rows end-to-end (reader SELECTs it if absent → `TsPlanData` → resolver → projection cell → `ReconciliationRow`); no checkbox for disk-only rows
+- [x] 4.2 Checkbox in the filter-row template (target-`active` pattern; DOMAIN checklist), confirm-first (cadence-reset + lands-locally wording), cancel reverts, in-place update on success, refusal reverts + surfaced
+- [x] 4.3 `TsFieldsEditor` stops skipping cadence-breaking fields; the window's commit callback confirms them first (scope-aware wording — fsf names the whole-project fan-out); project flyout thereby ships fsf, plan flyout ships enabled (checkbox setter shared so the grid mirrors)
+- [x] 4.4 Tests: confirm-gating predicate paths; enabled flows into rows (BuildRows); flyout inclusion (cadence field rendered)
 
 ## 5. Verify + docs
 
-- [ ] 5.1 Build + both suites; user-run pass: toggle a filter locally → local `filtercadenceitem` cleared + journal entry → push → BIRDWATCHER cleared + TS regenerates on next pass; fsf via project flyout with fan-out confirm; OEO refusal if any target has one; cancel paths
-- [ ] 5.2 Docs same-commit: TSM ARCHITECTURE (cadence invariant + replay composition), DOMAIN (confirm-first convention + checkbox), ROADMAP (digest + Parts queue), memory update
+- [ ] 5.1 Build + both suites ✅ (170 lib + 131 app); user-run pass PENDING: toggle a filter locally → local `filtercadenceitem` cleared + journal entry → push → BIRDWATCHER cleared + TS regenerates on next pass; fsf via project flyout with fan-out confirm; OEO refusal if any target has one; cancel paths
+- [x] 5.2 Docs same-commit: TSM ARCHITECTURE (cadence invariant + replay composition), DOMAIN (confirm-first convention + checkbox), ROADMAP (digest + Parts queue), memory update

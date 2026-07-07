@@ -56,7 +56,6 @@ internal sealed class TsFieldsEditor : UserControl
         {
             // Cadence-breaking fields wait for their confirm-dialog flow (cadence-safe-ts-edits); fields the
             // open db lacks were omitted from the seed (schema drift) and get no control either.
-            if (TsEditableSchema.IsCadenceBreaking(table, field.Column)) continue;
             if (!seed.ContainsKey(field.Column)) continue;
 
             form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
