@@ -16,5 +16,5 @@ Two repos: library schema rows first (its own commit in `..\Library`), then the 
 
 ## 3. Verify + docs
 
-- [ ] 3.1 Build + full App.Tests + library tests ✅ (128 app + 163 lib, 0 warnings); user-run pass PENDING: picker list sanity (counts, zero-use template), row item, moon-suite + twilight edits, sentinel checkboxes still right on gain/offset, push → verify in NINA's TS editor, blast-radius title in push review
+- [x] 3.1 Build + full App.Tests + library tests (128 app + 163 lib, 0 warnings); user-run pass verified clean 2026-07-06 (picker sanity incl. zero-use, row item, moon-suite + twilight edits, gain/offset sentinels intact, push → NINA verify, blast-radius title in review)
 - [x] 3.2 Docs same-commit: DOMAIN (Templates… picker + blast-radius convention + filtername re-keying caution), ROADMAP (digest + Parts queue), library-side doc note per its conventions; memory update

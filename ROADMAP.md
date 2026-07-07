@@ -19,7 +19,7 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next (editing-surface parts):** Parts 2 + 3 **shipped 2026-07-06** (below; Part 3's user-run pass pending) →
+**Next (editing-surface parts):** Parts 2 + 3 **shipped + verified 2026-07-06** (below) →
 Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
 cadence clear; composes with the sync model — its transactional edits land locally and replay at push). Then
 load-split.
@@ -35,8 +35,8 @@ filter · used-by count, zero-use included; empty before a load → status note)
 (plan → template resolved through the retained graph, no row-model change). Blast radius always stated:
 flyout title + push-review label read "Template '<name>' — used by N plan(s)". Add/delete/duplicate stay TS
 functions. 163 library tests (surface/bounds/enum pins) + 128 App.Tests (picker list order/used-by/zero-use/
-keyless-skip, plan→template resolution, template journal seam). **User-run pass pending** (picker sanity,
-row item, moon-suite + twilight edits, gain/offset sentinels intact, push → NINA verify).
+keyless-skip, plan→template resolution, template journal seam). **User-run pass verified clean 2026-07-06**
+(picker sanity, row item, moon-suite + twilight edits, gain/offset sentinels intact, push → NINA verify).
 
 **▶ SHIPPED 2026-07-06 — project-settings flyout (editing-surface Part 2; `openspec/changes/project-settings-flyout`).**
 Right-click "Edit project…" on any row resolving a TS project key (target groups, panels, plan rows — the
