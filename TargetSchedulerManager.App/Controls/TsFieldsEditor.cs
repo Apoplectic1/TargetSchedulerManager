@@ -71,6 +71,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (field.Notes is not null) ToolTipService.SetToolTip(input, field.Notes);
             // Sentinel controls place the unit beside their inner box themselves.
             FrameworkElement cell = field.Unit is null || field.Sentinel is not null ? input : WithUnit(input, field.Unit);
+            if (field.Guarded) cell = WithArmGuard(cell, field);
             Grid.SetRow(cell, rowIndex);
             Grid.SetColumn(cell, 1);
             form.Children.Add(cell);
@@ -316,6 +317,29 @@ internal sealed class TsFieldsEditor : UserControl
                 Revert(() => box.Text = _lastKnown[field.Column]?.ToString() ?? string.Empty);
         };
         return box;
+    }
+
+    // A Guarded field (schema: accidental change breaks acquisition, e.g. rotation) gets an arm-to-edit
+    // checkbox on its line: the input starts disabled every time the form opens and only accepts changes
+    // while armed. The guard is a per-open gesture, never persisted. Disables the first Control inside the
+    // cell (the input itself, or the box within a unit wrapper); sentinel cells are not currently guarded.
+    private static FrameworkElement WithArmGuard(FrameworkElement cell, TsField field)
+    {
+        Control? input = cell as Control ?? (cell as Panel)?.Children.OfType<Control>().FirstOrDefault();
+
+        CheckBox arm = new() { MinWidth = 0, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
+        ToolTipService.SetToolTip(arm, $"Enable editing — {field.Label} is guarded against accidental change");
+        if (input is not null)
+        {
+            input.IsEnabled = false;
+            arm.Checked += (_, _) => { input.IsEnabled = true; input.Focus(FocusState.Programmatic); };
+            arm.Unchecked += (_, _) => input.IsEnabled = false;
+        }
+
+        StackPanel row = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+        row.Children.Add(arm);
+        row.Children.Add(cell);
+        return row;
     }
 
     private static StackPanel WithUnit(FrameworkElement input, string unit)
