@@ -6,8 +6,8 @@ requirements (target/plan triggers, flyout host, mosaic special case) are unchan
 ## ADDED Requirements
 
 ### Requirement: TS-backed rows offer a project edit trigger
-Rows that resolve a TS project key (target group rows, panel rows, and filter rows carrying `ProjectTsKey`)
-SHALL offer a right-click context menu item "Edit project…" opening the schema-generated editor flyout for
+Rows resolving a TS project key SHALL offer a right-click context menu item "Edit project…" — target group
+rows, panel rows, and filter rows carrying `ProjectTsKey` — opening the schema-generated editor flyout for
 `TsTable.Project`, titled with the project's name. Rows with no project key SHALL not offer the item. The
 mosaic parent's dedicated "Edit mosaic project…" item SHALL remain its project entry point. No hover glyph
 is added for the project trigger.
@@ -33,10 +33,10 @@ TS). Cadence-breaking fields (`filterswitchfrequency`) SHALL remain excluded.
 - **THEN** `project.state` holds the new code, no date column was touched, and one journal entry exists
 
 ### Requirement: The min-time/meridian-window trap warns and never blocks
-When a commit of `minimumtime` or `meridianwindow` leaves the pair in the state TS's own save refuses
-(`MeridianWindow > 0` AND `MinimumTime > 2 × MeridianWindow` — the project would never be selected for
-imaging), the flyout SHALL surface a caution naming the rule, while the write itself SHALL proceed and
-journal normally. The caution SHALL clear when a later commit makes the pair valid.
+The flyout SHALL surface a caution naming the rule whenever a commit of `minimumtime` or `meridianwindow`
+leaves the pair in the state TS's own save refuses (`MeridianWindow > 0` AND
+`MinimumTime > 2 × MeridianWindow` — the project would never be selected for imaging), while the write
+itself SHALL proceed and journal normally. The caution SHALL clear when a later commit makes the pair valid.
 
 #### Scenario: Warn on an invalid pair
 - **WHEN** meridian window is 60 and the user commits minimum time 150
@@ -45,3 +45,15 @@ journal normally. The caution SHALL clear when a later commit makes the pair val
 #### Scenario: Fixing the pair clears the warning
 - **WHEN** the user then commits meridian window 90 (150 ≤ 180)
 - **THEN** the caution disappears
+
+## MODIFIED Requirements
+
+### Requirement: The context menu is the extension point for future row actions
+The right-click menu SHALL be structured so additional entity actions (Part 3 "Edit template…", future
+cadence actions) can be appended per row type without redesign — one menu per row type, items composed
+additively and gated by key/data presence (a row offers its own editor plus any entity it resolves, e.g.
+its project).
+
+#### Scenario: Menu composition today
+- **WHEN** the user right-clicks a TS-backed filter row
+- **THEN** the menu contains that row type's own item(s) plus "Edit project…" when a project key resolves, and the mechanism supports adding further items gated by row data

@@ -13,5 +13,5 @@ Small TSM-only change on fully generic plumbing. Order: trigger → warn → ver
 
 ## 3. Verify + docs
 
-- [ ] 3.1 Build + full App.Tests ✅ (122 pass, 0 warnings); **user-run pass PENDING**: user-run pass: right-click each row shape (group / panel / plan / disk-only-negative), edit a knob per type (enum, real, bool, whole), state Active↔Inactive plain-write check in the journal/push review, the warn appear/clear pair, push → verify in NINA's TS Database Manager
+- [x] 3.1 Build + full App.Tests (122 pass, 0 warnings); user-run pass verified clean 2026-07-06 (menu per row shape incl. disk-only-negative, a knob per field type, state flip in journal/push review, warn appear/clear, push → NINA verify)
 - [x] 3.2 Docs same-commit: DOMAIN.md (Editing: project trigger is right-click-only; the warn convention), ARCHITECTURE.md (retire the stale state-stamping caution if referenced), ROADMAP.md (digest + Status Parts queue), memory note on the retired gotcha
