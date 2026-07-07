@@ -95,8 +95,8 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   exposure plan…", built in code — `Row_RightTapped` — so items gate on row data; this menu is the extension
   point for future row actions). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
-  Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields excluded
-  until their confirm flow ships; **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
+  Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields render behind
+  the confirm-first dialog (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
   change/focus-loss (so light-dismiss can never lose work — no Apply button, ever); a failed write reverts the
   control. Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
   setters, so the grid mirrors in place. **Sentinel columns** (TS stores a reserved −1 meaning "defer to the
