@@ -296,6 +296,44 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return applied;
     }
 
+    /// <summary>A mosaic's aggregate panel-enable state for the master switch: true = every TS-backed panel
+    /// enabled, false = none, null = mixed (or no TS panels). Honors pending in-session toggles.</summary>
+    public bool? GetMosaicEnabledState(TargetGroupRow group)
+    {
+        if (group.Panels is not { Count: > 0 } panels)
+            return null;
+        bool anyOn = false, anyOff = false;
+        foreach (PanelGroupRow panel in panels)
+        {
+            if (panel.TsTargetKey is not string key) continue;
+            bool on = _targetActiveEdits.TryGetValue(key, out bool pending) ? pending : panel.Children[0].Enabled;
+            if (on) anyOn = true; else anyOff = true;
+        }
+        return anyOn && anyOff ? null : anyOn ? true : anyOff ? false : null;
+    }
+
+    /// <summary>The mosaic master enable: fans <c>target.active</c> out to every TS-backed panel target (a
+    /// mosaic parent is a grouping node with no TS row of its own). Each write is individually guarded and
+    /// audited; false when any failed — the caller re-reads <see cref="GetMosaicEnabledState"/> to display
+    /// whatever partial state resulted.</summary>
+    public async Task<bool> SetMosaicEnabledAsync(TargetGroupRow group, bool enabled)
+    {
+        if (group.Panels is not { Count: > 0 } panels)
+            return false;
+        bool allApplied = true;
+        foreach (PanelGroupRow panel in panels)
+        {
+            if (panel.TsTargetKey is not string key) continue;
+            string label = $"{group.Target} · {panel.Label}";
+            EditOutcome outcome = await _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, label);
+            if (ApplyOutcome(outcome, label))
+                _targetActiveEdits[key] = enabled;
+            else
+                allApplied = false;
+        }
+        return allApplied;
+    }
+
     /// <summary>Seeds a field-editor form: the current db values of one TS row's editable columns
     /// (null = row missing or read fault — show an error, not a form).</summary>
     public Task<IReadOnlyDictionary<string, object?>?> ReadTsFieldsAsync(TsTable table, string key, string label) =>

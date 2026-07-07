@@ -188,6 +188,30 @@ public class MainViewModelTests
         Assert.Equal(300, row.PlanSeconds);
     }
 
+    [Fact]
+    public async Task MosaicEnable_FansOutToEveryPanel_AndAggregatesState()
+    {
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "1", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var vm = new MainViewModel(gate);
+
+        ReconciliationRow leaf1 = Make.Leaf(target: "M 101", desired: 10, tsTargetKey: "p1", enabled: true);
+        ReconciliationRow leaf2 = Make.Leaf(target: "M 101", desired: 10, tsTargetKey: "p2", enabled: false);
+        PanelGroupRow panel1 = new("M 101", "P1", "Panel 01", Models.RowSource.Both, [leaf1], false);
+        PanelGroupRow panel2 = new("M 101", "P2", "Panel 02", Models.RowSource.Both, [leaf2], false);
+        TargetGroupRow mosaic = new("M 101", [leaf1, leaf2], false, true, panels: [panel1, panel2]);
+
+        Assert.Null(vm.GetMosaicEnabledState(mosaic));                    // mixed → indeterminate
+
+        Assert.True(await vm.SetMosaicEnabledAsync(mosaic, true));        // fan-out enables both
+        Assert.Equal(true, vm.GetMosaicEnabledState(mosaic));             // pending edits now agree
+
+        Assert.True(await vm.SetMosaicEnabledAsync(mosaic, false));
+        Assert.Equal(false, vm.GetMosaicEnabledState(mosaic));
+    }
+
     private static MainViewModel Vm(params ReconciliationRow[] rows)
     {
         MainViewModel vm = new();

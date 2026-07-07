@@ -57,14 +57,15 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <TextBlock Text="{x:Bind TargetText}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                        <!-- Hover-revealed edit glyph (Opacity flips in Row_PointerEntered/Exited); gated to
-                             TS-backed non-mosaic-parent groups. Opens the target edit flyout; swallows the
-                             click so the whole-row expand doesn't also fire. -->
+                        <!-- Hover-revealed edit glyph (Opacity flips in Row_PointerEntered/Exited); TS-backed
+                             groups only. Normal group → target flyout; mosaic parent → mosaic-project flyout
+                             (master enable + project priority). Swallows the click so whole-row expand
+                             doesn't also fire. -->
                         <Button x:Name="EditGlyph" Opacity="0" Visibility="{x:Bind EditGlyphVisibility}"
                                 Background="Transparent" BorderThickness="0"
                                 MinWidth="0" MinHeight="0" Padding="3,1" VerticalAlignment="Center"
                                 Click="EditTarget_Click"
-                                ToolTipService.ToolTip="Edit target…">
+                                ToolTipService.ToolTip="{x:Bind EditTooltip}">
                             <FontIcon Glyph="&#xE70F;" FontSize="12"/>
                         </Button>
                     </StackPanel>
@@ -170,7 +171,9 @@
             <!-- A mosaic panel's mini-header: the group template's shape, indented one step, showing the
                  panel's own source/aggregates. Click toggles its filter rows like a target group. -->
             <DataTemplate x:Key="PanelRowTemplate" x:DataType="m:PanelGroupRow">
-                <Grid>
+                <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
+                <Grid Background="Transparent"
+                      PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="36"/>
                         <ColumnDefinition Width="110"/>
@@ -193,8 +196,18 @@
                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind SourceText}" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{x:Bind Label}" Opacity="0.9"
-                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind Label}" Opacity="0.9"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <!-- A panel IS a normal TS target — standard target flyout, hover-revealed glyph. -->
+                        <Button x:Name="EditGlyph" Opacity="0" Visibility="{x:Bind EditGlyphVisibility}"
+                                Background="Transparent" BorderThickness="0"
+                                MinWidth="0" MinHeight="0" Padding="3,1" VerticalAlignment="Center"
+                                Click="EditPanelTarget_Click"
+                                ToolTipService.ToolTip="Edit panel target…">
+                            <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                        </Button>
+                    </StackPanel>
                     <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="8" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"

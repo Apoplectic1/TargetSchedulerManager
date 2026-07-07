@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml;
 using TargetSchedulerManager.App.Models;
 
 namespace TargetSchedulerManager.App.ViewModels.Rows;
@@ -27,4 +28,11 @@ public sealed class PanelGroupRow : AggregateHeaderRow
 
     /// <summary>This panel's canonical target id — the detail panel's key into the retained graph.</summary>
     public Guid TargetId => Children[0].TargetId;
+
+    /// <summary>Write-back key for this panel's TS target — a panel IS a normal TS target, so it gets the
+    /// standard target edit flyout. Null when the panel has no TS row (disk-only panel).</summary>
+    public string? TsTargetKey => Children[0].TsTargetKey;
+
+    /// <summary>Edit-glyph/menu gate: TS-backed panels only.</summary>
+    public Visibility EditGlyphVisibility => TsTargetKey is not null ? Visibility.Visible : Visibility.Collapsed;
 }

@@ -26,6 +26,12 @@ stay separate, each with its docs updated in the same commit as the code).
 - [x] 4.2 Right-click `MenuFlyout` per row type ("Edit target…" / "Edit exposure plan…"), items gated by key presence, structured for future appends (template, cadence actions)
 - [x] 4.3 Host `TsFieldsEditor` in a `Flyout` anchored at the row, titled with entity identity; confirm dismissal never blocks (per-field commit) and scroll/expansion survive open/close
 
+## 4b. Mosaic special case (added during the visual pass, user decision 2026-07-06)
+
+- [x] 4b.1 Plumb `ProjectTsKey` (library `TargetCells`) through the loader into rows; `TargetGroupRow.ProjectTsKey`/`IsMosaic`, `PanelGroupRow.TsTargetKey`
+- [x] 4b.2 Mosaic-parent flyout: "Enable all panels" (VM `SetMosaicEnabledAsync` fan-out + `GetMosaicEnabledState` tri-state) + project priority (one `project.priority` write); glyph/menu on mosaic parents
+- [x] 4b.3 Panel mini-header rows: standard target glyph/flyout ("Edit panel target…")
+
 ## 5. Verify + docs
 
 - [ ] 5.1 Build + all tests ✔ (0 warnings, 89/89 App.Tests, 156/156 lib) — **user-run visual verification pending** (glyph hover, menu items, seeding freshness, priority/rotation/roi/exposure edits incl. clamp + refusal revert, LOCAL then LIVE)

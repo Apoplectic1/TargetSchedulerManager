@@ -110,8 +110,19 @@ public sealed partial class MainWindow : Window
 
     private void EditTarget_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement el && el.DataContext is TargetGroupRow { TsTargetKey: string key } group)
+        if (sender is not FrameworkElement el || el.DataContext is not TargetGroupRow group)
+            return;
+        if (group.IsMosaic)
+            _ = ShowMosaicFlyoutAsync(el, group);
+        else if (group.TsTargetKey is string key)
             _ = ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null);
+    }
+
+    // A mosaic panel is a normal TS target — the standard target flyout, keyed by the panel's own row.
+    private void EditPanelTarget_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement el && el.DataContext is PanelGroupRow { TsTargetKey: string key } panel)
+            _ = ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null);
     }
 
     private void EditPlan_Click(object sender, RoutedEventArgs e)
@@ -131,20 +142,109 @@ public sealed partial class MainWindow : Window
         MenuFlyout menu = new();
         switch (el.DataContext)
         {
+            case TargetGroupRow { IsMosaic: true, ProjectTsKey: not null } mosaic:
+                menu.Items.Add(EditMenuItem("Edit mosaic project…", () => ShowMosaicFlyoutAsync(el, mosaic)));
+                break;
             case TargetGroupRow { CanEnable: true, TsTargetKey: string key } group:
                 menu.Items.Add(EditMenuItem("Edit target…",
                     () => ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null)));
+                break;
+            case PanelGroupRow { TsTargetKey: string key } panel:
+                menu.Items.Add(EditMenuItem("Edit panel target…",
+                    () => ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null)));
                 break;
             case ReconciliationRow { PlanTsKey: string key } row:
                 menu.Items.Add(EditMenuItem("Edit exposure plan…",
                     () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row)));
                 break;
             default:
-                return;   // disk-only rows, panels, rollups: no menu
+                return;   // disk-only rows, rollups: no menu
         }
 
         menu.ShowAt(el, new FlyoutShowOptions { Position = e.GetPosition(el) });
         e.Handled = true;
+    }
+
+    // The mosaic-project flyout — the mosaic special case (user decision 2026-07-06): a mosaic parent is a
+    // grouping node with no TS target row, so its flyout edits the two whole-mosaic knobs instead: a master
+    // enable (fan-out target.active to every panel; tri-state display when panels disagree) and the TS
+    // project's priority (TS-native cascade — every panel left at Default (-1) inherits it in scoring;
+    // per-panel overrides survive). Panels themselves keep the standard target flyout.
+    private async Task ShowMosaicFlyoutAsync(FrameworkElement anchor, TargetGroupRow group)
+    {
+        if (group.ProjectTsKey is not string projectKey)
+            return;
+
+        IReadOnlyDictionary<string, object?>? seed =
+            await ViewModel.ReadTsFieldsAsync(TsTable.Project, projectKey, group.Target);
+
+        StackPanel form = new() { Spacing = 8, MinWidth = 280, Padding = new Thickness(4) };
+        form.Children.Add(new TextBlock
+        {
+            Text = $"{group.TargetText} — mosaic project",
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            Margin = new Thickness(0, 0, 0, 4),
+        });
+
+        // Master enable: checked = all TS-backed panels active, indeterminate = mixed. Click always yields a
+        // definite on/off (user gesture is a master switch); a partial failure re-reads whatever state resulted.
+        CheckBox enableAll = new()
+        {
+            Content = "Enable all panels",
+            IsChecked = ViewModel.GetMosaicEnabledState(group),
+            IsThreeState = false,
+            MinWidth = 0,
+        };
+        ToolTipService.SetToolTip(enableAll, "Writes target.active on every panel target");
+        enableAll.Click += async (_, _) =>
+        {
+            bool wanted = enableAll.IsChecked == true;
+            if (!await ViewModel.SetMosaicEnabledAsync(group, wanted))
+                enableAll.IsChecked = ViewModel.GetMosaicEnabledState(group);
+        };
+        form.Children.Add(enableAll);
+
+        // Project priority (TS ProjectPriority): seeded from the project row; commit on selection.
+        if (seed is not null && seed.TryGetValue("priority", out object? rawPriority))
+        {
+            IReadOnlyList<TsEnumValue> values = TsEditableSchema.EnumValues("ProjectPriority");
+            long committed = System.Convert.ToInt64(rawPriority ?? 0L, System.Globalization.CultureInfo.InvariantCulture);
+            ComboBox combo = new()
+            {
+                ItemsSource = values,
+                DisplayMemberPath = nameof(TsEnumValue.Label),
+                SelectedItem = values.FirstOrDefault(v => v.Code == committed),
+                MinWidth = 120,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            ToolTipService.SetToolTip(combo, "Panels with priority Default (−1) inherit this in TS scoring");
+            combo.SelectionChanged += async (_, _) =>
+            {
+                if (combo.SelectedItem is not TsEnumValue picked || picked.Code == committed) return;
+                if (await ViewModel.SetTsFieldAsync(TsTable.Project, projectKey, "priority", picked.Code, group.Target))
+                    committed = picked.Code;
+                else
+                    combo.SelectedItem = values.FirstOrDefault(v => v.Code == committed);
+            };
+
+            StackPanel priorityRow = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
+            priorityRow.Children.Add(new TextBlock { Text = "Project priority", VerticalAlignment = VerticalAlignment.Center });
+            priorityRow.Children.Add(combo);
+            form.Children.Add(priorityRow);
+        }
+        else
+        {
+            form.Children.Add(new TextBlock
+            {
+                Text = "Couldn't read the TS project — see tsm.log.",
+                Opacity = 0.7,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 280,
+            });
+        }
+
+        Flyout flyout = new() { Content = form, Placement = FlyoutPlacementMode.Bottom };
+        flyout.ShowAt(anchor);
     }
 
     private static MenuFlyoutItem EditMenuItem(string text, Func<Task> open)

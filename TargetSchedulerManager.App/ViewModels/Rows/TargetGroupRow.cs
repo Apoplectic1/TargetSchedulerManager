@@ -51,9 +51,20 @@ public sealed class TargetGroupRow : AggregateHeaderRow
     /// <summary>Checkbox visibility — mirrors the chevron-visibility pattern so XAML can x:Bind it directly.</summary>
     public Visibility CanEnableVisibility => CanEnable ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>Edit-glyph/menu gate: same predicate as the checkbox — a TS-backed non-mosaic-parent group.
-    /// (A mosaic parent is a grouping node; its fields are edited per panel target.)</summary>
-    public Visibility EditGlyphVisibility => CanEnable ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>True when this group is a mosaic parent (a grouping node over panel targets).</summary>
+    public bool IsMosaic => Panels is not null;
+
+    /// <summary>Write-back key for the group's TS project; from any child (all of a target's — or a mosaic's
+    /// panels' — rows share the one project). Null when there is no TS project.</summary>
+    public string? ProjectTsKey => Children[0].ProjectTsKey;
+
+    /// <summary>Edit-glyph/menu gate: a normal group edits its TS target (checkbox predicate); a mosaic parent
+    /// edits its TS *project* (master enable + project priority), so it gates on the project key instead.</summary>
+    public Visibility EditGlyphVisibility =>
+        (IsMosaic ? ProjectTsKey is not null : CanEnable) ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The glyph tooltip — names what the flyout edits for this group kind.</summary>
+    public string EditTooltip => IsMosaic ? "Edit mosaic project…" : "Edit target…";
 
     /// <summary>The target name, plus the panel count for a mosaic ("M101  ·  4 panels").</summary>
     public string TargetText => Panels is null

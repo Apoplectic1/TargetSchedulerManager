@@ -32,6 +32,22 @@ commit semantics) and SHALL leave grid scroll and expansion state untouched.
 - **WHEN** the user clicks the edit glyph on the "M 81 · Ha" filter row
 - **THEN** the flyout opens for that exposure plan showing Desired and Exposure seeded from the db
 
+### Requirement: Mosaic parents edit whole-mosaic knobs; panels edit as normal targets
+A mosaic parent row (a grouping node with no TS target) SHALL offer the edit triggers when its TS project key
+is present, opening a mosaic flyout with exactly two controls: a master "Enable all panels" checkbox
+(fan-out `target.active` to every TS-backed panel, each write guarded + audited; indeterminate display when
+panels disagree; a failed fan-out re-reads and displays the resulting partial state) and the TS project's
+priority (one `project.priority` write — panels at priority Default inherit it in TS scoring). Panel
+mini-header rows with a TS key SHALL offer the standard target flyout ("Edit panel target…").
+
+#### Scenario: Mosaic master enable with mixed panels
+- **WHEN** a mosaic has some panels enabled and some disabled and the user opens the mosaic flyout
+- **THEN** the master checkbox shows indeterminate; checking it writes `target.active = 1` to every TS-backed panel
+
+#### Scenario: Panel target edit
+- **WHEN** the user clicks the edit glyph on a TS-backed panel mini-header row
+- **THEN** the standard target flyout opens for that panel's TS target
+
 ### Requirement: The context menu is the extension point for future row actions
 The right-click menu SHALL be structured so additional entity actions (Part 3 "Edit template…", future
 cadence actions) can be appended per row type without redesign — one menu per row type, items gated by

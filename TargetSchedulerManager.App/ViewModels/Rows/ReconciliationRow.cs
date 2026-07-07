@@ -42,7 +42,8 @@ public sealed class ReconciliationRow(
     bool enabled = true,
     string? tsTargetKey = null,
     Guid targetId = default,
-    string? planTsKey = null) : INotifyPropertyChanged
+    string? planTsKey = null,
+    string? projectTsKey = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -127,6 +128,10 @@ public sealed class ReconciliationRow(
     /// <summary>Write-back key for this row's single TS exposure plan — set only on a one-plan cell, so a value
     /// here marks the row's <c>desired</c> as 1:1 editable; null on multi-plan rollups, disk rows, and headers.</summary>
     public string? PlanTsKey { get; } = planTsKey;
+
+    /// <summary>Write-back key for the target's TS project (project-scope edits: priority, constraints);
+    /// null when the target has no TS project.</summary>
+    public string? ProjectTsKey { get; } = projectTsKey;
 
     /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side present.</summary>
     public bool CanEditDesired => PlanTsKey is not null && Desired is not null;

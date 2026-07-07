@@ -104,6 +104,12 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
   disabled, showing the resolved value when known), unchecking arms the box (the override commits only when a
   number commits).
+- **Mosaics are a special case (user decision 2026-07-06):** a mosaic *parent* row is a grouping node (no TS
+  target), so its flyout edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
+  to every TS-backed panel; tri-state display when panels disagree; each write individually guarded + audited)
+  and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
+  inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
+  glyph/flyout on the panel mini-header rows.
 - Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
   and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
 - **Mirror rule (user-set, 2026-07-06):** any flyout-editable value that is also a visible grid column must

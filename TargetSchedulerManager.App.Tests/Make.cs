@@ -29,10 +29,13 @@ internal static class Make
         string? panelKey = null,
         string? panelLabel = null,
         RowSource? panelSource = null,
-        string? planTsKey = null) =>
+        string? planTsKey = null,
+        string? tsTargetKey = null,
+        bool enabled = true) =>
         new(target, "proj", filter, purpose, planSeconds, diskSeconds, source, plane,
             desired, acquired, accepted, disk, planCount, badge, flagged, planHours, diskHours,
-            mixed, isDetail, detail, panelKey, panelLabel, panelSource, planTsKey: planTsKey);
+            mixed, isDetail, detail, panelKey, panelLabel, panelSource,
+            planTsKey: planTsKey, tsTargetKey: tsTargetKey, enabled: enabled);
 
     /// <summary>A one-plane TS leaf: commitment only (no disk side).</summary>
     public static ReconciliationRow Ts(string target = "T", string filter = "H", int desired = 10,

@@ -197,7 +197,7 @@ public static class ReconciliationLoader
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
                         panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                        enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                        enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
                         // 1:1 only: a single plan sub-length is editable; a mixed rollup's sum is not.
                         planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null));
                 }
@@ -215,7 +215,7 @@ public static class ReconciliationLoader
                     diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: true,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
                     planTsKey: c.PlanTsKey);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
@@ -225,7 +225,7 @@ public static class ReconciliationLoader
                     planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId,
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
                     planTsKey: c.PlanTsKey);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
@@ -235,7 +235,7 @@ public static class ReconciliationLoader
                     planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
                     isDetail: isDetail,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId);
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
@@ -248,7 +248,7 @@ public static class ReconciliationLoader
                     badge: isUnanchored ? "no-coords" : "no data",
                     isFlagged: false, planHours: null, diskHours: null,
                     panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, targetId: tc.TargetId));
+                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId));
             }
         }
 
