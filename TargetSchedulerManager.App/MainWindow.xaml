@@ -130,10 +130,12 @@
                             <FontIcon Glyph="&#xE70F;" FontSize="12"/>
                         </Button>
                     </StackPanel>
-                    <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise. -->
+                    <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise.
+                         SecondsText is OneWay (x:Bind defaults to OneTime): an in-place exposure mirror
+                         (ApplyPlanSeconds) must repaint the cell. -->
                     <Border Grid.Column="6" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
-                        <TextBlock Text="{x:Bind SecondsText}"/>
+                        <TextBlock Text="{x:Bind SecondsText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="5" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="7" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
