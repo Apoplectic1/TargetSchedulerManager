@@ -19,11 +19,25 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next (editing-surface parts, explored 2026-07-06):** Part 2 project-settings flyout (needs an anchor — projects
-are a column, not rows) → Part 3 exposure-template manager, edit-only (app-level menu; ~11 new schema rows) →
-Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
+**Next (editing-surface parts):** Part 2 project-settings flyout **shipped 2026-07-06** (below; user-run pass
+pending) → Part 3 exposure-template manager, edit-only (app-level menu; ~11 new schema rows) → Part 4
+`openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
 cadence clear; composes with the sync model — its transactional edits land locally and replay at push). Then
 load-split.
+
+**▶ SHIPPED 2026-07-06 — project-settings flyout (editing-surface Part 2; `openspec/changes/project-settings-flyout`).**
+Right-click "Edit project…" on any row resolving a TS project key (target groups, panels, plan rows — the
+context menu went additive: a row offers its own editor plus the project's; mosaic parents keep "Edit mosaic
+project…") opens the schema-generated flyout for `TsTable.Project` — all 12 cadence-safe fields including
+`state`, whose recorded hazard was **retired by reading the TS source**: nothing stamps
+`ActiveDate`/`InactiveDate` on transitions (schema setters, planner, and `ProjectViewVM.Save()` are plain
+writes), so state is an ordinary `ProjectState` enum edit. TS's one cross-field save rule replicates as
+**warn-never-block** (`Shared/ProjectRules.IsNeverSelected`): committing `minimumtime`/`meridianwindow` while
+the pair means never-selected shows a persistent caution under the form (evaluated from seed + verified
+commits, clears when fixed, warns at open too) + a status note; the write always proceeds. Commits ride the
+existing gate → journal → reviewed push untouched. 122 App.Tests (+ pair-rule theory, project-key journal
+seam). **User-run pass pending** (each row shape's menu, a knob per field type, state flip in the push
+review, warn appear/clear, push → NINA verify).
 
 **▶ SHIPPED 2026-07-06 — TS sync model: pull → edit local → push-as-replay (`openspec/changes/sync-model`).**
 Replaces the LIVE/LOCAL two-world editing (radios, direct SMB writes, sticky-fall, `EditOutcome.LiveDropped`,

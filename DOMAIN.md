@@ -110,6 +110,15 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
   inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
   glyph/flyout on the panel mini-header rows.
+- **Projects are a column, not rows — so their editor is right-click-only (user decision 2026-07-06):**
+  "Edit project…" appears in the context menu of any row that resolves a TS project key (target groups,
+  panels, plan rows) and opens the schema-generated project flyout; no second hover glyph (the hover-reveal
+  is one glyph per row, and the pencil stays the row's own editor). All cadence-safe project fields are
+  editable, `state` included — verified against the TS source that state is a plain enum column (no
+  date-stamping on transitions). One courtesy rides the commits, **warn-never-block**: when
+  `Min time > 2 × Meridian window` (with a window in use), TS would never select the project — TS's own Save
+  refuses this pair; TSM's per-field commit instead writes the value and shows a persistent caution in the
+  flyout (clears when a commit fixes the pair) plus a status note.
 - Edits write to the **local** TS copy through one guarded path (refuse open-sidecar / read-only, read-back
   verify, audit, journal-for-push) and apply **in place** (no grid rebuild — scroll + a half-typed next cell
   survive). Nothing reaches BIRDWATCHER until the reviewed Push.

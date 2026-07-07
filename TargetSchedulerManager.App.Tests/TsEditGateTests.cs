@@ -55,6 +55,22 @@ public class TsEditGateTests
     }
 
     [Fact]
+    public async Task ProjectFieldWrite_JournalsWithTheProjectKey()
+    {
+        StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "45", Verified: true), RefusalReason.None) };
+        TsEditGate gate = Gate(ed, out TsSync sync);
+        Assert.IsType<EditOutcome.Applied>(
+            await gate.ApplyAsync(TsTable.Project, "prj-1", "minimumtime", 90, "Nebulae — project"));
+
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);   // project edits ride the same push
+        Assert.Equal(TsEditKind.Manual, entry.Kind);
+        Assert.Equal(TsTable.Project, entry.Table);
+        Assert.Equal("prj-1", entry.Key);
+        Assert.Equal("minimumtime", entry.Column);
+        Assert.Equal(90L, entry.Value);
+    }
+
+    [Fact]
     public async Task RefusedWrite_PassesTheReasonThrough_NoJournalEntry()
     {
         StubEditor ed = new() { Next = (null, RefusalReason.OpenSidecar) };

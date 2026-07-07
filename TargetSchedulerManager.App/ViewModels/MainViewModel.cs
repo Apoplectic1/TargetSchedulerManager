@@ -127,6 +127,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => Set(ref _statusText, value);
     }
 
+    /// <summary>UI-layer courtesy notes onto the status line (e.g. the project min-time/meridian-window
+    /// never-selected warning) — the window raises these; loads and pushes overwrite them naturally.</summary>
+    internal void NoteStatus(string text) => StatusText = text;
+
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>
     public string SyncBadgeText

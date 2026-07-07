@@ -145,33 +145,46 @@ public sealed partial class MainWindow : Window
 
     // Right-click anywhere on a TS-backed row: a context menu whose items are gated by the row's data — the
     // extension point for future per-row actions (template editing, cadence actions). Handled centrally on the
-    // ListView so the templates stay menu-free.
+    // ListView so the templates stay menu-free. Items are additive: a row offers its own editor plus
+    // "Edit project…" whenever it resolves a TS project key (the project has no rows of its own — any of its
+    // rows anchors the same project flyout). The mosaic parent's dedicated flyout stays its project entry.
     private void Row_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         if (e.OriginalSource is not FrameworkElement el)
             return;
 
         MenuFlyout menu = new();
+        string? projectKey = null, projectName = null;
         switch (el.DataContext)
         {
             case TargetGroupRow { IsMosaic: true, ProjectTsKey: not null } mosaic:
                 menu.Items.Add(EditMenuItem("Edit mosaic project…", () => ShowMosaicFlyoutAsync(el, mosaic)));
                 break;
-            case TargetGroupRow { CanEnable: true, TsTargetKey: string key } group:
-                menu.Items.Add(EditMenuItem("Edit target…",
-                    () => ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null)));
+            case TargetGroupRow group:
+                if (group is { CanEnable: true, TsTargetKey: string targetKey })
+                    menu.Items.Add(EditMenuItem("Edit target…",
+                        () => ShowEditFlyoutAsync(el, TsTable.Target, targetKey, group.Target, group, null)));
+                (projectKey, projectName) = (group.ProjectTsKey, group.Project);
                 break;
-            case PanelGroupRow { TsTargetKey: string key } panel:
-                menu.Items.Add(EditMenuItem("Edit panel target…",
-                    () => ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null)));
+            case PanelGroupRow panel:
+                if (panel.TsTargetKey is string panelKey)
+                    menu.Items.Add(EditMenuItem("Edit panel target…",
+                        () => ShowEditFlyoutAsync(el, TsTable.Target, panelKey, $"{panel.Target} · {panel.Label}", null, null)));
+                (projectKey, projectName) = (panel.Children[0].ProjectTsKey, panel.Children[0].Project);
                 break;
-            case ReconciliationRow { PlanTsKey: string key } row:
-                menu.Items.Add(EditMenuItem("Edit exposure plan…",
-                    () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row)));
+            case ReconciliationRow row:
+                if (row.PlanTsKey is string planKey)
+                    menu.Items.Add(EditMenuItem("Edit exposure plan…",
+                        () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, planKey, $"{row.Target} · {row.Filter}", null, row)));
+                (projectKey, projectName) = (row.ProjectTsKey, row.Project);
                 break;
-            default:
-                return;   // disk-only rows, rollups: no menu
         }
+        if (projectKey is string prjKey)
+            menu.Items.Add(EditMenuItem("Edit project…",
+                () => ShowEditFlyoutAsync(el, TsTable.Project, prjKey, $"{projectName} — project", null, null)));
+
+        if (menu.Items.Count == 0)
+            return;   // disk-only rows, rollups: no menu
 
         menu.ShowAt(el, new FlyoutShowOptions { Position = e.GetPosition(el) });
         e.Handled = true;
@@ -285,6 +298,20 @@ public sealed partial class MainWindow : Window
                 ? row.PlanSeconds
                 : null;
 
+        // Project pair-warn (warn-never-block): TS's own Save refuses when min time > 2 × meridian window —
+        // per-field commit can't block without forcing an edit order, so the pair is re-evaluated from the
+        // seed + each verified commit and surfaced as a persistent caution that clears when the pair is fixed.
+        Dictionary<string, object?> current = seed is null
+            ? new(StringComparer.OrdinalIgnoreCase)
+            : new(seed, StringComparer.OrdinalIgnoreCase);
+        TextBlock? pairWarn = table != TsTable.Project ? null : new TextBlock
+        {
+            Text = "Min time > 2 × Meridian window — TS will never select this project",
+            Foreground = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 300,
+        };
+
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
             if (group is not null && string.Equals(column, "active", StringComparison.OrdinalIgnoreCase))
@@ -297,11 +324,32 @@ public sealed partial class MainWindow : Window
                 double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
                 return await ViewModel.SetPlanExposureAsync(row, v, v > 0 ? (int)System.Math.Round(v) : null);
             }
-            return await ViewModel.SetTsFieldAsync(table, key, column, value, title);
+            bool applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
+            if (applied && pairWarn is not null)
+            {
+                current[column] = value;
+                RefreshPairWarn();
+            }
+            return applied;
         }, effective);
+
+        if (pairWarn is not null)
+        {
+            RefreshPairWarn();   // an already-invalid pair warns from the moment the flyout opens
+            content = new StackPanel { Spacing = 6, Children = { content, pairWarn } };
+        }
 
         Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
+
+        void RefreshPairWarn()
+        {
+            bool never = Shared.ProjectRules.IsNeverSelected(
+                current.GetValueOrDefault("minimumtime"), current.GetValueOrDefault("meridianwindow"));
+            pairWarn!.Visibility = never ? Visibility.Visible : Visibility.Collapsed;
+            if (never)
+                ViewModel.NoteStatus($"{title}: Min time > 2 × Meridian window — TS will never select this project");
+        }
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();
