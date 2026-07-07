@@ -417,15 +417,16 @@ public sealed partial class MainWindow : Window
     {
         TsField field = TsEditableSchema.Find(table, column)!;
         string scope = field.Clears == TsCadenceClear.Project
-            ? "the filter rotation of EVERY target in this project"
-            : "TS's filter rotation for this target";
+            ? "the filter cadence (shoot-next filter order) of EVERY target in this project"
+            : "TS's filter cadence (its shoot-next filter order) for this target";
         ContentDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
-            Title = $"Reset filter rotation? — {label}",
+            Title = $"Reset filter cadence? — {label}",
             Content = new TextBlock
             {
                 Text = $"This edit resets {scope}; TS regenerates it on its next planning pass. " +
+                    "No other column changes (target rotation — the angle — is untouched). " +
                     "It lands in the local copy and reaches BIRDWATCHER at the reviewed push.",
                 TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 380,

@@ -115,7 +115,7 @@
                               Visibility="{x:Bind PlanEnableVisibility}"
                               IsChecked="{x:Bind IsPlanEnabled, Mode=OneWay}" IsThreeState="False"
                               Click="PlanEnable_Click"
-                              ToolTipService.ToolTip="Enable/disable this exposure plan (resets the target's TS filter rotation)"/>
+                              ToolTipService.ToolTip="Enable/disable this exposure plan (resets the target's TS filter cadence — the shoot-next order, not the rotation angle)"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                 Margin="{x:Bind SourceMargin}">
                         <FontIcon Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" FontSize="11"

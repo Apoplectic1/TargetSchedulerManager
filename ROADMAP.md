@@ -35,7 +35,7 @@ correctly keeps the remote's still-valid cadence (seam-tested), and an OEO refus
 partial failure. UI: scope-aware confirm-first dialog on every cadence-breaking commit (checkbox + flyouts;
 `TsFieldsEditor` stopped excluding them); plan `enabled` flows reader → resolver → projection cell → row
 (1:1 rule like `PlanTsKey`). 170 lib tests (scoped clears, no-op, OEO, rollback-atomicity via RAISE(ABORT)
-trigger) + 131 App.Tests. **User-run pass pending** (checkbox confirm/cancel, local `filtercadenceitem`
+trigger) + 131 App.Tests. **User-run pass pending** (checkbox confirm/cancel — wording says CADENCE, not rotation (user caught the angle collision) — local `filtercadenceitem`
 cleared, push → BIRDWATCHER cleared + TS regenerates, fsf fan-out confirm, OEO refusal wording).
 
 **▶ SHIPPED 2026-07-06 — template manager (editing-surface Part 3; `openspec/changes/template-manager`; library
