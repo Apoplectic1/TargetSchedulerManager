@@ -32,8 +32,9 @@ clear), and refuses target-scope edits with `RefusalReason.HasOverrideOrder` whe
 orders exist. **Sync-model composition falls out free:** the clear lives inside `TrySetField`, so the push
 replay re-derives the delete scope on the remote; a locally toggled-back field replays as a no-op and
 correctly keeps the remote's still-valid cadence (seam-tested), and an OEO refusal at replay is a retained
-partial failure. UI: scope-aware confirm-first dialog on every cadence-breaking commit (checkbox + flyouts;
-`TsFieldsEditor` stopped excluding them); plan `enabled` flows reader → resolver → projection cell → row
+partial failure. UI: direct commits, no confirm (revised 2026-07-07 -
+the atomic clear makes toggles produce the TS-expected result; push review stays the gate); plan `enabled`
+flows reader → resolver → projection cell → row
 (1:1 rule like `PlanTsKey`). 170 lib tests (scoped clears, no-op, OEO, rollback-atomicity via RAISE(ABORT)
 trigger) + 131 App.Tests. **User-run pass pending** (checkbox confirm/cancel — wording says CADENCE, not rotation (user caught the angle collision) — local `filtercadenceitem`
 cleared, push → BIRDWATCHER cleared + TS regenerates, fsf fan-out confirm, OEO refusal wording).

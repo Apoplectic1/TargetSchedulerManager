@@ -29,7 +29,7 @@ internally consistent.
   one reference row; `project.filterswitchfrequency` becomes UI-only work.
 - User-authored data (`overrideexposureorderitem`) is never deleted by TSM — edits that would require it are
   refused with a structured reason.
-- TSM ships per-filter `enabled` editing on filter rows, gated by an explicit confirmation.
+- TSM ships per-filter `enabled` editing on filter rows (direct commit — see D4d).
 
 **Non-Goals:**
 - No emulation of TS cadence *regeneration* (we rely only on "empty ⇒ TS regenerates", structural in
@@ -113,6 +113,14 @@ refusal at replay is a retained per-entry push failure. One seam test pins the r
 
 The dialog's "will reset cadence" trigger is `TsEditableSchema.IsCadenceBreaking` (i.e. `Clears != None`),
 not a hard-coded column list, so shipping `project.filterswitchfrequency` later inherits the same UI gate.
+
+### D4d - Confirm dialog removed (2026-07-07, user decision)
+
+D4/D4b's confirm-first gate is retired: the transactional clear means a toggle produces exactly the
+TS-expected outcome (fresh cadence from the new plan set; slot-0 restart accepted), and the reviewed push
+remains the deliberate gate before BIRDWATCHER. Toggles and flyout cadence commits write directly; refusal/
+failure still reverts the control. IsCadenceBreaking survives as schema metadata (the editor keys the clear
+on it), no longer as a UI gate.
 
 ## Risks / Trade-offs
 

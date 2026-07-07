@@ -86,18 +86,16 @@ public sealed partial class MainWindow : Window
             box.IsChecked = !now;   // write failed — restore the prior state
     }
 
-    // Per-plan enable: cadence-breaking, so the click confirms BEFORE any write (the library then clears
-    // the target's cadence rows in the same transaction as the local write; it replays the same way at push).
+    // Per-plan enable: writes directly, no confirmation (user decision 2026-07-07) — the library clears the
+    // target's cadence rows in the same transaction, TS regenerates the sequence from the new plan set on its
+    // next pass (slot-0 restart accepted), and nothing reaches BIRDWATCHER until the reviewed push.
     private async void PlanEnable_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox box || box.DataContext is not ViewModels.Rows.ReconciliationRow row)
             return;
         bool wanted = box.IsChecked == true;
-        if (!await ConfirmCadenceResetAsync(TsTable.ExposurePlan, "enabled", $"{row.Target} · {row.Filter}")
-            || !await ViewModel.SetPlanEnabledAsync(row, wanted))
-        {
-            box.IsChecked = !wanted;   // declined, refused (e.g. override order), or failed — restore
-        }
+        if (!await ViewModel.SetPlanEnabledAsync(row, wanted))
+            box.IsChecked = !wanted;   // refused (e.g. override order) or failed — restore
     }
 
     // A 1:1 plan row's Desired NumberBox committed (focus left): if the integer actually changed, write it to the
@@ -355,10 +353,6 @@ public sealed partial class MainWindow : Window
 
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
-            // Cadence-breaking fields confirm first (schema-driven, scope-aware) — declining reverts the control.
-            if (TsEditableSchema.IsCadenceBreaking(table, column)
-                && !await ConfirmCadenceResetAsync(table, column, title))
-                return false;
             if (row is not null && string.Equals(column, "enabled", StringComparison.OrdinalIgnoreCase))
                 return await ViewModel.SetPlanEnabledAsync(row, System.Convert.ToInt64(value) != 0);
             if (group is not null && string.Equals(column, "active", StringComparison.OrdinalIgnoreCase))
@@ -409,33 +403,6 @@ public sealed partial class MainWindow : Window
     {
         Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
         args.Handled = true;
-    }
-
-    // The cadence-reset confirm (scope-aware): shown before ANY cadence-breaking commit — the in-grid plan
-    // checkbox and every flyout field route through this. Wording states the local-then-push semantics.
-    private async Task<bool> ConfirmCadenceResetAsync(TsTable table, string column, string label)
-    {
-        TsField field = TsEditableSchema.Find(table, column)!;
-        string scope = field.Clears == TsCadenceClear.Project
-            ? "the filter cadence (shoot-next filter order) of EVERY target in this project"
-            : "TS's filter cadence (its shoot-next filter order) for this target";
-        ContentDialog dialog = new()
-        {
-            XamlRoot = Content.XamlRoot,
-            Title = $"Reset filter cadence? — {label}",
-            Content = new TextBlock
-            {
-                Text = $"This edit resets {scope}; TS regenerates it on its next planning pass. " +
-                    "No other column changes (target rotation — the angle — is untouched). " +
-                    "It lands in the local copy and reaches BIRDWATCHER at the reviewed push.",
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 380,
-            },
-            PrimaryButtonText = "Apply",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     // ---- sync dialogs (push review + open-with-dirty) --------------------------------------------------------

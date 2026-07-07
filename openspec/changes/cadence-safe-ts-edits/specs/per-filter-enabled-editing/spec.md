@@ -14,23 +14,18 @@ actuals) SHALL NOT present the checkbox.
 - **WHEN** the grid renders a filter row whose exposure plan exists in the TS db with `enabled = 1`
 - **THEN** the row shows a checked checkbox; an unchecked one when `enabled = 0`; none when the row has no TS plan
 
-### Requirement: Cadence-breaking edits confirm before writing
-A click on the enabled checkbox SHALL NOT write immediately: because `TsEditableSchema` marks the field
-cadence-breaking, TSM SHALL first show a confirmation dialog stating that TS's filter rotation for that target
-resets (regenerated on TS's next planning pass) and that the edit lands in the local copy, reaching
-BIRDWATCHER at the reviewed push. Cancel SHALL revert the checkbox with no write. The trigger SHALL be driven
-by `TsEditableSchema.IsCadenceBreaking`, not a hard-coded column list.
+### Requirement: Toggles write directly; the atomic clear and the push review are the safety
+A click on the enabled checkbox SHALL write immediately with no confirmation dialog (user decision
+2026-07-07: the transactional clear makes the toggle produce exactly the TS-expected result - a fresh cadence
+from the new plan set, slot-0 restart accepted - and nothing reaches BIRDWATCHER until the reviewed push).
+The same applies to cadence-breaking fields committed from the flyouts (filterswitchfrequency included).
 
-#### Scenario: Cancel leaves everything untouched
-- **WHEN** the user unchecks a filter row's enabled checkbox and cancels the confirmation
-- **THEN** the checkbox returns to checked and no write reaches the local TS db (and nothing journals)
-
-#### Scenario: Confirmed toggle journals and replays with its clear
-- **WHEN** the user confirms disabling a filter and later pushes
+#### Scenario: Toggle journals and replays with its clear
+- **WHEN** the user unchecks a filter row's enabled checkbox and later pushes
 - **THEN** the local write cleared the target's local cadence rows atomically, one journal entry exists, and the push replay performs the same transactional write + clear on BIRDWATCHER
 
-### Requirement: Confirmed edits ride the guarded gate and update in place
-A confirmed toggle SHALL route through `TsEditGate.ApplyAsync` (guarded, read-back-verified, audited,
+### Requirement: Toggles ride the guarded gate and update in place
+A toggle SHALL route through `TsEditGate.ApplyAsync` (guarded, read-back-verified, audited,
 off the UI thread). On success the row SHALL update in place (no grid reload; scroll and expansion preserved).
 On any refusal or failure the checkbox SHALL revert and the outcome SHALL be surfaced to the user; the new
 override-order refusal SHALL be worded to direct the user to the TS editor.

@@ -25,8 +25,8 @@ Two-repo change (revised 2026-07-06 for the sync model + fsf UI scope): groups 1
 ## 4. TSM — per-filter enabled UI + flyout inclusion
 
 - [x] 4.1 Surface plan `enabled` on filter rows end-to-end (reader SELECTs it if absent → `TsPlanData` → resolver → projection cell → `ReconciliationRow`); no checkbox for disk-only rows
-- [x] 4.2 Checkbox in the filter-row template (target-`active` pattern; DOMAIN checklist), confirm-first (cadence-reset + lands-locally wording), cancel reverts, in-place update on success, refusal reverts + surfaced
-- [x] 4.3 `TsFieldsEditor` stops skipping cadence-breaking fields; the window's commit callback confirms them first (scope-aware wording — fsf names the whole-project fan-out); project flyout thereby ships fsf, plan flyout ships enabled (checkbox setter shared so the grid mirrors)
+- [x] 4.2 Checkbox in the filter-row template (target-`active` pattern; DOMAIN checklist), direct commit (confirm removed 2026-07-07, user decision), in-place update on success, refusal reverts + surfaced
+- [x] 4.3 `TsFieldsEditor` stops skipping cadence-breaking fields; they commit directly (confirm removed 2026-07-07; was: scope-aware wording — fsf names the whole-project fan-out); project flyout thereby ships fsf, plan flyout ships enabled (checkbox setter shared so the grid mirrors)
 - [x] 4.4 Tests: confirm-gating predicate paths; enabled flows into rows (BuildRows); flyout inclusion (cadence field rendered)
 
 ## 5. Verify + docs
