@@ -242,20 +242,21 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
-            <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"/>
+            <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"
+                    ToolTipService.ToolTip="Rescan the disk library + re-read the local TS copy (no pull)"/>
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
-            <!-- TS source: edit the LIVE BIRDWATCHER db (caution-colored — writes hit the rig) or the LOCAL copy.
-                 LIVE greys out for the session if BIRDWATCHER is unreachable (re-launch TSM to retry). Switching
-                 reloads from the chosen db. -->
-            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
-                        ToolTipService.ToolTip="{x:Bind ViewModel.TsSourceTooltip, Mode=OneWay}">
-                <RadioButton Content="LIVE — BIRDWATCHER" GroupName="TsSource" MinWidth="0"
-                             Foreground="{ThemeResource SystemFillColorCautionBrush}" FontWeight="SemiBold"
-                             IsEnabled="{x:Bind ViewModel.LiveEnabled, Mode=OneWay}"
-                             IsChecked="{x:Bind ViewModel.IsLiveSelected, Mode=OneWay}" Checked="Live_Checked"/>
-                <RadioButton Content="LOCAL copy" GroupName="TsSource" MinWidth="0" Opacity="0.85"
-                             IsChecked="{x:Bind ViewModel.IsLocalSelected, Mode=OneWay}" Checked="Local_Checked"/>
-            </StackPanel>
+            <!-- Sync model: all edits land in the LOCAL copy and journal; BIRDWATCHER is read at pull (open /
+                 Pull now) and written only by the reviewed Push. The badge displays the sync facts — last
+                 synced time + unpushed count — so state is never something the user must remember. -->
+            <TextBlock Text="{x:Bind ViewModel.SyncBadgeText, Mode=OneWay}" VerticalAlignment="Center"
+                       FontWeight="SemiBold" Opacity="0.9"
+                       ToolTipService.ToolTip="{x:Bind ViewModel.SyncTooltip, Mode=OneWay}"/>
+            <Button Content="Push…" Click="Push_Click" MinWidth="0"
+                    Foreground="{ThemeResource SystemFillColorCautionBrush}" FontWeight="SemiBold"
+                    IsEnabled="{x:Bind ViewModel.CanPush, Mode=OneWay}"
+                    ToolTipService.ToolTip="Review + replay the journaled edits onto BIRDWATCHER (only edited fields are written)"/>
+            <Button Content="Pull now" Click="PullNow_Click" MinWidth="0" Opacity="0.85"
+                    ToolTipService.ToolTip="Force a fresh copy from BIRDWATCHER (unpushed edits prompt first)"/>
             <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
         </StackPanel>

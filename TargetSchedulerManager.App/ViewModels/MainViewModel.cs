@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using TargetSchedulerManager.App.Models;
@@ -20,6 +22,30 @@ public enum SortMode
     DeltaDesc,
 }
 
+/// <summary>Whether a load consults BIRDWATCHER: the open pulls when the baseline says the local copy may be
+/// stale; Reload means "rescan disk + re-read local" and never pulls; Pull-now overrides the skip heuristic.</summary>
+public enum PullPolicy
+{
+    /// <summary>Probe, then pull only when the baseline/sidecar rule says the local copy may be stale (open).</summary>
+    IfChanged,
+    /// <summary>No probe, no pull — rescan the disk and re-read the local db (Reload).</summary>
+    Never,
+    /// <summary>Probe and pull unconditionally (the Pull-now override; still routed through the dirty guard).</summary>
+    Force,
+}
+
+/// <summary>The open-with-dirty decision: unpushed local edits exist and BIRDWATCHER is reachable, so the
+/// user chooses before any pull can overwrite them.</summary>
+public enum OpenDirtyDecision
+{
+    /// <summary>Push the journal now (recommended), then pull fresh.</summary>
+    Push,
+    /// <summary>Drop the unpushed edits deliberately and pull fresh (the debug-session path).</summary>
+    Discard,
+    /// <summary>Neither: keep working on the local copy, journal intact, no pull this load.</summary>
+    ContinueLocal,
+}
+
 /// <summary>
 /// State + filter logic for the main grid. In WinForms terms: the fields and "refresh the ListView" code
 /// you'd have on MainForm, isolated from any UI types. The XAML binds these properties with
@@ -28,10 +54,9 @@ public enum SortMode
 /// </summary>
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    // Dev defaults: paths come from the linked Shared\DevDefaults.cs (one definition with the console
-    // host); the tolerance is the library's own resolver default. A settings page can replace these later.
+    // Dev defaults: paths come from Shared\DevDefaults.cs; the tolerance is the library's own resolver
+    // default. A settings page can replace these later.
     public const string DefaultLibrary = DevDefaults.Library;
-    public const string DefaultTs = DevDefaults.TsDatabase;
     public static readonly double DefaultToleranceDegrees = ResolveOptions.Default.MatchToleranceDegrees;
 
     private IReadOnlyList<ReconciliationRow> _allRows = [];
@@ -42,10 +67,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     // a string-set ExpansionState. Expansion survives filter changes + reloads; collapsed is the default.
     private readonly VisibleRowTree _tree = new(new ExpansionState());
 
-    // The guarded TS write + the LIVE/LOCAL source state (probe + sticky-fall) live in TsEditGate/TsSource;
-    // the view-model holds the gate and reads its Source for the load path and the radio bindings.
+    // The guarded local write + the sync orchestrator (pull/journal/push) live in TsEditGate/TsSync; the
+    // view-model holds the gate and reads its Sync for the load path, the badge, and push.
     private readonly TsEditGate _gate;
-    private TsSource Source => _gate.Source;
 
     private readonly Dictionary<string, bool> _targetActiveEdits = new(StringComparer.OrdinalIgnoreCase);
     private List<TargetGroupRow> _groups = [];
@@ -64,8 +88,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public MainViewModel() : this(TsEditGate.CreateDefault()) { }
 
-    /// <summary>Test seam: inject a gate backed by a stub editor + a probe-controlled <see cref="TsSource"/>.</summary>
+    /// <summary>Test seam: inject a gate backed by a stub editor + a temp-path <see cref="TsSync"/>.</summary>
     internal MainViewModel(TsEditGate gate) => _gate = gate;
+
+    internal TsSync Sync => _gate.Sync;
+
+    /// <summary>UI hook (set by the window): the open-with-dirty prompt — push / discard / continue-local.
+    /// Unset (tests, headless) behaves as <see cref="OpenDirtyDecision.ContinueLocal"/>: never lose edits silently.</summary>
+    internal Func<PushReview, Task<OpenDirtyDecision>>? OpenWithDirtyPrompt { get; set; }
+
+    /// <summary>UI hook (set by the window): the push review dialog; returns confirm. Unset confirms
+    /// (tests drive push through <see cref="TsSync"/> directly).</summary>
+    internal Func<PushReview, Task<bool>>? ConfirmPushPrompt { get; set; }
 
     /// <summary>
     /// The flattened tree the ListView shows: one <see cref="TargetGroupRow"/> header per target, followed
@@ -93,22 +127,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => Set(ref _statusText, value);
     }
 
-    /// <summary>True when this session is set to the LIVE BIRDWATCHER db (the LIVE radio's IsChecked).</summary>
-    public bool IsLiveSelected => Source.IsLive;
+    /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
+    /// recalled — the user must never have to remember cross-session facts).</summary>
+    public string SyncBadgeText
+    {
+        get
+        {
+            string synced = Sync.Baseline is { } b ? $"synced {FormatWhen(b.RecordedAt)}" : "never pulled";
+            string offline = Sync.HasProbed && !Sync.RemoteReachable ? "BIRDWATCHER offline  ·  " : "";
+            int unpushed = Sync.IsDirty ? Sync.Journal.Collapse().Count : 0;
+            return unpushed > 0 ? $"{offline}{synced}  ·  {unpushed} unpushed" : $"{offline}{synced}";
+        }
+    }
 
-    /// <summary>True when set to the LOCAL working copy (the LOCAL radio's IsChecked).</summary>
-    public bool IsLocalSelected => !Source.IsLive;
+    /// <summary>Spells out the sync model + paths (badge/Push tooltip).</summary>
+    public string SyncTooltip =>
+        $"Edits land in the local copy and journal; nothing reaches BIRDWATCHER until you push.\n" +
+        $"Local: {Sync.LocalPath}\nBIRDWATCHER: {Sync.RemotePath}";
 
-    /// <summary>Whether the LIVE radio is selectable — false (greyed) once BIRDWATCHER was found unreachable this
-    /// session (sticky; re-launch TSM to retry).</summary>
-    public bool LiveEnabled => Source.LiveEnabled;
-
-    /// <summary>Spells out the current source's blast radius (radio tooltip).</summary>
-    public string TsSourceTooltip => !Source.LiveEnabled
-        ? "BIRDWATCHER unreachable this session — editing the LOCAL copy. Re-launch TSM to retry LIVE."
-        : Source.IsLive
-            ? "LIVE Target Scheduler db on BIRDWATCHER — edits hit the imaging rig immediately."
-            : "LOCAL working copy — edits do NOT reach the rig until you copy it back.";
+    /// <summary>Push is the one real decision — enabled exactly when unpushed edits exist.</summary>
+    public bool CanPush => Sync.IsDirty;
 
     public bool IsLoading
     {
@@ -150,23 +188,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ApplyFilters();
     }
 
-    /// <summary>Fresh scan + TS read + resolve; safe to call again (Reload). Runs the heavy work off the UI thread.</summary>
-    public async Task LoadAsync()
+    /// <summary>
+    /// One load: (per <paramref name="policy"/>) probe BIRDWATCHER, gate a dirty journal behind the
+    /// push/discard prompt, pull-or-skip; then fresh disk scan + local TS read + resolve; then the automatic
+    /// write-back stamps drifted counts into the local db (journaled) and the grid re-reads so it shows them.
+    /// Safe to call again (Reload). Heavy work runs off the UI thread.
+    /// </summary>
+    public async Task LoadAsync(PullPolicy policy = PullPolicy.IfChanged)
     {
         if (IsLoading) return;
         IsLoading = true;
-        _targetActiveEdits.Clear();   // a fresh scan re-reads TS active; in-session overrides are now authoritative-stale
+        Stopwatch sw = Stopwatch.StartNew();
+        _targetActiveEdits.Clear();   // a fresh load re-reads TS active; in-session overrides are now authoritative-stale
 
-        string tsDbPath = await Task.Run(Source.ResolvePathForLoad);
-        RaiseTsSource();
-        StatusText = $"scanning {DefaultLibrary} …";
         try
         {
-            LoadResult result = await ReconciliationLoader.LoadAsync(DefaultLibrary, tsDbPath, DefaultToleranceDegrees);
+            string syncNote = await PrepareTsForLoadAsync(policy);
+            RaiseSyncState();
+
+            StatusText = $"scanning {DefaultLibrary} …";
+            ImageLibraryReport scan = await ReconciliationLoader.ScanLibraryAsync(DefaultLibrary);
+            LoadResult result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees);
+
+            // Write-back stamps the local db AFTER this read — when it changed anything, re-resolve over the
+            // same scan so the grid shows the stamped counts (and the journal badge the new entries).
+            WriteBackStepResult writeBack = await Task.Run(() => WriteBackStep.Run(result.Graph, result.Report, Sync));
+            if (writeBack.PlansStamped > 0)
+                result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees);
+
             _lastLoad = result;
             _allRows = result.Rows;
-            StatusText = $"library {DefaultLibrary}  ·  TS {tsDbPath} ({(Source.IsLive ? "LIVE BIRDWATCHER" : "local copy")})" +
-                $"  ·  resolved in {result.Elapsed.TotalSeconds:0.0} s";
+            StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}" +
+                $"  ·  loaded in {sw.Elapsed.TotalSeconds:0.0} s";
             ApplyFilters();
         }
         catch (Exception ex)
@@ -181,25 +234,132 @@ public sealed class MainViewModel : INotifyPropertyChanged
         finally
         {
             IsLoading = false;
+            RaiseSyncState();
         }
     }
 
-    // Re-raise the radio bindings after _tsMode / _liveDisabled change.
-    private void RaiseTsSource()
+    // The BIRDWATCHER half of a load: probe (off-thread — the SMB stat can block up to its timeout), route a
+    // dirty journal through the user's push/discard decision BEFORE any pull can overwrite local edits, then
+    // pull / skip per the baseline rule. Returns the status-line fragment describing what happened.
+    private async Task<string> PrepareTsForLoadAsync(PullPolicy policy)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsLiveSelected)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsLocalSelected)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LiveEnabled)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TsSourceTooltip)));
+        if (policy == PullPolicy.Never)
+            return "not re-pulled";
+
+        TsDbStat? probe = await Task.Run(Sync.ProbeRemote);
+        if (probe is null)
+            return "BIRDWATCHER offline";
+
+        if (Sync.IsDirty)
+        {
+            PushReview review = Sync.PreparePush(probe);
+            OpenDirtyDecision decision = OpenWithDirtyPrompt is null
+                ? OpenDirtyDecision.ContinueLocal
+                : await OpenWithDirtyPrompt(review);
+            switch (decision)
+            {
+                case OpenDirtyDecision.Push:
+                    PushResult push = await Task.Run(Sync.Push);
+                    return push.Outcome == PushOutcome.Success
+                        ? "pushed + pulled fresh"
+                        : $"PUSH INCOMPLETE ({DescribePush(push)}) — kept local";
+                case OpenDirtyDecision.Discard:
+                    await Task.Run(() =>
+                    {
+                        Sync.Discard();
+                        Sync.Pull(probe);
+                    });
+                    return "edits discarded · pulled fresh";
+                default:
+                    return "unpushed edits — pull deferred";
+            }
+        }
+
+        if (policy == PullPolicy.Force)
+        {
+            await Task.Run(() => Sync.Pull(probe));
+            return "pulled (forced)";
+        }
+        bool pulled = await Task.Run(() => Sync.PullIfChanged(probe));
+        return pulled ? "pulled fresh" : "unchanged — pull skipped";
     }
 
-    /// <summary>Switch the TS source from the LIVE/LOCAL radios. A sticky-disabled LIVE can't be chosen; a real
-    /// change reloads from the newly selected db.</summary>
-    public void SetTsMode(TsMode mode)
+    /// <summary>
+    /// The Push button: probe, build the review (manual edits + write-back with decreases first + staleness
+    /// warning), confirm through the dialog hook, replay the journal, and — on full success, which ends in a
+    /// fresh pull — re-read the local db so the grid gains whatever BIRDWATCHER accrued overnight.
+    /// </summary>
+    public async Task PushAsync()
     {
-        if (Source.TrySelectMode(mode)) { RaiseTsSource(); _ = LoadAsync(); }
-        else RaiseTsSource();   // re-pin the radio to the active source
+        if (IsLoading) return;
+        if (!Sync.IsDirty)
+        {
+            StatusText = "nothing to push — no unpushed edits";
+            return;
+        }
+
+        // IsLoading doubles as the load/push mutual exclusion (both check-and-set synchronously on the UI
+        // thread): a second Push… click can't stack a second ContentDialog, and Reload can't run a write-back
+        // pass while the push replays.
+        IsLoading = true;
+        PushResult? result = null;
+        try
+        {
+            TsDbStat? probe = await Task.Run(Sync.ProbeRemote);
+            RaiseSyncState();
+            if (probe is null)
+            {
+                StatusText = "BIRDWATCHER unreachable — edits stay journaled for a later push";
+                return;
+            }
+
+            PushReview review = Sync.PreparePush(probe);
+            if (ConfirmPushPrompt is not null && !await ConfirmPushPrompt(review))
+                return;
+
+            result = await Task.Run(Sync.Push);
+        }
+        catch (Exception ex)
+        {
+            // A thrown push (remote db failed to open mid-push, network drop during the closing pull) never
+            // reached the journal rewrite — every entry is still journaled, so re-push recovers. Fail loud.
+            Log.Error("push threw — journal intact, re-push after fixing the cause", ex);
+            StatusText = $"PUSH FAILED: {ex.Message} — edits stay journaled, see tsm.log";
+            return;
+        }
+        finally
+        {
+            IsLoading = false;
+            RaiseSyncState();
+        }
+
+        if (result.PulledFresh)
+            await LoadAsync(PullPolicy.Never);   // the closing pull changed the local db — re-read it
+        StatusText = DescribePush(result);
     }
+
+    private static string DescribePush(PushResult result) => result.Outcome switch
+    {
+        PushOutcome.Success => $"pushed {result.AppliedCount} field(s) to BIRDWATCHER" +
+            (result.PulledFresh ? " · pulled fresh" : " — see the badge for anything still unpushed"),
+        PushOutcome.PartialFailure =>
+            $"PUSH INCOMPLETE: {result.AppliedCount} applied, {result.Failures.Count} FAILED and kept in the journal — see tsm.log",
+        PushOutcome.RefusedBusy => "push refused: TS db busy on BIRDWATCHER (NINA imaging?) — try again later",
+        PushOutcome.Refused => $"push refused: {result.RefusalDetail}",
+        PushOutcome.Unreachable => "BIRDWATCHER unreachable — edits stay journaled for a later push",
+        _ => "nothing to push",
+    };
+
+    // Re-raise the sync-facing bindings (badge, Push enable) after anything that can change them.
+    private void RaiseSyncState()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SyncBadgeText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SyncTooltip)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPush)));
+    }
+
+    private static string FormatWhen(DateTimeOffset at) =>
+        at.LocalDateTime.Date == DateTime.Today ? at.LocalDateTime.ToString("HH:mm") : at.LocalDateTime.ToString("ddd HH:mm");
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>
     public void ToggleGroup(TargetGroupRow group)
@@ -249,24 +409,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ? pending
             : representative.Enabled;
 
-    // Maps one guarded-write outcome to the status line + side effects, returning whether the value was applied.
-    // A live drop greys the LIVE radio and reloads from LOCAL; a refusal/failure leaves the db untouched.
+    // Maps one guarded-write outcome to the status line + side effects, returning whether the value was
+    // applied. An applied write also changed the journal, so the badge re-raises.
     private bool ApplyOutcome(EditOutcome outcome, string label)
     {
         switch (outcome)
         {
             case EditOutcome.Applied:
+                RaiseSyncState();
                 return true;
             case EditOutcome.Refused refused:
                 StatusText = $"can't change {label}: {RefusalText(refused.Reason)}";
                 return false;
             case EditOutcome.Failed:
                 StatusText = $"edit failed for {label} — see tsm.log";
-                return false;
-            case EditOutcome.LiveDropped:
-                RaiseTsSource();
-                StatusText = "BIRDWATCHER unreachable — switched to LOCAL for this session (re-launch TSM to retry LIVE).";
-                _ = LoadAsync();
                 return false;
             default:
                 return false;
@@ -275,9 +431,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private static string RefusalText(RefusalReason reason) => reason switch
     {
-        RefusalReason.SchemaIncompatible => "TS db schema is incompatible",
-        RefusalReason.ReadOnly => "TS db file is read-only",
-        RefusalReason.OpenSidecar => "TS database busy (open in NINA?) — try again",
+        RefusalReason.SchemaIncompatible => "local TS copy schema is incompatible",
+        RefusalReason.ReadOnly => "local TS copy is read-only",
+        RefusalReason.OpenSidecar => "local TS copy busy (another tool has it open?) — try again",
         RefusalReason.ColumnAbsent => "this TS db has no such column",
         _ => "refused",
     };
@@ -481,7 +637,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             : "no-load";
         return $"rows={_visibleLeafCount}/{_allRows.Count}, groups={_groups.Count}, " +
                $"expanded={_groups.Count(g => g.IsExpanded)}, search=\"{_searchText}\", " +
-               $"source={SourceFilterName()}, flagged={_flaggedOnly}, sort={_sortMode}, {counts}";
+               $"source={SourceFilterName()}, flagged={_flaggedOnly}, sort={_sortMode}, " +
+               $"sync=\"{SyncBadgeText}\", {counts}";
     }
 
     private string SourceFilterName() =>

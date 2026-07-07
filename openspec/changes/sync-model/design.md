@@ -113,3 +113,25 @@ reverses), VERIFICATION (new flows), DOMAIN (badge/Push conventions), CLAUDE.md 
 ## Open Questions
 
 - None blocking. Dialog layouts and badge wording are implementation-time visual calls (user-verified).
+
+## Implementation refinements (2026-07-06, discovered at build time)
+
+Three deltas from the letter (not the spirit) of the decisions above, found while implementing:
+
+1. **Write-back entries replay through `TargetSchedulerWriter`, not `TrySetField` (refines D2/D4).**
+   `TsEditableSchema` deliberately omits `acquired`/`accepted` (stat columns must not appear in generated edit
+   UIs), so the field editor's whitelist refuses them. Push therefore has two legs: write-back journal entries
+   group per plan and re-execute the write-back contract on the remote via the library writer
+   (acquired = accepted = journaled disk count; **desired ratchets against the *remote* desired**, so a goal
+   raised on the rig is never lowered); manual entries replay per-field via `TrySetField`, **after** the writer
+   leg, so an explicit desired edit outranks the stamp's ratchet. Both legs reuse the library exactly as
+   shipped (the proposal's Impact line anticipated the writer in the loop).
+2. **A fully-applied push ends in an immediate pull (refines D1's "baseline re-recorded after push").**
+   Recording a baseline from a post-push stat could false-skip: NINA may have written between the pull and the
+   push, and those accruals are not in the local copy. Pulling right after a full push restores the one
+   invariant everything hangs on — **a baseline is recorded exactly when the local copy mirrors the remote** —
+   and the grid gains BIRDWATCHER's overnight counts as a bonus. Partial pushes never pull and never touch the
+   baseline (next open pulls fresh).
+3. **Dirty is derived, never stored (refines D3's "persisted dirty flag").** Dirty ≡ journal non-empty; the
+   journal file is the persisted fact. A separate flag could disagree with the journal after a crash between
+   two writes — deriving makes that state unrepresentable. `TsSyncState` persists only the baseline.

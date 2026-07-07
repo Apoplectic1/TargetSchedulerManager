@@ -5,9 +5,11 @@
 ## What this is
 
 TargetSchedulerManager (TSM) is a .NET 10 **WinUI 3 app** (assembly `tsmui`) that **manages the N.I.N.A. Target
-Scheduler database** — view + edit TS plans with disk-ACTUAL beside every number. It scans the disk image library
-*read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does **not** own or write
-`Catalog.db`.
+Scheduler database** — view + edit TS plans with disk-ACTUAL beside every number. It edits a **local working
+copy** under the sync model (2026-07-06): pull from BIRDWATCHER at open (baseline-skipped when unchanged),
+journaled local edits + automatic write-back, one reviewed **Push** replaying only edited fields back. It scans
+the disk image library *read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does
+**not** own or write `Catalog.db`.
 
 > **History (2026-06-11):** This project was **TargetCatalogManager (TCM)** — it *also* used to be a headless
 > console host (`tcm`) that built `Catalog.db`. That CLI was removed — catalog-building moves to a future
@@ -78,9 +80,10 @@ Load-bearing invariants (full detail in `ARCHITECTURE.md`):
 - **Harden rule** — never pass a raw TS integer into a CHECK/FK column; `TargetResolver` coerces unknown
   epoch/state/priority codes to a safe default and clamps planned RA/Dec, so one bad external TS row can't abort
   the rebuild.
-- **Single writer + WAL** — one writer per db: the TS db's in-app editor here, `Catalog.db`'s builder (future
-  LCM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy over network shares (relevant if
-  a consumer runs on another PC).
+- **Single writer + WAL** — one writer per db: TSM's in-app editor owns the **local** TS copy (BIRDWATCHER's db
+  is written only inside the reviewed push replay — `TsSync`, see `ARCHITECTURE.md`'s sync-model section),
+  `Catalog.db`'s builder (future LCM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
+  over network shares (relevant if a consumer runs on another PC).
 
 ## Shared-library discipline
 

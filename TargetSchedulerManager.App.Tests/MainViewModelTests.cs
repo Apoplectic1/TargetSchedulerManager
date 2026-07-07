@@ -147,8 +147,7 @@ public class MainViewModelTests
     {
         var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "10", true),
                                                      Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
-        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
-        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
         var vm = new MainViewModel(gate);
         ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1");
         vm.SetRowsForTest([row]);
@@ -164,8 +163,7 @@ public class MainViewModelTests
     {
         var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "-1", true),
                                                      Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
-        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
-        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
         var vm = new MainViewModel(gate);
         ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planSeconds: 300, planTsKey: "ep-1");
         vm.SetRowsForTest([row]);
@@ -193,8 +191,7 @@ public class MainViewModelTests
     {
         var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "1", true),
                                                      Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
-        var source = new TargetSchedulerManager.App.Shared.TsSource("L", "C", () => false);
-        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(source, _ => ed);
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
         var vm = new MainViewModel(gate);
 
         ReconciliationRow leaf1 = Make.Leaf(target: "M 101", desired: 10, tsTargetKey: "p1", enabled: true);

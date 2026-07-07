@@ -110,8 +110,9 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
   inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
   glyph/flyout on the panel mini-header rows.
-- Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
-  and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
+- Edits write to the **local** TS copy through one guarded path (refuse open-sidecar / read-only, read-back
+  verify, audit, journal-for-push) and apply **in place** (no grid rebuild — scroll + a half-typed next cell
+  survive). Nothing reaches BIRDWATCHER until the reviewed Push.
 - **Mirror rule (user-set, 2026-07-06):** any flyout-editable value that is also a visible grid column must
   reflect **immediately on commit** (flyout still open), never waiting for a reload — including header
   re-aggregation. Row **positions hold** even when the edit changes a sort key (order refreshes on the next
@@ -123,17 +124,30 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   padding; the text is **centered in code-behind** (a NumberBox can't center via XAML — see *WinUI gotchas*). The
   clear (✕) button doesn't appear on these, so there's nothing to suppress.
 
-## TS source (LIVE / LOCAL)
+## TS sync (badge · Push · Pull now)
 
-Toolbar radios: **LIVE — BIRDWATCHER** (caution-colored — writes hit the rig) vs **LOCAL copy**. LIVE greys out
-for the session if BIRDWATCHER is unreachable. The summary/badge says which; switching reloads from the chosen db.
+Design principle: **buttons carry decisions, guards carry facts** — correctness never depends on the user
+remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
+
+- **Sync badge** (toolbar, always visible): `synced HH:mm · N unpushed` — last pull/push time + the collapsed
+  journal count; `BIRDWATCHER offline · …` when the probe failed; `never pulled` before a first pull. State is
+  *displayed*, never recalled.
+- **Push…** (caution-colored — this is the moment writes reach the rig): enabled exactly when unpushed edits
+  exist; opens the review `ContentDialog` — write-back count stamps first (**decreases first**, caution-colored,
+  `▼ target · filter @secs — TS old → new`), then manual edits (`label — column old → new`), with an InfoBar
+  warning when BIRDWATCHER changed since the pull (warn, not block) or an error bar when its db is busy. The
+  ellipsis is the dialog convention: Push… always reviews first.
+- **Pull now**: the skip-heuristic override; routed through the dirty guard (unpushed edits prompt first).
+- **Open-with-dirty dialog**: push (default) / discard-and-pull / not-now — shown BEFORE any pull can overwrite
+  local edits; same review body as Push….
+- **Reload (rescan)** keeps meaning "rescan disk + re-read local" — it never pulls.
 
 ## Chrome
 
-- **Toolbar:** Reload (rescan) · progress ring · LIVE/LOCAL radios · summary line.
+- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · summary line.
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
-- **Status bar:** library + TS paths + resolve time.
+- **Status bar:** library path + sync/write-back notes + load time.
 - **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
   hover-hint is suppressed. **Capture in 5 s** hides the window for the countdown so transient light-dismiss UI
   (edit flyouts, context menus) can be opened and survives into the shot — plain Capture can never contain one

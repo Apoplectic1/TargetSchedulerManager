@@ -4,7 +4,8 @@ using Xunit;
 
 namespace TargetSchedulerManager.App.Tests;
 
-// The guarded write in isolation: a stub ITsEditor (no SQLite) + a TsSource with an injected probe.
+// The guarded write in isolation: a stub ITsEditor (no SQLite) over a temp-path TsSync. The gate always
+// targets the local db and journals every verified write; refusals/failures leave the journal untouched.
 public class TsEditGateTests
 {
     private sealed class StubEditor : ITsEditor
@@ -27,61 +28,61 @@ public class TsEditGateTests
         public void Dispose() { }
     }
 
-    private static TsSource Live() { TsSource s = new("LIVE", "LOCAL", () => true); s.ResolvePathForLoad(); return s; }
+    private static TsEditGate Gate(StubEditor editor, out TsSync sync)
+    {
+        sync = SyncTestEnv.NewSync(out _);
+        return new TsEditGate(sync, _ => editor);
+    }
 
     [Fact]
-    public async Task CleanWrite_ReturnsApplied()
+    public async Task CleanWrite_ReturnsApplied_AndJournals()
     {
         StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "5", Verified: true), RefusalReason.None) };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out TsSync sync);
         EditOutcome o = await gate.ApplyAsync(TsTable.ExposurePlan, "ep-1", "desired", 10, "A · H");
         EditOutcome.Applied a = Assert.IsType<EditOutcome.Applied>(o);
         Assert.Equal("5", a.Old);
         Assert.Equal(10, a.New);
+
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);   // the verified write journaled for push
+        Assert.Equal(TsEditKind.Manual, entry.Kind);
+        Assert.Equal(TsTable.ExposurePlan, entry.Table);
+        Assert.Equal("ep-1", entry.Key);
+        Assert.Equal("desired", entry.Column);
+        Assert.Equal(10L, entry.Value);   // journal canonicalizes integer boxes to long
+        Assert.Equal("5", entry.Old);
+        Assert.Equal("A · H", entry.Label);
     }
 
     [Fact]
-    public async Task RefusedWrite_PassesTheReasonThrough()
+    public async Task RefusedWrite_PassesTheReasonThrough_NoJournalEntry()
     {
         StubEditor ed = new() { Next = (null, RefusalReason.OpenSidecar) };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out TsSync sync);
         EditOutcome o = await gate.ApplyAsync(TsTable.ExposurePlan, "ep-1", "desired", 10, "A · H");
         Assert.Equal(RefusalReason.OpenSidecar, Assert.IsType<EditOutcome.Refused>(o).Reason);
+        Assert.True(sync.Journal.IsEmpty);
     }
 
     [Fact]
-    public async Task VerifyFails_ReturnsFailed()
+    public async Task VerifyFails_ReturnsFailed_NoJournalEntry()
     {
         StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "5", Verified: false), RefusalReason.None) };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out TsSync sync);
         EditOutcome.Failed f = Assert.IsType<EditOutcome.Failed>(
             await gate.ApplyAsync(TsTable.ExposurePlan, "ep-1", "desired", 10, "A · H"));
         Assert.True(f.Found);
         Assert.False(f.Verified);
+        Assert.True(sync.Journal.IsEmpty);
     }
 
     [Fact]
-    public async Task EditorThrows_LiveNowUnreachable_ReturnsLiveDropped_AndSourceFalls()
+    public async Task EditorThrows_ReturnsFailed_NoJournalEntry()
     {
-        bool reachable = true;
-        TsSource src = new("LIVE", "LOCAL", () => reachable);
-        src.ResolvePathForLoad();                       // → Live
-        reachable = false;                              // BIRDWATCHER drops mid-write
         StubEditor ed = new() { Throw = true };
-        TsEditGate gate = new(src, _ => ed);
-        EditOutcome o = await gate.ApplyAsync(TsTable.Target, "g-1", "active", 1, "A");
-        Assert.IsType<EditOutcome.LiveDropped>(o);
-        Assert.False(src.IsLive);                       // sticky-fell to LOCAL
-    }
-
-    [Fact]
-    public async Task EditorThrows_NotLive_ReturnsFailed()
-    {
-        TsSource src = new("LIVE", "LOCAL", () => false);
-        src.ResolvePathForLoad();                       // → Local
-        StubEditor ed = new() { Throw = true };
-        TsEditGate gate = new(src, _ => ed);
+        TsEditGate gate = Gate(ed, out TsSync sync);
         Assert.IsType<EditOutcome.Failed>(await gate.ApplyAsync(TsTable.Target, "g-1", "active", 1, "A"));
+        Assert.True(sync.Journal.IsEmpty);
     }
 
     [Fact]
@@ -92,7 +93,7 @@ public class TsEditGateTests
             Row = new(StringComparer.OrdinalIgnoreCase)
             { ["active"] = 1L, ["priority"] = -1L, ["rotation"] = 12.5 },
         };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out _);
         IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
         Assert.NotNull(seed);
         Assert.Equal(TsEditableSchema.For(TsTable.Target).Count, seed.Count);
@@ -104,7 +105,7 @@ public class TsEditGateTests
     public async Task ReadFields_SkipsColumnsAbsentOnThisDb()
     {
         StubEditor ed = new() { AbsentColumns = ["rotation"] };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out _);
         IReadOnlyDictionary<string, object?>? seed = await gate.ReadFieldsAsync(TsTable.Target, "g-1", "A");
         Assert.NotNull(seed);
         Assert.False(seed.ContainsKey("rotation"));
@@ -115,7 +116,7 @@ public class TsEditGateTests
     public async Task ReadFields_RowMissing_ReturnsNull()
     {
         StubEditor ed = new() { RowFound = false };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out _);
         Assert.Null(await gate.ReadFieldsAsync(TsTable.Target, "no-such", "A"));
     }
 
@@ -123,7 +124,7 @@ public class TsEditGateTests
     public async Task ReadFields_EditorThrows_ReturnsNull()
     {
         StubEditor ed = new() { Throw = true };
-        TsEditGate gate = new(Live(), _ => ed);
+        TsEditGate gate = Gate(ed, out _);
         Assert.Null(await gate.ReadFieldsAsync(TsTable.ExposurePlan, "ep-1", "A · H"));
     }
 }

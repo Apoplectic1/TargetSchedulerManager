@@ -1,6 +1,5 @@
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
-using Microsoft.Data.Sqlite;
 
 namespace TargetSchedulerManager.App.Shared;
 
@@ -34,39 +33,37 @@ internal sealed class TsEditorAdapter : ITsEditor
 internal abstract record EditOutcome
 {
     private EditOutcome() { }
-    /// <summary>The write was applied and read-back verified.</summary>
+    /// <summary>The write was applied to the local db, read-back verified, and journaled for push.</summary>
     public sealed record Applied(string? Old, object? New) : EditOutcome;
     /// <summary>The db was unsafe to write; the value was not changed.</summary>
     public sealed record Refused(RefusalReason Reason) : EditOutcome;
     /// <summary>The row was missing, or the read-back did not confirm the write.</summary>
     public sealed record Failed(bool Found, bool Verified) : EditOutcome;
-    /// <summary>A LIVE write threw and a re-probe found BIRDWATCHER gone — the session fell to LOCAL.</summary>
-    public sealed record LiveDropped : EditOutcome;
 }
 
 /// <summary>
-/// The single guarded write path, shared by every TS field edit. Holds a <see cref="TsSource"/> (it writes
-/// whichever db is currently selected) and an injected editor factory (the test seam). Runs off the UI thread;
-/// on a fault it asks the source to classify a live-drop (sticky-falling to LOCAL) versus an ordinary failure.
-/// Drops SQLite's connection pool after a successful write so the next read re-opens the file (an SMB pooled
-/// reader can otherwise serve stale pages), and audits the write to the diagnostics log.
+/// The single guarded write path, shared by every TS field edit. Always targets the <b>local</b> db
+/// (<see cref="TsSync.LocalPath"/> — BIRDWATCHER is written only by an explicit push), through an injected
+/// editor factory (the test seam). Runs off the UI thread; guard-checks, read-back verifies, audits to the
+/// diagnostics log, and journals every verified write on the <see cref="TsSync"/> so it replays at push.
 /// </summary>
 internal sealed class TsEditGate
 {
-    private readonly TsSource _source;
+    private readonly TsSync _sync;
     private readonly Func<string, ITsEditor> _editorFactory;
 
-    public TsEditGate(TsSource source, Func<string, ITsEditor> editorFactory)
+    public TsEditGate(TsSync sync, Func<string, ITsEditor> editorFactory)
     {
-        _source = source;
+        _sync = sync;
         _editorFactory = editorFactory;
     }
 
-    /// <summary>The real gate: the default <see cref="TsSource"/> and the production editor adapter.</summary>
-    public static TsEditGate CreateDefault() => new(TsSource.CreateDefault(), path => new TsEditorAdapter(path));
+    /// <summary>The real gate: the default <see cref="TsSync"/> and the production editor adapter.</summary>
+    public static TsEditGate CreateDefault() => new(TsSync.CreateDefault(), path => new TsEditorAdapter(path));
 
-    /// <summary>The TS-source policy this gate writes through — the view-model reads it for the load path and the radio bindings.</summary>
-    public TsSource Source => _source;
+    /// <summary>The sync orchestrator this gate journals through — the view-model reads it for the load path,
+    /// the badge, and push.</summary>
+    public TsSync Sync => _sync;
 
     /// <summary>
     /// Reads the current values of every editable field of <paramref name="table"/> for the row keyed by
@@ -80,7 +77,7 @@ internal sealed class TsEditGate
         {
             try
             {
-                using ITsEditor editor = _editorFactory(_source.CurrentPath);
+                using ITsEditor editor = _editorFactory(_sync.LocalPath);
                 Dictionary<string, object?> values = new(StringComparer.OrdinalIgnoreCase);
                 foreach (TsField field in TsEditableSchema.For(table))
                 {
@@ -114,7 +111,7 @@ internal sealed class TsEditGate
         {
             try
             {
-                using ITsEditor editor = _editorFactory(_source.CurrentPath);
+                using ITsEditor editor = _editorFactory(_sync.LocalPath);
                 (bool found, double? value) = editor.ReadPlanEffectiveExposure(key);
                 return found && value > 0 ? (int)Math.Round(value.Value) : null;
             }
@@ -125,13 +122,14 @@ internal sealed class TsEditGate
             }
         });
 
-    /// <summary>Guard-checks and applies one field edit to the currently-selected TS db, off the UI thread.</summary>
+    /// <summary>Guard-checks and applies one field edit to the local TS db, off the UI thread; a verified
+    /// write also journals for the next push.</summary>
     public Task<EditOutcome> ApplyAsync(TsTable table, string key, string column, object? value, string label) =>
         Task.Run<EditOutcome>(() =>
         {
             try
             {
-                using ITsEditor editor = _editorFactory(_source.CurrentPath);
+                using ITsEditor editor = _editorFactory(_sync.LocalPath);
                 (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(table, key, column, value);
                 if (refusal != RefusalReason.None)
                 {
@@ -144,20 +142,13 @@ internal sealed class TsEditGate
                     return new EditOutcome.Failed(result?.RowFound ?? false, result?.Verified ?? false);
                 }
 
-                // Over SMB a pooled reader can serve cached pages, making a verified write read as if it hadn't
-                // taken — drop the pool so the next read re-opens the file.
-                SqliteConnection.ClearAllPools();
-                Log.Info($"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on {(_source.IsLive ? "LIVE" : "local")} {_source.CurrentPath}");
+                _sync.RecordEdit(table, key, column, value, result.OldValue, label);
+                Log.Info($"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on local {_sync.LocalPath} (journaled)");
                 return new EditOutcome.Applied(result.OldValue, value);
             }
             catch (Exception ex)
             {
-                // Log the cause on EVERY throw, before classifying: the editor's db-open is the usual throw site
-                // when BIRDWATCHER vanishes, so a real fault must not be erased by a "fell to LOCAL" relabel
-                // (logs-every-write, fail-loud). Mirrors the original ApplyFieldEditAsync ordering.
                 Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
-                if (_source.NotifyLiveWriteFailed())
-                    return new EditOutcome.LiveDropped();
                 return new EditOutcome.Failed(Found: false, Verified: false);
             }
         });

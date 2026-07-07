@@ -12,15 +12,37 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
-prefers the **live BIRDWATCHER TS db** over SMB (LIVE/LOCAL badge, guarded + read-back-verified writes). Editing
-shipped so far: target enable checkbox + in-grid `desired` (verified live in NINA) + the **edit flyout** (hover
-glyph / right-click on target + filter rows → schema-generated form: target `priority`/`rotation`, plan
-`exposure`; per-field guarded commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only /
-33 Actual-only, 6 mosaics (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
+over the **local TS working copy** under the pull → edit-local → push-as-replay **sync model** (shipped
+2026-07-06: baseline-skipped pull at open, journaled local edits, reviewed Push to BIRDWATCHER, automatic
+write-back each load — code-complete, **user-run pass pending**). Editing shipped so far: target enable checkbox
++ in-grid `desired` (verified live in NINA pre-sync-model) + the **edit flyout** (hover glyph / right-click on
+target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
+commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
+(28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
 **Next (editing-surface parts, explored 2026-07-06):** Part 2 project-settings flyout (needs an anchor — projects
 are a column, not rows) → Part 3 exposure-template manager, edit-only (app-level menu; ~11 new schema rows) →
 Part 4 `openspec/changes/cadence-safe-ts-edits` (parked proposal: per-filter `enabled` + fsf with transactional
-cadence clear). Then load-split; write-back resurfaces as an app action.
+cadence clear; composes with the sync model — its transactional edits land locally and replay at push). Then
+load-split.
+
+**▶ SHIPPED 2026-07-06 — TS sync model: pull → edit local → push-as-replay (`openspec/changes/sync-model`).**
+Replaces the LIVE/LOCAL two-world editing (radios, direct SMB writes, sticky-fall, `EditOutcome.LiveDropped`,
+post-write `ClearAllPools` — all deleted) with one editing world: **`Shared/TsSync`** pulls BIRDWATCHER's db
+over the local copy at open via the SQLite **online backup API**, skipped when the persisted baseline
+(`*.tsm-sync.json`: remote size+mtime) matches and no remote sidecar exists — rapid test relaunches skip the
+copy. Every verified edit lands locally and appends to the persisted **journal** (`*.tsm-edits.jsonl`;
+dirty ≡ journal non-empty, crash-safe by derivation). **Push** (toolbar, review `ContentDialog`) replays the
+collapsed journal: write-back entries per-plan via `TargetSchedulerWriter` (desired ratchets against *remote*),
+manual entries per-field via `TrySetField` — only journaled fields are touched, so NINA's nightly
+counts/`acquiredimage`/XFM grades can't be clobbered; remote sidecar refuses the whole push; per-entry failures
+retain loudly; full success ends in a fresh pull (baseline invariant: recorded ⇔ local mirrors remote).
+**Write-back went automatic**: `Services/WriteBackStep` stamps drifted counts into the local db after every
+load and journals them; the push review lists them decreases-first. Open-with-dirty prompts push/discard/not-now
+BEFORE any pull; offline sessions journal and become pushable at reconnect (softened rule — Discard preserves
+the debug path). Toolbar: sync badge (`synced HH:mm · N unpushed`) + Push… + Pull now; Reload never pulls.
+111 App.Tests (pull/skip matrix on real temp SQLite, push-replay seams, journal round-trip/collapse/torn-line,
+write-back step). **User-run pass pending** (fresh pull / skip / offline / edit→push→NINA verify / decreases
+review / dirty-prompt-after-kill).
 
 **▶ SHIPPED 2026-07-06 — context-sensitive edit flyout (editing-surface Part 1;
 `openspec/changes/field-editor-flyout`).** One schema-generated form (`Controls/TsFieldsEditor.cs`) renders any
@@ -395,8 +417,8 @@ layer* is the disposable stop-gap; the **UI shell is permanent** — it retarget
 arrives. Supersedes the old "migrate XFM's scheduler tab" framing: the grid replaces that tab (XFM's is deleted
 at Phase 5 cutover).
 
-- **DB touched:** the **local TS working copy only** (same default as `writeback`); manual copy to/from
-  BIRDWATCHER stays the sync; push-to-live stays a separate future feature (Phase 4's tail).
+- **DB touched:** the **local TS working copy only** — since 2026-07-06 synced by the pull/push model
+  (`TsSync`; see the Status digest): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
 - **Structure:** new **`TargetCatalogManager.App`** (WinUI 3) beside the untouched `tcm` CLI (WinExe can't host a
   clean console). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
   Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
@@ -465,8 +487,9 @@ tests). Verb: `tcm writeback [--apply]` (dry-run default).
   never forced. Reuses the bulk writer (acq/acc + `desired` ratchet + read-back verify) + `Program.PrintWriteBack`;
   new `SingleTargetPlanner` (pure) + `ImageLibraryScanner.ScanUnitsAsync`. Tests: per-panel match, binning
   disambiguation, no-bin-match→manual, unit-beyond-tolerance→note, normal-doesn't-grab-a-panel. (75 library tests.)
-- **Out of scope (later phase):** automated network push of the local copy back to the imaging PC (BIRDWATCHER) —
-  for now copied back by hand; and creating missing targets (TS-only kept, disk-only deferred), revisited in the UI.
+- ~~**Out of scope (later phase):** automated network push of the local copy back to the imaging PC~~ —
+  **shipped 2026-07-06** as the sync model's push-as-replay (never a file copy; see the Status digest).
+  Creating missing targets (TS-only kept, disk-only deferred) remains a UI-phase item.
 
 ## Phase 5 — Consumer cutover
 

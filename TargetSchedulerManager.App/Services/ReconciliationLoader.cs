@@ -30,10 +30,27 @@ public static class ReconciliationLoader
     public static async Task<LoadResult> LoadAsync(
         string libraryRoot, string tsDbPath, double toleranceDegrees, CancellationToken ct = default)
     {
-        Stopwatch sw = Stopwatch.StartNew();
+        ImageLibraryReport scan = await ScanLibraryAsync(libraryRoot, ct).ConfigureAwait(false);
+        return await ResolveAsync(scan, tsDbPath, toleranceDegrees, ct).ConfigureAwait(false);
+    }
 
+    /// <summary>The disk half of a load, separated so a caller can reuse one scan across two resolves —
+    /// the post-load write-back stamps the local TS db, and the grid must then re-read it without paying
+    /// for a second disk walk.</summary>
+    public static async Task<ImageLibraryReport> ScanLibraryAsync(string libraryRoot, CancellationToken ct = default)
+    {
+        Stopwatch sw = Stopwatch.StartNew();
         ImageLibraryReport scan = await ImageLibraryScanner.ScanAsync(libraryRoot, ct).ConfigureAwait(false);
-        TimeSpan tScan = sw.Elapsed;
+        Log.Diag("Load", $"scan={Sec(sw.Elapsed)}s diskTargets={scan.Targets.Count}");
+        return scan;
+    }
+
+    /// <summary>The TS half: read the TS db, resolve against <paramref name="scan"/>, shape the grid rows.</summary>
+    public static Task<LoadResult> ResolveAsync(
+        ImageLibraryReport scan, string tsDbPath, double toleranceDegrees, CancellationToken ct = default)
+        => Task.Run(() =>
+    {
+        Stopwatch sw = Stopwatch.StartNew();
 
         TsPlanData ts;
         using (TargetSchedulerReader reader = new(tsDbPath))
@@ -47,8 +64,7 @@ public static class ReconciliationLoader
         List<ReconciliationRow> rows = BuildRows(graph, report);
 
         Log.Diag("Load",
-            $"scan={Sec(tScan)}s diskTargets={scan.Targets.Count}" +
-            $" tsRead={Sec(tTsRead - tScan)}s tsTargets={ts.Targets.Count} tsPlans={ts.Plans.Count}" +
+            $"tsRead={Sec(tTsRead)}s tsTargets={ts.Targets.Count} tsPlans={ts.Plans.Count}" +
             $" resolve={Sec(tResolve - tTsRead)}s rows={rows.Count} total={Sec(sw.Elapsed)}s");
         Log.Diag("Load",
             $"report: both={report.BothCount} tsOnly={report.PlannedOnlyCount} diskOnly={report.ActualOnlyCount}" +
@@ -58,7 +74,7 @@ public static class ReconciliationLoader
             $" panels={report.PanelsMatched}/{report.PanelsPlannedOnly}/{report.PanelsActualOnly}");
 
         return new LoadResult(rows, report, graph, sw.Elapsed);
-    }
+    }, ct);
 
     /// <summary>
     /// Shapes the library's per-target reconciliation cells (<see cref="ReconciliationProjection"/>) into flat
