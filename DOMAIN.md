@@ -99,7 +99,11 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   until their confirm flow ships). Values seed fresh from the current db; **each field commits itself** on
   change/focus-loss (so light-dismiss can never lose work — no Apply button, ever); a failed write reverts the
   control. Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
-  setters, so the grid mirrors in place.
+  setters, so the grid mirrors in place. **Sentinel columns** (TS stores a reserved −1 meaning "defer to the
+  default": plan `exposure` → template, template `gain`/`offset`/`readoutmode` → camera) render as their meaning
+  — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
+  disabled, showing the resolved value when known), unchecking arms the box (the override commits only when a
+  number commits).
 - Edits write to the TS db through one guarded path (refuse open-sidecar / read-only, read-back verify, audit)
   and apply **in place** (no grid rebuild — scroll + a half-typed next cell survive).
 - **Integer edit boxes are ~3 characters wide** (fit 999; ≥ 1000 clips in the box but the full value still

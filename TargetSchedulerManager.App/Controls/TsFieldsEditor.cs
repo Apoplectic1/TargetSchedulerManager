@@ -22,12 +22,16 @@ internal sealed class TsFieldsEditor : UserControl
 
     private readonly CommitField _commit;
     private readonly Dictionary<string, object?> _lastKnown;   // last committed (or seeded) raw value per column
+    private readonly IReadOnlyDictionary<string, double> _effective;   // resolved values behind sentinel columns
     private bool _reverting;                                   // suppresses commit while a control is put back
 
-    private TsFieldsEditor(TsTable table, string title, IReadOnlyDictionary<string, object?> seed, CommitField commit)
+    private TsFieldsEditor(
+        TsTable table, string title, IReadOnlyDictionary<string, object?> seed, CommitField commit,
+        IReadOnlyDictionary<string, double>? effective)
     {
         _commit = commit;
         _lastKnown = new Dictionary<string, object?>(seed, StringComparer.OrdinalIgnoreCase);
+        _effective = effective ?? new Dictionary<string, double>();
 
         StackPanel panel = new() { Spacing = 8, MinWidth = 260, Padding = new Thickness(4) };
         panel.Children.Add(new TextBlock
@@ -60,7 +64,8 @@ internal sealed class TsFieldsEditor : UserControl
 
             FrameworkElement input = BuildControl(field, seed[field.Column]);
             if (field.Notes is not null) ToolTipService.SetToolTip(input, field.Notes);
-            FrameworkElement cell = field.Unit is null ? input : WithUnit(input, field.Unit);
+            // Sentinel controls place the unit beside their inner box themselves.
+            FrameworkElement cell = field.Unit is null || field.Sentinel is not null ? input : WithUnit(input, field.Unit);
             Grid.SetRow(cell, rowIndex);
             Grid.SetColumn(cell, 1);
             form.Children.Add(cell);
@@ -73,9 +78,11 @@ internal sealed class TsFieldsEditor : UserControl
     }
 
     /// <summary>Builds the form, or an error placeholder when the seed is null (row missing / read fault) —
-    /// never a form with fabricated values.</summary>
+    /// never a form with fabricated values. <paramref name="effective"/> optionally maps a sentinel column to
+    /// its resolved value (e.g. exposure → the template's default seconds) for the "use default (…)" label.</summary>
     public static UIElement Create(
-        TsTable table, string title, IReadOnlyDictionary<string, object?>? seed, CommitField commit) =>
+        TsTable table, string title, IReadOnlyDictionary<string, object?>? seed, CommitField commit,
+        IReadOnlyDictionary<string, double>? effective = null) =>
         seed is null
             ? new TextBlock
             {
@@ -83,11 +90,12 @@ internal sealed class TsFieldsEditor : UserControl
                 MaxWidth = 300,
                 TextWrapping = TextWrapping.Wrap,
             }
-            : new TsFieldsEditor(table, title, seed, commit);
+            : new TsFieldsEditor(table, title, seed, commit, effective);
 
     private FrameworkElement BuildControl(TsField field, object? seeded) => field.Type switch
     {
         TsFieldType.Bool => BuildToggle(field, seeded),
+        TsFieldType.Whole or TsFieldType.Real when field.Sentinel is not null => BuildSentinelNumber(field, seeded),
         TsFieldType.Whole or TsFieldType.Real => BuildNumber(field, seeded),
         TsFieldType.Enum => BuildCombo(field, seeded),
         _ => BuildText(field, seeded),
@@ -147,6 +155,105 @@ internal sealed class TsFieldsEditor : UserControl
                 Revert(() => box.Value = ToDouble(_lastKnown[field.Column]));
         };
         return box;
+    }
+
+    // A numeric column with TS's defer-to-default sentinel (a reserved -1 meaning "resolve elsewhere"): rendered
+    // as its meaning — a "use <default> checkbox" over the number box — never as the raw -1. Checked ⇔ the column
+    // holds the sentinel (box disabled, showing the resolved value when the caller knows it); unchecked ⇔ the
+    // column holds the visible number. The sentinel is exempt from Min/Max clamping (writing it back must work).
+    private FrameworkElement BuildSentinelNumber(TsField field, object? seeded)
+    {
+        double sentinel = field.Sentinel!.Value;
+        double? effective = _effective.TryGetValue(field.Column, out double e) ? e : null;
+        bool isDefault = ToDouble(seeded) == sentinel;
+
+        CheckBox useDefault = new()
+        {
+            Content = effective is double ev
+                ? $"{field.SentinelLabel} ({ev:0.###}{(field.Unit is null ? "" : " " + field.Unit)})"
+                : field.SentinelLabel,
+            IsChecked = isDefault,
+            MinWidth = 0,
+        };
+
+        NumberBox box = new()
+        {
+            Value = isDefault ? effective ?? double.NaN : ToDouble(seeded),
+            IsEnabled = !isDefault,
+            SmallChange = 1,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+            Width = 110,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        // Checkbox drives the sentinel: checking writes it; unchecking only arms the box (the real value
+        // commits when the user commits a number — no silent -1 → value conversion on a stray click).
+        useDefault.Checked += async (_, _) =>
+        {
+            if (_reverting) return;
+            box.IsEnabled = false;
+            if (ToDouble(_lastKnown[field.Column]) == sentinel) return;   // seeded state settling, not an edit
+            object value = field.Type == TsFieldType.Whole ? (int)sentinel : sentinel;
+            if (await _commit(field.Column, value))
+            {
+                _lastKnown[field.Column] = value;
+                Revert(() => box.Value = effective ?? double.NaN);
+            }
+            else
+            {
+                Revert(() =>
+                {
+                    useDefault.IsChecked = false;
+                    box.IsEnabled = true;
+                    box.Value = ToDouble(_lastKnown[field.Column]);
+                });
+            }
+        };
+        useDefault.Unchecked += (_, _) =>
+        {
+            if (_reverting) return;
+            box.IsEnabled = true;
+            Revert(() => box.Value = effective ?? double.NaN);   // seed the override with the resolved value
+            box.Focus(FocusState.Programmatic);
+        };
+
+        box.LostFocus += async (_, _) =>
+        {
+            if (_reverting || !box.IsEnabled) return;
+            double current = ToDouble(_lastKnown[field.Column]);
+            if (double.IsNaN(box.Value))
+            {
+                // Cleared: restore the last real value, or stay blank while the column still holds the sentinel.
+                if (current != sentinel) box.Value = current;
+                return;
+            }
+
+            double wanted = box.Value;
+            if (field.Min is double min && wanted < min) wanted = min;
+            if (field.Max is double max && wanted > max) wanted = max;
+            if (field.Type == TsFieldType.Whole) wanted = Math.Round(wanted);
+            box.Value = wanted;
+            if (wanted == current) return;
+
+            object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
+            if (await _commit(field.Column, value))
+                _lastKnown[field.Column] = value;
+            else if (current == sentinel)
+                Revert(() => { useDefault.IsChecked = true; box.IsEnabled = false; box.Value = effective ?? double.NaN; });
+            else
+                Revert(() => box.Value = current);
+        };
+
+        StackPanel inner = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+        inner.Children.Add(box);
+        if (field.Unit is not null)
+            inner.Children.Add(new TextBlock { Text = field.Unit, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
+
+        StackPanel cell = new() { Orientation = Orientation.Vertical, Spacing = 4 };
+        cell.Children.Add(useDefault);
+        cell.Children.Add(inner);
+        return cell;
     }
 
     private ComboBox BuildCombo(TsField field, object? seeded)

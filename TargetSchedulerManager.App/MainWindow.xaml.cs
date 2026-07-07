@@ -163,6 +163,13 @@ public sealed partial class MainWindow : Window
         TargetGroupRow? group, ReconciliationRow? row)
     {
         IReadOnlyDictionary<string, object?>? seed = await ViewModel.ReadTsFieldsAsync(table, key, title);
+
+        // Resolved values behind sentinel columns: a plan's effective seconds (the Seconds column) backs the
+        // "template default (300 s)" label when exposure holds TS's -1 defer-to-template sentinel.
+        Dictionary<string, double>? effective = null;
+        if (row is not null && row.PlanSeconds > 0)
+            effective = new() { ["exposure"] = row.PlanSeconds };
+
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
             if (group is not null && string.Equals(column, "active", StringComparison.OrdinalIgnoreCase))
@@ -170,7 +177,7 @@ public sealed partial class MainWindow : Window
             if (row is not null && string.Equals(column, "desired", StringComparison.OrdinalIgnoreCase))
                 return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
             return await ViewModel.SetTsFieldAsync(table, key, column, value, title);
-        });
+        }, effective);
 
         Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
