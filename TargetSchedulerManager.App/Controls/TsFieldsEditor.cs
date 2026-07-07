@@ -20,18 +20,23 @@ internal sealed class TsFieldsEditor : UserControl
     /// this onto the guarded gate and any in-grid mirror of the field.</summary>
     public delegate Task<bool> CommitField(string column, object? value);
 
+    /// <summary>The current resolved value behind a sentinel column (e.g. exposure → the row's effective
+    /// seconds), or null when unknowable (a camera-side default). Re-consulted after a sentinel write, so it
+    /// must reflect the caller's freshest state — not a snapshot from flyout-open time.</summary>
+    public delegate double? EffectiveValue(string column);
+
     private readonly CommitField _commit;
     private readonly Dictionary<string, object?> _lastKnown;   // last committed (or seeded) raw value per column
-    private readonly IReadOnlyDictionary<string, double> _effective;   // resolved values behind sentinel columns
+    private readonly EffectiveValue? _effective;               // resolved values behind sentinel columns
     private bool _reverting;                                   // suppresses commit while a control is put back
 
     private TsFieldsEditor(
         TsTable table, string title, IReadOnlyDictionary<string, object?> seed, CommitField commit,
-        IReadOnlyDictionary<string, double>? effective)
+        EffectiveValue? effective)
     {
         _commit = commit;
         _lastKnown = new Dictionary<string, object?>(seed, StringComparer.OrdinalIgnoreCase);
-        _effective = effective ?? new Dictionary<string, double>();
+        _effective = effective;
 
         StackPanel panel = new() { Spacing = 8, MinWidth = 260, Padding = new Thickness(4) };
         panel.Children.Add(new TextBlock
@@ -78,11 +83,11 @@ internal sealed class TsFieldsEditor : UserControl
     }
 
     /// <summary>Builds the form, or an error placeholder when the seed is null (row missing / read fault) —
-    /// never a form with fabricated values. <paramref name="effective"/> optionally maps a sentinel column to
-    /// its resolved value (e.g. exposure → the template's default seconds) for the "use default (…)" label.</summary>
+    /// never a form with fabricated values. <paramref name="effective"/> optionally resolves a sentinel
+    /// column's current effective value (for the "use default (…)" label and the box after a revert).</summary>
     public static UIElement Create(
         TsTable table, string title, IReadOnlyDictionary<string, object?>? seed, CommitField commit,
-        IReadOnlyDictionary<string, double>? effective = null) =>
+        EffectiveValue? effective = null) =>
         seed is null
             ? new TextBlock
             {
@@ -159,19 +164,23 @@ internal sealed class TsFieldsEditor : UserControl
 
     // A numeric column with TS's defer-to-default sentinel (a reserved -1 meaning "resolve elsewhere"): rendered
     // as its meaning — a "use <default> checkbox" over the number box — never as the raw -1. Checked ⇔ the column
-    // holds the sentinel (box disabled, showing the resolved value when the caller knows it); unchecked ⇔ the
+    // holds the sentinel (box disabled, showing the resolved value when the caller can know it); unchecked ⇔ the
     // column holds the visible number. The sentinel is exempt from Min/Max clamping (writing it back must work).
     private FrameworkElement BuildSentinelNumber(TsField field, object? seeded)
     {
         double sentinel = field.Sentinel!.Value;
-        double? effective = _effective.TryGetValue(field.Column, out double e) ? e : null;
         bool isDefault = ToDouble(seeded) == sentinel;
+        // The provider is only trustworthy as "the default" while the column actually holds the sentinel — an
+        // overridden plan's effective value is the override itself, which must not masquerade as the default.
+        double? effective = isDefault ? _effective?.Invoke(field.Column) : null;
+
+        string LabelFor(double? value) => value is double v
+            ? $"{field.SentinelLabel} ({v:0.###}{(field.Unit is null ? "" : " " + field.Unit)})"
+            : field.SentinelLabel ?? "default";
 
         CheckBox useDefault = new()
         {
-            Content = effective is double ev
-                ? $"{field.SentinelLabel} ({ev:0.###}{(field.Unit is null ? "" : " " + field.Unit)})"
-                : field.SentinelLabel,
+            Content = LabelFor(effective),
             IsChecked = isDefault,
             MinWidth = 0,
         };
@@ -198,6 +207,10 @@ internal sealed class TsFieldsEditor : UserControl
             if (await _commit(field.Column, value))
             {
                 _lastKnown[field.Column] = value;
+                // The column now holds the sentinel, so the provider's value IS the default (the commit path
+                // resolved it) — show it in the box and label right away, no flyout relaunch needed.
+                effective = _effective?.Invoke(field.Column) ?? effective;
+                useDefault.Content = LabelFor(effective);
                 Revert(() => box.Value = effective ?? double.NaN);
             }
             else

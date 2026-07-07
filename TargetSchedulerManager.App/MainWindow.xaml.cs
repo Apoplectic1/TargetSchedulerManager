@@ -164,16 +164,14 @@ public sealed partial class MainWindow : Window
     {
         IReadOnlyDictionary<string, object?>? seed = await ViewModel.ReadTsFieldsAsync(table, key, title);
 
-        // Resolved value behind the exposure sentinel: only when the plan currently holds -1 is the row's
-        // effective seconds the TEMPLATE's default (an overridden plan's PlanSeconds is the override itself,
-        // which must not masquerade as "template default (…)").
-        Dictionary<string, double>? effective = null;
-        if (row is not null && row.PlanSeconds > 0 && seed is not null
-            && seed.TryGetValue("exposure", out object? rawExposure)
-            && System.Convert.ToDouble(rawExposure ?? 0.0, System.Globalization.CultureInfo.InvariantCulture) == -1)
-        {
-            effective = new() { ["exposure"] = row.PlanSeconds };
-        }
+        // Live resolver behind the exposure sentinel: the row's effective seconds. The commit path mirrors the
+        // row before the control re-consults this (SetPlanExposureAsync resolves the template default via the
+        // plan→template join), so after a revert-to-default the box/label show the real default immediately —
+        // and the control only treats it as "the default" while the column actually holds the sentinel.
+        TsFieldsEditor.EffectiveValue? effective = row is null ? null :
+            column => string.Equals(column, "exposure", StringComparison.OrdinalIgnoreCase) && row.PlanSeconds > 0
+                ? row.PlanSeconds
+                : null;
 
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
@@ -183,12 +181,9 @@ public sealed partial class MainWindow : Window
                 return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
             if (row is not null && string.Equals(column, "exposure", StringComparison.OrdinalIgnoreCase))
             {
-                // Mirror the Seconds cell: the rounded override, or the template default when reverting to
-                // the sentinel (known only when the plan sat at the default when the flyout opened).
+                // Seconds-cell mirror: the rounded override; a sentinel write (null) resolves via the db.
                 double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
-                int? mirror = v > 0 ? (int)System.Math.Round(v)
-                    : effective is not null && effective.TryGetValue("exposure", out double tpl) ? (int)tpl : null;
-                return await ViewModel.SetPlanExposureAsync(row, v, mirror);
+                return await ViewModel.SetPlanExposureAsync(row, v, v > 0 ? (int)System.Math.Round(v) : null);
             }
             return await ViewModel.SetTsFieldAsync(table, key, column, value, title);
         }, effective);
