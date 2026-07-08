@@ -19,8 +19,13 @@ write-back each load — user-verified against the rig same day). Editing shippe
 target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
 commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33 Actual-only, 6 mosaics
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
-**Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). Then the
-load-split (fast TS-only Reload against the cached scan — `ScanLibraryAsync`/`ResolveAsync` already split).
+**Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). The **load-split is
+RETIRED** (2026-07-08): the full scan (~2 s, ~97% of load) is acceptable even at 2× the library, so a
+cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt — every load keeps scanning
+fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
+seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
+`ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache. Leading candidate now:
+the write-back app action (primary-workflow priority, 2026-07-06).
 
 **▶ SHIPPED 2026-07-08 — sync-direction marks (`openspec/changes/edit-direction-marks`).** New leftmost
 grid column: one mark per row level — `←` BIRDWATCHER arrived different (new pull-time field differ
@@ -33,8 +38,8 @@ plan-key map covers plans folded into multi-plan rollups; a mosaic project edit 
 Tooltips: per-field old→new (leaves), direction counts (headers). One in-place sweep
 (`RefreshAllMarks` — never a collection rebuild) from load/edit/push/discard. Accepted gap: template edits
 mark no row (badge + push review still carry them). 159 App.Tests (21 new: differ/pull matrix, mask,
-resolver, VM lifecycle). **Awaiting the author's visual pass** (column alignment, glyphs, tooltips, live
-update).
+resolver, VM lifecycle). Visual pass clean; **archived 2026-07-08**
+(`openspec/changes/archive/2026-07-08-edit-direction-marks`; main spec seeded `edit-direction-marks`).
 
 **▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/archive/2026-07-07-cadence-safe-ts-edits`; library
 `76bbae0` + `c606ba5`).** Per-filter `enabled` (checkbox on 1:1 plan rows + plan flyout) and
@@ -464,7 +469,7 @@ TS target's counts).
   reconciliation report and goal-vs-actual summary.
 - 42 Catalog tests + 45 NINA tests pass.
 
-## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 ✅ editing surface shipped, load-split tail remains · M3 pending — see Status above)
+## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 ✅ editing surface shipped, load-split retired 2026-07-08 · M3 pending — see Status above)
 
 **Purpose.** TS remains the daily scheduler until IS exists; TCM is the bridge: view + edit TS's database with
 disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data

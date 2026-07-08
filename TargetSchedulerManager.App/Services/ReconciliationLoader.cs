@@ -27,13 +27,6 @@ public sealed record LoadResult(
 /// </summary>
 public static class ReconciliationLoader
 {
-    public static async Task<LoadResult> LoadAsync(
-        string libraryRoot, string tsDbPath, double toleranceDegrees, CancellationToken ct = default)
-    {
-        ImageLibraryReport scan = await ScanLibraryAsync(libraryRoot, ct).ConfigureAwait(false);
-        return await ResolveAsync(scan, tsDbPath, toleranceDegrees, ct).ConfigureAwait(false);
-    }
-
     /// <summary>The disk half of a load, separated so a caller can reuse one scan across two resolves —
     /// the post-load write-back stamps the local TS db, and the grid must then re-read it without paying
     /// for a second disk walk.</summary>
