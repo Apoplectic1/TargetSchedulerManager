@@ -1,6 +1,13 @@
-# edit-direction-marks — delta spec
+# edit-direction-marks Specification
 
-## ADDED Requirements
+## Purpose
+
+Per-row sync-direction marks in the grid's leftmost column: `→` for unpushed outbound writes (derived from
+the journal), `←` for inbound changes BIRDWATCHER delivered at this session's pull(s) (a pull-time field
+diff, session-sticky), `⇄` for both on one row — the user's warning that a push will overwrite a rig-side
+change. Headers roll up the union of their subtree's directions; tooltips carry old→new values.
+
+## Requirements
 
 ### Requirement: Every grid row carries one sync-direction mark
 The grid SHALL show a leftmost unlabeled 3-character column on every row level (target header, mosaic
@@ -145,8 +152,8 @@ tooltip SHALL summarize direction counts. Blank marks SHALL show no tooltip.
 - **THEN** the tooltip states both direction counts
 
 ### Requirement: Sessions without a pull carry no inbound marks
-When no pull runs in a session (BIRDWATCHER unreachable, or Continue-local chosen at the dirty-open
-prompt), no `←` SHALL appear; outbound marks SHALL work unchanged. TSM SHALL NOT read the remote db to
+No `←` SHALL appear when no pull runs in a session (BIRDWATCHER unreachable, or Continue-local chosen
+at the dirty-open prompt); outbound marks SHALL work unchanged. TSM SHALL NOT read the remote db to
 compute inbound state outside a pull.
 
 #### Scenario: Offline session

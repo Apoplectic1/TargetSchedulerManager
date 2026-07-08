@@ -52,7 +52,7 @@
       header row column 0 stays empty.
 - [x] 4.2 Mark `TextBlock` centered at column 0 in the three row templates: `{x:Bind MarkGlyph,
       Mode=OneWay}` + `ToolTipService.ToolTip` bound to `MarkTooltip` (no tooltip when blank).
-- [ ] 4.3 Run the app (user verifies visually per the run/screenshot rule): alignment across all row
+- [x] 4.3 Run the app (user verifies visually per the run/screenshot rule): alignment across all row
       kinds, mark centering, glyph rendering (U+2190/U+2192/U+21C4), tooltips, live update on edit,
       collapse behavior after push.
 
