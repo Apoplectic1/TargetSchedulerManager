@@ -6,6 +6,16 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-07-08 — "Desired ≠ NINA" on M27 - Dumbell is the alias fold, not drift (user: leave it).**
+Visual-pass observation (USER_OBS f818): TSM showed H/O/S Desired 298 where NINA's editor shows 169.
+Both are right — the row folds the catalog's one alias pair (`aliases=1` every load): TS target **M27**
+(Galaxies, enabled, desired 169×3 + Stars 33) + TS target **Dumbell** (Nebulae - Above 45, **disabled**,
+desired 129×3 + Stars 32) sum to 298/65; the TS column's 16 = 8+8 likewise. NINA's editor shows one
+target at a time, so the two views can never agree on a folded row. The `×2` Plans cell + amber `alias`
+badge mark exactly this. Note the fold sums a *disabled* twin's goals into Desired/Hours — user decided
+2026-07-08: **leave as-is** (the badge explains it; retiring the Dumbell twin in NINA remains the
+no-code cleanup if it ever grates).
+
 **2026-07-07 — exposure 0 is literal; TSM's two `> 0` filters were the leftovers.** The Library
 adjudicated exposure-0 against the TS source (`d26b75e` in `..\Library`: the planner defers only on
 `!= -1`, so 0 = a literal zero-second exposure). TSM had two filters still encoding "non-positive =
