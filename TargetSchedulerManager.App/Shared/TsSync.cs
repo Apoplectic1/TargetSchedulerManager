@@ -106,6 +106,10 @@ internal sealed class TsSync
 
     public TsJournal Journal { get; }
 
+    /// <summary>The session's inbound set (what BIRDWATCHER changed relative to what this install last saw),
+    /// fed by every pull's diff and masked by write-back stamps — the ← half of the grid's direction marks.</summary>
+    public TsInboundStore Inbound { get; } = new();
+
     /// <summary>Unpushed local writes exist (journal non-empty) — derived, never a stored flag.</summary>
     public bool IsDirty => !Journal.IsEmpty;
 
@@ -159,28 +163,45 @@ internal sealed class TsSync
     /// </summary>
     public void Pull(TsDbStat probe)
     {
-        using SqliteConnection source = new(new SqliteConnectionStringBuilder
+        // Inbound-diff half 1: what the local copy holds now IS "what the user last saw" — snapshot it before
+        // the backup overwrites it. A first-ever pull has nothing previously seen, so it diffs nothing.
+        Dictionary<TsTable, Dictionary<string, Dictionary<string, string?>>>? before =
+            File.Exists(LocalPath) ? TsInboundDiff.Snapshot(LocalPath) : null;
+
+        using (SqliteConnection source = new(new SqliteConnectionStringBuilder
         {
             DataSource = RemotePath,
             Mode = SqliteOpenMode.ReadOnly,
             Pooling = false,
-        }.ToString());
-        using SqliteConnection destination = new(new SqliteConnectionStringBuilder
+        }.ToString()))
+        using (SqliteConnection destination = new(new SqliteConnectionStringBuilder
         {
             DataSource = LocalPath,
             Mode = SqliteOpenMode.ReadWriteCreate,   // first run may have no local copy yet
             Pooling = false,
-        }.ToString());
-        source.Open();
-        destination.Open();
-        // The sidecar rule forces a pull exactly when NINA is mid-transaction — give the backup's lock
-        // acquisition the same patience the reader/writer get instead of failing on the first SQLITE_BUSY.
-        using (SqliteCommand pragma = source.CreateCommand())
+        }.ToString()))
         {
-            pragma.CommandText = "PRAGMA busy_timeout = 2000;";
-            pragma.ExecuteNonQuery();
+            source.Open();
+            destination.Open();
+            // The sidecar rule forces a pull exactly when NINA is mid-transaction — give the backup's lock
+            // acquisition the same patience the reader/writer get instead of failing on the first SQLITE_BUSY.
+            using (SqliteCommand pragma = source.CreateCommand())
+            {
+                pragma.CommandText = "PRAGMA busy_timeout = 2000;";
+                pragma.ExecuteNonQuery();
+            }
+            source.BackupDatabase(destination);
         }
-        source.BackupDatabase(destination);
+
+        // Half 2: diff the fresh copy against the pre-pull snapshot and union into the session's inbound set
+        // (sticky — a push's closing pull diffs near-empty and leaves the open's entries standing).
+        if (before is not null)
+        {
+            List<TsInboundChange> arrived = TsInboundDiff.Diff(before, TsInboundDiff.Snapshot(LocalPath));
+            Inbound.Apply(arrived);
+            if (arrived.Count > 0)
+                Log.Info($"PULL inbound diff: {arrived.Count} field(s) arrived changed from BIRDWATCHER");
+        }
 
         _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, DateTimeOffset.Now));
         Log.Info($"PULL {RemotePath} -> {LocalPath} ({probe.Length:N0} bytes, remote mtime {probe.LastWriteUtc:u})");
@@ -190,9 +211,17 @@ internal sealed class TsSync
     public void RecordEdit(TsTable table, string key, string column, object? value, string? old, string label) =>
         Journal.Append(TsEditKind.Manual, table, key, column, value, old, label);
 
-    /// <summary>Journals one verified write-back column stamp (the post-load write-back step calls this).</summary>
-    public void RecordWriteBack(string tsPlanKey, string column, object? value, string? old, string label) =>
+    /// <summary>Journals one verified write-back column stamp (the post-load write-back step calls this).
+    /// An <c>acquired</c>/<c>accepted</c> stamp also masks the plan's inbound actuals: disk supersedes the
+    /// rig's totals, so the row's mark reads → (never ⇄, never a stale ← after push). A desired ratchet does
+    /// not mask — a rig-side goal change stays a visible inbound fact.</summary>
+    public void RecordWriteBack(string tsPlanKey, string column, object? value, string? old, string label)
+    {
         Journal.Append(TsEditKind.WriteBack, TsTable.ExposurePlan, tsPlanKey, column, value, old, label);
+        if (column.Equals("acquired", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("accepted", StringComparison.OrdinalIgnoreCase))
+            Inbound.MaskPlanActuals(tsPlanKey);
+    }
 
     /// <summary>Opens the write-back applier on the local db (the post-load stamping step).</summary>
     public ITsWriteBackApplier CreateLocalWriteBackApplier() => _applierFactory(LocalPath);

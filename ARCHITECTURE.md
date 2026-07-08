@@ -156,6 +156,40 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   sticky-fall, and the post-write `ClearAllPools` SMB workaround. Edits can no longer fail from BIRDWATCHER
   dropping because they never travel over SMB.
 
+## Sync-direction marks (grid column 0; shipped 2026-07-08)
+
+Every row level (target header / mosaic panel / filter row / rollup detail line) carries one mark in the new
+leftmost 24 px column: **`←`** = inbound (BIRDWATCHER arrived different at a pull), **`→`** = outbound
+(unpushed journal writes — manual edits *and* write-back stamps), **`⇄`** = both, blank = clean. Tooltips:
+per-field `old → new` lines on leaves, direction counts on headers. Spec:
+`openspec/specs/edit-direction-marks/`.
+
+- **Outbound is the journal, re-read.** No new state: a row marks `→` iff a journal entry's (table, key)
+  matches its `PlanTsKey` / `TsTargetKey` / `ProjectTsKey` — so marks survive restarts (the journal sidecar
+  persists) and a partial push's retained failures keep exactly their rows marked.
+- **Inbound is a pull-time field diff** (`Shared/TsInboundDiff`): `TsSync.Pull` — the single choke point all
+  four pull paths share (open / Pull-now / discard-and-pull / the closing pull after push) — snapshots the
+  local db's diffable fields before the backup overwrites it, diffs against the fresh copy, and unions into a
+  **session-sticky in-memory store** (`TsSync.Inbound`). The diffed set is authored (the columns TSM displays
+  or edits — the `TsEditableSchema` convention), never `PRAGMA`-discovered, so TS-internal bookkeeping can't
+  produce noise. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
+  have no `←`; a remotely-added row reports one "new row" entry; deletions report nothing.
+- **The actuals mask:** when write-back stamps a plan's `acquired`/`accepted`, `RecordWriteBack` drops those
+  columns from the plan's inbound entries — disk supersedes the rig's totals, so the row reads `→` (never
+  `⇄`) and goes clean after push, not stale-`←`. `desired` is deliberately not masked: a rig-side goal change
+  coexisting with a ratchet raise is a genuine `⇄`.
+- **Headers roll up the union of their subtree's directions** (`Services/SyncMarks`): own target key +
+  project key (group header / mosaic parent only — a project edit never lights panels) + every plan key of
+  their target ids from the retained graph (`CatalogGraph.Plans`) — the graph map matters because a plan
+  folded into a multi-plan rollup row carries no row-level key — plus the plan keys visible child rows do
+  carry. Sticky inbound means a push collapses `⇄` to `←` (the rig's change stays visible) rather than
+  wiping the overnight info.
+- **One in-place sweep** (`MainViewModel.RefreshAllMarks`): rebuilds the resolver from journal + inbound +
+  graph and re-applies every mark via PropertyChanged (raise-on-change only, never a collection rebuild — the
+  scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, a push without a reload,
+  and Discard. Known gap (accepted): exposure-template edits mark no row — templates have no grid row; the
+  badge and push review still carry them.
+
 ## TS write-back (engine built 2026-06-08; app action shipped 2026-07-06)
 
 `TargetSchedulerWriter` pushes disk-derived counts back into TS so its planner reflects ACTUAL. The engine

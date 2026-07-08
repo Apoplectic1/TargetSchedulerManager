@@ -8,7 +8,7 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-07)
+## Status — pick up here (2026-07-08)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -21,6 +21,20 @@ commit). Real data: 77 disk × 102 TS targets → 44 Both / 25 Planned-only / 33
 (28/10/7 panels), 783 grid rows. Match tolerance **0.5°** (validated 2026-06-04).
 **Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). Then the
 load-split (fast TS-only Reload against the cached scan — `ScanLibraryAsync`/`ResolveAsync` already split).
+
+**▶ SHIPPED 2026-07-08 — sync-direction marks (`openspec/changes/edit-direction-marks`).** New leftmost
+grid column: one mark per row level — `←` BIRDWATCHER arrived different (new pull-time field differ
+`TsInboundDiff`: `TsSync.Pull` snapshots the authored displayed/editable field set before the backup, diffs
+after, unions into a session-sticky in-memory `TsInboundStore`) · `→` unpushed journal writes (manual +
+write-back; pure journal re-read, restart-safe) · `⇄` both · blank clean. Actuals mask: an
+acquired/accepted write-back stamp drops those inbound entries (disk supersedes the rig's totals → `→`,
+clean after push; `desired` never masked). Headers union their subtree via `Services/SyncMarks` — graph
+plan-key map covers plans folded into multi-plan rollups; a mosaic project edit marks the parent only.
+Tooltips: per-field old→new (leaves), direction counts (headers). One in-place sweep
+(`RefreshAllMarks` — never a collection rebuild) from load/edit/push/discard. Accepted gap: template edits
+mark no row (badge + push review still carry them). 159 App.Tests (21 new: differ/pull matrix, mask,
+resolver, VM lifecycle). **Awaiting the author's visual pass** (column alignment, glyphs, tooltips, live
+update).
 
 **▶ SHIPPED 2026-07-07 — cadence-safe TS edits (Part 4; `openspec/changes/archive/2026-07-07-cadence-safe-ts-edits`; library
 `76bbae0` + `c606ba5`).** Per-filter `enabled` (checkbox on 1:1 plan rows + plan flyout) and

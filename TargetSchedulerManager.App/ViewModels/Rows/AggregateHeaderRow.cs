@@ -88,6 +88,26 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     /// <summary>Segoe Fluent Icons: ChevronDown when expanded, ChevronRight when collapsed.</summary>
     public string ChevronGlyph => _isExpanded ? "\uE70D" : "\uE76C";
 
+    private string _markGlyph = "";
+    private string? _markTooltip;
+
+    /// <summary>The header's rolled-up sync-direction mark \u2014 the union of its subtree's directions
+    /// (\u2190 inbound / \u2192 unpushed / \u21C4 both / empty), shown in column 0.</summary>
+    public string MarkGlyph => _markGlyph;
+
+    /// <summary>Direction-count summary behind the mark; null when unmarked (no empty tooltip box).</summary>
+    public string? MarkTooltip => _markTooltip;
+
+    /// <summary>Applies a resolved mark in place (the marks sweep) \u2014 raises only on a real change.</summary>
+    public void ApplyMark(string glyph, string? tooltip)
+    {
+        if (_markGlyph == glyph && _markTooltip == tooltip) return;
+        _markGlyph = glyph;
+        _markTooltip = tooltip;
+        Raise(nameof(MarkGlyph));
+        Raise(nameof(MarkTooltip));
+    }
+
     public string SourceText => Source switch
     {
         RowSource.Both => "Both",

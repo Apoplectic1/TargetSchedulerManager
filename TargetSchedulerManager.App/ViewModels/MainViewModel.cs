@@ -390,6 +390,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         if (result.PulledFresh)
             await LoadAsync(PullPolicy.Never);   // the closing pull changed the local db — re-read it
+        else
+            RefreshAllMarks();   // partial failure / mid-push edits: the journal changed without a reload
         StatusText = DescribePush(result);
     }
 
@@ -472,6 +474,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             case EditOutcome.Applied:
                 RaiseSyncState();
+                RefreshAllMarks();   // the journal gained an entry — the row's → must appear in place
                 return true;
             case EditOutcome.Refused refused:
                 StatusText = $"can't change {label}: {RefusalText(refused.Reason)}";
@@ -621,6 +624,70 @@ public sealed class MainViewModel : INotifyPropertyChanged
             group?.Panels?.FirstOrDefault(p => p.Children.Contains(row))?.Recompute();
     }
 
+    /// <summary>
+    /// Re-resolves every row's direction mark in place (never replaces the Rows collection — scroll position
+    /// and in-progress edits survive; ApplyMark raises only on real change). One sweep, one code path: every
+    /// journal/inbound mutation route calls it — load/filter passes, applied edits, pushes without a reload,
+    /// discards. Cheap: keyed dictionary lookups over a few hundred rows.
+    /// Header resolution unions the graph's plan-key map (folded multi-plan cells carry no row key) with the
+    /// plan keys the visible child rows do carry (covers graph-less states); panels pass no project key —
+    /// a project edit marks the group header / mosaic parent only.
+    /// </summary>
+    internal void RefreshAllMarks()
+    {
+        SyncMarks marks = SyncMarks.Build(Sync.Journal, Sync.Inbound, _lastLoad?.Graph.Plans ?? []);
+        foreach (TargetGroupRow group in _groups)
+        {
+            if (group.Panels is { } panels)
+            {
+                foreach (PanelGroupRow panel in panels)
+                {
+                    string[] panelTargetKeys = panel.TsTargetKey is string pk ? [pk] : [];
+                    (string glyph, string? tooltip) = marks.ForKeys(
+                        panelTargetKeys, projectKey: null, [panel.TargetId], PlanKeysOf(panel.Children));
+                    panel.ApplyMark(glyph, tooltip);
+                }
+                (string g, string? t) = marks.ForKeys(
+                    [.. panels.Select(p => p.TsTargetKey).OfType<string>()],
+                    group.ProjectTsKey,
+                    [.. panels.Select(p => p.TargetId)],
+                    PlanKeysOf(group.Children));
+                group.ApplyMark(g, t);
+            }
+            else
+            {
+                string[] targetKeys = group.TsTargetKey is string tk ? [tk] : [];
+                Guid[] targetIds = group.TargetId is Guid id ? [id] : [];
+                (string g, string? t) = marks.ForKeys(
+                    targetKeys, group.ProjectTsKey, targetIds, PlanKeysOf(group.Children));
+                group.ApplyMark(g, t);
+            }
+
+            foreach (ReconciliationRow row in group.Children)
+            {
+                (string g, string? t) = marks.ForPlan(row.PlanTsKey);
+                row.ApplyMark(g, t);
+                foreach (ReconciliationRow detail in row.Detail ?? [])
+                {
+                    (string dg, string? dt) = marks.ForPlan(detail.PlanTsKey);
+                    detail.ApplyMark(dg, dt);
+                }
+            }
+        }
+
+        static IEnumerable<string> PlanKeysOf(IReadOnlyList<ReconciliationRow> rows)
+        {
+            foreach (ReconciliationRow r in rows)
+            {
+                if (r.PlanTsKey is string key)
+                    yield return key;
+                foreach (ReconciliationRow d in r.Detail ?? [])
+                    if (d.PlanTsKey is string detailKey)
+                        yield return detailKey;
+            }
+        }
+    }
+
     private void ApplyFilters()
     {
         IEnumerable<ReconciliationRow> q = _allRows;
@@ -679,6 +746,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // expands to the remembered state, then flatten the groups into the bound list.
         _tree.RestoreRollupExpansion(groups);
         Rows = new ObservableCollection<object>(_tree.Flatten(groups));
+
+        RefreshAllMarks();   // fresh header objects (and possibly fresh leaves) need their marks resolved
 
         // One line per applied filter state (incl. each search keystroke) — between USER_OBS markers this
         // is the trail of what the user was looking at. TSM_DIAG-gated; zero overhead when off.

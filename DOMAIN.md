@@ -33,8 +33,15 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 
 ## Columns (current)
 
-`[enable] · Source · Target · Project · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
+`[mark] · [enable] · Source · Target · Project · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
 
+- **Mark** (column 0, 24 px, unlabeled): the sync-direction mark on every row level — `←` = arrived changed
+  from BIRDWATCHER (pull diff, sticky for the session) · `→` = unpushed local writes (journal: manual edits
+  *and* write-back stamps) · `⇄` = both · blank = clean. Headers roll up the union of their subtree; a mosaic
+  project edit marks the **parent only**, never panels; disk-plane leaves are structurally blank (marks key on
+  the plan; target/project changes mark the header). Tooltip: per-field `old → new` on leaves, direction
+  counts on headers. Cleared: `→` by Push/Discard; `←` at the next open's pull. (Mechanics:
+  `ARCHITECTURE.md` → *Sync-direction marks*.)
 - **Desired** = TS goal · **TS** = TS's recorded `acquired` (the count TS schedules on with the grader off) ·
   **Actual** = on-disk frames (ground truth). TS `accepted` is **not** a column — write-back keeps it ==
   acquired; a drift shows as an `acc≠acq` badge. (Full rationale: `ARCHITECTURE.md` → *Grid count columns*.)

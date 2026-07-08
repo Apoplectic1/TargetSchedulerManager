@@ -197,6 +197,26 @@ public sealed class ReconciliationRow(
 
     private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
+    private string _markGlyph = "";
+    private string? _markTooltip;
+
+    /// <summary>The sync-direction mark (← inbound / → unpushed / ⇄ both / empty) shown in column 0.</summary>
+    public string MarkGlyph => _markGlyph;
+
+    /// <summary>Old→new lines behind the mark; null when unmarked (no empty tooltip box).</summary>
+    public string? MarkTooltip => _markTooltip;
+
+    /// <summary>Applies a resolved mark in place (the marks sweep) — raises only on a real change, so an
+    /// unchanged grid repaints nothing.</summary>
+    public void ApplyMark(string glyph, string? tooltip)
+    {
+        if (_markGlyph == glyph && _markTooltip == tooltip) return;
+        _markGlyph = glyph;
+        _markTooltip = tooltip;
+        Raise(nameof(MarkGlyph));
+        Raise(nameof(MarkTooltip));
+    }
+
     /// <summary>Expansion state of a rollup's disclosure; owned by the view-model (set restored per pass).</summary>
     public bool IsExpanded
     {
