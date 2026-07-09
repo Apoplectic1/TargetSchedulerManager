@@ -170,6 +170,25 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
   local edits; same review body as Push….
 - **Reload (rescan)** keeps meaning "rescan disk + re-read local" — it never pulls.
 
+## TS authoring conventions (user-side; decided 2026-07-08)
+
+The charter behind all of them: **TS is a picker** — given a menu of targets and conditions, choose, order,
+shoot; everything else in TS is noise here. So: TS's *membership* (which targets/projects exist) is the user's
+planning intent — TSM never adds or removes it unasked; TS's *facts about members* (names, counts) mirror disk.
+
+- **One name per sky position** (within the 0.5° match tolerance), spelled the same in TS and as the disk
+  directory's catalog token (`IC 1795`, not `FishHead` — name validation is token-based; concatenations fail).
+  Deliberate second names for one object go through the adjudicated **alias fold** only (M27 + Dumbell).
+- **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
+  seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
+- Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
+  slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges)
+  but has no structural edit verbs (resolver rejected 2026-07-08; see
+  `docs/2026-07-08-resolver-rejection-isp-lane.md` for why). `desired` is likewise hand-maintained in TS.
+- TS's `acquiredimage`/`imagedata`/`flathistory` are disposable noise (grading lives in PixInsight; disk is the
+  graded truth); TSM never reads or writes them.
+- TS structure reference (tables, columns, identity semantics): **`TS-SCHEMA.md`**.
+
 ## Chrome
 
 - **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · Templates… · summary line.

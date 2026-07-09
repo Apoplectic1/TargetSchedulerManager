@@ -24,8 +24,30 @@ RETIRED** (2026-07-08): the full scan (~2 s, ~97% of load) is acceptable even at
 cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt — every load keeps scanning
 fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
 seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
-`ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache. Leading candidate now:
-the write-back app action (primary-workflow priority, 2026-07-06).
+`ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache.
+**Next:** the **printable ambiguity report** (the DECIDED block below — what the "write-back app action"
+became), then design the disk-matcher work; strategic lane = the ISP transition (lift/regenerate + intent
+store).
+
+**▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; ISP lane opens** (full why:
+`docs/2026-07-08-resolver-rejection-isp-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).
+The explored two-stage TS/disk **resolver edit-surface is REJECTED** — real caseload was 7 held cells = 2
+hand-fixes (rename `FishHead`→`IC 1795`; delete Swan's stray H900 plan 1040), repairs self-persist, NINA's TS
+UI is the schema-correct editor upstream maintains, and TS is in its retirement lane. TSM keeps the matcher +
+count write-back + existing field editing; `desired` and all structural fixes are hand-edits on BIRDWATCHER.
+Two authoring conventions adopted (one name per position; one plan per filter+purpose+seconds per target) →
+tray provably empty; a non-zero tray = a slipped convention. **Next TSM change: the printable ambiguity
+report** — every TS + disk ambiguity, what + why, printable to walk to BIRDWATCHER (detection already computed:
+report issues + manual tray + notes; add TS-internal checks the grid can't badge — same-key plans, planned-only
+twins, duplicate template names). No adjudication store unless a permanent exception someday exists.
+**Strategic lane (ISP):** intent inverts — an **authored** plan store (working name `Catalog.db`; plan-db vs
+union fork open, leaning plan-db + fresh-scan join) becomes permanent truth; TS becomes a disposable projection;
+**LCM = "TSM but for ISP"**. Named requirement: **TS ⇄ ISP migration** — lift (read-only) + back-projection =
+bulk-regenerate a fresh `scheduler.db` ("just in case" insurance), invariant `lift(project(store)) == store`.
+Parked roadmap item: **"Tonight"** — the sophisticated enable (TSM computes tonight's visible set via
+`Astronomy.Core` + `.hrz` horizon, sweeps `target.active`; rejected shape: a populated Tonight project =
+institutionalized duplicates). Deferred discussion: promoting ~33 disk-only dirs (centroid becomes the authored
+coordinate).
 
 **▶ SHIPPED 2026-07-08 — sync-direction marks (`openspec/changes/edit-direction-marks`).** New leftmost
 grid column: one mark per row level — `←` BIRDWATCHER arrived different (new pull-time field differ

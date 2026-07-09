@@ -27,7 +27,8 @@ under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` 
 Reference docs (current truth — update in the same commit as the code):
 - **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants.
 - **`ROADMAP.md`** — phased plan + current status + a Recently-shipped digest.
-- **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions.
+- **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions (incl. the TS authoring conventions).
+- **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.
 - **`VERIFICATION.md`** — how to build, run, test, and verify a change.
 
 Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings).
