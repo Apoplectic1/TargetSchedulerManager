@@ -191,7 +191,10 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 
 ## Chrome
 
-- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · Templates… · summary line.
+- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · Templates… · Ambiguities… ·
+  summary line. Ambiguities… (enabled once a load exists) writes a dated printable Markdown report of every
+  TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`
+  and opens it; the status line carries `· N ambiguities` when the tripwire is non-zero.
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
 - **Status bar:** library path + sync/write-back notes + load time.

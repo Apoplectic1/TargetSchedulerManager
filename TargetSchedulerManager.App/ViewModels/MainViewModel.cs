@@ -199,7 +199,86 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Test seam: install a load result directly (the template surface reads its graph).</summary>
-    internal void SetLoadForTest(LoadResult load) => _lastLoad = load;
+    internal void SetLoadForTest(LoadResult load)
+    {
+        _lastLoad = load;
+        RefreshAmbiguities();
+    }
+
+    // ---- Ambiguity report (the tripwire's detail — decision 2026-07-08: detect here, fix by hand in TS) ----
+
+    private AmbiguityReportResult? _ambiguities;
+
+    /// <summary>Action items from the last load's checks (0 before a load). The tripwire number.</summary>
+    public int AmbiguityCount => _ambiguities?.ActionCount ?? 0;
+
+    /// <summary>The Ambiguities… button gates on a completed load (the report reads its graph).</summary>
+    public bool CanShowAmbiguities => _ambiguities is not null;
+
+    /// <summary>Status-line fragment: silent at zero — the tripwire only speaks when tripped.</summary>
+    internal string AmbiguitySuffix =>
+        _ambiguities is { ActionCount: > 0 } a
+            ? $"  ·  {a.ActionCount} ambiguit{(a.ActionCount == 1 ? "y" : "ies")}"
+            : "";
+
+    /// <summary>Rebuilds the report from the retained load (pure, ~ms — re-plans write-back in memory; no
+    /// disk rescan). Runs after every load and on the test seam so the count and the file always agree.</summary>
+    private void RefreshAmbiguities()
+    {
+        _ambiguities = _lastLoad is { } load
+            ? AmbiguityReport.Build(
+                load.Graph, load.Report,
+                WriteBackPlanner.Plan(load.Graph.Targets, load.Graph.Plans, load.Graph.Templates,
+                                      load.Graph.InventoryFilters, load.Report),
+                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees)
+            : null;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AmbiguityCount)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanShowAmbiguities)));
+    }
+
+    /// <summary>Writes the report as a dated Markdown file (default: the app's local Reports folder) and
+    /// opens it in the default handler. Launch failure is non-fatal — the file stays, the status line says
+    /// where. Returns the path, or null when nothing was written.</summary>
+    internal string? WriteAmbiguityReport(string? directory = null, bool open = true)
+    {
+        if (_ambiguities is not { } ambig)
+        {
+            StatusText = "no load yet — nothing to report";
+            return null;
+        }
+        try
+        {
+            string dir = directory ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "TargetSchedulerManager", "Reports");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, $"ambiguities-{DateTime.Now:yyyyMMdd-HHmm}.md");
+            File.WriteAllText(path, ambig.Markdown);
+            Log.Info($"AMBIGUITY report written: {path} ({ambig.ActionCount} action item(s))");
+
+            if (open)
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("ambiguity report launch failed", ex);
+                    StatusText = $"report written (open it yourself): {path}";
+                    return path;
+                }
+            }
+            StatusText = $"ambiguity report — {ambig.ActionCount} action item(s): {path}";
+            return path;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("ambiguity report failed", ex);
+            StatusText = $"ambiguity report failed: {ex.Message} — see tsm.log";
+            return null;
+        }
+    }
 
     /// <summary>The loaded graph's templates for the Templates… picker: name-ordered, with used-by counts
     /// from the plan edges — zero-use templates included (they have no rows to anchor from). Empty before a
@@ -273,7 +352,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             _lastLoad = result;
             _allRows = result.Rows;
-            StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}" +
+            RefreshAmbiguities();
+            StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}{AmbiguitySuffix}" +
                 $"  ·  loaded in {sw.Elapsed.TotalSeconds:0.0} s";
             ApplyFilters();
         }
@@ -281,6 +361,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             Log.Error("reconciliation load failed", ex);
             _lastLoad = null;
+            RefreshAmbiguities();
             _allRows = [];
             SummaryText = "";
             StatusText = $"load failed: {ex.Message}";

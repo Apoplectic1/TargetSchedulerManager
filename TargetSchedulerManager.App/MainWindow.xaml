@@ -290,6 +290,11 @@
                  plan rows also offer "Edit template…" for the template behind that plan. -->
             <Button Content="Templates…" Click="Templates_Click" MinWidth="0" Opacity="0.85"
                     ToolTipService.ToolTip="Edit an exposure template (shared — an edit affects every plan using it)"/>
+            <!-- The tripwire's detail (decision 2026-07-08): a printable report of every TS/disk ambiguity
+                 with its hand-fix; TSM detects, edits happen in NINA's TS UI. -->
+            <Button Content="Ambiguities…" Click="Ambiguities_Click" MinWidth="0" Opacity="0.85"
+                    IsEnabled="{x:Bind ViewModel.CanShowAmbiguities, Mode=OneWay}"
+                    ToolTipService.ToolTip="Write + open a printable report of TS/disk ambiguities (what · why · the hand fix in the TS UI)"/>
             <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
         </StackPanel>

@@ -25,9 +25,21 @@ cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt
 fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
 seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
 `ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache.
-**Next:** the **printable ambiguity report** (the DECIDED block below — what the "write-back app action"
-became), then design the disk-matcher work; strategic lane = the ISP transition (lift/regenerate + intent
-store).
+**Next:** user's BIRDWATCHER hand-fix pass (rename FishHead → IC 1795; delete Swan plan 1040) with the fresh
+ambiguity report in hand → expect the tripwire at 0 → archive `ts-ambiguity-report` after the visual pass.
+Then: design the disk-matcher work; strategic lane = the ISP transition (lift/regenerate + intent store).
+
+**▶ SHIPPED 2026-07-08 — printable ambiguity report (`openspec/changes/ts-ambiguity-report`).** The tripwire's
+detail (what the "write-back app action" became — DECIDED block below): toolbar **Ambiguities…** writes a dated
+Markdown report to `%APPDATA%\TargetSchedulerManager\Reports\` and opens it — every TS/disk ambiguity as
+what · why · **the exact hand fix for NINA's TS UI** (TS integer Ids included), sections grouped by fix
+location, explicit `✓ none` clean markers, alias folds + unplanned-frames as info (never action items).
+`Services/AmbiguityReport` = pure builder over the retained graph/report + a fresh in-memory
+`WriteBackPlanner.Plan`; identity-held write-back cells fold into their target's one item. Three new
+TS-internal checks the grid can't badge: same-key plans across ALL TS-sourced targets (de-duped against held
+cells), planned-only twins (same name or inside-tolerance pair — previously invisible), duplicate template
+names per profile. Status line: `· N ambiguities` when non-zero. 174 App.Tests (15 new). **Awaiting the
+author's run** (button, report content vs the known FishHead/Swan/M27 items, print).
 
 **▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; ISP lane opens** (full why:
 `docs/2026-07-08-resolver-rejection-isp-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).

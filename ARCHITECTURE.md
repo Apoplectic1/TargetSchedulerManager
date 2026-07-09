@@ -239,3 +239,8 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
   writes with old→new and flags, manual groups, unplanned buckets, verify results — to the diagnostics log
   (the standing M2 rule: the writer logs every TS write; today that is `tsm.log` under
   `%APPDATA%\TargetSchedulerManager\Logs\`).
+- **Held decisions surface as the ambiguity report** (`Services/AmbiguityReport`, 2026-07-08): a pure builder
+  over the retained graph/report + a fresh in-memory `WriteBackPlanner.Plan` rolls every held cell, identity
+  flag, and TS-internal check (same-key plans across all TS-sourced targets, planned-only twins, duplicate
+  template names) into one printable Markdown file with hand-fix instructions — the tripwire's detail. TSM
+  never resolves these itself (resolver rejected 2026-07-08; fixes are hand-edits in NINA's TS UI).

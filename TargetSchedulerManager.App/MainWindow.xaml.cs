@@ -47,6 +47,9 @@ public sealed partial class MainWindow : Window
 
     private void PullNow_Click(object sender, RoutedEventArgs e) => _ = ViewModel.LoadAsync(PullPolicy.Force);
 
+    // Write + open the printable ambiguity report (fixes happen by hand in NINA's TS UI, never here).
+    private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
+
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
         ViewModel.SearchText = SearchBox.Text;
 
