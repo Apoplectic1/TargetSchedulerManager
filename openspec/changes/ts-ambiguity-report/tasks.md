@@ -60,3 +60,5 @@
       catalog-token rename (Rosette P4 → "Rename to `Mosaic`"); regression test.
 - [x] 5.4 Unplanned-frames info compresses to one line per target (141 info lines on real data).
 - [x] 5.5 Spec updated to the corrected contract; 176 tests green.
+- [x] 5.6 TS-UI-shaped layout: target headline + one indented row per plan/bucket (held cells, same-key
+      items, unplanned-frames info) instead of joined single lines.

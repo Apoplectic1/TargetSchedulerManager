@@ -106,8 +106,8 @@ public class AmbiguityReportTests
 
         Assert.Equal(1, r.ActionCount);                            // manual item wins; same-key check de-dupes
         Assert.Equal(1, CountOf(r.Markdown, "Swan · H @900s"));
-        Assert.Contains("H900 (desired 64, acq 8/acc 9)", r.Markdown);   // template name, never a raw plan Id
-        Assert.Contains("H900 (desired 1, acq 1/acc 1)", r.Markdown);
+        Assert.Contains("\n  - H900 — desired 64, acq 8 / acc 9", r.Markdown);   // one indented row per plan,
+        Assert.Contains("\n  - H900 — desired 1, acq 1 / acc 1", r.Markdown);    // template-named — the TS-UI shape
         Assert.DoesNotContain("Id 299", r.Markdown);
         Assert.Contains("disk has 8 frame(s)", r.Markdown);
     }

@@ -114,8 +114,9 @@ internal static class AmbiguityReport
         foreach (ManualGroup g in plan.Manual.Where(g => g.Reason is ManualReason.MultiPlan or ManualReason.DuplicateFold or ManualReason.NoMatchingPlan))
         {
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
-            string detail = string.Join(" · ", g.Plans.Select(p =>
-                $"{PlanLabel(p.TsExposurePlanId)} (desired {p.Desired}, acq {p.CatalogAcquired}/acc {p.CatalogAccepted})"));
+            // One indented row per plan — the shape the TS UI shows under a target.
+            string detail = string.Concat(g.Plans.Select(p =>
+                $"\n  - {PlanLabel(p.TsExposurePlanId)} — desired {p.Desired}, acq {p.CatalogAcquired} / acc {p.CatalogAccepted}"));
             string fix = g.Reason switch
             {
                 ManualReason.DuplicateFold =>
@@ -128,8 +129,8 @@ internal static class AmbiguityReport
             };
             plans.Add(
                 $"**{ProjectOf(g.TargetId)}{g.TargetName} · {Cell(g.Filter, g.Purpose, g.Seconds)}** — " +
-                $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped).\n" +
-                $"  Plans: {detail}\n  {fix}");
+                $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped)." +
+                $"{detail}\n  {fix}");
         }
         plans.AddRange(SameKeyPlans(graph, report, targetById, templateById, ProjectOf, manualKeys));
 
@@ -151,7 +152,7 @@ internal static class AmbiguityReport
                 $"Alias fold: disk `{a.DiskDirectory}` ← TS names [{string.Join(" | ", a.TsTargetNames)}] — " +
                 $"treated as one object; counts write to every member. If unintended, consolidate in TS.");
         }
-        // Unplanned frames compress to one line per target — on real data these dominate the info section
+        // Unplanned frames group per target with one indented row per bucket — the TS-UI target→plans shape
         // (frames at durations no plan targets; write-back never creates plans, so they're pure notes).
         foreach (var g in plan.NeedsReconciliation
                      .Where(n => n.Kind == ReconcileNote.UnplannedFramesKind)
@@ -163,7 +164,8 @@ internal static class AmbiguityReport
                 int cut = n.Detail.IndexOf(" - no TS plan", StringComparison.Ordinal);
                 return cut > 0 ? n.Detail[..cut] : n.Detail;
             });
-            info.Add($"Unplanned frames: **{g.Key}** — {string.Join("; ", buckets)}.");
+            info.Add($"Unplanned frames: **{g.Key}**" +
+                     string.Concat(buckets.Select(b => $"\n  - {b}")));
         }
 
         int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count;
@@ -222,12 +224,12 @@ internal static class AmbiguityReport
         foreach (var g in groups.OrderBy(g => targetById.GetValueOrDefault(g.Key.TargetId)?.Name, StringComparer.OrdinalIgnoreCase))
         {
             Target? t = targetById.GetValueOrDefault(g.Key.TargetId);
-            string detail = string.Join(" · ", g.Select(x =>
-                $"{x.Template!.Name} (desired {x.Plan.DesiredCount}, acq {x.Plan.AcquiredCount}/acc {x.Plan.AcceptedCount})"));
+            string detail = string.Concat(g.Select(x =>
+                $"\n  - {x.Template!.Name} — desired {x.Plan.DesiredCount}, acq {x.Plan.AcquiredCount} / acc {x.Plan.AcceptedCount}"));
             string anchor = t?.Source == TargetSource.Planned ? " No disk anchor — TS-internal duplicate." : "";
             yield return
-                $"**{(t is null ? "?" : projectOf(t.Id))} › {t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
-                $"{g.Count()} plans share one key.{anchor}\n  Plans: {detail}\n" +
+                $"**{(t is null ? "" : projectOf(t.Id))}{t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
+                $"{g.Count()} plans share one key.{anchor}{detail}\n" +
                 $"  → Delete (or re-time) all but one — tell them apart by their desired/acquired counts in the TS UI.";
         }
     }
