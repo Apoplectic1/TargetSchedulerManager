@@ -42,9 +42,24 @@ public class AmbiguityReportTests
         AmbiguityReportResult r = Build(graph, report, plan);
 
         Assert.Equal(1, r.ActionCount);                            // one target = one fix; held cells fold in
-        Assert.Contains("**FishHead** (TS Id 41)", r.Markdown);
+        Assert.Contains("**FishHead** —", r.Markdown);
+        Assert.DoesNotContain("TS Id", r.Markdown);                 // target guids are meaningless at the rig
         Assert.Contains("Rename TS target `FishHead` → `IC 1795`", r.Markdown);
         Assert.Contains("2 filter-cell(s) held", r.Markdown);
+    }
+
+    [Fact]
+    public void NameMismatch_PanelPath_DescribesTokenDisagreement_NoBogusRename()
+    {
+        // Rosette-P4-shaped regression (real-data run 2026-07-08): a mismatch on a composite "mosaic/panel"
+        // path must not prescribe renaming to the mosaic prefix ("→ Rename to `Mosaic`").
+        AmbiguityReportResult r = Build(Graph(), Report(mismatches:
+            [new NameMismatch(null, "Rosette P4", "Mosaic - Rosette/Panel Center", null, 0.196)]), EmptyPlan());
+
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("claimed disk panel `Panel Center` of `Mosaic - Rosette`", r.Markdown);
+        Assert.Contains("confirm which panel this really is", r.Markdown);
+        Assert.DoesNotContain("Rename TS target `Rosette P4`", r.Markdown);
     }
 
     [Fact]
@@ -91,8 +106,9 @@ public class AmbiguityReportTests
 
         Assert.Equal(1, r.ActionCount);                            // manual item wins; same-key check de-dupes
         Assert.Equal(1, CountOf(r.Markdown, "Swan · H @900s"));
-        Assert.Contains("Id 299", r.Markdown);
-        Assert.Contains("Id 1040", r.Markdown);
+        Assert.Contains("H900 (desired 64, acq 8/acc 9)", r.Markdown);   // template name, never a raw plan Id
+        Assert.Contains("H900 (desired 1, acq 1/acc 1)", r.Markdown);
+        Assert.DoesNotContain("Id 299", r.Markdown);
         Assert.Contains("disk has 8 frame(s)", r.Markdown);
     }
 
@@ -110,6 +126,25 @@ public class AmbiguityReportTests
         Assert.Equal(1, r.ActionCount);
         Assert.Contains("Seagull · O @600s", r.Markdown);
         Assert.Contains("No disk anchor", r.Markdown);
+    }
+
+    [Fact]
+    public void SameKey_AliasFold_ExemptLikeThePlanner()
+    {
+        // M27-shaped regression (real-data run 2026-07-08): two alias members fold onto one canonical target,
+        // so every key carries 2 plans — one per member. The planner auto-stamps these; the same-key check
+        // must apply the identical exemption (plans == members) instead of flooding the report.
+        Guid m27 = Guid.NewGuid(), h900 = Guid.NewGuid();
+        CatalogGraph graph = Graph(
+            targets: [Tgt(m27, TargetSource.Both, "M27 - Dumbell", dir: "M27 - Dumbell", tsKey: "9")],
+            templates: [Tpl(h900, "H900", "H", 900)],
+            plans: [Plan(m27, h900, tsKey: "19", desired: 129), Plan(m27, h900, tsKey: "1076", desired: 169)]);
+        CatalogBuildReport report = Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]);
+
+        AmbiguityReportResult r = Build(graph, report);
+
+        Assert.Equal(0, r.ActionCount);                            // fold explains the multiplicity exactly
+        Assert.Contains("Alias fold", r.Markdown);                 // still visible — as info
     }
 
     [Fact]
@@ -135,7 +170,7 @@ public class AmbiguityReportTests
 
         Assert.Equal(1, r.ActionCount);                            // one item for the pair, not one per twin
         Assert.Contains("2 planned-only TS targets share this name", r.Markdown);
-        Assert.Contains("Id 10 | Id 11", r.Markdown);
+        Assert.DoesNotContain("Id 10", r.Markdown);                 // twins discriminate by project, not raw ids
     }
 
     [Fact]

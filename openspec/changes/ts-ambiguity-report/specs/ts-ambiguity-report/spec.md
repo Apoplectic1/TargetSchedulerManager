@@ -18,26 +18,40 @@ sections by where the fix is made, with each section printing an explicit clean 
 - **THEN** the report still generates, every section shows its clean marker, and the item count is 0
 
 ### Requirement: Every action item states what, why, and the exact hand fix
-Each action item SHALL name the entity (target/plan/template, with the TS integer Id when known), state the
-rule or check it tripped, and give the concrete edit to perform in NINA's Target Scheduler UI. The report
-SHALL make no edits itself and SHALL create no persistent state other than the report file.
+Each action item SHALL name the entity **as NINA's Target Scheduler UI shows it** — targets as
+project › target name, plans by their exposure-template name plus the distinguishing desired/acquired counts —
+never by raw database ids or guids (which are meaningless at the rig). Each item SHALL state the rule or check
+it tripped and give the concrete edit to perform in the TS UI. A name-mismatch on a composite mosaic/panel
+path SHALL describe the panel-token disagreement rather than prescribe a catalog-token rename (which would
+name the mosaic prefix). The report SHALL make no edits itself and SHALL create no persistent state other
+than the report file.
 
 #### Scenario: Name-mismatch fix instruction
 - **WHEN** a disk directory coordinate-matches a TS target but name validation failed
 - **THEN** the item shows both names and the separation, and instructs renaming the TS target to the disk
-  directory's catalog token
+  directory's catalog token — with no database id shown
+
+#### Scenario: Panel-path mismatch describes, never prescribes
+- **WHEN** the mismatched disk unit is a mosaic panel (composite directory/panel path)
+- **THEN** the item names the TS panel and the claimed disk panel and asks which panel it really is, and does
+  not instruct renaming to the mosaic directory's token
 
 #### Scenario: Stray same-key plan fix instruction
 - **WHEN** one target carries two plans at the same (filter, purpose, effective seconds)
-- **THEN** the item lists each plan's TS Id with desired/acquired counts and instructs deleting or re-timing
-  one of them, by Id
+- **THEN** the item lists each plan by template name with desired/acquired counts (the values that tell them
+  apart in the TS UI) and instructs deleting or re-timing all but one
 
 ### Requirement: TS-internal checks cover what the grid cannot badge
 The report SHALL include three checks computed over the loaded graph independent of disk matching: two or more
 exposure plans on one target sharing (filter, purpose, effective whole-second exposure) — across all TS-sourced
-targets, not only disk-matched ones; planned-only twin targets (same normalized name, or a pair within the
-load's match tolerance, among targets with no disk anchor); and duplicate exposure-template names within a
-profile.
+targets, not only disk-matched ones, and applying the write-back planner's alias exemption (one plan per alias
+member is the fold explaining itself, not a duplicate); planned-only twin targets (same normalized name, or a
+pair within the load's match tolerance, among targets with no disk anchor); and duplicate exposure-template
+names within a profile.
+
+#### Scenario: Alias-fold plans are exempt
+- **WHEN** an alias-fold target carries exactly one same-key plan per alias member
+- **THEN** the same-key check reports nothing for it (the fold appears only as information)
 
 #### Scenario: Planned-only twins are visible for the first time
 - **WHEN** two TS targets with the same name and coordinates exist and neither has a disk directory

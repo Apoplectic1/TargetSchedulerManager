@@ -32,14 +32,18 @@ Then: design the disk-matcher work; strategic lane = the ISP transition (lift/re
 **▶ SHIPPED 2026-07-08 — printable ambiguity report (`openspec/changes/ts-ambiguity-report`).** The tripwire's
 detail (what the "write-back app action" became — DECIDED block below): toolbar **Ambiguities…** writes a dated
 Markdown report to `%APPDATA%\TargetSchedulerManager\Reports\` and opens it — every TS/disk ambiguity as
-what · why · **the exact hand fix for NINA's TS UI** (TS integer Ids included), sections grouped by fix
-location, explicit `✓ none` clean markers, alias folds + unplanned-frames as info (never action items).
+what · why · **the exact hand fix for NINA's TS UI**, named in rig vocabulary (project › target; plans by
+template name + desired/acq counts — never raw ids/guids; real-data feedback round same evening), sections
+grouped by fix location, explicit `✓ none` clean markers, alias folds + unplanned-frames as info (never
+action items; unplanned compress to one line per target).
 `Services/AmbiguityReport` = pure builder over the retained graph/report + a fresh in-memory
 `WriteBackPlanner.Plan`; identity-held write-back cells fold into their target's one item. Three new
 TS-internal checks the grid can't badge: same-key plans across ALL TS-sourced targets (de-duped against held
 cells), planned-only twins (same name or inside-tolerance pair — previously invisible), duplicate template
-names per profile. Status line: `· N ambiguities` when non-zero. 174 App.Tests (15 new). **Awaiting the
-author's run** (button, report content vs the known FishHead/Swan/M27 items, print).
+names per profile (alias folds exempt, mirroring the planner — the M27 flood fix). Status line:
+`· N ambiguities` when non-zero. 176 App.Tests (17 new). First real run also caught a genuine fresh issue:
+disk panel `Panel Center` (new frames) coordinate-claims TS `Rosette P4` at 0.196° with a failing panel
+token — the author adjudicates. **Awaiting the author's re-run + print pass.**
 
 **▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; ISP lane opens** (full why:
 `docs/2026-07-08-resolver-rejection-isp-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).

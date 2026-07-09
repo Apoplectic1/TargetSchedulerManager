@@ -48,3 +48,15 @@
 - [x] 4.3 Docs in the same commit: DOMAIN.md chrome list + checklist pass for the new button; ROADMAP
       recently-shipped + Status next-step update; ARCHITECTURE.md one-liner under the write-back section
       (report = the tripwire surface).
+
+## 5. Real-data feedback round (2026-07-08 evening run)
+
+- [x] 5.1 Rig vocabulary, no raw ids: target guids dropped everywhere; plans render as template name +
+      desired/acq/acc (how the TS UI tells same-key plans apart); targets prefix their project
+      (`project › target`); twins discriminate by project.
+- [x] 5.2 Alias-fold exemption in the same-key check (mirrors the planner: plans == members → explained) —
+      fixes the 6-item M27/Dumbell flood; regression test.
+- [x] 5.3 Panel-path name-mismatch describes the token disagreement instead of prescribing a bogus
+      catalog-token rename (Rosette P4 → "Rename to `Mosaic`"); regression test.
+- [x] 5.4 Unplanned-frames info compresses to one line per target (141 info lines on real data).
+- [x] 5.5 Spec updated to the corrected contract; 176 tests green.

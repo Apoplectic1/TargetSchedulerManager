@@ -31,6 +31,22 @@ internal static class AmbiguityReport
     {
         Dictionary<Guid, Target> targetById = graph.Targets.ToDictionary(t => t.Id);
         Dictionary<Guid, ExposureTemplate> templateById = graph.Templates.ToDictionary(t => t.Id);
+        Dictionary<Guid, string> projectNameById = graph.Projects.ToDictionary(p => p.Id, p => p.Name);
+
+        // The rig-side vocabulary: NINA's TS UI shows template names on plan rows (never plan Ids) — a plan's
+        // human name is its template + its distinguishing counts.
+        Dictionary<long, string> templateNameByTsPlanId = [];
+        foreach (ExposurePlan p in graph.Plans)
+        {
+            if (long.TryParse(p.ImportedFromTsGuid, NumberStyles.Integer, CultureInfo.InvariantCulture, out long tsId)
+                && templateById.TryGetValue(p.ExposureTemplateId, out ExposureTemplate? tpl))
+                templateNameByTsPlanId[tsId] = tpl.Name;
+        }
+        string PlanLabel(long tsPlanId) => templateNameByTsPlanId.GetValueOrDefault(tsPlanId, "plan");
+        // "project › target" is how the TS UI navigates; a target with no known project shows bare.
+        string ProjectOf(Guid targetId) =>
+            targetById.GetValueOrDefault(targetId)?.ProjectId is Guid pid
+            && projectNameById.TryGetValue(pid, out string? name) ? $"{name} › " : "";
 
         // Identity-held write-back cells fold into their target's identity item (one target = one fix),
         // rather than printing one line per filter-cell.
@@ -47,28 +63,36 @@ internal static class AmbiguityReport
         {
             int held = heldCellsByDirectory.GetValueOrDefault(m.DiskDirectory);
             string heldNote = held > 0 ? $" {held} filter-cell(s) held un-stamped until fixed." : "";
+            // A composite "mosaicDir/panelDir" path is a panel claim: the catalog-token rename is meaningless
+            // there (it would name the "Mosaic - …" prefix) — describe the token disagreement instead.
+            int slash = m.DiskDirectory.IndexOf('/');
+            string fix = slash > 0
+                ? $"→ TS panel `{m.TsName}` claimed disk panel `{m.DiskDirectory[(slash + 1)..]}` of " +
+                  $"`{m.DiskDirectory[..slash]}` but the panel tokens disagree — confirm which panel this " +
+                  $"really is, then align the TS panel name with the panel directory."
+                : $"→ Rename TS target `{m.TsName}` → `{CatalogToken(m.DiskDirectory)}` (match the disk directory's catalog token).";
             identity.Add(
-                $"**{m.TsName}**{TsId(m.TsGuid)} — coordinate match to disk `{m.DiskDirectory}` at " +
+                $"**{m.TsName}** — coordinate match to disk `{m.DiskDirectory}` at " +
                 $"{m.SeparationDegrees.ToString("0.000", CultureInfo.InvariantCulture)}°, but the name fails token validation.{heldNote}\n" +
-                $"  → Rename TS target `{m.TsName}` → `{CatalogToken(m.DiskDirectory)}` (match the disk directory's catalog token).");
+                $"  {fix}");
         }
         foreach (AmbiguousMatch a in report.AmbiguousMatches)
         {
             identity.Add(
-                $"**{a.TsName}**{TsId(a.TsGuid)} — {a.CandidateDirectories.Count} disk directories within tolerance " +
+                $"**{a.TsName}** — {a.CandidateDirectories.Count} disk directories within tolerance " +
                 $"[{string.Join(" | ", a.CandidateDirectories)}], nearest {a.NearestSeparationDegrees.ToString("0.000", CultureInfo.InvariantCulture)}°.\n" +
                 $"  → Make names disambiguate: the TS name should exactly token-match ONE of the candidates.");
         }
         foreach (UnanchoredTsTarget u in report.UnanchoredTsTargets)
         {
             identity.Add(
-                $"**{u.TsName}**{TsId(u.TsGuid)} — no usable coordinates; cannot anchor to disk (planned-only this load).\n" +
+                $"**{u.TsName}** — no usable coordinates; cannot anchor to disk (planned-only this load).\n" +
                 $"  → Set the target's RA/Dec in TS.");
         }
         foreach (InvalidTsTarget i in report.InvalidTsTargets)
         {
             identity.Add(
-                $"**{i.TsName}**{TsId(i.TsGuid)} — {i.Reason} (values coerced this load; the db row is unchanged).\n" +
+                $"**{i.TsName}** — {i.Reason} (values coerced this load; the db row is unchanged).\n" +
                 $"  → Correct the RA/Dec/epoch in TS.");
         }
 
@@ -80,7 +104,7 @@ internal static class AmbiguityReport
                 $"  → Consolidate in TS: keep one target, delete the rest. Check `desired` on each first (intent " +
                 $"doesn't self-heal; acquired/accepted restamp from disk on the next load).");
         }
-        duplicates.AddRange(PlannedOnlyTwins(graph, toleranceDegrees));
+        duplicates.AddRange(PlannedOnlyTwins(graph, ProjectOf, toleranceDegrees));
 
         // Plans: held cells (multi-plan / duplicate-fold) with full per-plan detail, then the TS-internal
         // same-key check over ALL TS-sourced targets — de-duped against the held cells (the manual item wins:
@@ -91,7 +115,7 @@ internal static class AmbiguityReport
         {
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
             string detail = string.Join(" · ", g.Plans.Select(p =>
-                $"Id {p.TsExposurePlanId} (desired {p.Desired}, acq {p.CatalogAcquired}/acc {p.CatalogAccepted})"));
+                $"{PlanLabel(p.TsExposurePlanId)} (desired {p.Desired}, acq {p.CatalogAcquired}/acc {p.CatalogAccepted})"));
             string fix = g.Reason switch
             {
                 ManualReason.DuplicateFold =>
@@ -99,14 +123,15 @@ internal static class AmbiguityReport
                 ManualReason.NoMatchingPlan =>
                     "→ Equipment-identity question: match binning/duration by hand before trusting the count.",
                 _ =>
-                    "→ Delete (or re-time) all but one plan, by Id; the survivor is auto-stamped on the next load.",
+                    "→ Delete (or re-time) all but one — tell them apart by their desired/acquired counts in the " +
+                    "TS UI; the survivor is auto-stamped on the next load.",
             };
             plans.Add(
-                $"**{g.TargetName} · {Cell(g.Filter, g.Purpose, g.Seconds)}** — {g.Plans.Count} plans share one key; " +
-                $"disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped).\n" +
+                $"**{ProjectOf(g.TargetId)}{g.TargetName} · {Cell(g.Filter, g.Purpose, g.Seconds)}** — " +
+                $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped).\n" +
                 $"  Plans: {detail}\n  {fix}");
         }
-        plans.AddRange(SameKeyPlans(graph, targetById, templateById, manualKeys));
+        plans.AddRange(SameKeyPlans(graph, report, targetById, templateById, ProjectOf, manualKeys));
 
         List<string> templates = [];
         foreach (var g in graph.Templates
@@ -126,9 +151,19 @@ internal static class AmbiguityReport
                 $"Alias fold: disk `{a.DiskDirectory}` ← TS names [{string.Join(" | ", a.TsTargetNames)}] — " +
                 $"treated as one object; counts write to every member. If unintended, consolidate in TS.");
         }
-        foreach (ReconcileNote n in plan.NeedsReconciliation.Where(n => n.Kind == ReconcileNote.UnplannedFramesKind))
+        // Unplanned frames compress to one line per target — on real data these dominate the info section
+        // (frames at durations no plan targets; write-back never creates plans, so they're pure notes).
+        foreach (var g in plan.NeedsReconciliation
+                     .Where(n => n.Kind == ReconcileNote.UnplannedFramesKind)
+                     .GroupBy(n => n.TargetName)
+                     .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
-            info.Add($"Unplanned frames: **{n.TargetName}** — {n.Detail} (write-back never creates plans).");
+            IEnumerable<string> buckets = g.Select(n =>
+            {
+                int cut = n.Detail.IndexOf(" - no TS plan", StringComparison.Ordinal);
+                return cut > 0 ? n.Detail[..cut] : n.Detail;
+            });
+            info.Add($"Unplanned frames: **{g.Key}** — {string.Join("; ", buckets)}.");
         }
 
         int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count;
@@ -162,11 +197,15 @@ internal static class AmbiguityReport
 
     /// <summary>≥2 plans on one target sharing (filter, purpose, effective whole-second exposure) — over ALL
     /// TS-sourced targets, not just disk-matched ones (write-back's planner is scoped to Both and misses
-    /// planned-only offenders). <paramref name="manualKeys"/> de-dupes against held cells already reported.</summary>
+    /// planned-only offenders). <paramref name="manualKeys"/> de-dupes against held cells already reported.
+    /// Mirrors the planner's alias exemption: on an alias-fold target, one plan per member is the fold
+    /// explaining itself (auto-stamped to every member) — not a duplicate.</summary>
     private static IEnumerable<string> SameKeyPlans(
         CatalogGraph graph,
+        CatalogBuildReport report,
         Dictionary<Guid, Target> targetById,
         Dictionary<Guid, ExposureTemplate> templateById,
+        Func<Guid, string> projectOf,
         HashSet<(Guid, string, FilterPurpose, int)> manualKeys)
     {
         var groups = graph.Plans
@@ -177,24 +216,27 @@ internal static class AmbiguityReport
                 Filter: x.Template!.FilterName.ToUpperInvariant(),
                 Purpose: FilterPurposeClassifier.Classify(x.Template.Name),
                 Seconds: EffectiveExposure.Seconds(x.Plan, x.Template)))
-            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key));
+            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key))
+            .Where(g => report.AliasMemberCount(targetById.GetValueOrDefault(g.Key.TargetId)?.DirectoryName) != g.Count());
 
         foreach (var g in groups.OrderBy(g => targetById.GetValueOrDefault(g.Key.TargetId)?.Name, StringComparer.OrdinalIgnoreCase))
         {
             Target? t = targetById.GetValueOrDefault(g.Key.TargetId);
             string detail = string.Join(" · ", g.Select(x =>
-                $"Id {x.Plan.ImportedFromTsGuid ?? "?"} (desired {x.Plan.DesiredCount}, acq {x.Plan.AcquiredCount}/acc {x.Plan.AcceptedCount})"));
+                $"{x.Template!.Name} (desired {x.Plan.DesiredCount}, acq {x.Plan.AcquiredCount}/acc {x.Plan.AcceptedCount})"));
             string anchor = t?.Source == TargetSource.Planned ? " No disk anchor — TS-internal duplicate." : "";
             yield return
-                $"**{t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
+                $"**{(t is null ? "?" : projectOf(t.Id))} › {t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
                 $"{g.Count()} plans share one key.{anchor}\n  Plans: {detail}\n" +
-                $"  → Delete (or re-time) all but one plan, by Id.";
+                $"  → Delete (or re-time) all but one — tell them apart by their desired/acquired counts in the TS UI.";
         }
     }
 
     /// <summary>Planned-only twin targets: same normalized name, else a pair within the match tolerance.
-    /// Invisible in the grid today — duplicate detection only fires when a disk unit is claimed twice.</summary>
-    private static IEnumerable<string> PlannedOnlyTwins(CatalogGraph graph, double toleranceDegrees)
+    /// Invisible in the grid today — duplicate detection only fires when a disk unit is claimed twice.
+    /// Twins are told apart by their project (how the TS UI navigates), never by raw ids.</summary>
+    private static IEnumerable<string> PlannedOnlyTwins(
+        CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees)
     {
         List<Target> planned = [.. graph.Targets.Where(t => t.Source == TargetSource.Planned && t.ParentTargetId is null)];
 
@@ -204,7 +246,7 @@ internal static class AmbiguityReport
             foreach (Target t in g) nameTwinned.Add(t.Id);
             yield return
                 $"**{g.First().Name}** — {g.Count()} planned-only TS targets share this name " +
-                $"[{string.Join(" | ", g.Select(t => $"Id {t.ImportedFromTsGuid ?? "?"}"))}] (no disk anchor; the grid shows them unbadged).\n" +
+                $"[in project(s): {string.Join(" | ", g.Select(t => projectOf(t.Id)))}] (no disk anchor; the grid shows them unbadged).\n" +
                 $"  → Consolidate in TS: keep one, delete the rest (check `desired` first).";
         }
 
@@ -219,7 +261,7 @@ internal static class AmbiguityReport
                 double sep = SeparationDegrees(ra1, d1, ra2, d2);
                 if (sep >= toleranceDegrees) continue;
                 yield return
-                    $"**{a.Name}**{TsId(a.ImportedFromTsGuid)} and **{b.Name}**{TsId(b.ImportedFromTsGuid)} — " +
+                    $"**{a.Name}** ({projectOf(a.Id)}) and **{b.Name}** ({projectOf(b.Id)}) — " +
                     $"planned-only targets {sep.ToString("0.000", CultureInfo.InvariantCulture)}° apart (inside tolerance); " +
                     $"they will contest the same disk directory once imaged.\n" +
                     $"  → If one object: consolidate (or make the names an intentional alias of the future disk dir). " +
@@ -242,8 +284,6 @@ internal static class AmbiguityReport
     /// <summary>"H @900s" (Light) / "B Stars @60s" — the grid/write-back cell convention.</summary>
     private static string Cell(string filter, FilterPurpose purpose, int seconds) =>
         purpose == FilterPurpose.Light ? $"{filter} @{seconds}s" : $"{filter} {purpose} @{seconds}s";
-
-    private static string TsId(string? tsGuid) => tsGuid is null ? "" : $" (TS Id {tsGuid})";
 
     /// <summary>The catalog token of a disk directory name — the part before the first " - " separator
     /// ("IC 1795 - Fish Head" → "IC 1795"), the rename target for a mismatched TS name.</summary>
