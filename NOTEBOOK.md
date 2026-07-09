@@ -6,7 +6,27 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
-**2026-07-08 — "Desired ≠ NINA" on M27 - Dumbell is the alias fold, not drift (user: leave it).**
+**2026-07-08 (late) — CORRECTION: the M27/Dumbell twin was never intentional; alias mechanism to be removed.**
+The morning entry below recorded "user: leave it" — that was tolerance of a state the alias fold presented
+as benign, not approval of the twin. User (same night, after the ambiguity report surfaced it as *"If
+unintended, consolidate"*): **"this was not intentional and should be brought to my attention."** Standing
+lesson: **explained ≠ approved** — a structurally weird state must surface for the user's decision even when
+the numbers reconcile. Consequences: (1) Dumbell consolidation joins tomorrow's BIRDWATCHER hand-edit list
+(delete the disabled `Dumbell` target in "Nebulae - Above 45"; M27 keeps desired 169; counts restamp next
+load); (2) the **alias fold mechanism gets removed in full** (agreed in explore, 2026-07-08 late): it exists
+to let a "benign" multi-claim auto-resolve unflagged, the hand-edit doctrine abolishes that category, and it
+demonstrably masked this defect for weeks (strict-equality naming also folds *identical accidental twins*
+silently). After consolidation the machinery covers zero rows → removal is pure dead-code deletion: resolver
+alias/duplicate classification collapses to duplicate-always-flagged, `AliasTsTarget`/`Alias`
+flag/`AliasMemberCount`/`IsAliasName` + planner alias branch die (lib), grid `alias` badge + `!isAlias`
+multi-plan suppression + report info-lines/exemption die (TSM), DOMAIN's convention drops its alias escape
+clause (one TS row per position, NO exceptions). Single-target naming freedom is unaffected (a lone TS
+`Dumbell` still matches dir `M27 - Dumbell` via ordinary validation — `IsAliasName`'s only call site is the
+multi-claim fold). Sequence: BIRDWATCHER pass → clean re-run → tick 4.2 → archive `ts-ambiguity-report` →
+paired lib+app `remove-alias-fold` change (its delta also MODIFIES/REMOVES the ts-ambiguity-report spec's
+"adjudicated folds are information" requirement — premise dead).
+
+**2026-07-08 — "Desired ≠ NINA" on M27 - Dumbell is the alias fold, not drift (user: leave it — SUPERSEDED, see correction above).**
 Visual-pass observation (USER_OBS f818): TSM showed H/O/S Desired 298 where NINA's editor shows 169.
 Both are right — the row folds the catalog's one alias pair (`aliases=1` every load): TS target **M27**
 (Galaxies, enabled, desired 169×3 + Stars 33) + TS target **Dumbell** (Nebulae - Above 45, **disabled**,

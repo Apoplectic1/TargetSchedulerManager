@@ -25,9 +25,14 @@ cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt
 fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
 seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
 `ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache.
-**Next:** user's BIRDWATCHER hand-fix pass (rename FishHead → IC 1795; delete Swan plan 1040) with the fresh
-ambiguity report in hand → expect the tripwire at 0 → archive `ts-ambiguity-report` after the visual pass.
-Then: design the disk-matcher work; strategic lane = the ISP transition (lift/regenerate + intent store).
+**Next (2026-07-09):** user's BIRDWATCHER hand-fix pass with the printed report — ① delete Swan's desired-1
+H900 plan, ② adjudicate Rosette P4 vs disk `Panel Center` (0.196°, fresh frames — which panel is it really?),
+③ **consolidate the Dumbell twin** (never intentional — NOTEBOOK 2026-07-08 correction; delete the disabled
+`Dumbell` target, M27 keeps desired 169, counts restamp). FishHead already renamed (tripwire went quiet).
+Then: clean re-run → tick task 4.2 → archive `ts-ambiguity-report` → **`remove-alias-fold`** (agreed: paired
+lib+app removal of the whole alias mechanism — the hand-edit doctrine abolishes benign multi-claims and the
+fold demonstrably masked the M27 defect; footprint + sequencing in the NOTEBOOK correction entry). After
+that: disk-matcher design; strategic lane = the ISP transition (lift/regenerate + intent store).
 
 **▶ SHIPPED 2026-07-08 — printable ambiguity report (`openspec/changes/ts-ambiguity-report`).** The tripwire's
 detail (what the "write-back app action" became — DECIDED block below): toolbar **Ambiguities…** writes a dated
