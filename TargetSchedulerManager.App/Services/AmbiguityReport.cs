@@ -116,7 +116,7 @@ internal static class AmbiguityReport
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
             // One indented row per plan — the shape the TS UI shows under a target.
             string detail = string.Concat(g.Plans.Select(p =>
-                $"\n  - {PlanLabel(p.TsExposurePlanId)} — desired {p.Desired}, acq {p.CatalogAcquired} / acc {p.CatalogAccepted}"));
+                PlanRow(PlanLabel(p.TsExposurePlanId), p.Desired, p.CatalogAcquired, p.CatalogAccepted)));
             string fix = g.Reason switch
             {
                 ManualReason.DuplicateFold =>
@@ -225,7 +225,7 @@ internal static class AmbiguityReport
         {
             Target? t = targetById.GetValueOrDefault(g.Key.TargetId);
             string detail = string.Concat(g.Select(x =>
-                $"\n  - {x.Template!.Name} — desired {x.Plan.DesiredCount}, acq {x.Plan.AcquiredCount} / acc {x.Plan.AcceptedCount}"));
+                PlanRow(x.Template!.Name, x.Plan.DesiredCount, x.Plan.AcquiredCount, x.Plan.AcceptedCount)));
             string anchor = t?.Source == TargetSource.Planned ? " No disk anchor — TS-internal duplicate." : "";
             yield return
                 $"**{(t is null ? "" : projectOf(t.Id))}{t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
@@ -282,6 +282,11 @@ internal static class AmbiguityReport
         if (items.Count == 0) { sb.AppendLine(clean); return; }
         foreach (string item in items) sb.AppendLine($"- {item}");
     }
+
+    /// <summary>One indented plan row under a target — the TS-UI target→plans shape (template-named, never
+    /// plan Ids), with the counts that tell duplicate plans apart.</summary>
+    private static string PlanRow(string label, int desired, int acquired, int accepted) =>
+        $"\n  - {label} — desired {desired}, acq {acquired} / acc {accepted}";
 
     /// <summary>"H @900s" (Light) / "B Stars @60s" — the grid/write-back cell convention.</summary>
     private static string Cell(string filter, FilterPurpose purpose, int seconds) =>
