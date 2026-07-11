@@ -531,12 +531,14 @@ at Phase 5 cutover).
   Mosaics appear **per panel** (TS granularity) + a rollup row. In-grid editing for Tier 1; detail panel for
   Tiers 2–3; toolbar/context commands for Tier 4. **`acquired`/`accepted` are read-only** — Phase 4 write-back
   owns those columns.
-- **Edit tiers (all in scope):** **T1** counts & toggles (`desired`, plan `enabled`, target `active`, target
+- **Edit tiers (scope narrowed 2026-07-08 — see DECIDED: resolver rejected, in Status):** **T1** counts &
+  toggles (`desired`, plan `enabled`, target `active`, target
   priority) · **T2** identity & pointing (`name`, RA/Dec, epoch, rotation, ROI) · **T3** project knobs (state,
   priority, description, altitude/horizon/meridian, filterSwitchFrequency, ditherEvery, smartExposureOrder,
   enableGrader, flatsHandling — `ruleWeights` dropped: a separate one-to-many table, not a scalar knob) ·
-  **T4** structural (add/delete target & plan, template swap, move between projects). Profiles render
-  read-only (templates gained a full edit surface 2026-07-06 — Part 3).
+  **T4** structural (add/delete target & plan, template swap, move between projects) — **superseded
+  2026-07-08:** structural fixes are hand-edits in NINA's TS UI on BIRDWATCHER; TSM ships no structural
+  verbs. Profiles render read-only (templates gained a full edit surface 2026-07-06 — Part 3).
 - **Differences are first-class:** all three sources shown, match-status **badge column + filter bar**, per-class
   resolution commands — **Disk-only** (33) → *create TS target from disk* (dir name, plate-solved coords, plans
   seeded from existing filters); **TS-only** (25) → leave (legit not-started) / *rename-to-disk* showing nearest

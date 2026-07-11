@@ -67,7 +67,7 @@ write): `ImageLibraryScanner` (Scan/) → `TargetResolver` + `CatalogBuilder.Bui
 `CatalogStore.WriteCatalog`, then read-back + `Reconciler` / `CatalogStore.GetReconciliation` (Reconcile/).
 TS is read via the hardened read-only `TargetSchedulerReader` (TargetScheduler/).
 
-Load-bearing invariants (full detail in `ARCHITECTURE.md`):
+Load-bearing invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both**; full detail there):
 - **Coordinate-primary, scope-equal matching** — each TS target anchors to the nearest disk unit *of its own
   scope* within a haversine tolerance (default **0.5°**); name validates (panels via their directory token);
   an aligned claim outranks an unaligned one; **disk plate-solved coords win** on merge; the TS guid is

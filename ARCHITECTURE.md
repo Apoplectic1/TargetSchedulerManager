@@ -28,8 +28,8 @@ canonical `target`**:
 Each `target` carries both facets, distinguished by `source_id`: `Actual` (on disk only), `Planned` (in TS only /
 not yet shot), `Both` (planned **and** shot — the two resolved onto one row). `inventory_filter` (actuals) and
 `exposure_plan` (goals) both hang off the one target, so "goal vs actual" is a single join. TSM reads and writes
-Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (XFM's is deleted at the Phase 5
-cutover — see `ROADMAP.md`).
+Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already deleted — XFM went TS-free
+2026-07-07, independent of the Phase 5 cutover).
 
 ## Components
 
@@ -64,8 +64,9 @@ cutover — see `ROADMAP.md`).
   write, so no confirm dialog is needed) and commits per field back through the gate — the reference is the
   single source of truth from SQL whitelist to rendered control.
 - **`Catalog.db` and its consumers** — the persistent catalog is the planned **LCM**'s output (was the retired
-  CLI's job). XFM / TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly`. XFM's actual-only
-  world is `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
+  CLI's job). TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly` (XFM opted out 2026-07-07 —
+  TS-free, never consumes `Catalog.db`). The actual-only world for actuals-only consumers is
+  `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
 
 ## Key facts
 

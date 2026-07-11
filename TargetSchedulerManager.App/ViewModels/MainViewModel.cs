@@ -646,8 +646,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Writes <c>exposureplan.enabled</c> through the guarded gate — the library clears the target's
-    /// cadence rows in the same transaction (the caller confirmed first; see the cadence convention in
-    /// DOMAIN.md). Mirrors the row's checkbox in place on success.</summary>
+    /// cadence rows in the same transaction (direct write, no confirm — user decision 2026-07-07; see the
+    /// cadence convention in DOMAIN.md). Mirrors the row's checkbox in place on success.</summary>
     public async Task<bool> SetPlanEnabledAsync(ReconciliationRow row, bool enabled)
     {
         if (row.PlanTsKey is not string key)
