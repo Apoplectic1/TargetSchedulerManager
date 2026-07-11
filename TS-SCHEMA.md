@@ -7,8 +7,8 @@ file, update in the same commit as any code reaction. Column lists below are **c
 column), from the live working copy.
 
 > **Snapshot:** dumped 2026-07-08 from the local working copy (`schedulerdb.sqlite`), **`user_version` = 28**.
-> Row counts are that day's data, illustrative only. Note the reference clones (parent ROADMAP) were pinned when
-> the db was `user_version 25` — the rig's TS has moved on; TSM survives this because it validates by **column
+> Row counts are that day's data, illustrative only. The read-only TS reference clone's migration set reaches
+> `user_version` 28 (`Database/Migrate/28.sql`), matching the rig; TSM in any case validates by **column
 > presence** (`IsFieldAvailable`), never by exact version.
 
 ## Hierarchy + vocabulary (TS's own terms — use these)
@@ -41,10 +41,10 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
 ## Tables (complete column lists; ✎ = TSM edits via `TsEditableSchema`, ⚙ = write-back stamps)
 
 ### project — 10 rows · FK: `target.projectid → project.Id`
-`Id` PK · `profileId` · `name` · `description` · `state` · `priority` ✎ · `createdate` · `activedate` ·
-`inactivedate` · `minimumtime` · `minimumaltitude` · `usecustomhorizon` · `horizonoffset` · `meridianwindow` ·
-`filterswitchfrequency` ✎ · `ditherevery` · `enablegrader` · `isMosaic` · `flatsHandling` · `maximumAltitude` ·
-`smartexposureorder` · `guid`
+`Id` PK · `profileId` · `name` · `description` · `state` ✎ · `priority` ✎ · `createdate` · `activedate` ·
+`inactivedate` · `minimumtime` ✎ · `minimumaltitude` ✎ · `usecustomhorizon` ✎ · `horizonoffset` ✎ · `meridianwindow` ✎ ·
+`filterswitchfrequency` ✎ · `ditherevery` ✎ · `enablegrader` ✎ · `isMosaic` · `flatsHandling` ✎ · `maximumAltitude` ✎ ·
+`smartexposureorder` ✎ · `guid`
 TSM: read for grid grouping + project flyout; `isMosaic` drives the mosaic/panel model; per-project policy
 (min/max altitude etc.) is the user's intent — TSM displays, never derives.
 
@@ -66,7 +66,7 @@ lowered); effective seconds = `exposure < 0 ? template.defaultexposure : exposur
 `moonavoidanceenabled` · `moonavoidanceseparation` · `moonavoidancewidth` · `maximumhumidity` ·
 `defaultexposure` · `moonrelaxscale` · `moonrelaxmaxaltitude` · `moonrelaxminaltitude` · `moondownenabled` ·
 `ditherevery` · `minutesOffset` · `guid`
-TSM: template manager edits 11 of these fields (see `TsEditableSchema` — the authoritative editable list);
+TSM: template manager edits 18 of these fields (see `TsEditableSchema` — the authoritative editable list);
 `"Stars "` name prefix is the Light/Stars purpose convention shared with disk directories.
 
 ### filtercadenceitem — 165 rows (references `targetid`, no declared FK)

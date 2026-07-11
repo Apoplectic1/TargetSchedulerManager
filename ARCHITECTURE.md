@@ -3,7 +3,8 @@
 **Charter:** how TSM works — design, components, and the load-bearing invariants (matching/harden
 rules, mosaic model, single-writer). Read it for *why the code is shaped this way*; grep by subsystem.
 
-TSM is a .NET 10 WinUI 3 app that **manages the N.I.N.A. Target Scheduler database**: view + edit TS plans live,
+TSM is a .NET 10 WinUI 3 app that **manages the N.I.N.A. Target Scheduler database**: view + edit TS plans on a
+local working copy (pull from BIRDWATCHER at open, reviewed push-as-replay back — the sync-model section below),
 with disk-ACTUAL beside every number from a fresh read-only in-memory scan each load.
 
 > **History (2026-06-11):** this project was **TargetCatalogManager (TCM)** — a dual-head repo whose console host
@@ -56,8 +57,8 @@ cutover — see `ROADMAP.md`).
   which seeds the edit-flyout form. Both take their dependencies by injection, so the sync machine, the
   journal, and the guarded write are unit-tested without SMB (the pull's backup path over real temp SQLite
   files). The library half is the consumer-neutral
-  `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the four open-db
-  guard predicates into one structured-refusal call. UI-side, `Controls/TsFieldsEditor` generates the edit
+  `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the five guard predicates (four
+  open-db checks + the cadence-scope `HasOverrideOrder` refusal) into one structured-refusal call. UI-side, `Controls/TsFieldsEditor` generates the edit
   form from `TsEditableSchema` (control type per `TsFieldType`, bounds/enum maps/units from the reference;
   cadence-breaking fields commit directly — the library clears `filtercadenceitem` atomically with the
   write, so no confirm dialog is needed) and commits per field back through the gate — the reference is the
@@ -105,7 +106,7 @@ cutover — see `ROADMAP.md`).
   **stop-gap** until IS/ISP reads `Catalog.db` directly — though a *long* one (TS is the daily scheduler until
   IS exists), and the UI shell built on it is permanent; only the TS data layer is disposable. The live TS DB
   lives on the imaging PC (BIRDWATCHER, cross-machine); **TSM never edits it over SMB** — it pulls a copy and
-  pushes a reviewed replay (the sync-model section below). This re-reverses the 2026-07-01 live-SMB-writes
+  pushes a reviewed replay (the sync-model section below). This re-reverses the 2026-06-26 live-SMB-writes
   decision: the SQLite-over-SMB risk and its `ClearAllPools` stale-page workaround are gone with the direct
   writes; the daily Macrium image of BIRDWATCHER remains the disaster-recovery path.
 - **Grid count columns (display):** after `Desired` (TS goal) the grid shows **`TS`** = TS's recorded

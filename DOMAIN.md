@@ -5,7 +5,7 @@ neither `ARCHITECTURE.md` (how it works) nor `ROADMAP.md` (what's next). Today i
 **UI conventions** (the grid's settled look-and-feel + the "when you add a UI element" checklist); other
 domain/strategy notes accrue here. **Current state only** — *how we got here* → `ROADMAP.md`; *why the code
 is shaped this way* → `ARCHITECTURE.md`. Not a frozen spec; look-and-feel is still idea→implement→adjust
-(reflects the grid as of the natural-sort + edit-box work, 2026-06-21).
+(reflects the grid as of the ambiguity-report work, 2026-07-08).
 
 > The author is a WinForms expert / WinUI novice — idioms below are flagged against their WinForms analogues
 > where it helps.
@@ -53,7 +53,8 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 ## Sorting
 
 Sort precedence follows the columns **left-to-right**: `Target → Project → Filter → Purpose → Seconds`, **natural
-order** on the text columns (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21"). Project
+order** on Target/Project/Filter (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21";
+Purpose compares plain ordinal). Project
 only separates same-named targets in different projects. Structural keys sit outside the column order: a mosaic's
 **panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell. The toolbar
 sort picker's other modes (`remaining` / `disk` / `Δ ↓`) are **number-first** with a natural `Target → Project`
@@ -178,13 +179,15 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 
 - **One name per sky position** (within the 0.5° match tolerance), spelled the same in TS and as the disk
   directory's catalog token (`IC 1795`, not `FishHead` — name validation is token-based; concatenations fail).
-  Deliberate second names for one object go through the adjudicated **alias fold** only (M27 + Dumbell).
+  The **alias fold** (deliberate second names for one object) is queued for removal — its sole instance
+  (M27 + Dumbell) was adjudicated 2026-07-08 as never intentional ("explained ≠ approved"; NOTEBOOK correction).
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
   slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges)
   but has no structural edit verbs (resolver rejected 2026-07-08; see
-  `docs/2026-07-08-resolver-rejection-isp-lane.md` for why). `desired` is likewise hand-maintained in TS.
+  `docs/2026-07-08-resolver-rejection-isp-lane.md` for why). `desired` is likewise user-owned planning
+  intent — never derived from disk (TSM's grid does edit the value; see Editing).
 - TS's `acquiredimage`/`imagedata`/`flathistory` are disposable noise (grading lives in PixInsight; disk is the
   graded truth); TSM never reads or writes them.
 - TS structure reference (tables, columns, identity semantics): **`TS-SCHEMA.md`**.

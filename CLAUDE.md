@@ -15,7 +15,7 @@ the disk image library *read-only* (a fresh in-memory scan each load) purely to 
 > console host (`tcm`) that built `Catalog.db`. That CLI was removed — catalog-building moves to a future
 > **LibraryCatalogManager (LCM)** (sibling dir `..\LibraryCatalogManager`, ROADMAP there) — and the project was
 > then **renamed to TargetSchedulerManager** (same day) to match its real role: a TS-database manager. The
-> catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `tsDb: null`); nothing was
+> catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `targetSchedulerDbPath: null`); nothing was
 > lost. Dated docs and git history before the rename say TCM/`tcm`/`tcmui`.
 
 **Almost all logic lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`).
@@ -42,7 +42,8 @@ Scope-excluded (not this project's docs): `.claude/`, `openspec/`, `.superpowers
 | **TargetSchedulerManager** (this) | `E:\Projects\…\TargetSchedulerManager` | the WinUI 3 app: a TS-database manager (view + edit TS; disk read-only for plan-vs-actual). App-only since 2026-06-11. |
 | **Astronomy.Catalog** + deps | `E:\Projects\…\Library` | the shared schema/build **contract** every consumer references |
 
-TSM has a cross-repo `ProjectReference` straight to `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`
+TSM has two cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj` and
+`..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract)
 (local disk is source of truth; no NuGet/package hop). `Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF
 header reader for the scanner). Both are **pure-managed** (Microsoft.Data.Sqlite only), AnyCPU/x64, no native
 deps — so this project graph builds with plain `dotnet build` (the `.vcxproj` MSBuild caveat does *not* apply
@@ -88,8 +89,9 @@ Load-bearing invariants (full detail in `ARCHITECTURE.md`):
 
 ## Shared-library discipline
 
-`Astronomy.Catalog` is consumed by XFM / TP / IS / ISP. When editing the library, **do not bake
+`Astronomy.Catalog` is built as a shared multi-consumer library — today TSM is its only live consumer
+(TP / IS / ISP are planned; XFM opted out 2026-07-07, TS-free). When editing the library, **do not bake
 consumer-specific terminology into its public surface** — use "caller"/"consumer" framing; doc strings describe
 the abstract contract, not how one app happens to use it. Consumer-specific behavior belongs in TSM or the
-consumer, not the contract. The catalog's actual-only world for XFM is `CatalogStore.GetShotTargets()`
-(source `Actual` | `Both`).
+consumer, not the contract. The catalog's actual-only world for actuals-only consumers is
+`CatalogStore.GetShotTargets()` (source `Actual` | `Both`).

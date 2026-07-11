@@ -80,7 +80,7 @@ clean after push; `desired` never masked). Headers union their subtree via `Serv
 plan-key map covers plans folded into multi-plan rollups; a mosaic project edit marks the parent only.
 Tooltips: per-field old→new (leaves), direction counts (headers). One in-place sweep
 (`RefreshAllMarks` — never a collection rebuild) from load/edit/push/discard. Accepted gap: template edits
-mark no row (badge + push review still carry them). 159 App.Tests (21 new: differ/pull matrix, mask,
+mark no row (badge + push review still carry them). 159 App.Tests (28 new: differ/pull matrix, mask,
 resolver, VM lifecycle). Visual pass clean; **archived 2026-07-08**
 (`openspec/changes/archive/2026-07-08-edit-direction-marks`; main spec seeded `edit-direction-marks`).
 
@@ -508,8 +508,8 @@ TS target's counts).
   truth (TS's stale `acquired_count` ignored); `ReconcilePolicy.Combined` (default) counts Light + Stars; status
   NotStarted / InProgress / Complete / Unplanned. The host prints the rollup + most-incomplete targets.
 - TS → catalog carries provenance (`imported_from_ts_guid`).
-- **TCM headless host** (`Program.cs`): `tcm [--catalog --library --ts --tolerance]` runs the build + prints the
-  reconciliation report and goal-vs-actual summary.
+- **TCM headless host** (`Program.cs`): `tcm [--catalog --library --ts --tolerance]` ran the build + printed the
+  reconciliation report and goal-vs-actual summary (CLI removed 2026-06-11 — app-only since; see Status).
 - 42 Catalog tests + 45 NINA tests pass.
 
 ## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 ✅ editing surface shipped, load-split retired 2026-07-08 · M3 pending — see Status above)
@@ -522,11 +522,11 @@ at Phase 5 cutover).
 
 - **DB touched:** the **local TS working copy only** — since 2026-07-06 synced by the pull/push model
   (`TsSync`; see the Status digest): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
-- **Structure:** new **`TargetCatalogManager.App`** (WinUI 3) beside the untouched `tcm` CLI (WinExe can't host a
-  clean console). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
+- **Structure:** new app project (WinUI 3; born **`TargetCatalogManager.App`**, renamed
+  `TargetSchedulerManager.App` 2026-06-11) beside the then-extant `tcm` CLI (removed 2026-06-11). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
   Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
 - **UI shape — grid-first:** home screen is a flat filterable **(target, filter, purpose, seconds)** reconciliation grid —
-  plan vs DISK vs Δ; disk columns from a **fresh scan on load** (~1 s, the same self-contained path `writeback`
+  plan vs DISK vs Δ; disk columns from a **fresh scan on load** (~2 s, the same self-contained path `writeback`
   uses; `Catalog.db` isn't needed for the editor screen). Tree (Profile ▸ Project ▸ Target) is secondary nav.
   Mosaics appear **per panel** (TS granularity) + a rollup row. In-grid editing for Tier 1; detail panel for
   Tiers 2–3; toolbar/context commands for Tier 4. **`acquired`/`accepted` are read-only** — Phase 4 write-back
@@ -534,8 +534,9 @@ at Phase 5 cutover).
 - **Edit tiers (all in scope):** **T1** counts & toggles (`desired`, plan `enabled`, target `active`, target
   priority) · **T2** identity & pointing (`name`, RA/Dec, epoch, rotation, ROI) · **T3** project knobs (state,
   priority, description, altitude/horizon/meridian, filterSwitchFrequency, ditherEvery, smartExposureOrder,
-  enableGrader, flatsHandling, ruleWeights) · **T4** structural (add/delete target & plan, template swap, move
-  between projects). Templates/profiles render read-only.
+  enableGrader, flatsHandling — `ruleWeights` dropped: a separate one-to-many table, not a scalar knob) ·
+  **T4** structural (add/delete target & plan, template swap, move between projects). Profiles render
+  read-only (templates gained a full edit surface 2026-07-06 — Part 3).
 - **Differences are first-class:** all three sources shown, match-status **badge column + filter bar**, per-class
   resolution commands — **Disk-only** (33) → *create TS target from disk* (dir name, plate-solved coords, plans
   seeded from existing filters); **TS-only** (25) → leave (legit not-started) / *rename-to-disk* showing nearest
@@ -554,7 +555,8 @@ at Phase 5 cutover).
 `TargetSchedulerWriter` (in `Astronomy.Catalog/TargetScheduler/`, mirroring the Reader) writes disk-derived counts
 back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/ISP reads `Catalog.db` directly —
 minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
-tests). Verb: `tcm writeback [--apply]` (dry-run default).
+tests). Verb was `tcm writeback [--apply]` (dry-run default; CLI removed 2026-06-11 — the engine now runs as
+the app's automatic write-back + push replay, see `ARCHITECTURE.md` → TS write-back).
 
 The full write-back contract — cached-columns-only writes (`acquired`=`accepted`=disk, `desired` ratchets up
 only), disk-wins one-way conflict, the `(target, filter, purpose, seconds)` join, manual-bucket gating, the

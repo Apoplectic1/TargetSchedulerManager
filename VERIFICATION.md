@@ -10,7 +10,7 @@ by running + screenshotting the app** (the author's call), not by the build.
 dotnet build TargetSchedulerManager.slnx -v:m -nologo
 
 # Run the WinUI app: TS plan vs disk grid (fresh in-memory scan on load, no Catalog.db needed)
-TargetSchedulerManager.App/bin/Debug/net10.0-windows10.0.19041.0/win-x64/tsmui.exe
+TargetSchedulerManager.App/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/tsmui.exe
 
 # Tests (App.Tests only)
 dotnet test TargetSchedulerManager.slnx -v:q --nologo
