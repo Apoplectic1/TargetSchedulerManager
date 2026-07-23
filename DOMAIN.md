@@ -97,7 +97,9 @@ under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing
   persistent panel.
 - **Direct in-grid controls** (high-frequency scalars): the **target-enable checkbox** (leftmost, on target
   headers only — hidden on disk-only + mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows;
-  read-only on headers, disk rows, and mixed rollups).
+  read-only on headers, disk rows, and mixed rollups — **each plan is inline-editable in exactly one place**, the
+  row showing its own exposure time, so a mixed rollup's box moves down to the plan's detail line (TS or nested
+  Both); the rollup keeps its flyout/pencil as the deliberate secondary gesture, 2026-07-23).
 - **Edit flyout** (everything else, 2026-07-06): a **hover-revealed pencil glyph** (Opacity 0→1 via the
   template-root pointer handlers; `x:Name="EditGlyph"`) and a **right-click menu** ("Edit target…" / "Edit
   exposure plan…", built in code — `Row_RightTapped` — so items gate on row data; this menu is the extension

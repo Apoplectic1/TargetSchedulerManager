@@ -152,8 +152,11 @@ public sealed class ReconciliationRow(
         Raise(nameof(IsPlanEnabled));
     }
 
-    /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side present.</summary>
-    public bool CanEditDesired => PlanTsKey is not null && Desired is not null;
+    /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side
+    /// present, at the row showing that plan's own exposure time — a mixed rollup aggregates sub lengths, so
+    /// its box moves down to the plan's detail line (each plan is inline-editable in exactly one place; the
+    /// rollup keeps its flyout gesture via <see cref="PlanTsKey"/>).</summary>
+    public bool CanEditDesired => PlanTsKey is not null && Desired is not null && !SecondsMixed;
 
     /// <summary>Desired as a NumberBox value (the real count on editable rows; a 0 stand-in elsewhere).</summary>
     public double DesiredValue => Desired ?? 0;

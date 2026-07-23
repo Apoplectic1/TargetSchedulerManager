@@ -207,6 +207,46 @@ public class BuildRowsTests
     }
 
     [Fact]
+    public void MixedRollup_SinglePlan_KeepsFlyoutKeyButDesiredEditsOnlyAtTheDetailLine()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 900.0, tsKey: "ep-1")], [Tpl(tpl, "O", "O")],
+                [Inv(t, "O", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        // One plan sub-length + a different disk sub-length → mixed rollup. The plan key stays on the
+        // rollup (flyout gesture), but the inline Desired box moves down to the plan's own detail line
+        // so each plan is editable in exactly one place.
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.True(rollup.SecondsMixed);
+        Assert.Equal("ep-1", rollup.PlanTsKey);
+        Assert.False(rollup.CanEditDesired);
+        ReconciliationRow ts = Assert.Single(rollup.Detail!, d => d.Plane == RowPlane.Ts);
+        Assert.True(ts.CanEditDesired);
+    }
+
+    [Fact]
+    public void MixedRollup_NestedBothDetail_IsTheEditablePlace()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 33, seconds: 60.0, tsKey: "ep-1")], [Tpl(tpl, "R", "R")],
+                [Inv(t, "R", FilterPurpose.Light, 1, 30.0), Inv(t, "R", FilterPurpose.Light, 19, 60.0)]),
+            Report());
+
+        // Plan and disk agree at 60s while a stray 30s disk bucket makes the rollup mixed: the plan's
+        // detail line renders as a nested Both, and that line — not the rollup — carries the edit box.
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.True(rollup.SecondsMixed);
+        Assert.False(rollup.CanEditDesired);
+        ReconciliationRow both = Assert.Single(rollup.Detail!, d => d.Plane == RowPlane.Both);
+        Assert.True(both.CanEditDesired);
+    }
+
+    [Fact]
     public void EditingDesiredInPlace_ReaggregatesTheGroupHeaderTotals()
     {
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
