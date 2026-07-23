@@ -76,9 +76,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
   none for a mosaic parent, which matches by project name); each TS target derives its scope from its own
   grouping (isMosaic project → that scope, else default). ONE rule: anchor to the nearest in-tolerance unit
-  of the same scope (default 0.5° haversine; panel scope uses a tighter 0.1° radius — panel spacing is a
-  fraction of a field, so a bigger separation is a different framing, not recenter drift, 2026-07-23); name
-  validates (a panel validates via its directory token —
+  of the same scope (default 0.5° haversine; a panel claim whose directory token does NOT align is limited
+  to a tight 0.1° radius — aligned directories anchor at the full tolerance since the name confirms identity
+  and absorbs real recenter drift, while an unrelated framing merely nearby stays unclaimed, 2026-07-23);
+  name validates (a panel validates via its directory token —
   `Panel 01of16` → `P1`); **an aligned claim outranks an unaligned one** (a nearby-but-differently-named
   target releases back to planned instead of piling onto a directory a correctly-named target owns — the
   Witch Head shape). Disk plate-solved coords win on merge; the TS guid is retained on `Both` for write-back.

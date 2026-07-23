@@ -69,8 +69,9 @@ TS is read via the hardened read-only `TargetSchedulerReader` (TargetScheduler/)
 
 Load-bearing invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both**; full detail there):
 - **Coordinate-primary, scope-equal matching** — each TS target anchors to the nearest disk unit *of its own
-  scope* within a haversine tolerance (default **0.5°**; panel scope **0.1°** — spacing is a fraction of a
-  field, so bigger separations are different framings); name validates (panels via their directory token);
+  scope* within a haversine tolerance (default **0.5°**; an *unaligned* panel claim only within **0.1°** —
+  a name-aligned panel directory anchors at the full 0.5°, an unrelated framing nearby stays unclaimed);
+  name validates (panels via their directory token);
   an aligned claim outranks an unaligned one; **disk plate-solved coords win** on merge; the TS guid is
   retained on `Both` as `imported_from_ts_guid` for write-back. Mismatches / ambiguous / duplicates /
   unanchored / coerced rows are **reported in `CatalogBuildReport`, not dropped**.
