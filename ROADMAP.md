@@ -45,8 +45,9 @@ redirect). Projects follow their targets (none enabled → Inactive; Draft/Close
 edit gate/journal like hand edits (push optional); pass consumes the load's retained `TsPlanData`
 (`LoadResult.Ts` — no second TS read); a target missing RA/Dec aborts before any edit. No confirm dialog —
 per-press decisive, per observing night. 204 App.Tests (13 new; an earlier "191" was a stale-binary run —
-see VERIFICATION.md's new slnx-vs-csproj test trap). Awaiting the user's visual pass (knobs, Find, flips,
-marks, summary line). First `Astronomy.Core` reference in the app.
+see VERIFICATION.md's new slnx-vs-csproj test trap). **User-verified in app + ARCHIVED same day**
+(`openspec/changes/archive/2026-07-23-enable-visible-tonight`; main spec seeded:
+`openspec/specs/visible-tonight-toggle`). First `Astronomy.Core` reference in the app.
 
 **▶ SHIPPED 2026-07-23 — pull hardening (`openspec/changes/harden-ts-pull`).** Root-caused a real incident:
 the app killed mid-pull (a latency-degraded ~40 s Pull Now, ~87% done and healthy — the backup is ~37k
