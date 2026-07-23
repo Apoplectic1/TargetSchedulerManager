@@ -301,6 +301,11 @@
             <Button Content="Ambiguities…" Click="Ambiguities_Click" MinWidth="0" Opacity="0.85"
                     IsEnabled="{x:Bind ViewModel.CanShowAmbiguities, Mode=OneWay}"
                     ToolTipService.ToolTip="Write + open a printable report of TS/disk ambiguities (what · why · the hand fix in the TS UI)"/>
+            <!-- One press, no confirm (user decision): target.active tracks tonight's sky (≥30-min window
+                 above the geometric 0° horizon), project.state follows its targets; Draft/Closed untouched.
+                 Flips are ordinary journaled edits — push stays optional. -->
+            <Button Content="Visible tonight" Click="VisibleTonight_Click" MinWidth="0" Opacity="0.85"
+                    ToolTipService.ToolTip="Enable targets visible ≥30 min above the horizon tonight, disable the rest; a project with no enabled targets goes Inactive (Draft/Closed skipped)"/>
             <TextBlock Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" VerticalAlignment="Center"
                        Style="{ThemeResource BodyStrongTextBlockStyle}"/>
         </StackPanel>

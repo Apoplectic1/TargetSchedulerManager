@@ -329,6 +329,55 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>The Visible-tonight button: reconciles <c>target.active</c> / <c>project.state</c> with
+    /// tonight's sky (0° geometric horizon, ≥ 30-min contiguous window at the DevDefaults site — see
+    /// <see cref="VisibleTonightPass"/>). Consumes the load's retained TS snapshot (no re-read), applies
+    /// through the guarded gate (each flip journals like a hand edit), reloads without a pull so the grid
+    /// shows the flips + marks, then reports the counts on the status line.</summary>
+    public async Task RunVisibleTonightAsync()
+    {
+        if (_isLoading)
+            return;
+        if (_lastLoad is not LoadResult load)
+        {
+            StatusText = "no load yet — nothing to reconcile";
+            return;
+        }
+
+        VisibleTonightPlan plan;
+        try
+        {
+            plan = VisibleTonightPass.Plan(
+                load.Ts, DevDefaults.Site(), DateTime.UtcNow, DevDefaults.VisibleTonightMinDuration);
+        }
+        catch (Exception ex)
+        {
+            // Fail fast, zero edits: a contract violation (e.g. a TS target without RA/Dec) aborts the
+            // whole pass rather than skipping the row.
+            Log.Error("VISIBLE-TONIGHT aborted before any edit", ex);
+            StatusText = $"Visible tonight aborted: {ex.Message}";
+            return;
+        }
+
+        int failed = 0;
+        foreach (VisibleTonightEdit edit in plan.Edits)
+        {
+            EditOutcome outcome = await _gate.ApplyAsync(edit.Table, edit.Key, edit.Column, edit.Value, edit.Label);
+            if (outcome is not EditOutcome.Applied)
+                failed++;   // the gate already logged the reason; keep applying the remaining flips
+        }
+
+        if (plan.Edits.Count > 0)
+            await LoadAsync(PullPolicy.Never);   // re-read the local db: flips, marks, and badge render fresh
+
+        StatusText = $"Visible tonight: {plan.TargetsEnabled} enabled · {plan.TargetsDisabled} disabled · "
+            + $"{plan.TargetsUnchanged} unchanged · {plan.ProjectsActivated + plan.ProjectsDeactivated} project(s) flipped"
+            + (failed > 0 ? $" · {failed} FAILED — see tsm.log" : "");
+        Log.Info($"VISIBLE-TONIGHT: enabled={plan.TargetsEnabled} disabled={plan.TargetsDisabled}"
+            + $" unchanged={plan.TargetsUnchanged} projOn={plan.ProjectsActivated}"
+            + $" projOff={plan.ProjectsDeactivated} failed={failed}");
+    }
+
     /// <summary>The loaded graph's templates for the Templates… picker: name-ordered, with used-by counts
     /// from the plan edges — zero-use templates included (they have no rows to anchor from). Empty before a
     /// load completes; the caller notes "load first" rather than showing an empty list.</summary>

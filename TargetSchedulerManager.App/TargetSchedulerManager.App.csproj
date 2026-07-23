@@ -30,11 +30,13 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
   </ItemGroup>
 
-  <!-- Cross-repo local ProjectReferences (local disk is source of truth): the shared schema/build contract, and
-       the shared diagnostics (Log + screen capture; brings System.Drawing.Common transitively). -->
+  <!-- Cross-repo local ProjectReferences (local disk is source of truth): the shared schema/build contract,
+       the shared diagnostics (Log + screen capture; brings System.Drawing.Common transitively), and the
+       Meeus astronomy core (night window + visibility math for the Visible-tonight pass). -->
   <ItemGroup>
     <ProjectReference Include="..\..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj" />
     <ProjectReference Include="..\..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\Library\Astronomy.Core\Astronomy.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

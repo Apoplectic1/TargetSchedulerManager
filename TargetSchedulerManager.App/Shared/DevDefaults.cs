@@ -1,3 +1,5 @@
+using Astronomy.Core.Locations;
+
 namespace TargetSchedulerManager;
 
 /// <summary>
@@ -18,4 +20,27 @@ internal static class DevDefaults
 
     /// <summary>The LIVE TS db on the imaging PC (BIRDWATCHER), over SMB — read at pull, written only by push (path mirrors XFM's).</summary>
     public const string TsDatabaseLive = @"\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite";
+
+    // ---- Observing site (the Visible-tonight pass) ----
+    // The rig's home site (values mirror TP's "Penns Park" preset). Same dev-default pattern as the
+    // db paths above; a settings page can replace these later.
+    public const string SiteName            = "Penns Park";
+    public const double SiteLatitude        = 40.282835;   // magnitude; hemisphere in SiteNorth
+    public const bool   SiteNorth           = true;
+    public const double SiteLongitude       = 74.997369;   // magnitude; hemisphere in SiteWest
+    public const bool   SiteWest            = true;
+    public const double SiteElevationMeters = 80.67;
+    public const string SiteTimeZoneId      = "Eastern Standard Time";
+
+    /// <summary>Shortest single contiguous above-horizon window that counts as "visible tonight".</summary>
+    public static readonly TimeSpan VisibleTonightMinDuration = TimeSpan.FromMinutes(30);
+
+    /// <summary>The observing site as the library's <see cref="Location"/> (geometric 0° horizon — the
+    /// Visible-tonight predicate is deliberately independent of TS's per-project altitude rules).</summary>
+    public static Location Site() => new(
+        name:         SiteName,
+        latitude:     SiteLatitude,  north: SiteNorth,
+        longitude:    SiteLongitude, west:  SiteWest,
+        timeZoneInfo: TimeZoneInfo.FindSystemTimeZoneById(SiteTimeZoneId),
+        elevation:    SiteElevationMeters);
 }

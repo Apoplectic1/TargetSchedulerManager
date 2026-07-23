@@ -42,12 +42,14 @@ Scope-excluded (not this project's docs): `.claude/`, `openspec/`, `.superpowers
 | **TargetSchedulerManager** (this) | `E:\Projects\…\TargetSchedulerManager` | the WinUI 3 app: a TS-database manager (view + edit TS; disk read-only for plan-vs-actual). App-only since 2026-06-11. |
 | **Astronomy.Catalog** + deps | `E:\Projects\…\Library` | the shared schema/build **contract** every consumer references |
 
-TSM has two cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj` and
-`..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract)
-(local disk is source of truth; no NuGet/package hop). `Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF
-header reader for the scanner). Both are **pure-managed** (Microsoft.Data.Sqlite only), AnyCPU/x64, no native
-deps — so this project graph builds with plain `dotnet build` (the `.vcxproj` MSBuild caveat does *not* apply
-here; the native PCL projects are not in TSM's solution).
+TSM has three cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`,
+`..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract),
+and `..\Library\Astronomy.Core\Astronomy.Core.csproj` (night window + visibility math for the
+Visible-tonight pass, added 2026-07-23) (local disk is source of truth; no NuGet/package hop).
+`Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF header reader for the scanner). All are **pure-managed**
+(Microsoft.Data.Sqlite only), AnyCPU/x64, no native deps — so this project graph builds with plain
+`dotnet build` (the `.vcxproj` MSBuild caveat does *not* apply here; the native PCL projects are not in
+TSM's solution).
 
 ## Build, run, test, verify
 

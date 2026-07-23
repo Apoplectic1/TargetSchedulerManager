@@ -12,12 +12,15 @@ using Astronomy.Diagnostics;
 
 namespace TargetSchedulerManager.App.Services;
 
-/// <summary>Result of one load: the grid rows, the build report the summary/badges came from, and the resolved
-/// <see cref="CatalogGraph"/> retained so the detail panel can pull a target's full disk + TS dossier.</summary>
+/// <summary>Result of one load: the grid rows, the build report the summary/badges came from, the resolved
+/// <see cref="CatalogGraph"/> retained so the detail panel can pull a target's full disk + TS dossier, and the
+/// raw <see cref="TsPlanData"/> snapshot the build read — retained so app actions (e.g. the Visible-tonight
+/// pass) consume the load's single TS read instead of re-opening the db.</summary>
 public sealed record LoadResult(
     IReadOnlyList<ReconciliationRow> Rows,
     CatalogBuildReport Report,
     CatalogGraph Graph,
+    TsPlanData Ts,
     TimeSpan Elapsed);
 
 /// <summary>
@@ -66,7 +69,7 @@ public static class ReconciliationLoader
             $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}" +
             $" panels={report.PanelsMatched}/{report.PanelsPlannedOnly}/{report.PanelsActualOnly}");
 
-        return new LoadResult(rows, report, graph, sw.Elapsed);
+        return new LoadResult(rows, report, graph, ts, sw.Elapsed);
     }, ct);
 
     /// <summary>

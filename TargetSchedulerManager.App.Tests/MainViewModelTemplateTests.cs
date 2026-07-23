@@ -1,3 +1,4 @@
+using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Schema;
 using TargetSchedulerManager.App.Services;
@@ -71,7 +72,7 @@ public class MainViewModelTemplateTests
     {
         MainViewModel vm = new(Gate());
         vm.SetLoadForTest(new LoadResult(
-            [], Report(), new CatalogGraph([], [], templates, [], plans, []), TimeSpan.Zero));
+            [], Report(), new CatalogGraph([], [], templates, [], plans, []), TsPlanData.Empty, TimeSpan.Zero));
         return vm;
     }
 

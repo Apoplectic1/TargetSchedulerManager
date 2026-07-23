@@ -263,3 +263,30 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
   flag, and TS-internal check (same-key plans across all TS-sourced targets, planned-only twins, duplicate
   template names) into one printable Markdown file with hand-fix instructions — the tripwire's detail. TSM
   never resolves these itself (resolver rejected 2026-07-08; fixes are hand-edits in NINA's TS UI).
+
+## Visible-tonight pass (toolbar button; shipped 2026-07-23)
+
+One press reconciles the enable state with tonight's sky — no confirm dialog (user decision: "this is why
+it's a button"), push stays optional.
+
+- **Predicate (deliberately TS-independent):** a target is *visible tonight* iff it has a **single
+  contiguous window ≥ 30 min** (`DevDefaults.VisibleTonightMinDuration`) above the **geometric 0° horizon**
+  between tonight's astronomical dusk and dawn — one library call,
+  `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(0), minDuration)`.
+  TS's own gates (`minimumaltitude`, custom horizon/offset, `minimumtime`, twilight levels) are **not**
+  consulted — TS re-applies them itself at plan time; a rejected earlier draft that mirrored the TS gate
+  (and promoted TP's `.hrz` parser into the library) was reverted 2026-07-23. "Tonight" is
+  `NightCalculator.ComputeNight`'s bracket: the window whose dawn is the next dawn at-or-after now (the
+  current night mid-night, the upcoming night in daylight).
+- **Flip rules:** `target.active ← verdict` for every target of an `Active`/`Inactive` project; then
+  `project.state ← any-enabled-child ? Active : Inactive` over the **post-pass** values (a project with no
+  enabled targets — including one with no targets — goes Inactive). `Draft`/`Closed` projects and their
+  targets are never read or written. Panels are ordinary target rows. No-op values journal nothing.
+- **Data + writes:** consumes the load's retained `TsPlanData` snapshot (`LoadResult.Ts` — the single TS
+  read; no re-open), plans as pure records (`Services/VisibleTonightPass`, unit-tested without SQLite),
+  applies each flip through `TsEditGate.ApplyAsync` — so every flip journals, marks, badges, and replays
+  at Push exactly like a hand edit — then reloads (no pull) and reports counts on the status line.
+  Fail-fast: a processed TS target without RA/Dec aborts the whole pass **before any edit**.
+- **Site input:** `DevDefaults` constants (Penns Park lat/long/TZ/elevation, mirroring TP's preset)
+  materialized by `DevDefaults.Site()` — the app's first `Astronomy.Core` dependency (pure-managed; build
+  model unchanged).

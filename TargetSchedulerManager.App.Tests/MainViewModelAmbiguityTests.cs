@@ -1,3 +1,4 @@
+using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Schema;
 using TargetSchedulerManager.App.Services;
@@ -63,7 +64,7 @@ public class MainViewModelAmbiguityTests
     private static MainViewModel Vm(CatalogGraph graph)
     {
         MainViewModel vm = new(Gate());
-        vm.SetLoadForTest(new LoadResult([], Report(), graph, TimeSpan.Zero));
+        vm.SetLoadForTest(new LoadResult([], Report(), graph, TsPlanData.Empty, TimeSpan.Zero));
         return vm;
     }
 
