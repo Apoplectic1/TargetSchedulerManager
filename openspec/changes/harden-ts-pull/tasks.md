@@ -39,7 +39,7 @@
 
 ## 5. Verify + docs (same commit as code)
 
-- [ ] 5.1 Full build + both test projects green; manual pass per VERIFICATION.md (user verifies: percentage
+- [x] 5.1 Full build + both test projects green; manual pass per VERIFICATION.md (user verifies: percentage
       text during a real pull, cancel behavior, heal on a fabricated hot journal)
 - [x] 5.2 `ARCHITECTURE.md` sync-model section: atomic pull, torn-local gate, observability; mirror the
       condensed invariant in `CLAUDE.md` if the sync bullet's wording changes
