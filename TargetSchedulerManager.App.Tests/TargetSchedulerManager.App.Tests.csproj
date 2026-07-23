@@ -14,6 +14,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- xUnit1051 wants TestContext.Current.CancellationToken threaded into every call that can accept a
+         token. TsSync.Pull/Push accept one (the pull-cancel feature), but these are sub-second local-file
+         ops — responsiveness-to-test-cancellation noise, not signal. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

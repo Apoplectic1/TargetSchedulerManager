@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Globalization;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 
 namespace TargetSchedulerManager.App.Shared;
 
@@ -143,55 +145,89 @@ internal sealed class TsSync
         || b.RemoteLastWriteUtc != probe.LastWriteUtc;
 
     /// <summary>Pulls only when <see cref="ShouldPull"/> says the local copy may be stale; true when it pulled.</summary>
-    public bool PullIfChanged(TsDbStat probe)
+    public bool PullIfChanged(TsDbStat probe, IProgress<int>? progress = null, CancellationToken cancel = default)
     {
         if (!ShouldPull(probe))
         {
             Log.Info($"PULL skipped — baseline matches ({probe.Length:N0} bytes @ {probe.LastWriteUtc:u}, no sidecar)");
             return false;
         }
-        Pull(probe);
+        Pull(probe, progress, cancel);
         return true;
     }
 
     /// <summary>
-    /// Copies the remote db over the local one via the SQLite online backup API — a consistent snapshot even
-    /// while NINA holds the file (unlike a raw file copy, which can tear). Records the baseline from the
-    /// PRE-pull probe: a write landing during the copy makes the content newer than the baseline, which can
-    /// only cause an extra pull next open, never a false skip. Throws on failure (fail loud — the caller's
-    /// load surfaces it); pooling is off so no SMB handle outlives the copy.
+    /// The torn-local gate: a <c>-journal</c>/<c>-wal</c> beside the local db is a writer that died
+    /// mid-transaction (e.g. the process killed during a pull) — a read-only open can never recover it, and
+    /// the baseline skip rule would preserve it forever (it validates remote-vs-baseline, never local
+    /// health). Heals by discarding the local copy, its sidecars, and the baseline; the caller MUST then
+    /// pull before any local read. The edit journal (<c>.tsm-edits.jsonl</c>) is deliberately untouched:
+    /// unpushed edits survive the heal and replay at push. True when torn state was found and cleared.
     /// </summary>
-    public void Pull(TsDbStat probe)
+    public bool HealTornLocal()
     {
+        string? sidecar =
+            File.Exists(LocalPath + "-journal") ? "-journal" :
+            File.Exists(LocalPath + "-wal") ? "-wal" : null;
+        if (sidecar is null)
+            return false;
+        Log.Error($"LOCAL TORN — {LocalPath} has a hot {sidecar}; discarding the local copy + baseline and re-pulling");
+        SqliteConnection.ClearAllPools();
+        File.Delete(LocalPath);
+        File.Delete(LocalPath + "-journal");
+        File.Delete(LocalPath + "-wal");
+        File.Delete(LocalPath + "-shm");
+        _state.Clear();
+        return true;
+    }
+
+    /// <summary>
+    /// Refreshes the local db from the remote via the SQLite online backup API — a consistent snapshot even
+    /// while NINA holds the file (unlike a raw file copy, which can tear). Atomic w.r.t. the local db: the
+    /// backup lands in a temp sibling and is swapped over the local db only on completion, so a process
+    /// death at ANY moment leaves the previous local db intact (the 2026-07-23 kill-mid-pull incident can't
+    /// recur). The copy reports a percentage through <paramref name="progress"/> and stops between chunks
+    /// when <paramref name="cancel"/> fires — a cancelled pull discards the temp file, records no baseline,
+    /// and leaves the previous local db untouched (the OperationCanceledException surfaces to the caller).
+    /// Records the baseline from the PRE-pull probe: a write landing during the copy makes the content newer
+    /// than the baseline, which can only cause an extra pull next open, never a false skip. Throws on
+    /// failure (fail loud — the caller's load surfaces it); pooling is off so no SMB handle outlives the copy.
+    /// </summary>
+    public void Pull(TsDbStat probe, IProgress<int>? progress = null, CancellationToken cancel = default)
+    {
+        string tmp = LocalPath + ".pull-tmp";
+        SweepPullTmp(tmp);   // a dead pull's leftovers — its swap never ran, so they're garbage
+
         // Inbound-diff half 1: what the local copy holds now IS "what the user last saw" — snapshot it before
-        // the backup overwrites it. A first-ever pull has nothing previously seen, so it diffs nothing.
+        // the swap replaces it. A first-ever pull has nothing previously seen, so it diffs nothing.
         Dictionary<TsTable, Dictionary<string, Dictionary<string, string?>>>? before =
             File.Exists(LocalPath) ? TsInboundDiff.Snapshot(LocalPath) : null;
 
-        using (SqliteConnection source = new(new SqliteConnectionStringBuilder
+        // The start line is the pull's only trace if it is interrupted — without it a killed pull is
+        // invisible in the log (how the incident stayed undiagnosable).
+        Log.Info($"PULL starting ({probe.Length:N0} bytes from {RemotePath})");
+        Stopwatch sw = Stopwatch.StartNew();
+        int lastPercent = 0;
+        try
         {
-            DataSource = RemotePath,
-            Mode = SqliteOpenMode.ReadOnly,
-            Pooling = false,
-        }.ToString()))
-        using (SqliteConnection destination = new(new SqliteConnectionStringBuilder
-        {
-            DataSource = LocalPath,
-            Mode = SqliteOpenMode.ReadWriteCreate,   // first run may have no local copy yet
-            Pooling = false,
-        }.ToString()))
-        {
-            source.Open();
-            destination.Open();
-            // The sidecar rule forces a pull exactly when NINA is mid-transaction — give the backup's lock
-            // acquisition the same patience the reader/writer get instead of failing on the first SQLITE_BUSY.
-            using (SqliteCommand pragma = source.CreateCommand())
-            {
-                pragma.CommandText = "PRAGMA busy_timeout = 2000;";
-                pragma.ExecuteNonQuery();
-            }
-            source.BackupDatabase(destination);
+            BackupTo(tmp, percent => { lastPercent = percent; progress?.Report(percent); }, cancel);
         }
+        catch (OperationCanceledException)
+        {
+            SweepPullTmp(tmp);
+            Log.Info($"PULL cancelled at {lastPercent}% — tmp discarded, local copy untouched");
+            throw;
+        }
+        catch
+        {
+            SweepPullTmp(tmp);
+            throw;
+        }
+
+        // The swap: same directory ⇒ same volume ⇒ atomic replace. Pooled reader/editor handles on the
+        // local path would fail it with a sharing violation — close them first.
+        SqliteConnection.ClearAllPools();
+        File.Move(tmp, LocalPath, overwrite: true);
 
         // Half 2: diff the fresh copy against the pre-pull snapshot and union into the session's inbound set
         // (sticky — a push's closing pull diffs near-empty and leaves the open's entries standing).
@@ -204,7 +240,77 @@ internal sealed class TsSync
         }
 
         _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, DateTimeOffset.Now));
-        Log.Info($"PULL {RemotePath} -> {LocalPath} ({probe.Length:N0} bytes, remote mtime {probe.LastWriteUtc:u})");
+        Log.Info($"PULL {RemotePath} -> {LocalPath} ({probe.Length:N0} bytes, remote mtime {probe.LastWriteUtc:u}) in {sw.Elapsed.TotalSeconds:0.0} s");
+    }
+
+    /// <summary>Chunked online backup of the remote db into <paramref name="destinationPath"/>, reporting
+    /// whole percents and honoring <paramref name="cancel"/> between chunks —
+    /// <see cref="SqliteConnection.BackupDatabase(SqliteConnection)"/> is all-or-nothing (no progress, no
+    /// cancellation), so this steps <c>sqlite3_backup</c> directly.</summary>
+    private void BackupTo(string destinationPath, Action<int> percent, CancellationToken cancel)
+    {
+        using SqliteConnection source = new(new SqliteConnectionStringBuilder
+        {
+            DataSource = RemotePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        using SqliteConnection destination = new(new SqliteConnectionStringBuilder
+        {
+            DataSource = destinationPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
+        }.ToString());
+        source.Open();
+        destination.Open();
+        // The sidecar rule forces a pull exactly when NINA is mid-transaction — give the backup's lock
+        // acquisition the same patience the reader/writer get instead of failing on the first SQLITE_BUSY.
+        using (SqliteCommand pragma = source.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA busy_timeout = 2000;";
+            pragma.ExecuteNonQuery();
+        }
+
+        using sqlite3_backup backup = raw.sqlite3_backup_init(destination.Handle, "main", source.Handle, "main");
+        if (backup is null || backup.IsInvalid)
+            throw new SqliteException(
+                $"backup init failed: {raw.sqlite3_errmsg(destination.Handle).utf8_to_string()}",
+                raw.sqlite3_errcode(destination.Handle));
+
+        int busyRetries = 0;
+        while (true)
+        {
+            cancel.ThrowIfCancellationRequested();
+            int rc = raw.sqlite3_backup_step(backup, BackupPagesPerStep);
+            int total = raw.sqlite3_backup_pagecount(backup);
+            if (total > 0)
+                percent((int)(100L * (total - raw.sqlite3_backup_remaining(backup)) / total));
+            if (rc == raw.SQLITE_DONE)
+                return;
+            if (rc == raw.SQLITE_OK)
+            {
+                busyRetries = 0;
+                continue;
+            }
+            if ((rc is raw.SQLITE_BUSY or raw.SQLITE_LOCKED) && ++busyRetries <= 40)
+            {
+                Thread.Sleep(50);   // 40 × 50 ms — the same total patience the busy-timeout grants
+                continue;
+            }
+            throw new SqliteException($"backup step failed (rc={rc})", rc);
+        }
+    }
+
+    /// <summary>~2 MB per chunk at TS's 4 KB page size — small enough for smooth percents + prompt cancel,
+    /// large enough that chunking adds no measurable overhead.</summary>
+    private const int BackupPagesPerStep = 512;
+
+    private static void SweepPullTmp(string tmp)
+    {
+        File.Delete(tmp);
+        File.Delete(tmp + "-journal");
+        File.Delete(tmp + "-wal");
+        File.Delete(tmp + "-shm");
     }
 
     /// <summary>Journals one verified manual field edit (the gate calls this after read-back verification).</summary>
@@ -226,11 +332,15 @@ internal sealed class TsSync
     /// <summary>Opens the write-back applier on the local db (the post-load stamping step).</summary>
     public ITsWriteBackApplier CreateLocalWriteBackApplier() => _applierFactory(LocalPath);
 
-    /// <summary>The user's deliberate Discard: drop every unpushed edit (the caller then pulls fresh).</summary>
+    /// <summary>The user's deliberate Discard: drop every unpushed edit (the caller then pulls fresh).
+    /// Also drops the baseline: the local db still holds the discarded values until that pull lands, and
+    /// without this a crash or cancel in between would leave them local behind a matching baseline —
+    /// silently skipping every future pull. Unbaselined, the next open always pulls.</summary>
     public void Discard()
     {
         Log.Info($"DISCARD {Journal.Count} unpushed journal entries (user chose discard-and-pull)");
         Journal.Clear();
+        _state.Clear();
     }
 
     /// <summary>Shapes the collapsed journal + the probe's facts into the push/open-with-dirty review.</summary>
@@ -280,7 +390,7 @@ internal sealed class TsSync
     /// Per-entry failures (row gone, verify mismatch) are reported loudly and their entries retained; a fully
     /// applied push clears the journal and ends in a fresh pull that re-records the baseline.
     /// </summary>
-    public PushResult Push()
+    public PushResult Push(IProgress<int>? pullProgress = null, CancellationToken pullCancel = default)
     {
         List<TsJournalEntry> collapsed = Journal.Collapse();
         if (collapsed.Count == 0)
@@ -399,13 +509,28 @@ internal sealed class TsSync
 
         // Full success: pull fresh so the local copy also gains everything BIRDWATCHER accrued since the last
         // pull, and the baseline invariant (recorded ⇔ local mirrors remote) is restored in one place.
+        // The token cancels only this pull, never the replay above (push writes are never interrupted); a
+        // cancelled or unreachable closing pull just means the next open pulls fresh.
         TsDbStat? post = ProbeRemote();
+        bool pulledFresh = false;
         if (post is not null)
-            Pull(post);
+        {
+            try
+            {
+                Pull(post, pullProgress, pullCancel);
+                pulledFresh = true;
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Warn("PUSH applied; closing pull cancelled — next open will pull fresh");
+            }
+        }
         else
+        {
             Log.Warn("PUSH applied but BIRDWATCHER dropped before the closing pull — next open will pull fresh");
+        }
         Log.Info($"PUSH applied {applied} field(s) to {RemotePath}");
-        return new PushResult(PushOutcome.Success, applied, [], PulledFresh: post is not null);
+        return new PushResult(PushOutcome.Success, applied, [], PulledFresh: pulledFresh);
 
         void Fail(IEnumerable<TsJournalEntry> entries, string detail)
         {

@@ -8,7 +8,7 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-08)
+## Status — pick up here (2026-07-23)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -33,6 +33,20 @@ Then: clean re-run → tick task 4.2 → archive `ts-ambiguity-report` → **`re
 lib+app removal of the whole alias mechanism — the hand-edit doctrine abolishes benign multi-claims and the
 fold demonstrably masked the M27 defect; footprint + sequencing in the NOTEBOOK correction entry). After
 that: disk-matcher design; strategic lane = the ISP transition (lift/regenerate + intent store).
+
+**▶ SHIPPED 2026-07-23 — pull hardening (`openspec/changes/harden-ts-pull`).** Root-caused a real incident:
+the app killed mid-pull (a latency-degraded ~40 s Pull Now, ~87% done and healthy — the backup is ~37k
+synchronous 4 KB SMB page reads, so 2 s and 40 s are both normal) left a hot 132 MB rollback journal the
+read-only reader could never recover (SQLite Error 8), and the baseline skip — which never checks local
+health — preserved the wreckage every launch. Fixed structurally: **atomic pull** (backup into
+`<local>.pull-tmp`, `ClearAllPools`, swap on completion — a kill at any moment leaves the previous copy
+usable; stale tmp swept next pull), **torn-local heal gate** at open (`-journal`/`-wal` beside the local db
+→ `LOCAL TORN` log, discard local + baseline, pull fresh; torn + offline fails loudly; `.tsm-edits.jsonl`
+untouched so unpushed edits survive), and **pull observability** (chunked `sqlite3_backup`: status-line
+**text percentage** — no progress-bar element, user's call — + **Cancel pull** that discards the tmp and
+never interrupts push replay writes; `PULL starting` + duration log lines — an interrupted pull used to be
+invisible). `Discard` now also drops the baseline (interruption after it can't strand discarded values
+behind a matching skip). 189 App.Tests (13 new). Awaiting the user's visual pass (percentage, cancel, heal).
 
 **▶ SHIPPED 2026-07-08 — printable ambiguity report (`openspec/changes/ts-ambiguity-report`).** The tripwire's
 detail (what the "write-back app action" became — DECIDED block below): toolbar **Ambiguities…** writes a dated

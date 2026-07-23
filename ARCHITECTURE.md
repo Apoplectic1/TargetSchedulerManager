@@ -135,6 +135,20 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   `-wal`/`-shm`/`-journal` exists (WAL hides content changes from the main file's mtime). Unbaselined always
   pulls; the baseline is recorded from the *pre*-pull stat, so a mid-copy write can only cost an extra pull,
   never a false skip. Rapid test relaunches therefore skip the copy. Offline opens proceed on the local copy.
+- **Pull is atomic, observable, cancellable (hardened 2026-07-23).** The backup lands in `<local>.pull-tmp`
+  and is swapped over the local db only on completion (`ClearAllPools` first — a pooled reader handle would
+  fail the swap), so a process death at *any* moment leaves the previous copy intact; a dead pull's tmp is
+  swept by the next pull. The copy is chunked `sqlite3_backup` steps (~2 MB): the status line shows a **text
+  percentage** (deliberately no progress-bar element) and **Cancel pull** stops between chunks — tmp
+  discarded, no baseline recorded, previous copy untouched (during a push only the closing pull cancels;
+  replay writes never do). The log carries `PULL starting` + completion duration — an interrupted pull used
+  to be invisible, which is why the incident (app killed at ~87% of a latency-degraded ~40 s pull, leaving a
+  hot journal the read-only reader could never recover and the baseline skip faithfully preserved) was
+  undiagnosable live. The **torn-local gate** closes that skip-rule blind spot: a `-journal`/`-wal` beside
+  the local db at open is healed loudly (`LOCAL TORN` log line; discard local + sidecars + baseline; pull
+  fresh; torn + offline fails the load loudly instead) — the edit journal is untouched, so unpushed edits
+  survive and replay at push. `Discard` also drops the baseline, so an interrupted discard-pull can't strand
+  discarded values behind a matching skip.
 - **Every edit writes locally and journals.** The gate targets the local path only; each verified write appends
   `(seq, kind, table, key, column, absolute value, old, label, at)` to the journal. **Dirty ≡ journal
   non-empty** — derived from the persisted file, never a stored flag, so it is crash-safe by construction. The

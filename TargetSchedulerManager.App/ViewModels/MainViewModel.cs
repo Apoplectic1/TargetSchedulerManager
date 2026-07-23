@@ -164,6 +164,55 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => Set(ref _isLoading, value);
     }
 
+    /// <summary>True while a pull-capable operation runs — shows the Cancel-pull affordance. (During a
+    /// push only the closing pull honors the cancel; replay writes are never interrupted.)</summary>
+    public bool IsPulling
+    {
+        get => _isPulling;
+        private set => Set(ref _isPulling, value);
+    }
+
+    /// <summary>The Cancel-pull action: cooperative — the copy stops between chunks, the temp file is
+    /// discarded, and the previous local copy (and baseline) stay untouched.</summary>
+    public void CancelPull() => _pullCts?.Cancel();
+
+    private bool _isPulling;
+    private CancellationTokenSource? _pullCts;
+
+    // One pull-capable operation: a fresh CTS for the Cancel button and a Progress that surfaces the
+    // copy as a text percentage on the status line (percentage only — deliberately no progress-bar
+    // element). Progress marshals to the construction (UI) thread, so StatusText updates bind safely.
+    private async Task<T> WithPullUiAsync<T>(Func<IProgress<int>, CancellationToken, T> operation)
+    {
+        using CancellationTokenSource cts = new();
+        _pullCts = cts;
+        Progress<int> progress = new(p => StatusText = $"pulling from BIRDWATCHER … {p}%");
+        IsPulling = true;
+        try
+        {
+            return await Task.Run(() => operation(progress, cts.Token));
+        }
+        finally
+        {
+            IsPulling = false;
+            _pullCts = null;
+        }
+    }
+
+    // One cancellable pull; false = the user cancelled (previous local copy, if any, untouched).
+    private async Task<bool> TryPullAsync(TsDbStat probe)
+    {
+        try
+        {
+            await WithPullUiAsync<object?>((p, t) => { Sync.Pull(probe, p, t); return null; });
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
     public string SearchText
     {
         get => _searchText;
@@ -374,11 +423,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    // The BIRDWATCHER half of a load: probe (off-thread — the SMB stat can block up to its timeout), route a
-    // dirty journal through the user's push/discard decision BEFORE any pull can overwrite local edits, then
-    // pull / skip per the baseline rule. Returns the status-line fragment describing what happened.
+    // The BIRDWATCHER half of a load: heal a torn local copy, probe (off-thread — the SMB stat can block up
+    // to its timeout), route a dirty journal through the user's push/discard decision BEFORE any pull can
+    // overwrite local edits, then pull / skip per the baseline rule. Returns the status-line fragment
+    // describing what happened.
     private async Task<string> PrepareTsForLoadAsync(PullPolicy policy)
     {
+        // Torn-local gate: runs before the skip decision can trust a baseline that never validates local
+        // health, and before any reader touches the torn file. Overrides even Reload's no-pull contract —
+        // there is nothing intact left to re-read — and skips the dirty prompt: the journal survives the
+        // heal untouched, so no local value can be lost by pulling.
+        if (await Task.Run(Sync.HealTornLocal))
+        {
+            TsDbStat? healProbe = await Task.Run(Sync.ProbeRemote);
+            if (healProbe is null)
+                throw new InvalidOperationException(
+                    $"local TS copy was torn and has been discarded, but BIRDWATCHER is unreachable — nothing to load ({Sync.LocalPath})");
+            if (!await TryPullAsync(healProbe))
+                throw new InvalidOperationException(
+                    "pull cancelled with no intact local copy — nothing to load; Pull now when ready");
+            return "local copy was torn — discarded + pulled fresh";
+        }
+
         if (policy == PullPolicy.Never)
             return "not re-pulled";
 
@@ -395,30 +461,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
             switch (decision)
             {
                 case OpenDirtyDecision.Push:
-                    PushResult push = await Task.Run(Sync.Push);
+                    PushResult push = await WithPullUiAsync((p, t) => Sync.Push(p, t));
                     return push.Outcome == PushOutcome.Success
-                        ? "pushed + pulled fresh"
+                        ? push.PulledFresh ? "pushed + pulled fresh" : "pushed (closing pull skipped)"
                         : $"PUSH INCOMPLETE ({DescribePush(push)}) — kept local";
                 case OpenDirtyDecision.Discard:
-                    await Task.Run(() =>
-                    {
-                        Sync.Discard();
-                        Sync.Pull(probe);
-                    });
-                    return "edits discarded · pulled fresh";
+                    await Task.Run(Sync.Discard);   // also drops the baseline — a cancelled pull below can't strand the discarded values behind a matching skip
+                    return await TryPullAsync(probe)
+                        ? "edits discarded · pulled fresh"
+                        : CancelledPullNote("edits discarded · ");
                 default:
                     return "unpushed edits — pull deferred";
             }
         }
 
         if (policy == PullPolicy.Force)
+            return await TryPullAsync(probe) ? "pulled (forced)" : CancelledPullNote();
+
+        bool pulled;
+        try
         {
-            await Task.Run(() => Sync.Pull(probe));
-            return "pulled (forced)";
+            pulled = await WithPullUiAsync((p, t) => Sync.PullIfChanged(probe, p, t));
         }
-        bool pulled = await Task.Run(() => Sync.PullIfChanged(probe));
+        catch (OperationCanceledException)
+        {
+            return CancelledPullNote();
+        }
         return pulled ? "pulled fresh" : "unchanged — pull skipped";
     }
+
+    // A cancelled pull is fine while a previous local copy exists (the atomic pull never touched it); with
+    // none — a cancelled first-ever pull — there is nothing to load, so fail loudly instead of half-opening.
+    private string CancelledPullNote(string prefix = "") =>
+        File.Exists(Sync.LocalPath)
+            ? $"{prefix}pull cancelled — using the previous local copy"
+            : throw new InvalidOperationException(
+                "pull cancelled before any local copy exists — nothing to load; Pull now when ready");
 
     /// <summary>
     /// The Push button: probe, build the review (manual edits + write-back with decreases first + staleness
@@ -453,7 +531,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (ConfirmPushPrompt is not null && !await ConfirmPushPrompt(review))
                 return;
 
-            result = await Task.Run(Sync.Push);
+            result = await WithPullUiAsync((p, t) => Sync.Push(p, t));
         }
         catch (Exception ex)
         {

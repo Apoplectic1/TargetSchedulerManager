@@ -49,6 +49,15 @@ internal sealed class TsSyncState
         }
     }
 
+    /// <summary>Drops the baseline (memory + sidecar): the local copy no longer mirrors the remote (a
+    /// discard abandoned it, or the torn-local heal deleted it), so the safe direction is unbaselined —
+    /// the next open always pulls.</summary>
+    public void Clear()
+    {
+        Baseline = null;
+        File.Delete(_path);
+    }
+
     /// <summary>Records a new baseline and persists it (temp + atomic move).</summary>
     public void Record(TsBaseline baseline)
     {

@@ -274,6 +274,12 @@
             <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"
                     ToolTipService.ToolTip="Rescan the disk library + re-read the local TS copy (no pull)"/>
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
+            <!-- Pull progress is a text percentage on the status line (no progress-bar element — user's
+                 call); this cancel is the cooperative alternative to the process kill that tore the local
+                 copy on 2026-07-23. Visible only while a pull-capable operation runs. -->
+            <Button Content="Cancel pull" Click="CancelPull_Click" MinWidth="0"
+                    Visibility="{x:Bind ViewModel.IsPulling, Mode=OneWay}"
+                    ToolTipService.ToolTip="Stop the in-flight copy from BIRDWATCHER — the previous local copy stays untouched (push writes are never interrupted)"/>
             <!-- Sync model: all edits land in the LOCAL copy and journal; BIRDWATCHER is read at pull (open /
                  Pull now) and written only by the reviewed Push. The badge displays the sync facts — last
                  synced time + unpushed count — so state is never something the user must remember. -->
