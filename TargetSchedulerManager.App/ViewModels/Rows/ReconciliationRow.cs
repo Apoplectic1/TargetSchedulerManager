@@ -286,7 +286,9 @@ public sealed class ReconciliationRow(
     public string DesiredText => Desired?.ToString() ?? "—";
     public string AcquiredText => Acquired?.ToString() ?? "—";
     public string AcceptedText => Accepted?.ToString() ?? "—";
-    public string DiskText => Plane == RowPlane.Ts ? "—" : Disk.ToString();
+    // Actual is measured over the whole disk, so a TS row's absence of frames is a real 0 — unlike the
+    // authored plan-side cells, whose absence stays "—" (no plan ≠ a goal of zero).
+    public string DiskText => Disk.ToString();
 
     public string HoursText => Hours switch
     {

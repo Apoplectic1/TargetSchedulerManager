@@ -63,7 +63,10 @@ tiebreak. `NaturalComparer` is pure-managed (no `shlwapi` P/Invoke).
 ## em-dash convention
 
 `—` = this row's plane has nothing for that cell (like an empty DataGridView cell). A Disk-only row shows `—`
-under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing — keep it.
+under Desired/TS → "no TS plan for this exposure"; that signal is load-bearing — keep it. **Exception — Actual
+(2026-07-23):** the disk scan is a measurement over everything, so a TS row's Actual is a real `0` (zero frames
+captured), never `—`. The convention is asymmetric on purpose: authored plan-side absence = `—` (no plan ≠ a
+goal of zero); measured disk-side absence = `0`.
 
 ## Visual language
 
