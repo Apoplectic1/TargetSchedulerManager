@@ -2,27 +2,31 @@
 
 ## ADDED Requirements
 
-### Requirement: Geometric visibility predicate
+### Requirement: Visibility predicate
 The system SHALL judge a target "visible tonight" if and only if the target has a single contiguous
-window of at least the configured minimum duration (default 30 minutes) above the geometric horizon
-(altitude 0°) between tonight's astronomical dusk and dawn at the configured site. Two shorter windows
-that only sum to the minimum SHALL NOT qualify. TS's own altitude rules (`minimumaltitude`, custom
-horizon, `horizonoffset`, `minimumtime`) SHALL NOT be consulted.
+window of at least the user's Duration (minutes) above the user's Horizon altitude floor (degrees)
+between tonight's astronomical dusk and dawn at the configured site. Two shorter windows that only sum
+to the minimum SHALL NOT qualify. TS's own altitude rules (`minimumaltitude`, custom horizon,
+`horizonoffset`, `minimumtime`) SHALL NOT be consulted.
 
 #### Scenario: Long-enough contiguous window
-- **WHEN** a target is above 0° altitude for one contiguous 45-minute stretch of tonight's astronomical night
+- **WHEN** a target is above the Horizon floor for one contiguous stretch of at least the Duration during tonight's astronomical night
 - **THEN** the target is judged visible tonight
 
 #### Scenario: Sliver window below the threshold
-- **WHEN** a target's only above-horizon stretch tonight is 10 minutes
+- **WHEN** a target's only above-floor stretch tonight is shorter than the Duration
 - **THEN** the target is judged not visible tonight
 
-#### Scenario: Never above the horizon tonight
-- **WHEN** a target never exceeds 0° altitude between astronomical dusk and dawn
+#### Scenario: Never above the floor tonight
+- **WHEN** a target never exceeds the Horizon floor between astronomical dusk and dawn
+- **THEN** the target is judged not visible tonight
+
+#### Scenario: Horizon floor gates a low-arc target
+- **WHEN** the Horizon knob is 30 and a target is above 0° for hours tonight but never climbs above 30° altitude
 - **THEN** the target is judged not visible tonight
 
 #### Scenario: TS altitude configuration is ignored
-- **WHEN** a target clears 0° for 45 contiguous minutes tonight but its project's `minimumaltitude` is higher than the target ever reaches
+- **WHEN** a target clears the user's Horizon floor for a qualifying stretch tonight but its project's `minimumaltitude` is higher than the target ever reaches
 - **THEN** the target is still judged visible tonight
 
 ### Requirement: Bulk flip of target enables
@@ -78,19 +82,25 @@ pushing SHALL remain optional.
 - **WHEN** the button is pressed
 - **THEN** the remote TS database is not opened for writing
 
-### Requirement: Site and duration input contract
-The system SHALL obtain the observing site (latitude, longitude, time zone, elevation) and the minimum
-visibility duration (default 30 minutes) from `DevDefaults` constants; the site SHALL be the sole
-location input to the night-window and visibility computations.
+### Requirement: Site and knob input contract
+The system SHALL obtain the observing site (latitude, longitude, time zone, elevation) from
+`DevDefaults` constants — the sole location input to the night-window and visibility computations —
+and the predicate knobs from the toolbar's Visible-Tonight group: a Duration numeric up-down in whole
+minutes, range 15–480, default 30; and a Horizon numeric up-down in whole degrees, range 0–89,
+default 30. A Find button SHALL run the pass with the knobs' current values.
 
-#### Scenario: Site constants drive the verdicts
-- **WHEN** the button computes visibility
-- **THEN** the night window and altitude arcs are evaluated at the DevDefaults site with the DevDefaults minimum duration
+#### Scenario: Knob values drive the verdicts
+- **WHEN** Find is pressed with Duration 120 and Horizon 45
+- **THEN** verdicts use a 120-minute minimum window above 45° altitude at the DevDefaults site
+
+#### Scenario: Out-of-range input is corrected, not applied
+- **WHEN** a knob holds out-of-range or non-numeric input and Find is pressed
+- **THEN** the knob's value is restored to a valid in-range number before the pass runs
 
 ### Requirement: One press, applied summary
-The button SHALL apply without a confirmation dialog and, on completion, report a summary of targets
-enabled, targets disabled, targets unchanged, and projects flipped.
+The Find button SHALL apply without a confirmation dialog and, on completion, report on the status
+line a summary of targets enabled, targets disabled, targets unchanged, and projects flipped.
 
 #### Scenario: Summary after a pass
-- **WHEN** the button completes a pass that enables 3 targets, disables 5, and flips 1 project to Inactive
-- **THEN** the user sees a summary reporting those counts
+- **WHEN** the pass completes having enabled 3 targets, disabled 5, and flipped 1 project to Inactive
+- **THEN** the user sees a status-line summary reporting those counts

@@ -63,9 +63,9 @@ public class VisibleTonightPassTests
         TsTarget target = Target(10, 1, dec: -48.7, active: 0, raHours: raAtMidNight);
 
         VisibleTonightPlan under30 = VisibleTonightPass.Plan(
-            Data([Project(1, Active)], [target]), Site, UtcNow, ThirtyMinutes);
+            Data([Project(1, Active)], [target]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
         VisibleTonightPlan underFourHours = VisibleTonightPass.Plan(
-            Data([Project(1, Active)], [target]), Site, UtcNow, TimeSpan.FromHours(4));
+            Data([Project(1, Active)], [target]), Site, UtcNow, TimeSpan.FromHours(4), horizonAltitudeDeg: 0);
 
         Assert.Equal(1, under30.TargetsEnabled);        // ~2 h window clears a 30-min bar
         Assert.Equal(0, underFourHours.TargetsEnabled); // the same window can't stretch to 4 h
@@ -175,10 +175,29 @@ public class VisibleTonightPassTests
         Assert.Equal("1", plan.Edits[1].Key);         // project row falls back to its Id
     }
 
+    [Fact]
+    public void HorizonAltitudeFloor_GatesLowTargets()
+    {
+        // dec -25 at this latitude: up for hours but peaks near 24° — visible over a 0° floor,
+        // never over a 30° floor.
+        TsTarget lowArc = Target(10, 1, dec: -25.0, active: 0);
+
+        VisibleTonightPlan overZero = VisibleTonightPass.Plan(
+            Data([Project(1, Active)], [lowArc]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
+        VisibleTonightPlan overThirty = VisibleTonightPass.Plan(
+            Data([Project(1, Active)], [lowArc]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 30);
+
+        Assert.Equal(1, overZero.TargetsEnabled);
+        Assert.Equal(0, overThirty.TargetsEnabled);
+        Assert.Equal(1, overThirty.TargetsUnchanged);   // active stays 0 — no edit under the 30° floor
+    }
+
     // ---- builders ----------------------------------------------------------------------------------
 
+    // Scenario tests pin the horizon parameter at 0° (the geometric-horizon scenarios of the spec);
+    // HorizonAltitudeFloor_GatesLowTargets exercises the knob itself.
     private static VisibleTonightPlan Plan(IReadOnlyList<TsProject> projects, IReadOnlyList<TsTarget> targets) =>
-        VisibleTonightPass.Plan(Data(projects, targets), Site, UtcNow, ThirtyMinutes);
+        VisibleTonightPass.Plan(Data(projects, targets), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
 
     private static TsPlanData Data(IReadOnlyList<TsProject> projects, IReadOnlyList<TsTarget> targets) =>
         new(projects, targets, [], []);

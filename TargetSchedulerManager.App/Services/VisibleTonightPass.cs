@@ -23,11 +23,12 @@ internal sealed record VisibleTonightPlan(
 
 /// <summary>
 /// The Visible-tonight pass: reconciles <c>target.active</c> / <c>project.state</c> with tonight's sky.
-/// A target is "visible tonight" iff it has a single contiguous window of at least the configured minimum
-/// duration above the geometric horizon (0°) between tonight's astronomical dusk and dawn — deliberately
-/// independent of TS's own per-project altitude rules, which TS re-applies at plan time. Pure planning:
-/// consumes the load's retained <see cref="TsPlanData"/> rows and returns the edits; the caller applies
-/// them through the guarded edit gate so they journal like hand edits.
+/// A target is "visible tonight" iff it has a single contiguous window of at least the caller's minimum
+/// duration above the caller's altitude floor (the toolbar's Duration/Horizon knobs, both defaulting 30)
+/// between tonight's astronomical dusk and dawn — deliberately independent of TS's own per-project
+/// altitude rules, which TS re-applies at plan time. Pure planning: consumes the load's retained
+/// <see cref="TsPlanData"/> rows and returns the edits; the caller applies them through the guarded edit
+/// gate so they journal like hand edits.
 /// </summary>
 /// <remarks>
 /// "Tonight" is <see cref="NightCalculator.ComputeNight"/>'s bracket convention: the window whose dawn is
@@ -51,10 +52,10 @@ internal static class VisibleTonightPass
     /// A processed target has no RA/Dec — a TS contract violation; the pass aborts before any edit.
     /// </exception>
     public static VisibleTonightPlan Plan(
-        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration)
+        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double horizonAltitudeDeg)
     {
         NightWindow night = NightCalculator.ComputeNight(site, utcNow);
-        ScalarHorizonProfile geometricHorizon = new(0.0);
+        ScalarHorizonProfile altitudeFloor = new(horizonAltitudeDeg);
 
         List<VisibleTonightEdit> targetEdits = [];
         List<VisibleTonightEdit> projectEdits = [];
@@ -83,7 +84,7 @@ internal static class VisibleTonightPass
             bool visible = CoarseVisibility.IsAboveHorizonForAtLeast(
                 new Astronomy.Core.Targets.Target(
                     target.Name, raHours, decDegrees, north: true, directory: null, enabled: true),
-                site, night, geometricHorizon, minDuration);
+                site, night, altitudeFloor, minDuration);
 
             if (visible)
                 anyEnabledByProject[projectId] = true;

@@ -264,15 +264,17 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
   template names) into one printable Markdown file with hand-fix instructions — the tripwire's detail. TSM
   never resolves these itself (resolver rejected 2026-07-08; fixes are hand-edits in NINA's TS UI).
 
-## Visible-tonight pass (toolbar button; shipped 2026-07-23)
+## Visible-tonight pass (toolbar group; shipped 2026-07-23)
 
-One press reconciles the enable state with tonight's sky — no confirm dialog (user decision: "this is why
-it's a button"), push stays optional.
+A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, default 30) and **Horizon**
+(whole degrees, 0–89, default 30) numeric up-downs + a **Find** button (it replaced the toolbar's old
+load-summary text, removed same day). One press reconciles the enable state with tonight's sky — no
+confirm dialog (user decision: "this is why it's a button"), push stays optional.
 
 - **Predicate (deliberately TS-independent):** a target is *visible tonight* iff it has a **single
-  contiguous window ≥ 30 min** (`DevDefaults.VisibleTonightMinDuration`) above the **geometric 0° horizon**
-  between tonight's astronomical dusk and dawn — one library call,
-  `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(0), minDuration)`.
+  contiguous window ≥ Duration** above the **Horizon altitude floor** between tonight's astronomical
+  dusk and dawn — one library call,
+  `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(horizonDeg), minDuration)`.
   TS's own gates (`minimumaltitude`, custom horizon/offset, `minimumtime`, twilight levels) are **not**
   consulted — TS re-applies them itself at plan time; a rejected earlier draft that mirrored the TS gate
   (and promoted TP's `.hrz` parser into the library) was reverted 2026-07-23. "Tonight" is
@@ -289,4 +291,4 @@ it's a button"), push stays optional.
   Fail-fast: a processed TS target without RA/Dec aborts the whole pass **before any edit**.
 - **Site input:** `DevDefaults` constants (Penns Park lat/long/TZ/elevation, mirroring TP's preset)
   materialized by `DevDefaults.Site()` — the app's first `Astronomy.Core` dependency (pure-managed; build
-  model unchanged).
+  model unchanged). The Duration/Horizon knobs live only on the toolbar — no `DevDefaults` constants.

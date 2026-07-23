@@ -32,11 +32,8 @@ internal static class DevDefaults
     public const double SiteElevationMeters = 80.67;
     public const string SiteTimeZoneId      = "Eastern Standard Time";
 
-    /// <summary>Shortest single contiguous above-horizon window that counts as "visible tonight".</summary>
-    public static readonly TimeSpan VisibleTonightMinDuration = TimeSpan.FromMinutes(30);
-
-    /// <summary>The observing site as the library's <see cref="Location"/> (geometric 0° horizon — the
-    /// Visible-tonight predicate is deliberately independent of TS's per-project altitude rules).</summary>
+    /// <summary>The observing site as the library's <see cref="Location"/>. The Visible-Tonight pass's
+    /// duration/altitude knobs live on the toolbar (both default 30), not here — this is position only.</summary>
     public static Location Site() => new(
         name:         SiteName,
         latitude:     SiteLatitude,  north: SiteNorth,

@@ -82,7 +82,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private int _visibleLeafCount;
 
     private ObservableCollection<object> _rows = [];
-    private string _summaryText = "";
     private string _statusText = "loading…";
     private bool _isLoading;
     private string _searchText = "";
@@ -117,13 +116,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         get => _rows;
         private set => Set(ref _rows, value);
-    }
-
-    /// <summary>Both/TS-only/Disk-only counts etc. — the M1 verification numbers, straight from the build report.</summary>
-    public string SummaryText
-    {
-        get => _summaryText;
-        private set => Set(ref _summaryText, value);
     }
 
     /// <summary>Paths + timing, or the load error.</summary>
@@ -329,12 +321,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>The Visible-tonight button: reconciles <c>target.active</c> / <c>project.state</c> with
-    /// tonight's sky (0° geometric horizon, ≥ 30-min contiguous window at the DevDefaults site — see
-    /// <see cref="VisibleTonightPass"/>). Consumes the load's retained TS snapshot (no re-read), applies
-    /// through the guarded gate (each flip journals like a hand edit), reloads without a pull so the grid
-    /// shows the flips + marks, then reports the counts on the status line.</summary>
-    public async Task RunVisibleTonightAsync()
+    /// <summary>The Visible-Tonight Find button: reconciles <c>target.active</c> / <c>project.state</c>
+    /// with tonight's sky — visible = a single contiguous window of at least <paramref name="minDuration"/>
+    /// above <paramref name="horizonAltitudeDeg"/> at the DevDefaults site (see
+    /// <see cref="VisibleTonightPass"/>; both knobs come from the toolbar, defaults 30 min / 30°).
+    /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flip
+    /// journals like a hand edit), reloads without a pull so the grid shows the flips + marks, then
+    /// reports the counts on the status line.</summary>
+    public async Task RunVisibleTonightAsync(TimeSpan minDuration, double horizonAltitudeDeg)
     {
         if (_isLoading)
             return;
@@ -348,7 +342,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             plan = VisibleTonightPass.Plan(
-                load.Ts, DevDefaults.Site(), DateTime.UtcNow, DevDefaults.VisibleTonightMinDuration);
+                load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, horizonAltitudeDeg);
         }
         catch (Exception ex)
         {
@@ -461,7 +455,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _lastLoad = null;
             RefreshAmbiguities();
             _allRows = [];
-            SummaryText = "";
             StatusText = $"load failed: {ex.Message}";
             ApplyFilters();
         }
@@ -967,14 +960,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $"source={SourceFilterName()} flagged={_flaggedOnly} sort={_sortMode}");
         }
 
-        if (_lastLoad is { Report: var r })
-        {
-            SummaryText =
-                $"Both {r.BothCount} · TS-only {r.PlannedOnlyCount} · Disk-only {r.ActualOnlyCount}" +
-                $"  —  aliases {r.AliasTsTargets.Count} · duplicates {r.DuplicateTsTargets.Count}" +
-                $" · mosaics {r.MosaicsResolved} ({r.PanelsMatched + r.PanelsPlannedOnly + r.PanelsActualOnly} panels)" +
-                $"  —  showing {groups.Count} targets · {leaves.Count}/{_allRows.Count} rows";
-        }
     }
 
     /// <summary>App-state snapshot for the Ctrl+N diagnostics window's USER_OBS_END line — captures what

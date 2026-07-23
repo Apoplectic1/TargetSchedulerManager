@@ -52,8 +52,12 @@ public sealed partial class MainWindow : Window
     // Write + open the printable ambiguity report (fixes happen by hand in NINA's TS UI, never here).
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
 
-    // One press, no confirm: enables/disables target.active by tonight's visibility, projects follow.
-    private void VisibleTonight_Click(object sender, RoutedEventArgs e) => _ = ViewModel.RunVisibleTonightAsync();
+    // One press, no confirm: enables/disables target.active by tonight's visibility (toolbar Duration
+    // minutes 15–480 above Horizon whole degrees 0–89), projects follow. InvalidInputOverwritten has
+    // restored any junk input by the time the click lands (the button steals focus first); the round
+    // makes typed decimals whole (horizon is integer degrees by contract).
+    private void VisibleTonight_Click(object sender, RoutedEventArgs e) => _ = ViewModel.RunVisibleTonightAsync(
+        TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleHorizon.Value));
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
         ViewModel.SearchText = SearchBox.Text;

@@ -37,6 +37,14 @@ Toolbar: sync badge ("synced HH:mm · N unpushed") · Push… · Pull now; Reloa
    open offers the push.
 
 ## Tests
+
+> **Trap — always test via the slnx, never csproj-direct.** The slnx pins Platform=x64, so solution
+> builds write `bin\x64\Debug\…`; a csproj-direct `dotnet build`/`dotnet test` defaults to AnyCPU and
+> uses `bin\Debug\…` — a *separate, possibly stale* output. A csproj-direct `dotnet test --no-build`
+> after a slnx build silently runs the stale tree (green results, old binaries — bit us 2026-07-23:
+> a new test file "passed" without ever being compiled). `dotnet test TargetSchedulerManager.slnx`
+> both builds and runs the same tree.
+
 One test project: **`TargetSchedulerManager.App.Tests`** (`dotnet test TargetSchedulerManager.slnx`)
 — the app's real logic: `ReconciliationLoader.BuildRows`, the `MainViewModel` filter/toggle
 pipeline, `VisibleRowTree` (the flatten==splice invariant), `TsDatabaseResolver.Stat`, and the sync

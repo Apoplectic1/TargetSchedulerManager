@@ -34,16 +34,19 @@ lib+app removal of the whole alias mechanism — the hand-edit doctrine abolishe
 fold demonstrably masked the M27 defect; footprint + sequencing in the NOTEBOOK correction entry). After
 that: disk-matcher design; strategic lane = the ISP transition (lift/regenerate + intent store).
 
-**▶ SHIPPED 2026-07-23 — Visible-tonight button (`openspec/changes/enable-visible-tonight`).** One toolbar
-press reconciles `target.active` / `project.state` with tonight's sky: visible = a **single ≥ 30-min window
-above the geometric 0° horizon** tonight (`CoarseVisibility.IsAboveHorizonForAtLeast` at the DevDefaults
-Penns Park site — deliberately ignoring TS's own altitude gates, which TS re-applies at plan time; a
-TS-gate-faithful draft incl. a `.hrz`-parser library promotion was built then **reverted** on user
+**▶ SHIPPED 2026-07-23 — Visible-Tonight toolbar group (`openspec/changes/enable-visible-tonight`).** A
+**Duration** (min, 15–480, default 30) + **Horizon** (whole °, 0–89, default 30) numeric-up-down pair and a
+**Find** button (replacing the toolbar's load-summary text — removed with its orphaned `SummaryText` VM
+property): one press reconciles `target.active` / `project.state` with tonight's sky — visible = a **single
+≥ Duration window above the Horizon floor** tonight (`CoarseVisibility.IsAboveHorizonForAtLeast` at the
+DevDefaults Penns Park site — deliberately ignoring TS's own altitude gates, which TS re-applies at plan
+time; a TS-gate-faithful draft incl. a `.hrz`-parser library promotion was built then **reverted** on user
 redirect). Projects follow their targets (none enabled → Inactive; Draft/Closed untouched); flips ride the
 edit gate/journal like hand edits (push optional); pass consumes the load's retained `TsPlanData`
 (`LoadResult.Ts` — no second TS read); a target missing RA/Dec aborts before any edit. No confirm dialog —
-per-press decisive, per observing night. 191 App.Tests (12 new). Awaiting the user's visual pass (button,
-flips, marks, summary line). First `Astronomy.Core` reference in the app.
+per-press decisive, per observing night. 204 App.Tests (13 new; an earlier "191" was a stale-binary run —
+see VERIFICATION.md's new slnx-vs-csproj test trap). Awaiting the user's visual pass (knobs, Find, flips,
+marks, summary line). First `Astronomy.Core` reference in the app.
 
 **▶ SHIPPED 2026-07-23 — pull hardening (`openspec/changes/harden-ts-pull`).** Root-caused a real incident:
 the app killed mid-pull (a latency-degraded ~40 s Pull Now, ~87% done and healthy — the backup is ~37k

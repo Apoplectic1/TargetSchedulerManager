@@ -35,13 +35,14 @@ edits from that draft were reverted; this change now touches **only** the TSM re
 
 ## Decisions
 
-### D1 — Predicate: `IsAboveHorizonForAtLeast` at 0° with a 30-minute default
-`CoarseVisibility.IsAboveHorizonForAtLeast(target, site, tonight, ScalarHorizonProfile(0),
-TimeSpan.FromMinutes(30))`. The 30-minute default lives in `DevDefaults` beside the site constants.
-Single-contiguous-window semantics come from the library contract (a split arc doesn't count — one
-imaging session can't span a horizon dip), and match `BestSession`'s placement contract.
-**Alternative considered:** `IsEverVisible` (any-duration, 0°) — rejected by the user in favor of a
-usable-stretch threshold; 30 minutes is the chosen default.
+### D1 — Predicate: `IsAboveHorizonForAtLeast` with toolbar Duration/Horizon knobs
+`CoarseVisibility.IsAboveHorizonForAtLeast(target, site, tonight, ScalarHorizonProfile(horizonDeg),
+minDuration)`. Both knobs live on the toolbar as numeric up-downs (2026-07-23 refinement — no
+`DevDefaults` constants for them): **Duration** in whole minutes, 15–480, default 30; **Horizon** in
+whole degrees, 0–89, default 30. Single-contiguous-window semantics come from the library contract
+(a split arc doesn't count — one imaging session can't span a horizon dip), and match `BestSession`'s
+placement contract. **Alternatives considered:** `IsEverVisible` (any-duration, 0°) and a fixed 0°
+floor — both rejected by the user in favor of adjustable usable-stretch + altitude-floor knobs.
 
 ### D2 — Tonight's night window
 `NightCalculator` at the configured site using the same night-of convention TP uses (the night belonging
@@ -73,11 +74,14 @@ mirroring the db-path pattern. Real values are copied from TP's settings JSON at
 No horizon file, so no file-input failure mode exists; the only contract inputs are compile-time
 constants.
 
-### D6 — Button UX
-A toolbar button on the main window ("Visible tonight"); DOMAIN.md's add-a-UI-element checklist applies.
-The pass is synchronous (tens of targets × one closed-form call — microseconds). On completion an
-InfoBar-style summary reports counts: targets enabled / disabled / unchanged, projects flipped. No
-confirmation before applying.
+### D6 — Toolbar group UX
+A "Visible Tonight:" toolbar group — Duration and Horizon numeric up-downs (inline spin buttons,
+`InvalidInputOverwritten` so junk input is restored before the click lands) and a **Find** button;
+DOMAIN.md's add-a-UI-element checklist applies. The toolbar's load-summary TextBlock (`SummaryText`)
+was removed to make room (user decision 2026-07-23; the now-orphaned VM property and its load-time
+composition were deleted with it). The pass is synchronous (tens of targets × one closed-form call — microseconds). On
+completion the status line reports counts: targets enabled / disabled / unchanged, projects flipped.
+No confirmation before applying.
 
 ## Risks / Trade-offs
 

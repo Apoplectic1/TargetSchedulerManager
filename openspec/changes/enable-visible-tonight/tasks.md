@@ -37,3 +37,13 @@
       need an in-app check by the user (build + tests alone don't prove UI correctness)
 - [x] 4.3 Update TSM docs: CLAUDE.md (recently shipped), ARCHITECTURE.md (button + pass + site input),
       ROADMAP.md; DOMAIN.md if the checklist gains an entry
+
+## 5. Refinement — toolbar knobs (user redirect 2026-07-23, post-first-ship)
+
+- [x] 5.1 Replace the single button with the "Visible Tonight:" group — Duration (min, 15–480, default
+      30) + Horizon (whole °, 0–89, default 30) numeric up-downs + Find; remove the toolbar load-summary
+      text and the orphaned `SummaryText` VM property
+- [x] 5.2 Thread both knobs through `RunVisibleTonightAsync` → `VisibleTonightPass.Plan` (horizon becomes
+      `ScalarHorizonProfile(horizonDeg)`); drop the `DevDefaults` duration constant
+- [x] 5.3 Test the Horizon floor (low-arc target: visible over 0°, not over 30°); pin scenario tests at
+      0°; fix the stale-binary test trap (slnx-only testing — VERIFICATION.md note; true count 204)
