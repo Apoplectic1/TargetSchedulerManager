@@ -33,10 +33,17 @@ new) to judge each.
 - **THEN** the 12 decreases are listed first with old → new counts, before the confirm
 
 ### Requirement: Write-back scope mirrors the library contract
-The app SHALL apply write-back only to `Both`-resolved targets' existing exposure plans (the planner's
-contract: update existing rows, never create or delete plans; one-sided targets untouched). Disk buckets no
-plan targets SHALL remain surfaced as notes/badges, not writes.
+The app SHALL apply write-back to every existing exposure plan (the planner's contract: update existing
+rows, never create or delete plans). Disk truth covers absence: a plan on a target with no disk match stamps
+to 0 like any other unmet spec, so stray or diverged counters (`accepted ≠ acquired`) on not-yet-shot targets
+heal instead of persisting — a clean 0/0 plan diffs to a no-op and journals nothing. Identity-flagged cells
+stay manual. Disk-only targets have no plan rows and SHALL be reported as ignored; disk buckets no plan
+targets SHALL remain surfaced as notes/badges, not writes.
 
-#### Scenario: One-sided targets untouched
-- **WHEN** write-back runs over a library containing disk-only and TS-only targets
-- **THEN** their plans/counts are not modified and the plan reports them as ignored
+#### Scenario: TS-only plan with diverged counters heals to zero
+- **WHEN** write-back runs over a TS-only target whose plan reads acquired=0, accepted=64
+- **THEN** the local db is updated to acquired=accepted=0 and one journaled write-back entry exists
+
+#### Scenario: Clean TS-only plans journal nothing
+- **WHEN** write-back runs over a TS-only target whose plans all read acquired=accepted=0
+- **THEN** no writes occur and the journal stays empty

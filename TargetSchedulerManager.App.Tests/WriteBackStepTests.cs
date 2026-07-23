@@ -59,23 +59,29 @@ public class WriteBackStepTests
     }
 
     [Fact]
-    public void OneSidedTargets_AreIgnored_MirrorsPlannerContract()
+    public void OneSidedTargets_CleanPlansAreNoOps_DivergedCountersHealToZero()
     {
+        // Disk truth covers absence: a planned-only target's plans stamp against an empty disk. A clean 0/0
+        // plan diffs to a no-op (session stays clean); a diverged counter (accepted != acquired) heals to 0.
         Guid planned = Guid.NewGuid(), actual = Guid.NewGuid(), tpl = Guid.NewGuid();
         StubWriteBackApplier applier = new();
+        applier.Rows[9] = (Acquired: 0, Accepted: 0, Desired: 50);        // clean not-yet-shot plan
+        applier.Rows[10] = (Acquired: 0, Accepted: 64, Desired: 64);      // hand-edit slip
         TsSync sync = NewSync(applier);
 
         WriteBackStepResult result = WriteBackStep.Run(
             Graph(
                 [Planned(planned, "Future"), Actual(actual, "Shot Only")],
-                [Plan(planned, tpl, tsId: 9, desired: 50)],
+                [Plan(planned, tpl, tsId: 9, desired: 50),
+                 Plan(planned, tpl, tsId: 10, desired: 64, accepted: 64, seconds: 600.0)],
                 [Tpl(tpl, "Ha", "Ha")],
                 [Inv(actual, "Ha", FilterPurpose.Light, 50)]),
             Report(plannedOnly: 1, actualOnly: 1), sync);
 
-        Assert.Equal(0, result.PlansStamped);
-        Assert.Equal(0, applier.ApplyCalls);
-        Assert.False(sync.IsDirty);
+        Assert.Equal(1, result.PlansStamped);                             // only the diverged plan
+        Assert.Equal((0, 0, 64), applier.Rows[10]);                       // accepted re-coupled to truth (0)
+        Assert.Equal((0, 0, 50), applier.Rows[9]);                        // untouched
+        Assert.True(sync.IsDirty);                                        // the heal rides the journal/push
     }
 
     [Fact]
@@ -151,8 +157,9 @@ public class WriteBackStepTests
             DefaultExposureSeconds: defExp, ImportedFromTsGuid: null);
 
     private static ExposurePlan Plan(
-        Guid target, Guid template, long tsId, int desired = 0, int acquired = 0, int accepted = 0) =>
-        new(Guid.NewGuid(), target, template, ExposureSeconds: null, desired, acquired, accepted,
+        Guid target, Guid template, long tsId, int desired = 0, int acquired = 0, int accepted = 0,
+        double? seconds = null) =>
+        new(Guid.NewGuid(), target, template, ExposureSeconds: seconds, desired, acquired, accepted,
             Enabled: true, ImportedFromTsGuid: tsId.ToString(CultureInfo.InvariantCulture));
 
     private static InventoryFilter Inv(

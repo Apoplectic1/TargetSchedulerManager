@@ -29,8 +29,9 @@ internal sealed record WriteBackStepResult(
 
 /// <summary>
 /// The automatic disk→TS reconciliation inside the sync model: after every load, plan write-back from the
-/// fresh scan + local TS read (<see cref="WriteBackPlanner"/> — Both-resolved targets' existing plans only,
-/// one-sided targets ignored, identity-flagged cells to manual) and stamp every non-no-op change into the
+/// fresh scan + local TS read (<see cref="WriteBackPlanner"/> — every existing plan stamps to its disk bucket,
+/// 0 when the target has no disk match at all: disk truth covers absence, so stray counters on not-yet-shot
+/// targets heal; identity-flagged cells go to manual) and stamp every non-no-op change into the
 /// <b>local</b> db through the library writer, journaling each changed column so it rides the reviewed push
 /// like any edit. No-op changes produce no write and no journal entry, so an unchanged system leaves the
 /// session clean and the next open skippable. BIRDWATCHER is never touched here.
@@ -97,7 +98,7 @@ internal static class WriteBackStep
         }
 
         Log.Info($"WRITE-BACK stamped {stamped} plan(s) on local ({fields} fields journaled; " +
-            $"{plan.Manual.Count} manual, {plan.IgnoredMissing} one-sided ignored)");
+            $"{plan.Manual.Count} manual, {plan.IgnoredMissing} disk-only ignored)");
         return new WriteBackStepResult(stamped, fields, plan.Manual.Count, applied.VerifyFailures.Count, null);
     }
 
