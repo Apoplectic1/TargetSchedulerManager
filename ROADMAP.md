@@ -44,7 +44,10 @@ exemption ("intentional alias" wording gone), and the `aliases=` counters. DOMAI
 row per position, no exceptions**; the active `ts-ambiguity-report` delta was amended in place (alias
 requirement/scenarios dead). Single-target naming freedom unaffected. Lib 171 / TSM 204 tests. **Heads-up:**
 until the Dumbell consolidation on BIRDWATCHER, M27/Dumbell surfaces every load as duplicate badge + held
-write-back cell + report action items — the doctrine working, not a regression.
+write-back cell + report action items — the doctrine working, not a regression (and the Visible-tonight pass
+enabled the formerly-disabled twin, so consolidation is now time-sensitive: TS may image both).
+**User-verified on real data + ARCHIVED same day** (`archive/2026-07-23-remove-alias-fold`; no main-spec
+sync needed — the amendment lives in the active `ts-ambiguity-report` delta).
 
 **▶ SHIPPED 2026-07-23 — Visible-Tonight toolbar group (`openspec/changes/enable-visible-tonight`).** A
 **Duration** (min, 15–480, default 30) + **Horizon** (whole °, 0–89, default 30) numeric-up-down pair and a
