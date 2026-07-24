@@ -6,7 +6,10 @@ The Visible-Tonight toolbar group: one Find press reconciles `target.active` / `
 tonight's sky — a target is visible iff it has a single contiguous window of at least the toolbar's
 Duration above the toolbar's Horizon altitude floor during tonight's astronomical night at the configured
 site. Deliberately independent of TS's own altitude rules (TS re-applies those at plan time); flips ride
-the ordinary journaled edit path, so pushing remains optional.
+the ordinary journaled edit path, so pushing remains optional. Meridian-flip downtime is likewise out of
+scope by decision (2026-07-24): pier flips are handled by TS/NINA at runtime, and imaging order/timing is
+unknowable at planning time, so a target that may become temporarily unavailable during a pier flip still
+counts as visible.
 
 ## Requirements
 
