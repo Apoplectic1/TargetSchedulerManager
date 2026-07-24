@@ -6,6 +6,11 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-07-23 — alias removal DONE (`remove-alias-fold`; lib `306f6fd`).** The removal described in the
+2026-07-08 correction below shipped ahead of the BIRDWATCHER pass (user's call) — so until the Dumbell
+consolidation, the M27/Dumbell twin surfaces every load as a duplicate badge + held write-back cell + report
+action items. That's the intended surface-for-decision behavior, not a regression.
+
 **2026-07-08 (late) — CORRECTION: the M27/Dumbell twin was never intentional; alias mechanism to be removed.**
 The morning entry below recorded "user: leave it" — that was tolerance of a state the alias fold presented
 as benign, not approval of the twin. User (same night, after the ambiguity report surfaced it as *"If

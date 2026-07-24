@@ -74,16 +74,14 @@ public class AmbiguityReportTests
     }
 
     [Fact]
-    public void AliasFold_And_UnplannedFrames_AreInfoNotAction()
+    public void UnplannedFrames_AreInfoNotAction()
     {
         WriteBackPlan plan = new([], [],
             [new ReconcileNote(ReconcileNote.UnplannedFramesKind, "M27", "H Light 3 frames @600s - no TS plan at 600s")], 0);
 
-        AmbiguityReportResult r = Build(Graph(),
-            Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]), plan);
+        AmbiguityReportResult r = Build(Graph(), plan: plan);
 
         Assert.Equal(0, r.ActionCount);
-        Assert.Contains("Alias fold: disk `M27 - Dumbell`", r.Markdown);
         Assert.Contains("Unplanned frames: **M27**", r.Markdown);
         Assert.Contains("All checks clean", r.Markdown);           // info never trips the wire
     }
@@ -129,22 +127,23 @@ public class AmbiguityReportTests
     }
 
     [Fact]
-    public void SameKey_AliasFold_ExemptLikeThePlanner()
+    public void SameKey_ExAliasShape_IsAnActionItem_NoExemption()
     {
-        // M27-shaped regression (real-data run 2026-07-08): two alias members fold onto one canonical target,
-        // so every key carries 2 plans — one per member. The planner auto-stamps these; the same-key check
-        // must apply the identical exemption (plans == members) instead of flooding the report.
+        // The M27 shape the retired alias exemption used to wave through: two twins fold onto one
+        // canonical target, so the key carries 2 plans. No exemptions any more — it reads as a same-key
+        // duplicate demanding a hand fix (the fold masked the unintentional twin for weeks).
         Guid m27 = Guid.NewGuid(), h900 = Guid.NewGuid();
         CatalogGraph graph = Graph(
             targets: [Tgt(m27, TargetSource.Both, "M27 - Dumbell", dir: "M27 - Dumbell", tsKey: "9")],
             templates: [Tpl(h900, "H900", "H", 900)],
             plans: [Plan(m27, h900, tsKey: "19", desired: 129), Plan(m27, h900, tsKey: "1076", desired: 169)]);
-        CatalogBuildReport report = Report(aliases: [new AliasTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]);
+        CatalogBuildReport report = Report(duplicates: [new DuplicateTsTarget("M27 - Dumbell", ["M27", "Dumbell"])]);
 
         AmbiguityReportResult r = Build(graph, report);
 
-        Assert.Equal(0, r.ActionCount);                            // fold explains the multiplicity exactly
-        Assert.Contains("Alias fold", r.Markdown);                 // still visible — as info
+        Assert.Equal(2, r.ActionCount);                            // duplicate fold + same-key plans, both live
+        Assert.Contains("2 plans share one key", r.Markdown);
+        Assert.DoesNotContain("Alias fold", r.Markdown);
     }
 
     [Fact]
@@ -255,11 +254,10 @@ public class AmbiguityReportTests
     private static CatalogBuildReport Report(
         IReadOnlyList<NameMismatch>? mismatches = null,
         IReadOnlyList<AmbiguousMatch>? ambiguous = null,
-        IReadOnlyList<DuplicateTsTarget>? duplicates = null,
-        IReadOnlyList<AliasTsTarget>? aliases = null) =>
+        IReadOnlyList<DuplicateTsTarget>? duplicates = null) =>
         new(DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,
             NameMismatches: mismatches ?? [], AmbiguousMatches: ambiguous ?? [],
-            DuplicateTsTargets: duplicates ?? [], AliasTsTargets: aliases ?? [],
+            DuplicateTsTargets: duplicates ?? [],
             UnanchoredTsTargets: [], InvalidTsTargets: []);
 
     private static int CountOf(string text, string token)

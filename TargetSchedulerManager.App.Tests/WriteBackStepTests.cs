@@ -172,5 +172,5 @@ public class WriteBackStepTests
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0,
         PlannedOnlyCount: plannedOnly, ActualOnlyCount: actualOnly,
         NameMismatches: [], AmbiguousMatches: [], DuplicateTsTargets: [],
-        AliasTsTargets: [], UnanchoredTsTargets: [], InvalidTsTargets: []);
+        UnanchoredTsTargets: [], InvalidTsTargets: []);
 }

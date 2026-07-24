@@ -81,10 +81,10 @@ public sealed class ReconciliationRow(
     /// <summary>Frames on disk (ACTUAL — ground truth); 0 on TS rows.</summary>
     public int Disk { get; } = disk;
 
-    /// <summary>TS plans contributing (&gt;1 = mosaic fold, alias fold, or a same-purpose multi-plan).</summary>
+    /// <summary>TS plans contributing (&gt;1 = mosaic fold, duplicate fold, or a same-purpose multi-plan).</summary>
     public int PlanCount { get; } = planCount;
 
-    /// <summary>Match-state badges for the row's target ("alias", "duplicate", "name≠", "mosaic", …); empty when clean.</summary>
+    /// <summary>Match-state badges for the row's target ("duplicate", "name≠", "mosaic", …); empty when clean.</summary>
     public string Badge { get; } = badge;
 
     /// <summary>True when the target needs human attention (duplicate / name-mismatch / ambiguous / multi-plan).</summary>

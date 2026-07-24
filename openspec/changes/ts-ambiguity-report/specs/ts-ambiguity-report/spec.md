@@ -44,14 +44,9 @@ than the report file.
 ### Requirement: TS-internal checks cover what the grid cannot badge
 The report SHALL include three checks computed over the loaded graph independent of disk matching: two or more
 exposure plans on one target sharing (filter, purpose, effective whole-second exposure) — across all TS-sourced
-targets, not only disk-matched ones, and applying the write-back planner's alias exemption (one plan per alias
-member is the fold explaining itself, not a duplicate); planned-only twin targets (same normalized name, or a
+targets, not only disk-matched ones; planned-only twin targets (same normalized name, or a
 pair within the load's match tolerance, among targets with no disk anchor); and duplicate exposure-template
 names within a profile.
-
-#### Scenario: Alias-fold plans are exempt
-- **WHEN** an alias-fold target carries exactly one same-key plan per alias member
-- **THEN** the same-key check reports nothing for it (the fold appears only as information)
 
 #### Scenario: Planned-only twins are visible for the first time
 - **WHEN** two TS targets with the same name and coordinates exist and neither has a disk directory
@@ -60,14 +55,6 @@ names within a profile.
 #### Scenario: Same-key check spans planned-only targets
 - **WHEN** a planned-only target carries duplicate same-key plans
 - **THEN** the report flags it even though write-back's planner (scoped to Both) never saw it
-
-### Requirement: Adjudicated-shape folds are information, not action
-Alias folds (including identical-name folds) SHALL appear under an informational heading separate from action
-items and SHALL NOT count toward the action-item total, so a deliberately kept twin does not read as a defect.
-
-#### Scenario: Adjudicated alias prints as info
-- **WHEN** the load contains the adjudicated two-member alias fold
-- **THEN** the report lists it as information with both member names, and the action count is unaffected
 
 ### Requirement: The tripwire count is visible without opening the report
 After each load the app SHALL surface the action-item count in the status line when it is non-zero, and the

@@ -80,10 +80,10 @@ goal of zero); measured disk-side absence = `0`.
   `ThemeBrushes.cs`).
 - **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
   sub-lengths; Hours carries the caution/success fill by sign.
-- **Badges** (caution-colored, rightmost): `mosaic · alias · duplicate · name≠ · ambiguous · no-coords ·
+- **Badges** (caution-colored, rightmost): `mosaic · duplicate · name≠ · ambiguous · no-coords ·
   multi-plan · acc≠acq`. Built in `ReconciliationLoader.BuildRows`; they **bubble to the header** (distinct
   union, `RowAggregates`). `IsFlagged` (duplicate / name≠ / ambiguous / multi-plan / acc≠acq) drives the
-  **flagged-only** filter.
+  **flagged-only** filter. (The `alias` badge died with the fold mechanism, 2026-07-23.)
 
 ## Alignment & spacing
 
@@ -182,10 +182,12 @@ The charter behind all of them: **TS is a picker** — given a menu of targets a
 shoot; everything else in TS is noise here. So: TS's *membership* (which targets/projects exist) is the user's
 planning intent — TSM never adds or removes it unasked; TS's *facts about members* (names, counts) mirror disk.
 
-- **One name per sky position** (within the 0.5° match tolerance), spelled the same in TS and as the disk
-  directory's catalog token (`IC 1795`, not `FishHead` — name validation is token-based; concatenations fail).
-  The **alias fold** (deliberate second names for one object) is queued for removal — its sole instance
-  (M27 + Dumbell) was adjudicated 2026-07-08 as never intentional ("explained ≠ approved"; NOTEBOOK correction).
+- **One TS row per sky position, no exceptions** (within the 0.5° match tolerance), spelled the same in TS
+  and as the disk directory's catalog token (`IC 1795`, not `FishHead` — name validation is token-based;
+  concatenations fail). There is **no alias escape**: the fold mechanism (deliberate second names for one
+  object auto-resolving unflagged) was removed 2026-07-23 — its sole instance (M27 + Dumbell) was adjudicated
+  2026-07-08 as never intentional ("explained ≠ approved"; NOTEBOOK correction), and any multi-claim now
+  surfaces as a flagged duplicate to consolidate by hand.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention

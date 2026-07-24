@@ -967,7 +967,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string GetDiagnosticsContext()
     {
         string counts = _lastLoad is { Report: var r }
-            ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} aliases={r.AliasTsTargets.Count} mosaics={r.MosaicsResolved}"
+            ? $"Both={r.BothCount} TsOnly={r.PlannedOnlyCount} DiskOnly={r.ActualOnlyCount} dups={r.DuplicateTsTargets.Count} mosaics={r.MosaicsResolved}"
             : "no-load";
         return $"rows={_visibleLeafCount}/{_allRows.Count}, groups={_groups.Count}, " +
                $"expanded={_groups.Count(g => g.IsExpanded)}, search=\"{_searchText}\", " +

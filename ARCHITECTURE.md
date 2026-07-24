@@ -84,7 +84,8 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   target releases back to planned instead of piling onto a directory a correctly-named target owns — the
   Witch Head shape). Disk plate-solved coords win on merge; the TS guid is retained on `Both` for write-back.
   Cross-scope matches are impossible by construction (`CygnusLoop P3` can never grab `NGC 6995`). Duplicates /
-  aliases / mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped.
+  mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped — a multi-claim
+  is always a duplicate (the alias-fold escape was removed 2026-07-23; one TS row per position, no exceptions).
 - **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
   dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
   sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one

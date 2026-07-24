@@ -90,5 +90,5 @@ public class MainViewModelTemplateTests
     private static CatalogBuildReport Report() => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,
         NameMismatches: [], AmbiguousMatches: [], DuplicateTsTargets: [],
-        AliasTsTargets: [], UnanchoredTsTargets: [], InvalidTsTargets: []);
+        UnanchoredTsTargets: [], InvalidTsTargets: []);
 }

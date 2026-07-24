@@ -328,7 +328,7 @@ public class BuildRowsTests
         new(Profiles: [], Projects: [], templates, targets, plans, inventory);
 
     private static CatalogBuildReport Report(IReadOnlyList<UnanchoredTsTarget>? unanchored = null) =>
-        new(0, 0, 0, 0, 0, [], [], [], [], unanchored ?? [], []);
+        new(0, 0, 0, 0, 0, [], [], [], unanchored ?? [], []);
 
     private static Target T(Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null) => new(
         id, source, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null, Epoch.J2000,

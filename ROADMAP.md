@@ -34,6 +34,18 @@ lib+app removal of the whole alias mechanism — the hand-edit doctrine abolishe
 fold demonstrably masked the M27 defect; footprint + sequencing in the NOTEBOOK correction entry). After
 that: disk-matcher design; strategic lane = the ISP transition (lift/regenerate + intent store).
 
+**▶ SHIPPED 2026-07-23 — alias fold removed in full (`openspec/changes/remove-alias-fold`; paired lib commit
+`306f6fd` in `..\Library`).** The agreed 2026-07-08 removal (NOTEBOOK correction: "explained ≠ approved" — the
+fold masked the unintentional M27/Dumbell twin): a multi-claim is always a flagged **duplicate** (resolver's
+`IsAliasName` branch, `AliasTsTarget`/`AliasMemberCount`/`TargetMatchIssues.Alias`, and the planner's
+member-count auto-write exemption all deleted — ex-alias multi-plan cells hold as `ManualGroup(DuplicateFold)`);
+TSM drops the `alias` badge, the `!isAlias` multi-plan suppression, the report's alias info-lines + same-key
+exemption ("intentional alias" wording gone), and the `aliases=` counters. DOMAIN convention is now **one TS
+row per position, no exceptions**; the active `ts-ambiguity-report` delta was amended in place (alias
+requirement/scenarios dead). Single-target naming freedom unaffected. Lib 171 / TSM 204 tests. **Heads-up:**
+until the Dumbell consolidation on BIRDWATCHER, M27/Dumbell surfaces every load as duplicate badge + held
+write-back cell + report action items — the doctrine working, not a regression.
+
 **▶ SHIPPED 2026-07-23 — Visible-Tonight toolbar group (`openspec/changes/enable-visible-tonight`).** A
 **Duration** (min, 15–480, default 30) + **Horizon** (whole °, 0–89, default 30) numeric-up-down pair and a
 **Find** button (replacing the toolbar's load-summary text — removed with its orphaned `SummaryText` VM

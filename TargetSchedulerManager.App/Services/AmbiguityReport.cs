@@ -8,7 +8,7 @@ using Astronomy.Catalog.TargetScheduler;
 namespace TargetSchedulerManager.App.Services;
 
 /// <summary>What one report build produced: the Markdown text and how many items demand a hand-fix.
-/// Informational entries (alias folds, unplanned-frames notes) are not in <see cref="ActionCount"/>.</summary>
+/// Informational entries (unplanned-frames notes) are not in <see cref="ActionCount"/>.</summary>
 internal sealed record AmbiguityReportResult(string Markdown, int ActionCount);
 
 /// <summary>
@@ -132,7 +132,7 @@ internal static class AmbiguityReport
                 $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped)." +
                 $"{detail}\n  {fix}");
         }
-        plans.AddRange(SameKeyPlans(graph, report, targetById, templateById, ProjectOf, manualKeys));
+        plans.AddRange(SameKeyPlans(graph, targetById, templateById, ProjectOf, manualKeys));
 
         List<string> templates = [];
         foreach (var g in graph.Templates
@@ -146,12 +146,6 @@ internal static class AmbiguityReport
         }
 
         List<string> info = [];
-        foreach (AliasTsTarget a in report.AliasTsTargets)
-        {
-            info.Add(
-                $"Alias fold: disk `{a.DiskDirectory}` ← TS names [{string.Join(" | ", a.TsTargetNames)}] — " +
-                $"treated as one object; counts write to every member. If unintended, consolidate in TS.");
-        }
         // Unplanned frames group per target with one indented row per bucket — the TS-UI target→plans shape
         // (frames at durations no plan targets; write-back never creates plans, so they're pure notes).
         foreach (var g in plan.NeedsReconciliation
@@ -200,11 +194,10 @@ internal static class AmbiguityReport
     /// <summary>≥2 plans on one target sharing (filter, purpose, effective whole-second exposure) — over ALL
     /// TS-sourced targets, not just disk-matched ones (write-back's planner is scoped to Both and misses
     /// planned-only offenders). <paramref name="manualKeys"/> de-dupes against held cells already reported.
-    /// Mirrors the planner's alias exemption: on an alias-fold target, one plan per member is the fold
-    /// explaining itself (auto-stamped to every member) — not a duplicate.</summary>
+    /// No exemptions: every same-key multiplicity is an action item (the alias escape died with the fold
+    /// mechanism).</summary>
     private static IEnumerable<string> SameKeyPlans(
         CatalogGraph graph,
-        CatalogBuildReport report,
         Dictionary<Guid, Target> targetById,
         Dictionary<Guid, ExposureTemplate> templateById,
         Func<Guid, string> projectOf,
@@ -218,8 +211,7 @@ internal static class AmbiguityReport
                 Filter: x.Template!.FilterName.ToUpperInvariant(),
                 Purpose: FilterPurposeClassifier.Classify(x.Template.Name),
                 Seconds: EffectiveExposure.Seconds(x.Plan, x.Template)))
-            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key))
-            .Where(g => report.AliasMemberCount(targetById.GetValueOrDefault(g.Key.TargetId)?.DirectoryName) != g.Count());
+            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key));
 
         foreach (var g in groups.OrderBy(g => targetById.GetValueOrDefault(g.Key.TargetId)?.Name, StringComparer.OrdinalIgnoreCase))
         {
@@ -266,8 +258,8 @@ internal static class AmbiguityReport
                     $"**{a.Name}** ({projectOf(a.Id)}) and **{b.Name}** ({projectOf(b.Id)}) — " +
                     $"planned-only targets {sep.ToString("0.000", CultureInfo.InvariantCulture)}° apart (inside tolerance); " +
                     $"they will contest the same disk directory once imaged.\n" +
-                    $"  → If one object: consolidate (or make the names an intentional alias of the future disk dir). " +
-                    $"If two objects: they are closer than the match tolerance — confirm coordinates.";
+                    $"  → If one object: consolidate — keep one target, delete the other (one TS row per position, " +
+                    $"no exceptions). If two objects: they are closer than the match tolerance — confirm coordinates.";
             }
         }
     }
