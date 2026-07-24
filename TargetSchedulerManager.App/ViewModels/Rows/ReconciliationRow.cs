@@ -6,6 +6,35 @@ using TargetSchedulerManager.App.Models;
 
 namespace TargetSchedulerManager.App.ViewModels.Rows;
 
+/// <summary>The target/panel/TS-key identity shared by every row of one loader emit — built once per
+/// target (or panel) and handed to each of its rows, instead of re-threading ten arguments through every
+/// construction. Scope: one emit; rows of different targets/panels never share an instance.</summary>
+public sealed record RowIdentity(
+    string Target,
+    string Project,
+    RowSource Source,
+    string? PanelKey,
+    string? PanelLabel,
+    RowSource? PanelSource,
+    bool Enabled,
+    string? TsTargetKey,
+    Guid TargetId,
+    string? ProjectTsKey);
+
+/// <summary>One row's plan/disk numbers — the numeric columns, in column order. Construct with NAMED
+/// arguments at every site: the same-typed run is exactly the transposition hazard this record exists to
+/// contain.</summary>
+public sealed record RowNumbers(
+    int PlanSeconds,
+    int DiskSeconds,
+    int? Desired,
+    int? Acquired,
+    int? Accepted,
+    int Disk,
+    int PlanCount,
+    double? PlanHours,
+    double? DiskHours);
+
 /// <summary>
 /// One grid row = one (target, filter, purpose) cell or one plane of it. A filter carrying both a plan and
 /// disk frames is a single <see cref="RowPlane.Both"/> rollup of every sub length; when those sub lengths
@@ -16,73 +45,56 @@ namespace TargetSchedulerManager.App.ViewModels.Rows;
 /// plane has nothing, like an empty DataGridView cell).
 /// </summary>
 public sealed class ReconciliationRow(
-    string target,
-    string project,
+    RowIdentity id,
     string filter,
     string purpose,
-    int planSeconds,
-    int diskSeconds,
-    RowSource source,
     RowPlane plane,
-    int? desired,
-    int? acquired,
-    int? accepted,
-    int disk,
-    int planCount,
+    RowNumbers numbers,
     string badge,
     bool isFlagged,
-    double? planHours,
-    double? diskHours,
     bool secondsMixed = false,
     bool isDetail = false,
     IReadOnlyList<ReconciliationRow>? detail = null,
-    string? panelKey = null,
-    string? panelLabel = null,
-    RowSource? panelSource = null,
-    bool enabled = true,
-    string? tsTargetKey = null,
-    Guid targetId = default,
     string? planTsKey = null,
-    string? projectTsKey = null,
     bool? planEnabled = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string Target { get; } = target;
-    public string Project { get; } = project;
+    public string Target { get; } = id.Target;
+    public string Project { get; } = id.Project;
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
 
     /// <summary>The plan side's whole-second sub length (representative when mixed); 0 = none/unknown. Settable
     /// for an in-place inline exposure edit (see <see cref="ApplyPlanSeconds"/>).</summary>
-    public int PlanSeconds { get; private set; } = planSeconds;
+    public int PlanSeconds { get; private set; } = numbers.PlanSeconds;
 
     /// <summary>The disk side's whole-second sub length (representative when mixed); 0 = none.</summary>
-    public int DiskSeconds { get; } = diskSeconds;
+    public int DiskSeconds { get; } = numbers.DiskSeconds;
 
     /// <summary>The target's classification — drives the source dropdown and the group header's label.</summary>
-    public RowSource Source { get; } = source;
+    public RowSource Source { get; } = id.Source;
 
     /// <summary>Which plane(s) this row carries; leaf rows show it in the Source column.</summary>
     public RowPlane Plane { get; } = plane;
 
     /// <summary>Summed <c>desired</c> across the row's plans; null on Disk rows. Settable for an in-place
     /// inline edit (see <see cref="ApplyDesired"/>) so committing one doesn't rebuild the grid.</summary>
-    public int? Desired { get; private set; } = desired;
+    public int? Desired { get; private set; } = numbers.Desired;
 
     /// <summary>Summed TS <c>acquired</c> (the cached column write-back owns); null on Disk rows.</summary>
-    public int? Acquired { get; } = acquired;
+    public int? Acquired { get; } = numbers.Acquired;
 
     /// <summary>Summed TS <c>accepted</c> (cached column); null on Disk rows.</summary>
-    public int? Accepted { get; } = accepted;
+    public int? Accepted { get; } = numbers.Accepted;
 
     /// <summary>Frames on disk (ACTUAL — ground truth); 0 on TS rows.</summary>
-    public int Disk { get; } = disk;
+    public int Disk { get; } = numbers.Disk;
 
     /// <summary>TS plans contributing (&gt;1 = mosaic fold, duplicate fold, or a same-purpose multi-plan).</summary>
-    public int PlanCount { get; } = planCount;
+    public int PlanCount { get; } = numbers.PlanCount;
 
     /// <summary>Match-state badges for the row's target ("duplicate", "name≠", "mosaic", …); empty when clean.</summary>
     public string Badge { get; } = badge;
@@ -92,10 +104,10 @@ public sealed class ReconciliationRow(
 
     /// <summary>Planned commitment in decimal hours, summed per sub length by the loader; null without a plan
     /// side. Recomputed in place when <see cref="ApplyDesired"/> edits the count.</summary>
-    public double? PlanHours { get; private set; } = planHours;
+    public double? PlanHours { get; private set; } = numbers.PlanHours;
 
     /// <summary>Actual integration in decimal hours, summed per sub length by the loader; null without a disk side.</summary>
-    public double? DiskHours { get; } = diskHours;
+    public double? DiskHours { get; } = numbers.DiskHours;
 
     /// <summary>True when the rollup's sub lengths aren't all one identical value (2+ distinct times
     /// across the plan and disk sides) — the Seconds cell reads "mixed" and the row is expandable.</summary>
@@ -108,23 +120,23 @@ public sealed class ReconciliationRow(
     public IReadOnlyList<ReconciliationRow>? Detail { get; } = detail;
 
     /// <summary>Stable key of the mosaic panel this row belongs to; null on a normal target's rows.</summary>
-    public string? PanelKey { get; } = panelKey;
+    public string? PanelKey { get; } = id.PanelKey;
 
     /// <summary>The panel's display label ("Panel 01of16 · CygnusLoop P1"; one name when one-sided).</summary>
-    public string? PanelLabel { get; } = panelLabel;
+    public string? PanelLabel { get; } = id.PanelLabel;
 
     /// <summary>The panel's own classification (the row's <see cref="Source"/> stays the parent's).</summary>
-    public RowSource? PanelSource { get; } = panelSource;
+    public RowSource? PanelSource { get; } = id.PanelSource;
 
     /// <summary>The target's TS-enable state (<c>target.active</c>); true by default for a target with no TS row.</summary>
-    public bool Enabled { get; } = enabled;
+    public bool Enabled { get; } = id.Enabled;
 
     /// <summary>Write-back key for the target's TS row (guid, or integer Id as a string); null when there is no
     /// TS target behind this row (disk-only target, mosaic parent) — the enable checkbox is then hidden.</summary>
-    public string? TsTargetKey { get; } = tsTargetKey;
+    public string? TsTargetKey { get; } = id.TsTargetKey;
 
     /// <summary>Canonical catalog target id — a reusable key into the retained graph.</summary>
-    public Guid TargetId { get; } = targetId;
+    public Guid TargetId { get; } = id.TargetId;
 
     /// <summary>Write-back key for this row's single TS exposure plan — set only on a one-plan cell, so a value
     /// here marks the row's <c>desired</c> as 1:1 editable; null on multi-plan rollups, disk rows, and headers.</summary>
@@ -132,7 +144,7 @@ public sealed class ReconciliationRow(
 
     /// <summary>Write-back key for the target's TS project (project-scope edits: priority, constraints);
     /// null when the target has no TS project.</summary>
-    public string? ProjectTsKey { get; } = projectTsKey;
+    public string? ProjectTsKey { get; } = id.ProjectTsKey;
 
     /// <summary>The single TS plan's <c>enabled</c> flag — set only on a one-plan cell (like <see cref="PlanTsKey"/>);
     /// null hides the plan-enable checkbox (multi-plan rollups, disk rows).</summary>

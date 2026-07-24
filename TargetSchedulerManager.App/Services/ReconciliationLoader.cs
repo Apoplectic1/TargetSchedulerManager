@@ -138,6 +138,9 @@ public static class ReconciliationLoader
             string? panelKey, string? panelLabel, RowSource? panelSource)
         {
             string project = tc.ProjectName;
+            // The identity every row of this emit shares — built once, never re-threaded (see RowIdentity).
+            RowIdentity id = new(groupName, project, source, panelKey, panelLabel, panelSource,
+                tc.Enabled, tc.TsTargetKey, tc.TargetId, tc.ProjectTsKey);
             bool isMosaic = tc.IsMosaicDirectory;
             bool isDup = tc.Issues.HasFlag(TargetMatchIssues.Duplicate);
             bool isMismatch = tc.Issues.HasFlag(TargetMatchIssues.NameMismatch);
@@ -194,21 +197,19 @@ public static class ReconciliationLoader
                         || planCells[0].Seconds != diskCells[0].Seconds;
 
                     rows.Add(new ReconciliationRow(
-                        groupName, project, planCells[0].Filter, fp.Key.Purpose.ToString(),
-                        planSeconds: planCells[0].Seconds, diskSeconds: diskCells[0].Seconds,
-                        source, RowPlane.Both,
-                        desired: planCells.Sum(c => c.Desired),
-                        acquired: planCells.Sum(c => c.Acquired),
-                        accepted: planCells.Sum(c => c.Accepted),
-                        disk: diskCells.Sum(c => c.Disk),
-                        planCount: planCells.Sum(c => c.PlanCount),
+                        id, planCells[0].Filter, fp.Key.Purpose.ToString(), RowPlane.Both,
+                        new RowNumbers(
+                            PlanSeconds: planCells[0].Seconds, DiskSeconds: diskCells[0].Seconds,
+                            Desired: planCells.Sum(c => c.Desired),
+                            Acquired: planCells.Sum(c => c.Acquired),
+                            Accepted: planCells.Sum(c => c.Accepted),
+                            Disk: diskCells.Sum(c => c.Disk),
+                            PlanCount: planCells.Sum(c => c.PlanCount),
+                            PlanHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
+                            DiskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0),
                         badge, flagged,
-                        planHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
-                        diskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
-                        panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                        enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
                         // 1:1 only: a single plan sub-length is editable; a mixed rollup's sum is not.
                         planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null,
                         planEnabled: planCells.Count == 1 ? planCells[0].PlanEnabled : null));
@@ -220,47 +221,48 @@ public static class ReconciliationLoader
                 }
 
                 ReconciliationRow BothRow(ReconciliationCell c) => new(
-                    groupName, project, c.Filter, c.Purpose.ToString(),
-                    planSeconds: c.Seconds, diskSeconds: c.Seconds, source, RowPlane.Both,
-                    c.Desired, c.Acquired, c.Accepted, c.Disk, c.PlanCount, badge, flagged,
-                    planHours: c.Desired * (double)c.Seconds / 3600.0,
-                    diskHours: c.Disk * (double)c.Seconds / 3600.0,
-                    isDetail: true,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
+                    id, c.Filter, c.Purpose.ToString(), RowPlane.Both,
+                    new RowNumbers(
+                        PlanSeconds: c.Seconds, DiskSeconds: c.Seconds,
+                        Desired: c.Desired, Acquired: c.Acquired, Accepted: c.Accepted,
+                        Disk: c.Disk, PlanCount: c.PlanCount,
+                        PlanHours: c.Desired * (double)c.Seconds / 3600.0,
+                        DiskHours: c.Disk * (double)c.Seconds / 3600.0),
+                    badge, flagged, isDetail: true,
                     planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
-                    groupName, project, c.Filter, c.Purpose.ToString(),
-                    planSeconds: c.Seconds, diskSeconds: 0, source, RowPlane.Ts,
-                    c.Desired, c.Acquired, c.Accepted, disk: 0, c.PlanCount, badge, flagged,
-                    planHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null, diskHours: null,
-                    isDetail: isDetail,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId,
+                    id, c.Filter, c.Purpose.ToString(), RowPlane.Ts,
+                    new RowNumbers(
+                        PlanSeconds: c.Seconds, DiskSeconds: 0,
+                        Desired: c.Desired, Acquired: c.Acquired, Accepted: c.Accepted,
+                        Disk: 0, PlanCount: c.PlanCount,
+                        PlanHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null,
+                        DiskHours: null),
+                    badge, flagged, isDetail: isDetail,
                     planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
-                    groupName, project, c.Filter, c.Purpose.ToString(),
-                    planSeconds: 0, diskSeconds: c.Seconds, source, RowPlane.Disk,
-                    desired: null, acquired: null, accepted: null, c.Disk, planCount: 0, badge, flagged,
-                    planHours: null, diskHours: c.Disk * (double)c.Seconds / 3600.0,
-                    isDetail: isDetail,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId);
+                    id, c.Filter, c.Purpose.ToString(), RowPlane.Disk,
+                    new RowNumbers(
+                        PlanSeconds: 0, DiskSeconds: c.Seconds,
+                        Desired: null, Acquired: null, Accepted: null,
+                        Disk: c.Disk, PlanCount: 0,
+                        PlanHours: null,
+                        DiskHours: c.Disk * (double)c.Seconds / 3600.0),
+                    badge, flagged, isDetail: isDetail);
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
             if (tc.Cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
-                    groupName, project, "—", "—", planSeconds: 0, diskSeconds: 0, source,
-                    plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
-                    desired: null, acquired: null, accepted: null, disk: 0, planCount: 0,
-                    badge: isUnanchored ? "no-coords" : "no data",
-                    isFlagged: false, planHours: null, diskHours: null,
-                    panelKey: panelKey, panelLabel: panelLabel, panelSource: panelSource,
-                    enabled: tc.Enabled, tsTargetKey: tc.TsTargetKey, projectTsKey: tc.ProjectTsKey, targetId: tc.TargetId));
+                    id, "—", "—", plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
+                    new RowNumbers(
+                        PlanSeconds: 0, DiskSeconds: 0,
+                        Desired: null, Acquired: null, Accepted: null,
+                        Disk: 0, PlanCount: 0, PlanHours: null, DiskHours: null),
+                    badge: isUnanchored ? "no-coords" : "no data", isFlagged: false));
             }
         }
 

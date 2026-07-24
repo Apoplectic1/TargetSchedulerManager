@@ -3,7 +3,8 @@ using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App.Tests;
 
-/// <summary>Compact builders for the row view-models (the 23-parameter ctor, defaulted).</summary>
+/// <summary>Compact builders for the row view-models (same keyword surface as before the
+/// RowIdentity/RowNumbers grouping — test bodies never see the record shapes).</summary>
 internal static class Make
 {
     public static ReconciliationRow Leaf(
@@ -32,10 +33,16 @@ internal static class Make
         string? planTsKey = null, bool? planEnabled = null,
         string? tsTargetKey = null,
         bool enabled = true) =>
-        new(target, "proj", filter, purpose, planSeconds, diskSeconds, source, plane,
-            desired, acquired, accepted, disk, planCount, badge, flagged, planHours, diskHours,
-            mixed, isDetail, detail, panelKey, panelLabel, panelSource,
-            planTsKey: planTsKey, planEnabled: planEnabled, tsTargetKey: tsTargetKey, enabled: enabled);
+        new(new RowIdentity(target, "proj", source, panelKey, panelLabel, panelSource,
+                enabled, tsTargetKey, TargetId: default, ProjectTsKey: null),
+            filter, purpose, plane,
+            new RowNumbers(
+                PlanSeconds: planSeconds, DiskSeconds: diskSeconds,
+                Desired: desired, Acquired: acquired, Accepted: accepted,
+                Disk: disk, PlanCount: planCount,
+                PlanHours: planHours, DiskHours: diskHours),
+            badge, flagged, mixed, isDetail, detail,
+            planTsKey: planTsKey, planEnabled: planEnabled);
 
     /// <summary>A one-plane TS leaf: commitment only (no disk side).</summary>
     public static ReconciliationRow Ts(string target = "T", string filter = "H", int desired = 10,

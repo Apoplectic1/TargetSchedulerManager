@@ -9,6 +9,19 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — row parameter objects (`openspec/changes/row-param-objects`; review M3, count
+corrected 24→29).** `ReconciliationRow`'s 29-positional-parameter constructor — adjacent same-typed runs
+where a transposed pair compiles clean and renders a subtly wrong grid — became 12 parameters over two
+records: `RowIdentity` (target/project/source + panel triple + enable/TS-keys/target-id — built ONCE per
+`EmitRows` and shared by every row of the emit, ending the eight-argument re-thread through the three
+local factories) and `RowNumbers` (the numeric columns in column order, constructed with NAMED arguments
+at every site — the review's own snippet built it positionally, which would have re-created the hazard one
+level down). Public property surface byte-for-byte unchanged (XAML bindings, aggregates, tests untouched);
+`Make.Leaf` kept its keyword surface so zero test bodies changed. Spec delta codifies the in-place-mirror
+rule (a committed edit updates its cells in place, no grid reload) on `target-and-plan-flyouts` — the
+behavior the row's mutable members implement, previously stated only in code comments. 221 App.Tests green
+unchanged. Pure refactor → auto-archived same session (standing rule).
+
 **▶ SHIPPED 2026-07-24 — push decomposition (`openspec/changes/push-decomposition`; review M1).**
 `TsSync.Push` went from one ~170-line method (five concerns + two state-capturing local functions) to a
 ~10-line orchestrator over named parts, bodies moved verbatim: `PushReplayState` (FailedSeqs/Failures +
