@@ -42,9 +42,14 @@
 ## 4. Verify + docs
 
 - [x] 4.1 Full build + all tests green per VERIFICATION.md.
-- [ ] 4.2 Run against real data (user cue permitting): report lists exactly the known items (FishHead 6-cell
+- [x] 4.2 Run against real data (user cue permitting): report lists exactly the known items (FishHead 6-cell
       identity block as one target item + held cells; Swan Id 299/1040 pair; M27/Dumbell as info) — state
-      what needs the user's visual/print check.
+      what needs the user's visual/print check. DONE 2026-07-23: first real run (07-08) listed exactly the
+      known items and caught a fresh one (Rosette P4 / `Panel Center`); after the user's BIRDWATCHER
+      hand-fix pass (FishHead rename · Swan stray plan · Dumbell consolidation) the re-run is fully clean —
+      dups=0, zero held cells, report shows 0 action items (tsm.log 2026-07-23 21:07). Note: M27/Dumbell
+      finished as a flagged duplicate rather than "info" — the alias premise died mid-change
+      (`remove-alias-fold` amended this change's delta in place).
 - [x] 4.3 Docs in the same commit: DOMAIN.md chrome list + checklist pass for the new button; ROADMAP
       recently-shipped + Status next-step update; ARCHITECTURE.md one-liner under the write-back section
       (report = the tripwire surface).

@@ -25,14 +25,13 @@ cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt
 fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
 seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
 `ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache.
-**Next (2026-07-09):** user's BIRDWATCHER hand-fix pass with the printed report — ① delete Swan's desired-1
-H900 plan, ② adjudicate Rosette P4 vs disk `Panel Center` (0.196°, fresh frames — which panel is it really?),
-③ **consolidate the Dumbell twin** (never intentional — NOTEBOOK 2026-07-08 correction; delete the disabled
-`Dumbell` target, M27 keeps desired 169, counts restamp). FishHead already renamed (tripwire went quiet).
-Then: clean re-run → tick task 4.2 → archive `ts-ambiguity-report` → **`remove-alias-fold`** (agreed: paired
-lib+app removal of the whole alias mechanism — the hand-edit doctrine abolishes benign multi-claims and the
-fold demonstrably masked the M27 defect; footprint + sequencing in the NOTEBOOK correction entry). After
-that: disk-matcher design; strategic lane = the ISP transition (lift/regenerate + intent store).
+**~~Next (2026-07-09)~~ DONE 2026-07-23:** the whole queue completed — user's BIRDWATCHER hand-fix pass
+(Swan stray plan deleted · Rosette settled · **Dumbell twin consolidated**; FishHead renamed earlier), clean
+re-run (dups=0, zero held cells, **ambiguity report: 0 action items** — tsm.log 21:07), task 4.2 ticked,
+`ts-ambiguity-report` ARCHIVED (main spec seeded at `openspec/specs/ts-ambiguity-report`), and
+`remove-alias-fold` shipped + verified + ARCHIVED the same day (SHIPPED block below). **Zero open changes.**
+Next lanes: disk-matcher design; strategic = the ISP transition (lift/regenerate + intent store); deferred
+ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
 
 **▶ SHIPPED 2026-07-23 — alias fold removed in full (`openspec/changes/remove-alias-fold`; paired lib commit
 `306f6fd` in `..\Library`).** The agreed 2026-07-08 removal (NOTEBOOK correction: "explained ≠ approved" — the
@@ -92,7 +91,9 @@ cells), planned-only twins (same name or inside-tolerance pair — previously in
 names per profile (alias folds exempt, mirroring the planner — the M27 flood fix). Status line:
 `· N ambiguities` when non-zero. 176 App.Tests (17 new). First real run also caught a genuine fresh issue:
 disk panel `Panel Center` (new frames) coordinate-claims TS `Rosette P4` at 0.196° with a failing panel
-token — the author adjudicates. **Awaiting the author's re-run + print pass.**
+token — the author adjudicates. **Closed 2026-07-23:** hand-fix pass done (Swan · Rosette · Dumbell; FishHead
+earlier), re-run fully clean (0 action items), ARCHIVED (`archive/2026-07-23-ts-ambiguity-report`; main spec
+seeded — in the post-alias-removal form: no info-tier alias requirement).
 
 **▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; ISP lane opens** (full why:
 `docs/2026-07-08-resolver-rejection-isp-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).
