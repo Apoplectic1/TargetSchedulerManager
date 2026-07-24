@@ -158,9 +158,7 @@ internal sealed class TsFieldsEditor : UserControl
 
             // Clamp to the schema bounds so no out-of-range value reaches the gate.
             double wanted = box.Value;
-            if (field.Min is double min && wanted < min) wanted = min;
-            if (field.Max is double max && wanted > max) wanted = max;
-            if (field.Type == TsFieldType.Whole) wanted = Math.Round(wanted);
+            wanted = ClampToSchema(field, wanted);
             Revert(() => box.Value = wanted);
             if (wanted == current) return;
 
@@ -256,9 +254,7 @@ internal sealed class TsFieldsEditor : UserControl
             }
 
             double wanted = box.Value;
-            if (field.Min is double min && wanted < min) wanted = min;
-            if (field.Max is double max && wanted > max) wanted = max;
-            if (field.Type == TsFieldType.Whole) wanted = Math.Round(wanted);
+            wanted = ClampToSchema(field, wanted);
             Revert(() => box.Value = wanted);
             if (wanted == current) return;
 
@@ -360,6 +356,16 @@ internal sealed class TsFieldsEditor : UserControl
             VerticalAlignment = VerticalAlignment.Center,
         });
         return cell;
+    }
+
+    // The one schema clamp (review M7 — was spelled verbatim in both number builders): Min/Max bounds,
+    // then whole-number rounding. The sentinel value itself never routes through here (it bypasses via
+    // the checkbox path, which is why sentinel writes survive out-of-range bounds).
+    private static double ClampToSchema(TsField field, double wanted)
+    {
+        if (field.Min is double min && wanted < min) wanted = min;
+        if (field.Max is double max && wanted > max) wanted = max;
+        return field.Type == TsFieldType.Whole ? Math.Round(wanted) : wanted;
     }
 
     private void Revert(Action putBack)

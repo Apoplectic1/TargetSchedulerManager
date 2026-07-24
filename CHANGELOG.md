@@ -9,6 +9,23 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — review polish (`openspec/changes/review-polish`; the review's remaining accepted
+small items, one sweep).** M2 became a DOC fix (the review's `Flush(true)` was rejected — the SQLite commit
+and the journal append are separate durability events, so no flush closes the power-loss window; `TsJournal`
+docs + the spec now state the honest boundary: survives process crashes, an OS/power failure can lose the
+tail line whose local write persists but whose replay is lost). N2: `TsJournal.CollapsedCount` cached under
+the journal lock — `SyncBadgeText` stops running `Collapse()` on the UI thread per raise. M7: one
+`ClampToSchema` (was verbatim ×2) + the flyout's column-routing lambda became the named
+`TryCommitMirroredField` switch. N1 hoisted search needle · N3 `FireAndLog` on all ten `_ =` discards
+(unexpected UI faults now land in tsm.log) · N4 `TsValueText.From` (one conversion rule; each display keeps
+its own null spelling deliberately) · N5 `MaxBusyRetries = BusyTimeoutMs/RetrySleepMs` + cancel-aware nap ·
+N7 `DiagnosticsWindow` `m`/`s` prefixes → `_camelCase` + the duplicated `Row_ItemClick` comment removed ·
+N10 primary ctors (`TsEditGate`, `VisibleRowTree`; `SyncMarks` kept its private ctor) + the deliberate
+no-`ConfigureAwait` note · blind-m1 `GetMosaicEnabledState` reuses `EffectiveEnabled`. **Deliberately
+skipped, recorded in the proposal:** N6 (scale-fine), N8 (by design), N9 (mildest — pure + reads well), m5
+(visible-tonight planned-vs-applied project-flip edge, parked), m6 (cross-repo haversine — Library-side),
+m7 (debounce — first knob if the library grows). 226 App.Tests (1 new). Auto-archived (doc/refactor sweep).
+
 **▶ SHIPPED 2026-07-24 — serial commits (`openspec/changes/serial-commits`; the review cross-check's last
 open correctness item, scope widened).** Every commit handler in `TsFieldsEditor` (all six control kinds —
 the review flagged only the number boxes) and the grid's inline `Desired_Committed` ran

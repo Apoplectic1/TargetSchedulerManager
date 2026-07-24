@@ -277,7 +277,7 @@ internal sealed class TsSync
         // acquisition the same patience the reader/writer get instead of failing on the first SQLITE_BUSY.
         using (SqliteCommand pragma = source.CreateCommand())
         {
-            pragma.CommandText = "PRAGMA busy_timeout = 2000;";
+            pragma.CommandText = $"PRAGMA busy_timeout = {BusyTimeoutMs};";
             pragma.ExecuteNonQuery();
         }
 
@@ -302,9 +302,10 @@ internal sealed class TsSync
                 busyRetries = 0;
                 continue;
             }
-            if ((rc is raw.SQLITE_BUSY or raw.SQLITE_LOCKED) && ++busyRetries <= 40)
+            if ((rc is raw.SQLITE_BUSY or raw.SQLITE_LOCKED) && ++busyRetries <= MaxBusyRetries)
             {
-                Thread.Sleep(50);   // 40 × 50 ms — the same total patience the busy-timeout grants
+                // Cancel-aware nap: a fired token wakes immediately and the loop-top throw exits.
+                cancel.WaitHandle.WaitOne(RetrySleepMs);
                 continue;
             }
             throw new SqliteException($"backup step failed (rc={rc})", rc);
@@ -314,6 +315,12 @@ internal sealed class TsSync
     /// <summary>~2 MB per chunk at TS's 4 KB page size — small enough for smooth percents + prompt cancel,
     /// large enough that chunking adds no measurable overhead.</summary>
     private const int BackupPagesPerStep = 512;
+
+    // One "2 s of patience" (review N5 — was magic twins): the busy-timeout pragma and the step-retry
+    // loop derive from the same pair, so a future tuning changes one constant.
+    private const int BusyTimeoutMs = 2000;
+    private const int RetrySleepMs = 50;
+    private const int MaxBusyRetries = BusyTimeoutMs / RetrySleepMs;
 
     private static void SweepPullTmp(string tmp)
     {
@@ -622,6 +629,6 @@ internal sealed class TsSync
         ?? plan.FirstOrDefault(e => string.Equals(e.Column, "accepted", StringComparison.OrdinalIgnoreCase))
         ?? plan.First();
 
-    private static string FormatValue(object? value) =>
-        value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
+    // A review line must show SOMETHING — the shared rule's null passes through as the literal "null".
+    private static string FormatValue(object? value) => TsValueText.From(value) ?? "null";
 }

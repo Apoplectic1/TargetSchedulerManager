@@ -36,6 +36,30 @@ public class TsJournalTests
     }
 
     [Fact]
+    public void CollapsedCount_TracksDistinctFields_ThroughAppendCommitAndReload()
+    {
+        // The badge's cached count (review N2) must always equal Collapse().Count.
+        string path = NewPath();
+        TsJournal journal = new(path);
+        Assert.Equal(0, journal.CollapsedCount);
+
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 20, "10", "A · H");
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");   // same field — collapses
+        journal.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 0, "1", "A");
+        Assert.Equal(2, journal.CollapsedCount);
+        Assert.Equal(journal.Collapse().Count, journal.CollapsedCount);
+
+        // Retention keeps only the failed field's entries.
+        journal.CommitPush([TsJournal.FieldKey(journal.Entries[0])], journal.Entries[^1].Seq);
+        Assert.Equal(1, journal.CollapsedCount);
+
+        Assert.Equal(1, new TsJournal(path).CollapsedCount);   // reload rebuilds the cache
+
+        journal.Clear();
+        Assert.Equal(0, journal.CollapsedCount);
+    }
+
+    [Fact]
     public void Collapse_LastWritePerField_KeepsFirstOld()
     {
         TsJournal journal = new(NewPath());

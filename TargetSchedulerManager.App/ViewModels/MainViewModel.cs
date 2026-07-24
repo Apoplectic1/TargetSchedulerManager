@@ -137,7 +137,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             string synced = Sync.Baseline is { } b ? $"synced {FormatWhen(b.RecordedAt)}" : "never pulled";
             string offline = Sync.HasProbed && !Sync.RemoteReachable ? "BIRDWATCHER offline  ·  " : "";
-            int unpushed = Sync.IsDirty ? Sync.Journal.Collapse().Count : 0;
+            int unpushed = Sync.Journal.CollapsedCount;   // cached under the journal lock — no Collapse() on the UI thread (review N2)
             return unpushed > 0 ? $"{offline}{synced}  ·  {unpushed} unpushed" : $"{offline}{synced}";
         }
     }
@@ -493,6 +493,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         try
         {
+            // Deliberately NO ConfigureAwait(false) anywhere in this view-model: every continuation needs
+            // the UI context back (StatusText/Progress raises, Rows swaps). Library-side code is where
+            // ConfigureAwait(false) belongs — don't "fix" this in a sweep.
             string syncNote = await PrepareTsForLoadAsync(policy);
             RaiseSyncState();
 
@@ -793,8 +796,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         bool anyOn = false, anyOff = false;
         foreach (PanelGroupRow panel in panels)
         {
-            if (panel.TsTargetKey is not string key) continue;
-            bool on = _targetActiveEdits.TryGetValue(key, out bool pending) ? pending : panel.Children[0].Enabled;
+            if (panel.TsTargetKey is null) continue;
+            // One pending-override rule (review m1): the panel's key IS its first child's key.
+            bool on = EffectiveEnabled(panel.Children[0]);
             if (on) anyOn = true; else anyOff = true;
         }
         return anyOn && anyOff ? null : anyOn ? true : anyOff ? false : null;
@@ -987,7 +991,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (_flaggedOnly)
             q = q.Where(r => r.IsFlagged);
         if (!string.IsNullOrWhiteSpace(_searchText))
-            q = q.Where(r => r.Matches(_searchText.Trim()));
+        {
+            string needle = _searchText.Trim();   // hoisted — the lambda runs per row per keystroke (review N1)
+            q = q.Where(r => r.Matches(needle));
+        }
 
         // _allRows is (target, panel, filter)-ordered, so grouping preserves order within each level.
         // Headers aggregate only the rows that survived the filters — sums always match what's beneath.

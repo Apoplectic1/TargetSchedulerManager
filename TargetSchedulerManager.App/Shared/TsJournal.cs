@@ -32,9 +32,14 @@ internal sealed record TsJournalEntry(
 /// beside the db, so unpushed work survives crashes and relaunches (guards carry facts). "Dirty" is defined as
 /// this journal being non-empty — derived, never a separately stored flag that could disagree after a crash.
 /// Push replays the <see cref="Collapse"/>d entries (last write per field, first write's Old for review);
-/// entries whose replay fails are retained via <see cref="ReplaceAll"/>. Appends land on disk before the entry
-/// is visible in memory; rewrites are crash-safe (temp + atomic move). An unreadable line (torn by a crash
-/// mid-append) is skipped loudly — the local db still holds the value, so nothing is silently lost locally.
+/// entries whose replay fails are retained via <see cref="ReplaceAll"/>. Rewrites are crash-safe
+/// (temp + atomic move). An unreadable line (torn by a crash mid-append) is skipped loudly — the local db
+/// still holds the value, so nothing is silently lost locally.
+/// <para><b>Durability boundary (2026-07-24, review M2):</b> an append is flushed to the OS before the
+/// entry is visible in memory — entries survive a <em>process</em> crash. An OS/power failure can lose
+/// the final line, and no flush here could close that: the SQLite commit and this append are two separate
+/// durability events, never atomic with each other. The loss mode is bounded — the local db still holds
+/// the write (the grid stays correct); only that entry's replay at push is lost.</para>
 /// </summary>
 internal sealed class TsJournal
 {
@@ -48,6 +53,9 @@ internal sealed class TsJournal
     private readonly Lock _lock = new();
     private readonly string _path;
     private readonly List<TsJournalEntry> _entries = [];
+    // Distinct field keys, maintained under _lock — so the badge's collapsed count is two field reads
+    // instead of a full Collapse() (dictionaries + sort) on the UI thread per sync-state raise (review N2).
+    private readonly HashSet<string> _fieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private long _nextSeq = 1;
 
     public TsJournal(string path)
@@ -66,13 +74,21 @@ internal sealed class TsJournal
         get { lock (_lock) return _entries.Count; }
     }
 
+    /// <summary>What <see cref="Collapse"/>().Count would return — distinct fields with unpushed writes —
+    /// without building the collapse (cheap enough for every badge refresh on the UI thread).</summary>
+    public int CollapsedCount
+    {
+        get { lock (_lock) return _fieldKeys.Count; }
+    }
+
     /// <summary>A snapshot of all entries, oldest first (persisted order).</summary>
     public IReadOnlyList<TsJournalEntry> Entries
     {
         get { lock (_lock) return [.. _entries]; }
     }
 
-    /// <summary>Appends one verified write: persisted (flushed line) before it appears in <see cref="Entries"/>.</summary>
+    /// <summary>Appends one verified write, flushed to the OS before it appears in <see cref="Entries"/> —
+    /// survives a process crash; see the class doc for the honest OS/power-loss boundary.</summary>
     public TsJournalEntry Append(TsEditKind kind, TsTable table, string key, string column, object? value, string? old, string label)
     {
         lock (_lock)
@@ -80,6 +96,7 @@ internal sealed class TsJournal
             TsJournalEntry entry = new(_nextSeq++, kind, table, key, column, Canonicalize(value), old, label, DateTimeOffset.Now);
             File.AppendAllText(_path, JsonSerializer.Serialize(entry, Options) + Environment.NewLine);
             _entries.Add(entry);
+            _fieldKeys.Add(FieldKey(entry));
             return entry;
         }
     }
@@ -140,6 +157,9 @@ internal sealed class TsJournal
     {
         _entries.Clear();
         _entries.AddRange(entries.OrderBy(e => e.Seq));
+        _fieldKeys.Clear();
+        foreach (TsJournalEntry e in _entries)
+            _fieldKeys.Add(FieldKey(e));
         if (_entries.Count == 0)
         {
             File.Delete(_path);
@@ -175,6 +195,8 @@ internal sealed class TsJournal
             }
         }
         _nextSeq = _entries.Count == 0 ? 1 : _entries.Max(e => e.Seq) + 1;
+        foreach (TsJournalEntry e in _entries)
+            _fieldKeys.Add(FieldKey(e));
     }
 
     // One canonical box per value shape — whole numbers as long (including whole-valued doubles: JSON writes

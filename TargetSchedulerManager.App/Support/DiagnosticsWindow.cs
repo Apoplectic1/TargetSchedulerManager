@@ -28,24 +28,24 @@ namespace TargetSchedulerManager.App.Support;
 /// </summary>
 internal sealed class DiagnosticsWindow : Window
 {
-    private static DiagnosticsWindow? sCurrent;
+    private static DiagnosticsWindow? _current;
 
-    private readonly string mId;
-    private readonly Window mOwner;
-    private readonly Func<string> mContextProvider;
-    private readonly TextBox mNotes;
-    private readonly TextBlock mStatus;
-    private int mCaptureCount;
+    private readonly string _id;
+    private readonly Window _owner;
+    private readonly Func<string> _contextProvider;
+    private readonly TextBox _notes;
+    private readonly TextBlock _status;
+    private int _captureCount;
     // True when END/CANCEL was logged from a button handler; stops Closed from double-logging.
-    private bool mTerminationLogged;
+    private bool _terminationLogged;
 
     private DiagnosticsWindow(Window owner, Func<string> contextProvider)
     {
-        mId = Guid.NewGuid().ToString("N")[..4];
-        mOwner = owner;
-        mContextProvider = contextProvider;
+        _id = Guid.NewGuid().ToString("N")[..4];
+        _owner = owner;
+        _contextProvider = contextProvider;
 
-        Title = $"Diagnostics (id={mId})";
+        Title = $"Diagnostics (id={_id})";
         AppWindow.Resize(new SizeInt32(660, 360));   // wide enough for the button row + "captured N (delayed) · hh:mm:ss"
         CenterOverOwner();              // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
@@ -55,17 +55,17 @@ internal sealed class DiagnosticsWindow : Window
             p.IsMaximizable = false;
         }
 
-        mNotes = new TextBox
+        _notes = new TextBox
         {
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Stretch,
         };
-        ScrollViewer.SetVerticalScrollBarVisibility(mNotes, ScrollBarVisibility.Auto);
+        ScrollViewer.SetVerticalScrollBarVisibility(_notes, ScrollBarVisibility.Auto);
         // Ctrl+Enter commits from inside the notes box (TP convention, inverted: there Enter=OK and
         // Ctrl+Enter=newline; here Enter=newline). Handled in KeyDown because the TextBox consumes Enter
         // before a button KeyboardAccelerator would see it.
-        mNotes.KeyDown += (s, e) =>
+        _notes.KeyDown += (s, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Enter && IsCtrlDown())
             {
@@ -86,7 +86,7 @@ internal sealed class DiagnosticsWindow : Window
         Button delayedCapture = new() { Content = "Capture in 5 s", MinWidth = 100, Margin = new Thickness(8, 0, 0, 0) };
         delayedCapture.Click += OnDelayedCaptureClick;
 
-        mStatus = new TextBlock
+        _status = new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
             Opacity = 0.7,
@@ -102,7 +102,7 @@ internal sealed class DiagnosticsWindow : Window
         StackPanel leftButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
         leftButtons.Children.Add(capture);
         leftButtons.Children.Add(delayedCapture);
-        leftButtons.Children.Add(mStatus);
+        leftButtons.Children.Add(_status);
 
         StackPanel rightButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
         rightButtons.Children.Add(ok);
@@ -119,9 +119,9 @@ internal sealed class DiagnosticsWindow : Window
         Grid root = new() { Padding = new Thickness(12), RowSpacing = 10 };
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        Grid.SetRow(mNotes, 0);
+        Grid.SetRow(_notes, 0);
         Grid.SetRow(buttons, 1);
-        root.Children.Add(mNotes);
+        root.Children.Add(_notes);
         root.Children.Add(buttons);
         Content = root;
 
@@ -133,18 +133,18 @@ internal sealed class DiagnosticsWindow : Window
     /// as of the moment the user committed the note, not the moment the window opened.</summary>
     public static void ShowOrFocus(Window owner, Func<string> contextProvider)
     {
-        if (sCurrent is not null)
+        if (_current is not null)
         {
-            sCurrent.AppWindow.Show();
-            sCurrent.Activate();
+            _current.AppWindow.Show();
+            _current.Activate();
             return;
         }
 
         DiagnosticsWindow w = new(owner, contextProvider);
-        sCurrent = w;
-        Log.UserObservationStart(w.mId);
+        _current = w;
+        Log.UserObservationStart(w._id);
         w.Activate();
-        w.mNotes.Focus(FocusState.Programmatic);
+        w._notes.Focus(FocusState.Programmatic);
     }
 
     // Take a mid-session shot and stay open: grab the main window (this window hidden so it's not in its own
@@ -168,13 +168,13 @@ internal sealed class DiagnosticsWindow : Window
     {
         if (path is not null)
         {
-            mCaptureCount++;
-            Log.UserObservationCapture(mId, path);
-            mStatus.Text = $"captured {mCaptureCount}{(delayed ? " (delayed)" : string.Empty)} · {DateTime.Now:HH:mm:ss}";
+            _captureCount++;
+            Log.UserObservationCapture(_id, path);
+            _status.Text = $"captured {_captureCount}{(delayed ? " (delayed)" : string.Empty)} · {DateTime.Now:HH:mm:ss}";
         }
         else
         {
-            mStatus.Text = "capture failed — see tsm.log";
+            _status.Text = "capture failed — see tsm.log";
         }
     }
 
@@ -183,29 +183,29 @@ internal sealed class DiagnosticsWindow : Window
         string? screenshotPath = await CaptureHidingSelfAsync(reshow: false);   // a final shot tied to the note
 
         string ctx = string.Empty;
-        try { ctx = mContextProvider() ?? string.Empty; }
+        try { ctx = _contextProvider() ?? string.Empty; }
         catch (Exception ex) { Log.Warn("Observation contextProvider threw", ex); }
 
-        Log.UserObservationEnd(mId, ctx, mNotes.Text, screenshotPath ?? string.Empty);
-        mTerminationLogged = true;
+        Log.UserObservationEnd(_id, ctx, _notes.Text, screenshotPath ?? string.Empty);
+        _terminationLogged = true;
         Close();
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
     {
-        Log.UserObservationCancel(mId);
-        mTerminationLogged = true;
+        Log.UserObservationCancel(_id);
+        _terminationLogged = true;
         Close();
     }
 
     private void OnClosed(object sender, WindowEventArgs e)
     {
-        if (!mTerminationLogged)
+        if (!_terminationLogged)
         {
-            Log.UserObservationCancel(mId);
-            mTerminationLogged = true;
+            Log.UserObservationCancel(_id);
+            _terminationLogged = true;
         }
-        if (ReferenceEquals(sCurrent, this)) sCurrent = null;
+        if (ReferenceEquals(_current, this)) _current = null;
     }
 
     private static bool IsCtrlDown() =>
@@ -218,8 +218,8 @@ internal sealed class DiagnosticsWindow : Window
     {
         try
         {
-            PointInt32 oPos = mOwner.AppWindow.Position;
-            SizeInt32 oSize = mOwner.AppWindow.Size;
+            PointInt32 oPos = _owner.AppWindow.Position;
+            SizeInt32 oSize = _owner.AppWindow.Size;
             SizeInt32 mine = AppWindow.Size;
             AppWindow.Move(new PointInt32(
                 oPos.X + ((oSize.Width - mine.Width) / 2),
@@ -244,7 +244,7 @@ internal sealed class DiagnosticsWindow : Window
         {
             AppWindow.Show();
             Activate();
-            mNotes.Focus(FocusState.Programmatic);
+            _notes.Focus(FocusState.Programmatic);
         }
         return path;
     }
@@ -253,8 +253,8 @@ internal sealed class DiagnosticsWindow : Window
     // convention; Astronomy.Diagnostics owns the grab, encode, local-time stamp, and best-effort failure path.
     private string? TryCaptureScreenshot()
     {
-        PointInt32 pos = mOwner.AppWindow.Position;
-        SizeInt32 size = mOwner.AppWindow.Size;
-        return ScreenCapture.ToPng(pos.X, pos.Y, size.Width, size.Height, Log.NewObservationScreenshotPath(mId));
+        PointInt32 pos = _owner.AppWindow.Position;
+        SizeInt32 size = _owner.AppWindow.Size;
+        return ScreenCapture.ToPng(pos.X, pos.Y, size.Width, size.Height, Log.NewObservationScreenshotPath(_id));
     }
 }

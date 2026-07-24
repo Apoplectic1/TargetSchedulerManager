@@ -13,11 +13,9 @@ namespace TargetSchedulerManager.App.ViewModels;
 /// <see cref="ExpansionState"/>), over a dumb string-set <see cref="ExpansionState"/> store. Pure over the row
 /// objects' <c>IsExpanded</c> flags — no XAML, no view-model — so the flattening invariant is unit-testable.
 /// </summary>
-internal sealed class VisibleRowTree
+internal sealed class VisibleRowTree(ExpansionState expansion)
 {
-    private readonly ExpansionState _expansion;
-
-    public VisibleRowTree(ExpansionState expansion) => _expansion = expansion;
+    private readonly ExpansionState _expansion = expansion;
 
     // --- node identity: the three expansion-key formats, in one place ---
     private static string TargetKey(string target) => target;

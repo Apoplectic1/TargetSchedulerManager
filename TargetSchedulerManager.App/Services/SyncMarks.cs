@@ -149,6 +149,6 @@ internal sealed class SyncMarks
         lines.Add(line);
     }
 
-    private static string? FormatValue(object? value) =>
-        value is null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
+    // A tooltip line's null is "no old value" — the shared rule's null passes straight through.
+    private static string? FormatValue(object? value) => TsValueText.From(value);
 }

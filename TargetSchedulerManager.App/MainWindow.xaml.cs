@@ -1,4 +1,5 @@
 using Astronomy.Catalog.TargetScheduler;
+using Astronomy.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -36,16 +37,27 @@ public sealed partial class MainWindow : Window
         {
             if (_initialLoadStarted) return;
             _initialLoadStarted = true;
-            _ = ViewModel.LoadAsync(PullPolicy.IfChanged);   // VM surfaces progress/errors via IsLoading/StatusText
+            FireAndLog(() => ViewModel.LoadAsync(PullPolicy.IfChanged), "initial load");   // VM surfaces progress/errors via IsLoading/StatusText
         };
     }
 
+    // Fire-and-forget seam for async handlers (review N3): the VM methods catch their own domain
+    // failures; anything escaping them (a resource lookup, a dialog-construction bug) used to die as an
+    // unobserved task exception — invisible in tsm.log, the one place this project promises failures land.
+    private static async void FireAndLog(Func<Task> action, string what)
+    {
+        try { await action(); }
+        catch (Exception ex) { Log.Error($"{what} failed unhandled", ex); }
+    }
+
     // Reload = rescan the disk + re-read the local db; it never pulls (pull is an open/Pull-now decision).
-    private void Reload_Click(object sender, RoutedEventArgs e) => _ = ViewModel.LoadAsync(PullPolicy.Never);
+    private void Reload_Click(object sender, RoutedEventArgs e) =>
+        FireAndLog(() => ViewModel.LoadAsync(PullPolicy.Never), "reload");
 
-    private void Push_Click(object sender, RoutedEventArgs e) => _ = ViewModel.PushAsync();
+    private void Push_Click(object sender, RoutedEventArgs e) => FireAndLog(ViewModel.PushAsync, "push");
 
-    private void PullNow_Click(object sender, RoutedEventArgs e) => _ = ViewModel.LoadAsync(PullPolicy.Force);
+    private void PullNow_Click(object sender, RoutedEventArgs e) =>
+        FireAndLog(() => ViewModel.LoadAsync(PullPolicy.Force), "pull-now");
 
     private void CancelPull_Click(object sender, RoutedEventArgs e) => ViewModel.CancelPull();
 
@@ -56,8 +68,10 @@ public sealed partial class MainWindow : Window
     // minutes 15–480 above Horizon whole degrees 0–89), projects follow. InvalidInputOverwritten has
     // restored any junk input by the time the click lands (the button steals focus first); the round
     // makes typed decimals whole (horizon is integer degrees by contract).
-    private void VisibleTonight_Click(object sender, RoutedEventArgs e) => _ = ViewModel.RunVisibleTonightAsync(
-        TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleHorizon.Value));
+    private void VisibleTonight_Click(object sender, RoutedEventArgs e) =>
+        FireAndLog(() => ViewModel.RunVisibleTonightAsync(
+            TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleHorizon.Value)),
+            "visible-tonight");
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
         ViewModel.SearchText = SearchBox.Text;
@@ -73,8 +87,6 @@ public sealed partial class MainWindow : Window
 
     // Whole-row click toggles a disclosure: target group headers, mosaic panels, and mixed-seconds
     // rollups; clicks on plain one-plane rows fall through.
-    // Whole-row click toggles a disclosure: target group headers, mosaic panels, and mixed-seconds rollups;
-    // clicks on plain one-plane rows fall through.
     private void Row_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is ViewModels.Rows.TargetGroupRow group)
@@ -154,22 +166,22 @@ public sealed partial class MainWindow : Window
         if (sender is not FrameworkElement el || el.DataContext is not TargetGroupRow group)
             return;
         if (group.IsMosaic)
-            _ = ShowMosaicFlyoutAsync(el, group);
+            FireAndLog(() => ShowMosaicFlyoutAsync(el, group), "mosaic flyout");
         else if (group.TsTargetKey is string key)
-            _ = ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null);
+            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null), "target flyout");
     }
 
     // A mosaic panel is a normal TS target — the standard target flyout, keyed by the panel's own row.
     private void EditPanelTarget_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is PanelGroupRow { TsTargetKey: string key } panel)
-            _ = ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null);
+            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null), "panel flyout");
     }
 
     private void EditPlan_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is ReconciliationRow { PlanTsKey: string key } row)
-            _ = ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row);
+            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row), "plan flyout");
     }
 
     // Right-click anywhere on a TS-backed row: a context menu whose items are gated by the row's data — the
@@ -310,7 +322,7 @@ public sealed partial class MainWindow : Window
     private static MenuFlyoutItem EditMenuItem(string text, Func<Task> open)
     {
         MenuFlyoutItem item = new() { Text = text, Icon = new FontIcon { Glyph = "" } };
-        item.Click += (_, _) => _ = open();
+        item.Click += (_, _) => FireAndLog(open, "row menu action");
         return item;
     }
 
@@ -370,19 +382,8 @@ public sealed partial class MainWindow : Window
 
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
-            if (row is not null && string.Equals(column, "enabled", StringComparison.OrdinalIgnoreCase))
-                return await ViewModel.SetPlanEnabledAsync(row, System.Convert.ToInt64(value) != 0);
-            if (group is not null && string.Equals(column, "active", StringComparison.OrdinalIgnoreCase))
-                return await ViewModel.SetTargetEnabledAsync(group, System.Convert.ToInt64(value) != 0);
-            if (row is not null && string.Equals(column, "desired", StringComparison.OrdinalIgnoreCase))
-                return await ViewModel.SetPlanDesiredAsync(row, System.Convert.ToInt32(value));
-            if (row is not null && string.Equals(column, "exposure", StringComparison.OrdinalIgnoreCase))
-            {
-                // Seconds-cell mirror: the rounded override (0 is a literal zero-second exposure); only the
-                // negative defer-to-template sentinel (null) resolves via the db.
-                double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
-                return await ViewModel.SetPlanExposureAsync(row, v, v >= 0 ? (int)System.Math.Round(v) : null);
-            }
+            if (TryCommitMirroredField(group, row, column, value) is { } mirrored)
+                return await mirrored;
             bool applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
             if (applied && pairWarn is not null)
             {
@@ -409,6 +410,30 @@ public sealed partial class MainWindow : Window
             if (never)
                 ViewModel.NoteStatus($"{title}: Min time > 2 × Meridian window — TS will never select this project");
         }
+    }
+
+    // The in-grid-mirror routing table (review M7 — was an inline lambda of stringly special cases):
+    // these columns have dedicated setters that refresh their grid cells in place; null = not a mirrored
+    // column, the caller falls through to the generic SetTsFieldAsync path (whose pair-warn bookkeeping
+    // stays with its captures in the flyout lambda). Row-context and group-context columns are disjoint —
+    // a flyout opens with exactly one of the two.
+    private Task<bool>? TryCommitMirroredField(
+        TargetGroupRow? group, ReconciliationRow? row, string column, object? value) =>
+        (row, group, column.ToLowerInvariant()) switch
+        {
+            ({ } r, _, "enabled") => ViewModel.SetPlanEnabledAsync(r, System.Convert.ToInt64(value) != 0),
+            (_, { } g, "active") => ViewModel.SetTargetEnabledAsync(g, System.Convert.ToInt64(value) != 0),
+            ({ } r, _, "desired") => ViewModel.SetPlanDesiredAsync(r, System.Convert.ToInt32(value)),
+            ({ } r, _, "exposure") => CommitExposureAsync(r, value),
+            _ => null,
+        };
+
+    // Seconds-cell mirror: the rounded override (0 is a literal zero-second exposure); only the
+    // negative defer-to-template sentinel (null) resolves via the db.
+    private Task<bool> CommitExposureAsync(ReconciliationRow row, object? value)
+    {
+        double v = System.Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+        return ViewModel.SetPlanExposureAsync(row, v, v >= 0 ? (int)System.Math.Round(v) : null);
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e) => ViewModel.ExpandAll();

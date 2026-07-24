@@ -51,16 +51,10 @@ internal abstract record EditOutcome
 /// editor factory (the test seam). Runs off the UI thread; guard-checks, read-back verifies, audits to the
 /// diagnostics log, and journals every verified write on the <see cref="TsSync"/> so it replays at push.
 /// </summary>
-internal sealed class TsEditGate
+internal sealed class TsEditGate(TsSync sync, Func<string, ITsEditor> editorFactory)
 {
-    private readonly TsSync _sync;
-    private readonly Func<string, ITsEditor> _editorFactory;
-
-    public TsEditGate(TsSync sync, Func<string, ITsEditor> editorFactory)
-    {
-        _sync = sync;
-        _editorFactory = editorFactory;
-    }
+    private readonly TsSync _sync = sync;
+    private readonly Func<string, ITsEditor> _editorFactory = editorFactory;
 
     /// <summary>The real gate: the default <see cref="TsSync"/> and the production editor adapter.</summary>
     public static TsEditGate CreateDefault() => new(TsSync.CreateDefault(), path => new TsEditorAdapter(path));
