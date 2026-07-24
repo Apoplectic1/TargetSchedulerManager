@@ -31,8 +31,18 @@ seam stays (it serves the in-load write-back re-resolve). If scan time ever hurt
 re-run (dups=0, zero held cells, **ambiguity report: 0 action items** — tsm.log 21:07), task 4.2 ticked,
 `ts-ambiguity-report` ARCHIVED (main spec seeded at `openspec/specs/ts-ambiguity-report`), and
 `remove-alias-fold` shipped + verified + ARCHIVED the same day (SHIPPED block below). **Zero open changes.**
-Next lanes: disk-matcher design; strategic = the ISP transition (lift/regenerate + intent store); deferred
-ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
+Next lanes: strategic = the ISP transition (lift/regenerate + intent store); deferred ROADMAP flags
+#7/18/20/21 (post-BIRDWATCHER refresh).
+
+**▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
+resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under
+the corrected model TSM manages TS, period — ISP is its own project, and merging TS's targets into it is
+a future, separate effort. No live deficiency exists (matching is validated, ambiguity report zero), the
+join's semantics already live in the shared `Astronomy.Catalog` (available to any future consumer with
+that effort's real requirements in hand — the "don't design for IS until IS has real needs" guardrail),
+and the orphaned sub-items were never TSM's: disk-dir promotion + the TS→store lift belong to the future
+LCM/ISP efforts (recorded in `docs/2026-07-08-resolver-rejection-isp-lane.md`, decisions 5 + 7); the rig
+key remains extend-when-it-lands.
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
