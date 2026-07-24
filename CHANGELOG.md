@@ -9,6 +9,20 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — MainWindow partial split (presentation prep P1 of the post-review consultation;
+plain commit per the M4 precedent — flyout triggers/anchoring/gestures are fully specced in
+`target-and-plan-flyouts`, so a pure file reorganization has no honest delta).** The 589-line code-behind
+grab-bag → three partials, members verbatim: **core** (ctor, toolbar/grid handlers, view fix-ups, 174) ·
+**`MainWindow.Flyouts.cs`** (edit triggers, row context menu, Templates… picker, mosaic + schema-driven
+flyouts, commit routing, 308) · **`MainWindow.Dialogs.cs`** (open-with-dirty + push review ContentDialogs
++ shared review body, 132). Chosen first from the presentation-readiness consultation because upcoming
+work is flyout-heavy — "open the flyout file" now beats "scroll the grab-bag". The class doc maps the
+layout. 230 App.Tests green unchanged; XAML handler wiring compile-verified by the XamlCompiler.
+**Remaining consultation items (proposed, not started):** P1 grid column-ruler single-sourcing (the
+14-column definitions exist in 4 verbatim copies — needs a mechanism spike + visual pass), P3 display-
+convention home (Format consolidation), P4 TsFieldsEditor NumberBox/unit-label factory, P5 brush/theme
+single home, then the DOMAIN.md "add a UI element" checklist refresh.
+
 **▶ SHIPPED 2026-07-24 — await-friendly probe (review N8, the FINAL review item, unparked to finish the
 cycle).** `TsDatabaseResolver.StatAsync` — the same stat, the same abandoned-worker hard-timeout semantics
 (a hung SMB call on a down host is abandoned and completes harmlessly later), but via `Task.WaitAsync`:
