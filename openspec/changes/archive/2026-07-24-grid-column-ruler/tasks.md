@@ -13,7 +13,7 @@
 - [x] 2.1 Build + full test run (regression floor; the ruler itself is render-only).
 - [x] 2.2 DOMAIN.md "add a UI element" checklist: column widths/order now edit `GridColumns` once;
       CHANGELOG + ROADMAP digest line. Same commit.
-- [ ] 2.3 Human verification pass (user-run, GATES archive — XAML rendering has no test net): columns
+- [x] 2.3 Human verification pass (user-run, GATES archive — XAML rendering has no test net): columns
       align exactly as before across header / group / filter / panel / expanded detail rows; Target
       star-column absorbs a window resize; hover glyph, inline Desired box, and the Hours pill render
       and behave unchanged.
