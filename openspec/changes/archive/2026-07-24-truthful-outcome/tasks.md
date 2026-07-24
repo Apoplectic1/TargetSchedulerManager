@@ -38,6 +38,6 @@
 - [x] 4.2 `ARCHITECTURE.md` sync-model section: push outcome contract (journal cleared ⇔ writes applied;
       closing pull contained) + Discard pull-first ordering. ROADMAP digest + CHANGELOG entry. Same
       commit as the code.
-- [ ] 4.3 Human verification pass (user-run): push with BIRDWATCHER unplugged mid-closing-pull is hard to
+- [x] 4.3 Human verification pass (user-run): push with BIRDWATCHER unplugged mid-closing-pull is hard to
       stage — the meaningful checks are the Discard flows: cancel a discard-pull (badge/marks stay, honest
       status), complete a discard-pull (clean grid, journal empty).
