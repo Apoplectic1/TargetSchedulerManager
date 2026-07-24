@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
-namespace TargetSchedulerManager.App.ViewModels.Rows;
+namespace TargetSchedulerManager.App;
 
 /// <summary>
 /// The soft system fills behind delta cells, resolved from the app's theme resources. One convention
@@ -15,6 +15,10 @@ internal static class ThemeBrushes
 
     /// <summary>Error fill — data that shouldn't exist (e.g. a plan whose desired count is 0).</summary>
     public static Brush? Critical => Lookup("SystemFillColorCriticalBackgroundBrush");
+
+    /// <summary>Caution as a FOREGROUND (warning text: the pair-warn, the push review's decrease lines) —
+    /// distinct from <see cref="Caution"/>, the soft background fill.</summary>
+    public static Brush? CautionText => Lookup("SystemFillColorCautionBrush");
 
     private static Brush? Lookup(string key)
     {

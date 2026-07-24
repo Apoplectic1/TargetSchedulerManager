@@ -1,6 +1,7 @@
 using System.Globalization;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
+using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Shared;
 
 namespace TargetSchedulerManager.App.Services;
@@ -81,9 +82,9 @@ internal sealed class SyncMarks
         if (inb is not null)
             lines.AddRange(inb.Select(l => l.Column == TsInboundDiff.NewRowColumn
                 ? $"{In} BIRDWATCHER: new row"
-                : $"{In} BIRDWATCHER: {l.Column} {l.Old ?? "—"} → {l.New ?? "—"}"));
+                : $"{In} BIRDWATCHER: {l.Column} {l.Old ?? Format.Dash} → {l.New ?? Format.Dash}"));
         if (outb is not null)
-            lines.AddRange(outb.Select(l => $"{Out} unpushed: {l.Column} {l.Old ?? "—"} → {l.New ?? "—"}"));
+            lines.AddRange(outb.Select(l => $"{Out} unpushed: {l.Column} {l.Old ?? Format.Dash} → {l.New ?? Format.Dash}"));
         return (Glyph(inb is not null, outb is not null), string.Join("\n", lines));
     }
 

@@ -285,8 +285,8 @@ public sealed class ReconciliationRow(
 
     public string SecondsText => Plane switch
     {
-        RowPlane.Ts => PlanSeconds > 0 ? PlanSeconds.ToString() : "—",
-        RowPlane.Disk => DiskSeconds > 0 ? DiskSeconds.ToString() : "—",
+        RowPlane.Ts => PlanSeconds > 0 ? PlanSeconds.ToString() : Format.Dash,
+        RowPlane.Disk => DiskSeconds > 0 ? DiskSeconds.ToString() : Format.Dash,
         _ when SecondsMixed => "mixed",
         _ => PlanSeconds.ToString(),
     };
@@ -295,16 +295,16 @@ public sealed class ReconciliationRow(
     public Brush? SecondsBackground =>
         Plane == RowPlane.Both && SecondsMixed ? ThemeBrushes.Caution : null;
 
-    public string DesiredText => Desired?.ToString() ?? "—";
-    public string AcquiredText => Acquired?.ToString() ?? "—";
-    public string AcceptedText => Accepted?.ToString() ?? "—";
+    public string DesiredText => Format.CountOrDash(Desired);
+    public string AcquiredText => Format.CountOrDash(Acquired);
+    public string AcceptedText => Format.CountOrDash(Accepted);
     // Actual is measured over the whole disk, so a TS row's absence of frames is a real 0 — unlike the
     // authored plan-side cells, whose absence stays "—" (no plan ≠ a goal of zero).
     public string DiskText => Disk.ToString();
 
     public string HoursText => Hours switch
     {
-        null => "—",
+        null => Format.Dash,
         double h when Plane == RowPlane.Both && h > 0 => $"+{Format.Hours(h)}",
         double h => Format.Hours(h),
     };

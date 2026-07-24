@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Controls;
+using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.ViewModels;
 using TargetSchedulerManager.App.ViewModels.Rows;
 using static TargetSchedulerManager.App.Shared.UiTask;   // FireAndLog — the fire-and-forget seam (review N3)
@@ -45,13 +46,13 @@ public sealed partial class MainWindow
     private void EditPanelTarget_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is PanelGroupRow { TsTargetKey: string key } panel)
-            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, $"{panel.Target} · {panel.Label}", null, null), "panel flyout");
+            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, Format.Label(panel.Target, panel.Label), null, null), "panel flyout");
     }
 
     private void EditPlan_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is ReconciliationRow { PlanTsKey: string key } row)
-            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, $"{row.Target} · {row.Filter}", null, row), "plan flyout");
+            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, Format.Label(row.Target, row.Filter), null, row), "plan flyout");
     }
 
     // Right-click anywhere on a TS-backed row: a context menu whose items are gated by the row's data — the
@@ -80,14 +81,14 @@ public sealed partial class MainWindow
             case PanelGroupRow panel:
                 if (panel.TsTargetKey is string panelKey)
                     menu.Items.Add(EditMenuItem("Edit panel target…",
-                        () => ShowEditFlyoutAsync(el, TsTable.Target, panelKey, $"{panel.Target} · {panel.Label}", null, null)));
+                        () => ShowEditFlyoutAsync(el, TsTable.Target, panelKey, Format.Label(panel.Target, panel.Label), null, null)));
                 (projectKey, projectName) = (panel.Children[0].ProjectTsKey, panel.Children[0].Project);
                 break;
             case ReconciliationRow row:
                 if (row.PlanTsKey is string planKey)
                 {
                     menu.Items.Add(EditMenuItem("Edit exposure plan…",
-                        () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, planKey, $"{row.Target} · {row.Filter}", null, row)));
+                        () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, planKey, Format.Label(row.Target, row.Filter), null, row)));
                     // The template BEHIND this plan — shared config, so the flyout title carries the blast radius.
                     if (ViewModel.TryGetTemplateForPlan(planKey) is { } template)
                         menu.Items.Add(EditMenuItem("Edit template…",
@@ -245,7 +246,7 @@ public sealed partial class MainWindow
         TextBlock? pairWarn = table != TsTable.Project ? null : new TextBlock
         {
             Text = "Min time > 2 × Meridian window — TS will never select this project",
-            Foreground = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
+            Foreground = ThemeBrushes.CautionText,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 300,
         };

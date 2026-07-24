@@ -9,6 +9,20 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — presentation conventions (`openspec/changes/presentation-conventions`;
+P3+P4+P5 folded per user call — the presentation lane's close-out).** **P3:** `Models/Format.cs` is the
+display-convention home — `Dash`/`CountOrDash` (the em-dash empty convention, 15 sites across 5 files
+routed), `When` (was the VM's private `FormatWhen`), `Cell` (was `AmbiguityReport`'s private; note
+`FilterPurpose` lives in `Astronomy.Catalog.Scan`), `Label` (the `·` identity convention, 9 sites —
+output byte-identical: labels persist in the journal, shape is contract). **P4:** `TsFieldsEditor.
+MakeNumberBox` + `UnitLabel` (each config existed twice: plain + sentinel). **P5:** `ThemeBrushes`
+promoted to the app root namespace (enclosing-namespace lookup keeps row-model references compiling) +
+`CautionText` (foreground caution); the two raw `Application.Current.Resources` casts route through it,
+adopting the defensive null-on-missing posture. Spec delta codifies the dash/zero/hours conventions on
+`reconciliation-grid`; DOMAIN checklist step 2 rewritten with the homes. 230 App.Tests (one transient
+1/230 flake, name uncaptured, 4× green after — NOTEBOOK entry). Auto-archived (test-locked conventions;
+config moves byte-identical).
+
 **▶ SHIPPED 2026-07-24 — grid column ruler (`openspec/changes/grid-column-ruler`; presentation P1, the
 consultation's highest-leverage item).** The 14-column geometry (`24,36,110,*,170,60,70,80,88,60,60,60,
 45,150`) existed as four byte-identical XAML blocks (3 row templates + the hand-rolled header) kept

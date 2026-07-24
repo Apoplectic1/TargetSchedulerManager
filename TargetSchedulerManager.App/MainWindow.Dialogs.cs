@@ -79,7 +79,7 @@ public sealed partial class MainWindow
             });
         }
 
-        var caution = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"];
+        Brush? caution = ThemeBrushes.CautionText;
         if (review.WriteBack.Count > 0)
         {
             panel.Children.Add(new TextBlock

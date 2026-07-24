@@ -6,6 +6,12 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-07-24 — one-off test flake, name not captured.** During the presentation-conventions pass, one
+run reported 1/230 failed with the name scrolled out of the tail; four immediate re-runs were fully
+green. Suspects if it recurs: the timing-gated tests (`CommitChainTests`' 50 ms no-overlap window, the
+busy-gate blocking-editor waits) under build-time disk load. If seen again: capture the test name
+(`dotnet test` without `-v:q`) before re-running.
+
 **2026-07-23 — alias removal DONE (`remove-alias-fold`; lib `306f6fd`).** The removal described in the
 2026-07-08 correction below shipped ahead of the BIRDWATCHER pass (user's call) — so until the Dumbell
 consolidation, the M27/Dumbell twin surfaces every load as a duplicate badge + held write-back cell + report

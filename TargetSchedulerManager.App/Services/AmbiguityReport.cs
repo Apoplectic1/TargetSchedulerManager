@@ -4,6 +4,7 @@ using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
+using TargetSchedulerManager.App.Models;
 
 namespace TargetSchedulerManager.App.Services;
 
@@ -320,9 +321,9 @@ internal static class AmbiguityReport
     private static string PlanRow(string label, int desired, int acquired, int accepted) =>
         $"\n  - {label} — desired {desired}, acq {acquired} / acc {accepted}";
 
-    /// <summary>"H @900s" (Light) / "B Stars @60s" — the grid/write-back cell convention.</summary>
+    // The cell naming convention lives in Format (presentation-conventions); this alias keeps call sites short.
     private static string Cell(string filter, FilterPurpose purpose, int seconds) =>
-        purpose == FilterPurpose.Light ? $"{filter} @{seconds}s" : $"{filter} {purpose} @{seconds}s";
+        Format.Cell(filter, purpose, seconds);
 
     /// <summary>The catalog token of a disk directory name — the part before the first " - " separator
     /// ("IC 1795 - Fish Head" → "IC 1795"), the rename target for a mismatched TS name.</summary>

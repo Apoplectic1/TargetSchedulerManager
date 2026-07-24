@@ -1,5 +1,6 @@
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
+using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
@@ -99,7 +100,7 @@ public sealed partial class MainViewModel
         foreach (PanelGroupRow panel in panels)
         {
             if (panel.TsTargetKey is not string key) continue;
-            string label = $"{group.Target} · {panel.Label}";
+            string label = Format.Label(group.Target, panel.Label);
             EditOutcome outcome = await WithEditInFlightAsync(() =>
                 _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, label));
             if (ApplyOutcome(outcome, label))
@@ -136,7 +137,7 @@ public sealed partial class MainViewModel
             return false;
         if (row.PlanTsKey is not string key)
             return false;
-        string label = $"{row.Target} · {row.Filter}";
+        string label = Format.Label(row.Target, row.Filter);
         EditOutcome outcome = await WithEditInFlightAsync(() =>
             _gate.ApplyAsync(TsTable.ExposurePlan, key, "enabled", enabled ? 1 : 0, label));
         if (!ApplyOutcome(outcome, label))
@@ -152,8 +153,8 @@ public sealed partial class MainViewModel
         if (row.PlanTsKey is not string key)
             return false;
         EditOutcome outcome = await WithEditInFlightAsync(() =>
-            _gate.ApplyAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}"));
-        if (!ApplyOutcome(outcome, $"{row.Target} · {row.Filter}"))
+            _gate.ApplyAsync(TsTable.ExposurePlan, key, "desired", desired, Format.Label(row.Target, row.Filter)));
+        if (!ApplyOutcome(outcome, Format.Label(row.Target, row.Filter)))
             return false;
 
         row.ApplyDesired(desired);
@@ -172,7 +173,7 @@ public sealed partial class MainViewModel
             return false;
         if (row.PlanTsKey is not string key)
             return false;
-        string label = $"{row.Target} · {row.Filter}";
+        string label = Format.Label(row.Target, row.Filter);
         EditOutcome outcome = await WithEditInFlightAsync(() =>
             _gate.ApplyAsync(TsTable.ExposurePlan, key, "exposure", exposure, label));
         if (!ApplyOutcome(outcome, label))

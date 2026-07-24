@@ -137,17 +137,25 @@ internal sealed class TsFieldsEditor : UserControl
         return toggle;
     }
 
+    // The one numeric-input configuration (presentation P4 — existed twice: here + the sentinel cell).
+    private static NumberBox MakeNumberBox(double value, bool enabled = true) => new()
+    {
+        Value = value,
+        IsEnabled = enabled,
+        SmallChange = 1,
+        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+        Width = 110,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    // The one unit-label styling (existed twice: the unit wrapper + the sentinel cell's inner stack).
+    private static TextBlock UnitLabel(string unit) =>
+        new() { Text = unit, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center };
+
     private NumberBox BuildNumber(TsField field, object? seeded)
     {
-        NumberBox box = new()
-        {
-            Value = ToDouble(seeded),
-            SmallChange = 1,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
-            Width = 110,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+        NumberBox box = MakeNumberBox(ToDouble(seeded));
         // ValueChanged, not LostFocus: inside a flyout, focus rarely leaves the box before dismissal, which
         // made typed edits commit only at close while toggle/checkbox edits committed instantly. ValueChanged
         // fires when the value is CONFIRMED (Enter / focus loss / spin) — same immediacy as the toggles.
@@ -215,16 +223,7 @@ internal sealed class TsFieldsEditor : UserControl
                 MinWidth = 0,
             };
 
-            _box = new NumberBox
-            {
-                Value = isDefault ? _effective ?? double.NaN : ToDouble(seeded),
-                IsEnabled = !isDefault,
-                SmallChange = 1,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
-                Width = 110,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
+            _box = MakeNumberBox(isDefault ? _effective ?? double.NaN : ToDouble(seeded), enabled: !isDefault);
 
             _useDefault.Checked += (_, _) => FireAndLog(OnUseDefaultCheckedAsync, $"{field.Column} sentinel commit");
             _useDefault.Unchecked += (_, _) => OnUseDefaultUnchecked();
@@ -235,7 +234,7 @@ internal sealed class TsFieldsEditor : UserControl
             StackPanel inner = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
             inner.Children.Add(_box);
             if (field.Unit is not null)
-                inner.Children.Add(new TextBlock { Text = field.Unit, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
+                inner.Children.Add(UnitLabel(field.Unit));
 
             StackPanel cell = new() { Orientation = Orientation.Vertical, Spacing = 4 };
             cell.Children.Add(_useDefault);
@@ -381,12 +380,7 @@ internal sealed class TsFieldsEditor : UserControl
     {
         StackPanel cell = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
         cell.Children.Add(input);
-        cell.Children.Add(new TextBlock
-        {
-            Text = unit,
-            Opacity = 0.7,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
+        cell.Children.Add(UnitLabel(unit));
         return cell;
     }
 

@@ -115,14 +115,14 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
         _ => "Disk",
     };
 
-    public string DesiredText => Desired?.ToString() ?? "—";
-    public string AcquiredText => Acquired?.ToString() ?? "—";
-    public string AcceptedText => Accepted?.ToString() ?? "—";
+    public string DesiredText => Format.CountOrDash(Desired);
+    public string AcquiredText => Format.CountOrDash(Acquired);
+    public string AcceptedText => Format.CountOrDash(Accepted);
     public string DiskText => Disk.ToString();
 
     public string HoursText => HoursDelta switch
     {
-        null => "—",
+        null => Format.Dash,
         > 0 => $"+{Format.Hours(HoursDelta.Value)}",
         _ => Format.Hours(HoursDelta.Value),
     };

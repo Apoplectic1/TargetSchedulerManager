@@ -243,7 +243,12 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    stay per-template; renumber those that shifted). The four grids stamp their `ColumnDefinitions` from
    the ruler (2026-07-24, openspec `grid-column-ruler`) — never hand-edit widths in XAML. Its sort slot
    follows its header position (left-to-right, per *Sorting*).
-2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric.
+2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric. Text conventions come from
+   `Models\Format.cs` — the one home (2026-07-24, `presentation-conventions`): `Format.Dash`/`CountOrDash`
+   for empty cells (— means "nothing to say"; a measured 0 renders 0), `Format.Hours`, `Format.When`,
+   `Format.Cell` ("H @900s"), `Format.Label` ("target · filter" — journal-persisted, shape is contract).
+   Code-side brush lookups go through `ThemeBrushes` (app root; defensive null-on-missing), never raw
+   `Application.Current.Resources` casts. Editor numeric inputs come from `TsFieldsEditor.MakeNumberBox`.
 3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.

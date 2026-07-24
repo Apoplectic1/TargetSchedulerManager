@@ -257,7 +257,7 @@ public static class ReconciliationLoader
             if (tc.Cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
-                    id, "—", "—", plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
+                    id, Format.Dash, Format.Dash, plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     new RowNumbers(
                         PlanSeconds: 0, DiskSeconds: 0,
                         Desired: null, Acquired: null, Accepted: null,

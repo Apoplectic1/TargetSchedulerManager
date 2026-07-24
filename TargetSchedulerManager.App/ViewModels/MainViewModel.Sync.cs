@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Astronomy.Catalog.Scan;
 using Astronomy.Diagnostics;
+using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
 
@@ -26,7 +27,7 @@ public sealed partial class MainViewModel
     {
         get
         {
-            string synced = Sync.Baseline is { } b ? $"synced {FormatWhen(b.RecordedAt)}" : "never pulled";
+            string synced = Sync.Baseline is { } b ? $"synced {Format.When(b.RecordedAt)}" : "never pulled";
             string offline = Sync.HasProbed && !Sync.RemoteReachable ? "BIRDWATCHER offline  ·  " : "";
             int unpushed = Sync.Journal.CollapsedCount;   // cached under the journal lock — no Collapse() on the UI thread (review N2)
             return unpushed > 0 ? $"{offline}{synced}  ·  {unpushed} unpushed" : $"{offline}{synced}";
@@ -298,7 +299,4 @@ public sealed partial class MainViewModel
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SyncTooltip)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPush)));
     }
-
-    private static string FormatWhen(DateTimeOffset at) =>
-        at.LocalDateTime.Date == DateTime.Today ? at.LocalDateTime.ToString("HH:mm") : at.LocalDateTime.ToString("ddd HH:mm");
 }
