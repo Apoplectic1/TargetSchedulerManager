@@ -238,7 +238,11 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 
 ## When you add a UI element — checklist
 
-1. New **column**? Edit all four grids (header + 3 templates) in lockstep; renumber `Grid.Column`; pick a fixed width. Its sort slot follows its header position (left-to-right, per *Sorting*).
+1. New **column**? Add it to the ONE ruler (`GridColumns.cs` — name + width; table position = column
+   index), then place the cell in each row template and the header caption (cell `Grid.Column` indexes
+   stay per-template; renumber those that shifted). The four grids stamp their `ColumnDefinitions` from
+   the ruler (2026-07-24, openspec `grid-column-ruler`) — never hand-edit widths in XAML. Its sort slot
+   follows its header position (left-to-right, per *Sorting*).
 2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric.
 3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.

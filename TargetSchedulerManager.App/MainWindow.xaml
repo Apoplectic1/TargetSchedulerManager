@@ -26,24 +26,8 @@
                  template per item. Both templates share the header's column widths so everything lines up. -->
             <DataTemplate x:Key="GroupRowTemplate" x:DataType="m:TargetGroupRow">
                 <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
-                <Grid Background="Transparent"
+                <Grid Background="Transparent" local:GridColumns.ApplyRuler="True"
                       PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="36"/>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="170"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="88"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="45"/>
-                        <ColumnDefinition Width="150"/>
-                    </Grid.ColumnDefinitions>
                     <!-- Column 0: the sync-direction mark, rolled up over the subtree (arrow left = arrived
                          changed from BIRDWATCHER, arrow right = unpushed local writes, both = both directions);
                          tooltip carries the direction counts. Updated in place by the marks sweep. -->
@@ -100,24 +84,8 @@
             </DataTemplate>
             <DataTemplate x:Key="FilterRowTemplate" x:DataType="m:ReconciliationRow">
                 <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
-                <Grid Background="Transparent"
+                <Grid Background="Transparent" local:GridColumns.ApplyRuler="True"
                       PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="36"/>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="170"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="88"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="45"/>
-                        <ColumnDefinition Width="150"/>
-                    </Grid.ColumnDefinitions>
                     <!-- Column 0: this plan's sync-direction mark (per-field old→new lines in the tooltip);
                          blank on disk-plane rows (no plan key) — target/project changes mark the header. -->
                     <TextBlock Grid.Column="0" Text="{x:Bind MarkGlyph, Mode=OneWay}" TextAlignment="Center"
@@ -195,24 +163,8 @@
                  panel's own source/aggregates. Click toggles its filter rows like a target group. -->
             <DataTemplate x:Key="PanelRowTemplate" x:DataType="m:PanelGroupRow">
                 <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
-                <Grid Background="Transparent"
+                <Grid Background="Transparent" local:GridColumns.ApplyRuler="True"
                       PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="36"/>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="170"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="70"/>
-                        <ColumnDefinition Width="80"/>
-                        <ColumnDefinition Width="88"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="45"/>
-                        <ColumnDefinition Width="150"/>
-                    </Grid.ColumnDefinitions>
                     <!-- Column 0: the panel's rolled-up sync-direction mark (its own target + plans only —
                          a mosaic project edit marks the parent, never panels). -->
                     <TextBlock Grid.Column="0" Text="{x:Bind MarkGlyph, Mode=OneWay}" TextAlignment="Center"
@@ -352,25 +304,10 @@
             <Button Content="Collapse all" Click="CollapseAll_Click"/>
         </StackPanel>
 
-        <!-- Header row mirrors the row template's column widths (WinUI's ListView has no built-in
-             column headers — that's the DataGridView feature we're hand-rolling for M1). -->
-        <Grid Grid.Row="2" Padding="12,0,12,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24"/>
-                <ColumnDefinition Width="36"/>
-                <ColumnDefinition Width="110"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="170"/>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="70"/>
-                <ColumnDefinition Width="80"/>
-                <ColumnDefinition Width="88"/>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="45"/>
-                <ColumnDefinition Width="150"/>
-            </Grid.ColumnDefinitions>
+        <!-- Header row shares the row templates' column geometry BY CONSTRUCTION: header + all three row
+             templates stamp their ColumnDefinitions from the one GridColumns ruler (WinUI's ListView has
+             no built-in column headers — that's the DataGridView feature we're hand-rolling). -->
+        <Grid Grid.Row="2" Padding="12,0,12,4" local:GridColumns.ApplyRuler="True">
             <!-- Columns 0–1 headers are blank: 0 is the sync-direction mark (its tooltip explains itself),
                  1 the enable checkboxes — both self-evident. -->
             <TextBlock Grid.Column="2" Text="Source" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>

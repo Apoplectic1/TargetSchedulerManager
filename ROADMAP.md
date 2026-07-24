@@ -31,11 +31,10 @@ seam stays (it serves the in-load write-back re-resolve). If scan time ever hurt
 re-run (dups=0, zero held cells, **ambiguity report: 0 action items** — tsm.log 21:07), task 4.2 ticked,
 `ts-ambiguity-report` ARCHIVED (main spec seeded at `openspec/specs/ts-ambiguity-report`), and
 `remove-alias-fold` shipped + verified + ARCHIVED the same day (SHIPPED block below). **Zero open changes.**
-Next lanes: **presentation readiness** (2026-07-24 consultation — P2 window split SHIPPED; queued:
-P1 grid column-ruler single-sourcing [4 verbatim copies of the 14-column definitions; mechanism spike +
-visual pass], P3 display-convention home, P4 editor control factory, P5 brush/theme home, then the
-DOMAIN.md add-a-UI-element checklist refresh); strategic = the ISP transition (lift/regenerate + intent
-store — not TSM work); deferred ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
+Next lanes: **presentation readiness** (2026-07-24 consultation — P2 window split + P1 column ruler
+SHIPPED; queued: P3 display-convention home, P4 editor control factory, P5 brush/theme home); strategic =
+the ISP transition (lift/regenerate + intent store — not TSM work); deferred ROADMAP flags #7/18/20/21
+(post-BIRDWATCHER refresh).
 
 **▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
 resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under

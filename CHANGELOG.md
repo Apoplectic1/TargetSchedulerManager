@@ -9,6 +9,21 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — grid column ruler (`openspec/changes/grid-column-ruler`; presentation P1, the
+consultation's highest-leverage item).** The 14-column geometry (`24,36,110,*,170,60,70,80,88,60,60,60,
+45,150`) existed as four byte-identical XAML blocks (3 row templates + the hand-rolled header) kept
+aligned by hand. Now `GridColumns.cs` is the ONE named ruler — a `(name, width)` table doubling as the
+grid's column documentation — and all four grids stamp their `ColumnDefinitions` from it via the
+`local:GridColumns.ApplyRuler="True"` attached property (chosen over width resources: `StaticResource`
+into `GridLength` is unreliable in the UWP lineage; the callback stamps at parse, before children/layout,
+once per Grid instance — recycled containers keep theirs). Scope honesty: cell `Grid.Column` indexes stay
+per-template (DataTemplates can't share cells) — a new column starts at the ruler, then places cells.
+A forgotten attribute fails loudly (cells collapse into column 0), never as subtle misalignment. New
+`reconciliation-grid` capability seeds the codified alignment invariant. DOMAIN's add-a-UI-element
+checklist step 1 rewritten. 230 App.Tests = regression floor; XAML rendering has no test net — **the
+user's visual pass GATES archive** (alignment across row kinds, star-column resize, hover/Desired/Hours
+pill unchanged).
+
 **▶ SHIPPED 2026-07-24 — MainWindow partial split (presentation prep P1 of the post-review consultation;
 plain commit per the M4 precedent — flyout triggers/anchoring/gestures are fully specced in
 `target-and-plan-flyouts`, so a pure file reorganization has no honest delta).** The 589-line code-behind
