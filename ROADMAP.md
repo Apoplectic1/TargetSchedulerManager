@@ -59,7 +59,7 @@ key remains extend-when-it-lands.
   `PlanProjects` over the landed edits, two sequenced batches under one busy scope, reload only when a
   flip landed (`visible-tonight-applied-states`; review m5 un-parked — the last parked review item).
 - **2026-07-24** — await-friendly probe: `StatAsync`/`ProbeRemoteAsync` (no parked thread; VM probe
-  state now written on the UI thread) (review N8 — the final item; nothing from the review remains parked).
+  state now written on the UI thread) (review N8 — the last async-cleanup item; m5 stayed parked here, shipped later same day — see above).
 - **2026-07-24** — inline-edit owner map: `RecomputeOwners` O(1) via a leaf→(group, panel) map built in
   `ApplyFilters` (review N6, unparked — the library keeps growing).
 - **2026-07-24** — async-void elimination: all nine remaining bare handlers route through
