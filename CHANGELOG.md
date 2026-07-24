@@ -9,6 +9,15 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — view-model partial split (review M4; plain commit, no openspec change —
+the spec-driven schema requires a requirements delta and a pure file reorganization has none to offer
+honestly).** `MainViewModel.cs` (1082 lines, six concerns by gravity) → four partial files, members moved
+verbatim: **core** (state, busy exclusion, filter/group pipeline, 370) · **`.Sync.cs`** (load/pull/push
+commands, pull UI, badge, 304) · **`.Edits.cs`** (the Set*Async funnel, outcome mapping, marks sweep, 262)
+· **`.Reports.cs`** (ambiguity tripwire, templates picker, visible-tonight, 189). One type — fields visible
+across parts, zero behavior change, no binding churn; the class doc maps the layout. "Fix the push flow"
+now loads a 300-line file instead of a 1100-line one. 226 App.Tests green unchanged.
+
 **▶ SHIPPED 2026-07-24 — review polish (`openspec/changes/review-polish`; the review's remaining accepted
 small items, one sweep).** M2 became a DOC fix (the review's `Flush(true)` was rejected — the SQLite commit
 and the journal append are separate durability events, so no flush closes the power-loss window; `TsJournal`
