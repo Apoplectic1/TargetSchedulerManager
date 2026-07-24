@@ -33,8 +33,15 @@ re-run (dups=0, zero held cells, **ambiguity report: 0 action items** — tsm.lo
 `remove-alias-fold` shipped + verified + ARCHIVED the same day (SHIPPED block below). **Zero open changes.**
 Next lanes: **presentation readiness COMPLETE** (2026-07-24 consultation: P2 window split, P1 column
 ruler, P3 Format home, P4 editor factories, P5 ThemeBrushes — all shipped; DOMAIN checklist current);
-strategic = the ISP transition (lift/regenerate + intent store — not TSM work); deferred ROADMAP flags
-#7/18/20/21 (post-BIRDWATCHER refresh).
+strategic = the ISP transition (lift/regenerate + intent store — not TSM work). **Nothing deferred.**
+
+**▶ DECIDED 2026-07-24 — docs-audit flags #7/18/20/21 RESOLVED; "post-BIRDWATCHER refresh" retired.**
+The phrase (from the 2026-07-10 audit commit `977b259`) never meant a machine event — it meant "fix these
+four stale-forward-pointer flags during the ROADMAP tidy after the user's BIRDWATCHER hand-fix pass."
+That pass completed 2026-07-23 (Swan · Rosette · Dumbell, done by hand), satisfying the deferral; the
+phrase then decayed into looking like a rig rebuild we were waiting on. Resolved by the 2026-07-24
+CHANGELOG sweep: a charter reading-note (dated "Pending/Awaiting" language records state as-of-date) plus
+explicit **Closed/Superseded** annotations on the six entries whose resolution no later entry recorded.
 
 **▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
 resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under

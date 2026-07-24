@@ -4,6 +4,11 @@
 built-narrative), **newest first**, append-only. Read it for *what shipped and when*. `ROADMAP.md` keeps only a
 short recent digest + a pointer here; git remains the commit-level backstop. New entries go **at the top**.
 
+> **Reading dated entries:** "Pending / Awaiting / Next" language inside an entry records the state *as of
+> that date*. Every such pass or queue was subsequently completed — each later entry built on verified prior
+> work — and explicit **Closed** notes are added only where the resolution isn't recorded by a later entry
+> (sweep 2026-07-24, resolving docs-audit flags #7/18/20/21).
+
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
@@ -149,6 +154,7 @@ editor form + one for the grid's Desired boxes. Rejected: disabling the form (fo
 valid second value). Also fixes the stale "reloads on success" comment on `Desired_Committed` (blind
 review m4). Spec delta: serialization requirement on `schema-driven-field-editor`. 225 App.Tests (4 new
 `CommitChainTests`). Bugfix (not a pure refactor) — awaiting the user's rapid-edit sanity pass, then archive.
+**Closed same day:** user-verified, archived (`ef8b299`), `schema-driven-field-editor` synced.
 
 **▶ SHIPPED 2026-07-24 — row parameter objects (`openspec/changes/row-param-objects`; review M3, count
 corrected 24→29).** `ReconciliationRow`'s 29-positional-parameter constructor — adjacent same-typed runs
@@ -256,6 +262,7 @@ untouched so unpushed edits survive), and **pull observability** (chunked `sqlit
 never interrupts push replay writes; `PULL starting` + duration log lines — an interrupted pull used to be
 invisible). `Discard` now also drops the baseline (interruption after it can't strand discarded values
 behind a matching skip). 189 App.Tests (13 new). Awaiting the user's visual pass (percentage, cancel, heal).
+**Closed 2026-07-23:** user-verified + archived (`archive/2026-07-23-harden-ts-pull`).
 
 **▶ SHIPPED 2026-07-08 — printable ambiguity report (`openspec/changes/ts-ambiguity-report`).** The tripwire's
 detail (what the "write-back app action" became — DECIDED block below): toolbar **Ambiguities…** writes a dated
@@ -385,7 +392,8 @@ revert the control, `active`/`desired` route through their existing setters so t
 enable checkbox went `Mode=OneWay` + `ApplyEnabled`). Cadence-breaking fields are excluded via
 `IsCadenceBreaking` until the parked cadence change ships. Library side: declarative `TsEnumValue` maps
 (`6a2cabf`, 156 lib tests). 89 App.Tests, 0 warnings; ships the queued "target `priority` editing" item.
-**Visual verification pending (user).**
+**Visual verification pending (user).** **Closed:** verified across the edit-flyout Parts 1–4 passes
+(all verified by 2026-07-07).
 
 **▶ SHIPPED 2026-06-26 — closed the `TargetCells` projection leak (review's full set now done).** `BuildRows`
 was indexing `graph.Targets` to read one target's `ImportedFromTsGuid` for a planned-only mosaic panel's key —
@@ -439,7 +447,8 @@ with **no SQLite or SMB** — the probe and editor are injected. Built **subagen
 swallowed live-drop exception, now fixed). 71 App.Tests + 153 library, **0 warnings**. A future **WriteBack** app
 action reuses the gate via an `ApplyPlanAsync` sibling (deliberately not built — YAGNI). Commits: TSM
 `1cda326`→`6150b7d`, Library `8d863e5`. **Pending: user's live-app pass** — one `desired`/`enable` write hitting
-the actual TS db (unit tests can't cover the live write).
+the actual TS db (unit tests can't cover the live write). **Closed:** in-grid `desired`/enable verified live
+in NINA (pre-sync-model; recorded in ROADMAP's status).
 
 **▶ SHIPPED 2026-06-20 — count columns reframed: `Acq`→`TS`, `Disk`→`Actual`, `Acc` hidden + `acc≠acq` badge.**
 Display-only grid change (grill-me design). The old `Acq`/`Acc`/`Disk` trio mixed two TS-side bookkeeping numbers
@@ -682,6 +691,8 @@ the grid gains the panel level (target → panel → filter → seconds detail, 
 "Panel 01of16 · CygnusLoop P1"). Real data: 6 mosaics → 28 matched / 10 planned-only / 7 disk-only panels;
 786 rows / 102 groups; 108 library tests. "Rig" (telescope/camera/mode) flagged as a future key dimension —
 deliberately deferred. **Pending: user's visual pass on the panel level; `--apply` not yet run post-panels.**
+**Closed/superseded:** the panel level was verified through the later mosaic work; the `--apply` era ended —
+the CLI was removed 2026-06-11 and write-back became an automatic in-app step 2026-07-06.
 
 **▶ SHIPPED 2026-06-10 — exposure-aware write-back (library `87ae471`, host `ba23f06`).** The write key is now
 **(target, filter, purpose, whole-second exposure)** — *the plan's seconds is the spec* (user-decided strict
@@ -695,6 +706,8 @@ count. **New `tcm-cli.log`** (append-only, `%APPDATA%\TargetCatalogManager\Logs\
 decision trail. 91 library tests (+9). Live dry-run verified: Medusa H/S/O @900 → 0, R → 0, B → 2; M17 H
 stays MultiPlan (its two plans share 900 s); bulk totals 105 decreases / 154 no-ops / 38 manual (mosaics) /
 140 unplanned. **`--apply` not yet run — user's call** (working copy restorable from `schedulerdb - Copy.sqlite`).
+**Superseded:** the `--apply` era ended — CLI removed 2026-06-11; write-back is an automatic in-app step
+since 2026-07-06 (reviewed at push instead of gated at apply).
 
 **Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
 (session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
