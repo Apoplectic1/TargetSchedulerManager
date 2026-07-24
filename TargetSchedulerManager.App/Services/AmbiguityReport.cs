@@ -58,6 +58,47 @@ internal static class AmbiguityReport
             heldCellsByDirectory[dir] = heldCellsByDirectory.GetValueOrDefault(dir) + 1;
         }
 
+        // One builder per section (review N9) — Build reads as the report's table of contents.
+        List<string> identity = BuildIdentitySection(report, heldCellsByDirectory);
+        List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees);
+        List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, ProjectOf);
+        List<string> templates = BuildTemplateSection(graph);
+        List<string> info = BuildInfoSection(plan);
+
+        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count;
+
+        StringBuilder sb = new();
+        sb.AppendLine($"# TS / disk ambiguity report — {generatedAtLocal.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
+        sb.AppendLine();
+        sb.AppendLine($"TS db: `{tsDbPath}`  ·  library: `{libraryRoot}`  ·  match tolerance {toleranceDegrees.ToString("0.0#", CultureInfo.InvariantCulture)}°");
+        sb.AppendLine();
+        sb.AppendLine("Conventions (DOMAIN.md): **one name per sky position**, spelled the same in TS and as the disk");
+        sb.AppendLine("directory's catalog token; **one exposure plan per (filter, purpose, whole-second exposure) per");
+        sb.AppendLine("target**. Every action item below is a slipped convention — fix by hand in NINA's TS UI.");
+        sb.AppendLine();
+        sb.AppendLine(actionCount == 0
+            ? "**All checks clean — 0 action items.**"
+            : $"**{actionCount} action item(s)**" + (info.Count > 0 ? $"  (+{info.Count} informational)" : ""));
+
+        Section(sb, "Fix in TS — target identity (rename / coordinates)", identity);
+        Section(sb, "Fix in TS — duplicates & twins", duplicates);
+        Section(sb, "Fix in TS — exposure plans", plans);
+        Section(sb, "Fix in TS — exposure templates", templates);
+        Section(sb, "Info (no action needed)", info, clean: "✓ nothing to note");
+
+        sb.AppendLine();
+        sb.AppendLine($"Write-back this load: {plan.Writes.Count} plan cell(s) auto-stampable · " +
+                      $"{plan.Manual.Count} held · {plan.IgnoredMissing} one-sided target(s) ignored.");
+        return new AmbiguityReportResult(sb.ToString(), actionCount);
+    }
+
+    // ---- section builders (review N9): one per report section, bodies verbatim from Build ------------------
+
+    /// <summary>Fix-in-TS identity items: name mismatches (with held-cell notes and the panel-claim
+    /// variant), ambiguous coordinate matches, unanchored and invalid TS targets.</summary>
+    private static List<string> BuildIdentitySection(
+        CatalogBuildReport report, Dictionary<string, int> heldCellsByDirectory)
+    {
         List<string> identity = [];
         foreach (NameMismatch m in report.NameMismatches)
         {
@@ -95,7 +136,14 @@ internal static class AmbiguityReport
                 $"**{i.TsName}** — {i.Reason} (values coerced this load; the db row is unchanged).\n" +
                 $"  → Correct the RA/Dec/epoch in TS.");
         }
+        return identity;
+    }
 
+    /// <summary>Fix-in-TS duplicates: disk-claimed duplicate folds, then the planned-only twins the grid
+    /// can't badge.</summary>
+    private static List<string> BuildDuplicateSection(
+        CatalogBuildReport report, CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees)
+    {
         List<string> duplicates = [];
         foreach (DuplicateTsTarget d in report.DuplicateTsTargets)
         {
@@ -104,11 +152,18 @@ internal static class AmbiguityReport
                 $"  → Consolidate in TS: keep one target, delete the rest. Check `desired` on each first (intent " +
                 $"doesn't self-heal; acquired/accepted restamp from disk on the next load).");
         }
-        duplicates.AddRange(PlannedOnlyTwins(graph, ProjectOf, toleranceDegrees));
+        duplicates.AddRange(PlannedOnlyTwins(graph, projectOf, toleranceDegrees));
+        return duplicates;
+    }
 
-        // Plans: held cells (multi-plan / duplicate-fold) with full per-plan detail, then the TS-internal
-        // same-key check over ALL TS-sourced targets — de-duped against the held cells (the manual item wins:
-        // it carries the disk count).
+    /// <summary>Fix-in-TS exposure plans: held cells (multi-plan / duplicate-fold) with full per-plan
+    /// detail, then the TS-internal same-key check over ALL TS-sourced targets — de-duped against the held
+    /// cells (the manual item wins: it carries the disk count).</summary>
+    private static List<string> BuildPlanSection(
+        WriteBackPlan plan, CatalogGraph graph,
+        Dictionary<Guid, Target> targetById, Dictionary<Guid, ExposureTemplate> templateById,
+        Func<long, string> planLabel, Func<Guid, string> projectOf)
+    {
         List<string> plans = [];
         HashSet<(Guid, string, FilterPurpose, int)> manualKeys = [];
         foreach (ManualGroup g in plan.Manual.Where(g => g.Reason is ManualReason.MultiPlan or ManualReason.DuplicateFold or ManualReason.NoMatchingPlan))
@@ -116,7 +171,7 @@ internal static class AmbiguityReport
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
             // One indented row per plan — the shape the TS UI shows under a target.
             string detail = string.Concat(g.Plans.Select(p =>
-                PlanRow(PlanLabel(p.TsExposurePlanId), p.Desired, p.CatalogAcquired, p.CatalogAccepted)));
+                PlanRow(planLabel(p.TsExposurePlanId), p.Desired, p.CatalogAcquired, p.CatalogAccepted)));
             string fix = g.Reason switch
             {
                 ManualReason.DuplicateFold =>
@@ -128,12 +183,17 @@ internal static class AmbiguityReport
                     "TS UI; the survivor is auto-stamped on the next load.",
             };
             plans.Add(
-                $"**{ProjectOf(g.TargetId)}{g.TargetName} · {Cell(g.Filter, g.Purpose, g.Seconds)}** — " +
+                $"**{projectOf(g.TargetId)}{g.TargetName} · {Cell(g.Filter, g.Purpose, g.Seconds)}** — " +
                 $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped)." +
                 $"{detail}\n  {fix}");
         }
-        plans.AddRange(SameKeyPlans(graph, targetById, templateById, ProjectOf, manualKeys));
+        plans.AddRange(SameKeyPlans(graph, targetById, templateById, projectOf, manualKeys));
+        return plans;
+    }
 
+    /// <summary>Fix-in-TS templates: duplicate names within one profile (names are how plans read in the TS UI).</summary>
+    private static List<string> BuildTemplateSection(CatalogGraph graph)
+    {
         List<string> templates = [];
         foreach (var g in graph.Templates
                      .GroupBy(t => (t.ProfileId, Name: t.Name.Trim().ToUpperInvariant()))
@@ -144,10 +204,15 @@ internal static class AmbiguityReport
                 $"[{string.Join(" | ", g.Select(t => $"Id {t.ImportedFromTsGuid ?? "?"} ({t.FilterName})"))}].\n" +
                 $"  → Rename so every template's name is unique (names are how plans read in the TS UI).");
         }
+        return templates;
+    }
 
+    /// <summary>Informational (no action): unplanned frames grouped per target with one indented row per
+    /// bucket — the TS-UI target→plans shape (frames at durations no plan targets; write-back never creates
+    /// plans, so they're pure notes).</summary>
+    private static List<string> BuildInfoSection(WriteBackPlan plan)
+    {
         List<string> info = [];
-        // Unplanned frames group per target with one indented row per bucket — the TS-UI target→plans shape
-        // (frames at durations no plan targets; write-back never creates plans, so they're pure notes).
         foreach (var g in plan.NeedsReconciliation
                      .Where(n => n.Kind == ReconcileNote.UnplannedFramesKind)
                      .GroupBy(n => n.TargetName)
@@ -161,32 +226,7 @@ internal static class AmbiguityReport
             info.Add($"Unplanned frames: **{g.Key}**" +
                      string.Concat(buckets.Select(b => $"\n  - {b}")));
         }
-
-        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count;
-
-        StringBuilder sb = new();
-        sb.AppendLine($"# TS / disk ambiguity report — {generatedAtLocal.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
-        sb.AppendLine();
-        sb.AppendLine($"TS db: `{tsDbPath}`  ·  library: `{libraryRoot}`  ·  match tolerance {toleranceDegrees.ToString("0.0#", CultureInfo.InvariantCulture)}°");
-        sb.AppendLine();
-        sb.AppendLine("Conventions (DOMAIN.md): **one name per sky position**, spelled the same in TS and as the disk");
-        sb.AppendLine("directory's catalog token; **one exposure plan per (filter, purpose, whole-second exposure) per");
-        sb.AppendLine("target**. Every action item below is a slipped convention — fix by hand in NINA's TS UI.");
-        sb.AppendLine();
-        sb.AppendLine(actionCount == 0
-            ? "**All checks clean — 0 action items.**"
-            : $"**{actionCount} action item(s)**" + (info.Count > 0 ? $"  (+{info.Count} informational)" : ""));
-
-        Section(sb, "Fix in TS — target identity (rename / coordinates)", identity);
-        Section(sb, "Fix in TS — duplicates & twins", duplicates);
-        Section(sb, "Fix in TS — exposure plans", plans);
-        Section(sb, "Fix in TS — exposure templates", templates);
-        Section(sb, "Info (no action needed)", info, clean: "✓ nothing to note");
-
-        sb.AppendLine();
-        sb.AppendLine($"Write-back this load: {plan.Writes.Count} plan cell(s) auto-stampable · " +
-                      $"{plan.Manual.Count} held · {plan.IgnoredMissing} one-sided target(s) ignored.");
-        return new AmbiguityReportResult(sb.ToString(), actionCount);
+        return info;
     }
 
     // ---- TS-internal checks (app-side reporting concern; promote to AL only if a second consumer wants them) --

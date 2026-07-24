@@ -9,6 +9,16 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — ambiguity-report section builders (review N9, the last surviving review item;
+plain commit like M4 — the report's sections are already fully specced in `ts-ambiguity-report`, so a
+pure reorganization has no honest delta).** `AmbiguityReport.Build`'s ~170 inline lines → five section
+builders (`BuildIdentitySection` / `BuildDuplicateSection` / `BuildPlanSection` / `BuildTemplateSection`
+/ `BuildInfoSection`), bodies verbatim; `Build` now reads as the report's table of contents (context
+setup → five calls → count → assembly), and each check is individually testable without composing the
+whole markdown. 226 App.Tests green unchanged (`AmbiguityReportTests` = the lock). **This closes the
+2026-07-24 review cycle completely — every item from both review docs is now shipped, declined with
+recorded reasons, or parked on evidence (N6/N8).**
+
 **▶ SHIPPED 2026-07-24 — sentinel cell extraction (`openspec/changes/sentinel-cell`; M7's deferred half —
 the re-check's "one maintainability item of any substance left"; done warm on user call, the file having
 been touched twice the same day).** `TsFieldsEditor.BuildSentinelNumber`'s ~100 lines — three event
