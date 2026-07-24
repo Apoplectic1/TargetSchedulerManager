@@ -175,107 +175,138 @@ internal sealed class TsFieldsEditor : UserControl
     // as its meaning — a "use <default> checkbox" over the number box — never as the raw -1. Checked ⇔ the column
     // holds the sentinel (box disabled, showing the resolved value when the caller can know it); unchecked ⇔ the
     // column holds the visible number. The sentinel is exempt from Min/Max clamping (writing it back must work).
-    private FrameworkElement BuildSentinelNumber(TsField field, object? seeded)
+    private FrameworkElement BuildSentinelNumber(TsField field, object? seeded) =>
+        new SentinelCell(this, field, seeded).Root;
+
+    /// <summary>
+    /// One sentinel cell: the "use &lt;default&gt;" checkbox over its number box (review M7's last item —
+    /// these handlers used to share this state through closure captures). One named method per rule:
+    /// checked ⇔ the column holds the sentinel (box disabled, showing the resolved default when the caller
+    /// can know it); CHECKING commits the sentinel; UNCHECKING only arms the box — an override commits when
+    /// the user confirms a number, never from the uncheck gesture; the sentinel is exempt from the Min/Max
+    /// clamp (writing it back must work); a failed commit restores the full compound state.
+    /// </summary>
+    private sealed class SentinelCell
     {
-        double sentinel = field.Sentinel!.Value;
-        bool isDefault = ToDouble(seeded) == sentinel;
-        // The provider is only trustworthy as "the default" while the column actually holds the sentinel — an
-        // overridden plan's effective value is the override itself, which must not masquerade as the default.
-        double? effective = isDefault ? _effective?.Invoke(field.Column) : null;
+        private readonly TsFieldsEditor _owner;
+        private readonly TsField _field;
+        private readonly double _sentinel;
+        private readonly CheckBox _useDefault;
+        private readonly NumberBox _box;
+        // Only trustworthy as "the default" while the column actually holds the sentinel — an overridden
+        // plan's effective value is the override itself, which must not masquerade as the default.
+        private double? _effective;
 
-        string LabelFor(double? value) => value is double v
-            ? $"{field.SentinelLabel} ({v:0.###}{(field.Unit is null ? "" : " " + field.Unit)})"
-            : field.SentinelLabel ?? "default";
+        public FrameworkElement Root { get; }
 
-        CheckBox useDefault = new()
+        public SentinelCell(TsFieldsEditor owner, TsField field, object? seeded)
         {
-            Content = LabelFor(effective),
-            IsChecked = isDefault,
-            MinWidth = 0,
-        };
+            _owner = owner;
+            _field = field;
+            _sentinel = field.Sentinel!.Value;
+            bool isDefault = ToDouble(seeded) == _sentinel;
+            _effective = isDefault ? owner._effective?.Invoke(field.Column) : null;
 
-        NumberBox box = new()
-        {
-            Value = isDefault ? effective ?? double.NaN : ToDouble(seeded),
-            IsEnabled = !isDefault,
-            SmallChange = 1,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
-            Width = 110,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        // Checkbox drives the sentinel: checking writes it; unchecking only arms the box (the real value
-        // commits when the user commits a number — no silent -1 → value conversion on a stray click).
-        useDefault.Checked += async (_, _) =>
-        {
-            if (_reverting) return;
-            box.IsEnabled = false;
-            if (ToDouble(_lastKnown[field.Column]) == sentinel) return;   // seeded state settling, not an edit
-            object value = field.Type == TsFieldType.Whole ? (int)sentinel : sentinel;
-            if (await Commit(field.Column, value))
+            _useDefault = new CheckBox
             {
-                _lastKnown[field.Column] = value;
+                Content = LabelFor(_effective),
+                IsChecked = isDefault,
+                MinWidth = 0,
+            };
+
+            _box = new NumberBox
+            {
+                Value = isDefault ? _effective ?? double.NaN : ToDouble(seeded),
+                IsEnabled = !isDefault,
+                SmallChange = 1,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                Width = 110,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            _useDefault.Checked += async (_, _) => await OnUseDefaultCheckedAsync();
+            _useDefault.Unchecked += (_, _) => OnUseDefaultUnchecked();
+            // ValueChanged, not LostFocus — same reasoning as the plain number box: a typed override must
+            // commit (and mirror) the moment it's confirmed, matching the checkbox's immediacy.
+            _box.ValueChanged += async (_, _) => await OnValueConfirmedAsync();
+
+            StackPanel inner = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+            inner.Children.Add(_box);
+            if (field.Unit is not null)
+                inner.Children.Add(new TextBlock { Text = field.Unit, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
+
+            StackPanel cell = new() { Orientation = Orientation.Vertical, Spacing = 4 };
+            cell.Children.Add(_useDefault);
+            cell.Children.Add(inner);
+            Root = cell;
+        }
+
+        private string LabelFor(double? value) => value is double v
+            ? $"{_field.SentinelLabel} ({v:0.###}{(_field.Unit is null ? "" : " " + _field.Unit)})"
+            : _field.SentinelLabel ?? "default";
+
+        // Checking writes the sentinel (the last-known guard keeps a settling seeded IsChecked from committing).
+        private async Task OnUseDefaultCheckedAsync()
+        {
+            if (_owner._reverting) return;
+            _box.IsEnabled = false;
+            if (ToDouble(_owner._lastKnown[_field.Column]) == _sentinel) return;   // seeded state settling, not an edit
+            object value = _field.Type == TsFieldType.Whole ? (int)_sentinel : _sentinel;
+            if (await _owner.Commit(_field.Column, value))
+            {
+                _owner._lastKnown[_field.Column] = value;
                 // The column now holds the sentinel, so the provider's value IS the default (the commit path
                 // resolved it) — show it in the box and label right away, no flyout relaunch needed.
-                effective = _effective?.Invoke(field.Column) ?? effective;
-                useDefault.Content = LabelFor(effective);
-                Revert(() => box.Value = effective ?? double.NaN);
+                _effective = _owner._effective?.Invoke(_field.Column) ?? _effective;
+                _useDefault.Content = LabelFor(_effective);
+                _owner.Revert(() => _box.Value = _effective ?? double.NaN);
             }
             else
             {
-                Revert(() =>
+                _owner.Revert(() =>
                 {
-                    useDefault.IsChecked = false;
-                    box.IsEnabled = true;
-                    box.Value = ToDouble(_lastKnown[field.Column]);
+                    _useDefault.IsChecked = false;
+                    _box.IsEnabled = true;
+                    _box.Value = ToDouble(_owner._lastKnown[_field.Column]);
                 });
             }
-        };
-        useDefault.Unchecked += (_, _) =>
-        {
-            if (_reverting) return;
-            box.IsEnabled = true;
-            Revert(() => box.Value = effective ?? double.NaN);   // seed the override with the resolved value
-            box.Focus(FocusState.Programmatic);
-        };
+        }
 
-        // ValueChanged, not LostFocus — same reasoning as the plain number box: a typed override must commit
-        // (and mirror) the moment it's confirmed, matching the checkbox's immediacy.
-        box.ValueChanged += async (_, _) =>
+        // Unchecking only ARMS the box (the real value commits when the user commits a number — no silent
+        // -1 → value conversion on a stray click).
+        private void OnUseDefaultUnchecked()
         {
-            if (_reverting || !box.IsEnabled) return;
-            double current = ToDouble(_lastKnown[field.Column]);
-            if (double.IsNaN(box.Value))
+            if (_owner._reverting) return;
+            _box.IsEnabled = true;
+            _owner.Revert(() => _box.Value = _effective ?? double.NaN);   // seed the override with the resolved value
+            _box.Focus(FocusState.Programmatic);
+        }
+
+        private async Task OnValueConfirmedAsync()
+        {
+            if (_owner._reverting || !_box.IsEnabled) return;
+            double current = ToDouble(_owner._lastKnown[_field.Column]);
+            if (double.IsNaN(_box.Value))
             {
                 // Cleared: restore the last real value, or stay blank while the column still holds the sentinel.
-                if (current != sentinel) Revert(() => box.Value = current);
+                if (current != _sentinel) _owner.Revert(() => _box.Value = current);
                 return;
             }
 
-            double wanted = box.Value;
-            wanted = ClampToSchema(field, wanted);
-            Revert(() => box.Value = wanted);
+            double wanted = _box.Value;
+            wanted = ClampToSchema(_field, wanted);
+            _owner.Revert(() => _box.Value = wanted);
             if (wanted == current) return;
 
-            object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
-            if (await Commit(field.Column, value))
-                _lastKnown[field.Column] = value;
-            else if (current == sentinel)
-                Revert(() => { useDefault.IsChecked = true; box.IsEnabled = false; box.Value = effective ?? double.NaN; });
+            object value = _field.Type == TsFieldType.Whole ? (int)wanted : wanted;
+            if (await _owner.Commit(_field.Column, value))
+                _owner._lastKnown[_field.Column] = value;
+            else if (current == _sentinel)
+                _owner.Revert(() => { _useDefault.IsChecked = true; _box.IsEnabled = false; _box.Value = _effective ?? double.NaN; });
             else
-                Revert(() => box.Value = current);
-        };
-
-        StackPanel inner = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
-        inner.Children.Add(box);
-        if (field.Unit is not null)
-            inner.Children.Add(new TextBlock { Text = field.Unit, Opacity = 0.7, VerticalAlignment = VerticalAlignment.Center });
-
-        StackPanel cell = new() { Orientation = Orientation.Vertical, Spacing = 4 };
-        cell.Children.Add(useDefault);
-        cell.Children.Add(inner);
-        return cell;
+                _owner.Revert(() => _box.Value = current);
+        }
     }
 
     private ComboBox BuildCombo(TsField field, object? seeded)

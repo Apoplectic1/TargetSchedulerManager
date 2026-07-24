@@ -46,6 +46,8 @@ key remains extend-when-it-lands.
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
+- **2026-07-24** — sentinel cell: `BuildSentinelNumber`'s closure-captured handler state → nested
+  `SentinelCell` with named rule methods; interaction contract specced (`sentinel-cell`; M7's last half).
 - **2026-07-24** — view-model partial split: `MainViewModel` → core / `.Sync` / `.Edits` / `.Reports`
   partials, members verbatim (review M4; plain commit — no requirement delta to spec).
 - **2026-07-24** — review polish: journal durability doc honesty (M2), badge count cached off the UI

@@ -9,6 +9,19 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — sentinel cell extraction (`openspec/changes/sentinel-cell`; M7's deferred half —
+the re-check's "one maintainability item of any substance left"; done warm on user call, the file having
+been touched twice the same day).** `TsFieldsEditor.BuildSentinelNumber`'s ~100 lines — three event
+lambdas sharing mutated state through closure captures (the `effective` local written by one handler,
+read by the others; compound failure restores) — became a private nested `SentinelCell`: captures →
+fields, lambdas → named rules (`OnUseDefaultCheckedAsync` / `OnUseDefaultUnchecked` /
+`OnValueConfirmedAsync`), bodies verbatim; the builder is a one-line delegation. Spec delta codifies the
+interaction contract (rendered as meaning never raw −1; checked ⇔ column holds sentinel; unchecking only
+ARMS — no silent write; sentinel exempt from the clamp; failure restores compound state) on
+`schema-driven-field-editor`. 226 tests = the regression floor only — the cell is WinUI control code with
+no test net before or after, so the user's Exposure-flyout pass gates archive (deliberately NOT
+auto-archived despite being a pure refactor).
+
 **▶ SHIPPED 2026-07-24 — view-model partial split (review M4; plain commit, no openspec change —
 the spec-driven schema requires a requirements delta and a pure file reorganization has none to offer
 honestly).** `MainViewModel.cs` (1082 lines, six concerns by gravity) → four partial files, members moved
