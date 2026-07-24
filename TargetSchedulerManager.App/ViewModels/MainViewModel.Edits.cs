@@ -187,13 +187,15 @@ public sealed partial class MainViewModel
         return true;
     }
 
-    // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has one).
+    // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has
+    // one) — O(1) via the owner map ApplyFilters maintains (review N6; was a groups × children scan per
+    // committed edit). A row not in the map (a rollup's detail line) is the same no-op the scan produced.
     private void RecomputeOwners(ReconciliationRow row)
     {
-        TargetGroupRow? group = _groups.FirstOrDefault(g => g.Children.Contains(row));
-        group?.Recompute();
-        if (row.PanelKey is not null)
-            group?.Panels?.FirstOrDefault(p => p.Children.Contains(row))?.Recompute();
+        if (!_ownerByRow.TryGetValue(row, out (TargetGroupRow Group, PanelGroupRow? Panel) owner))
+            return;
+        owner.Group.Recompute();
+        owner.Panel?.Recompute();
     }
 
     /// <summary>

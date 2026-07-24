@@ -81,6 +81,10 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     private List<TargetGroupRow> _groups = [];
     private int _visibleLeafCount;
 
+    // Leaf → its owning header rows, rebuilt by ApplyFilters (which touches every row anyway) so an
+    // inline edit's re-aggregation is O(1) instead of a scan over groups × children (review N6).
+    private readonly Dictionary<ReconciliationRow, (TargetGroupRow Group, PanelGroupRow? Panel)> _ownerByRow = [];
+
     private ObservableCollection<object> _rows = [];
     private string _statusText = "loading…";
     private bool _isLoading;
@@ -324,6 +328,19 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
 
         _groups = groups;
         _visibleLeafCount = leaves.Count;
+
+        // The owner map for O(1) inline-edit re-aggregation (review N6). Detail lines under a rollup are
+        // deliberately absent — they aren't top-level leaves, exactly as the old scan never found them.
+        _ownerByRow.Clear();
+        foreach (TargetGroupRow g in groups)
+        {
+            foreach (ReconciliationRow r in g.Children)
+                _ownerByRow[r] = (g, null);
+            if (g.Panels is { } gPanels)
+                foreach (PanelGroupRow p in gPanels)
+                    foreach (ReconciliationRow r in p.Children)
+                        _ownerByRow[r] = (g, p);   // refines the group-only entry — panel children are group children too
+        }
 
         // Restore nested rollup expansion (rows are rebuilt each pass, visible or not) so a later toggle
         // expands to the remembered state, then flatten the groups into the bound list.

@@ -244,6 +244,26 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task SetPlanDesired_OnPanelLeaf_RecomputesPanelAndGroup()
+    {
+        // The owner map (review N6): an inline edit on a mosaic panel's leaf re-aggregates BOTH headers
+        // in place — the panel refinement, not just the group entry.
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "10", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow leaf = Make.Leaf(target: "Mosaic - X", desired: 10, planSeconds: 300, planTsKey: "ep-1",
+            panelKey: "Mosaic - X/Panel 01of16", panelLabel: "Panel 01of16", panelSource: RowSource.Both);
+        vm.SetRowsForTest([leaf]);
+
+        Assert.True(await vm.SetPlanDesiredAsync(leaf, 25));
+
+        TargetGroupRow group = vm.Rows.OfType<TargetGroupRow>().Single();
+        Assert.Equal(25, group.Desired);                        // group header re-aggregated…
+        Assert.Equal(25, group.Panels!.Single().Desired);       // …and the panel header too
+    }
+
+    [Fact]
     public async Task PushAsync_ClosingPullFailure_ReportsHonestSuccess()
     {
         // openspec truthful-outcome: the replay lands (stub editor), the closing pull chokes (the remote

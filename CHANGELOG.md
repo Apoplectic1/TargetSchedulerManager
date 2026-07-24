@@ -9,6 +9,16 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — inline-edit owner map (review N6, unparked on the user's call — the image
+library will definitely keep growing, so the trigger is a when, not an if).** `RecomputeOwners` was a
+groups × children scan per committed inline Desired/exposure edit; now `ApplyFilters` (which touches
+every row anyway) maintains `_ownerByRow` — leaf → (group, panel?) — and re-aggregation is O(1). The
+panel refinement rides the same map (panel children are group children; the second pass refines their
+entry), and a rollup's detail lines are deliberately absent — the same no-op the old scan produced.
+Behavior-preserving; new test pins the panel path (`SetPlanDesired_OnPanelLeaf_RecomputesPanelAndGroup`).
+227 App.Tests (1 new). Plain commit (in-place re-aggregation is already specced via the in-place-mirror
+requirement; the map is implementation). N8 is now the sole parked-on-evidence review item.
+
 **▶ SHIPPED 2026-07-24 — async-void elimination (N3 completed to uniformity; the re-check's "micro-hole",
 scope corrected upward twice).** The re-check counted five plain `async void` handlers; the sweep found
 nine: three code-behind (`TargetEnable_Click`, `PlanEnable_Click`, `Desired_Committed`), six editor sites

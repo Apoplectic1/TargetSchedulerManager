@@ -46,6 +46,8 @@ key remains extend-when-it-lands.
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
+- **2026-07-24** — inline-edit owner map: `RecomputeOwners` O(1) via a leaf→(group, panel) map built in
+  `ApplyFilters` (review N6, unparked — the library keeps growing; N8 stays the sole parked item).
 - **2026-07-24** — async-void elimination: all nine remaining bare handlers route through
   `Shared/UiTask.FireAndLog` — the only `async void` left IS the guard (N3 completed; plain commit).
 - **2026-07-24** — ambiguity-report section builders: `Build` → five per-section builders, bodies
