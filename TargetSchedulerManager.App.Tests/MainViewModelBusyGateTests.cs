@@ -126,6 +126,26 @@ public class MainViewModelBusyGateTests
     }
 
     [Fact]
+    public async Task VisibleTonight_RefusedTargetFlip_DoesNotOrphanAProjectFlip()
+    {
+        // Inactive project + disabled circumpolar target (dec +89 — always visible at the DevDefaults
+        // latitude): the pass wants the target enabled, and had that landed, the project would flip
+        // Active. Every write is refused — the project derivation must see the target still disabled
+        // and journal NO project flip (and with nothing landed, no closing reload/disk scan runs).
+        StubEditor ed = new() { Next = (null, RefusalReason.ReadOnly) };
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        MainViewModel vm = new(new TsEditGate(sync, _ => ed));
+        vm.SetLoadForTest(Load(CircumpolarDisabledTargetInInactiveProject()));
+
+        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), horizonAltitudeDeg: 0);
+
+        Assert.True(sync.Journal.IsEmpty);                        // no orphaned project.state edit
+        Assert.Contains("1 FAILED", vm.StatusText);               // the refused target flip is reported
+        Assert.Contains("0 project(s) flipped", vm.StatusText);   // actual (applied) project count
+        Assert.False(vm.IsLoading);                               // released; no reload took the gate
+    }
+
+    [Fact]
     public async Task VisibleTonight_NoLoad_ReleasesTheGate()
     {
         MainViewModel vm = new(Gate(new StubEditor()));
@@ -149,6 +169,14 @@ public class MainViewModelBusyGateTests
     private static TsPlanData NeverRisesInactiveTarget() => new(
         [new TsProject(1, "profile", "P1", 2 /* Inactive */, Priority: 1, null, IsMosaic: 0, null)],
         [new TsTarget(10, "T10", 0 /* inactive */, 5.0, -80.0, EpochCode: 2, Rotation: null,
+            Roi: null, 1, Priority: 1, null)],
+        [], []);
+
+    // Circumpolar (dec +89) disabled target in an Inactive project: the pass plans an enable + a
+    // dependent project Active flip — the orphan-derivation fixture.
+    private static TsPlanData CircumpolarDisabledTargetInInactiveProject() => new(
+        [new TsProject(1, "profile", "P1", 2 /* Inactive */, Priority: 1, null, IsMosaic: 0, null)],
+        [new TsTarget(10, "T10", 0 /* inactive */, 5.0, 89.0, EpochCode: 2, Rotation: null,
             Roi: null, 1, Priority: 1, null)],
         [], []);
 

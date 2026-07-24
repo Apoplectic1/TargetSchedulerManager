@@ -58,10 +58,13 @@ targets SHALL be evaluated individually like any other target row.
 - **WHEN** the button is pressed and a target's `active` already equals its visibility verdict
 - **THEN** no edit is journaled for that target
 
-### Requirement: Project state derived from post-pass target enables
-After target flips, the system SHALL set each processed project's `state` to `Inactive` when the project
-has no enabled targets, and to `Active` when it has at least one enabled target. Only the
-`Active ↔ Inactive` transition pair SHALL ever be written.
+### Requirement: Project state derived from applied target enables
+After the target-flip batch has been applied, the system SHALL recompute each processed project's
+effective target enables from what actually landed — an applied flip contributes its new value, a
+refused or failed flip contributes the target's pre-pass value, an unflipped target its existing value —
+and SHALL set the project's `state` to `Inactive` when the project has no effectively enabled targets,
+and to `Active` when it has at least one. Only the `Active ↔ Inactive` transition pair SHALL ever be
+written. Project flips SHALL NOT be derived from intended target states before the target batch applies.
 
 #### Scenario: Project with no enabled targets is disabled
 - **WHEN** every target of an Active project ends the pass with `active = 0`
@@ -70,6 +73,14 @@ has no enabled targets, and to `Active` when it has at least one enabled target.
 #### Scenario: Inactive project regains a visible target
 - **WHEN** an Inactive project ends the pass with at least one target at `active = 1`
 - **THEN** the project's `state` is set to Active
+
+#### Scenario: Failed target flip does not orphan a project flip
+- **WHEN** an Inactive project's sole visible target has its `active = 1` write refused or failed
+- **THEN** the derivation sees the target still disabled and the project's `state` is not flipped to Active
+
+#### Scenario: Whole target batch fails
+- **WHEN** the target batch's editor session cannot open, failing every target flip
+- **THEN** project derivation runs against the unchanged pre-pass values and emits no flip whose premise did not land
 
 ### Requirement: Draft and Closed projects are excluded
 The system SHALL NOT read, evaluate, or write projects whose `state` is `Draft` or `Closed`, nor any of
@@ -116,22 +127,24 @@ line a summary of targets enabled, targets disabled, targets unchanged, and proj
 - **WHEN** the pass completes having enabled 3 targets, disabled 5, and flipped 1 project to Inactive
 - **THEN** the user sees a status-line summary reporting those counts
 
-### Requirement: The pass holds the busy exclusion and applies as one batch
+### Requirement: The pass holds the busy exclusion and applies as two sequenced batches
 The pass SHALL hold the bulk-operation exclusion (see `busy-exclusion`) from before planning until after
-the last flip is applied, and SHALL apply its flips as a single off-UI-thread batch on one editor
-session — the UI thread is not re-entered between flips, and one editor connection serves the whole
-batch. Per-flip outcomes SHALL be preserved: an individual flip failure is counted and logged while the
-remaining flips still apply, exactly as in the per-edit path. The closing grid reload SHALL run after the
-exclusion is released.
+the last flip is applied, and SHALL apply its flips as two sequenced off-UI-thread batches — the target
+flips, then the project flips derived from the target batch's outcomes — each on one editor session.
+The exclusion SHALL NOT be released between the batches, so no other bulk operation and no row edit can
+execute anywhere inside the pass. Per-flip outcomes SHALL be preserved in both batches: an individual
+flip failure is counted and logged while the remaining flips still apply, exactly as in the per-edit
+path, and the reported failure count SHALL sum across both batches. The closing grid reload SHALL run
+after the exclusion is released.
 
-#### Scenario: No interleaving window between flips
-- **WHEN** a pass is applying 80 flips
-- **THEN** no other bulk operation and no row edit can execute between any two flips
+#### Scenario: No interleaving window inside the pass
+- **WHEN** a pass is applying 80 target flips followed by 5 project flips
+- **THEN** no other bulk operation and no row edit can execute between any two flips, including between the two batches
 
-#### Scenario: One editor session for the batch
-- **WHEN** a pass applies N flips
-- **THEN** one editor session performs all N writes, each individually verified and journaled
+#### Scenario: One editor session per batch
+- **WHEN** a pass applies N target flips and M project flips
+- **THEN** one editor session performs all N target writes and a second performs all M project writes, each write individually verified and journaled
 
-#### Scenario: Per-flip failure does not abort the batch
-- **WHEN** one flip in the batch fails verification
-- **THEN** the remaining flips still apply, and the status summary reports the failure count
+#### Scenario: Per-flip failure does not abort its batch
+- **WHEN** one flip in either batch fails verification
+- **THEN** the remaining flips in that batch still apply, and the status summary reports the combined failure count

@@ -11,15 +11,20 @@ namespace TargetSchedulerManager.App.Services;
 /// shape <c>TsEditGate.ApplyAsync</c> takes, plus the grid-style label the journal / push review shows.</summary>
 internal sealed record VisibleTonightEdit(TsTable Table, string Key, string Column, int Value, string Label);
 
-/// <summary>The pass's decision set: the edits to apply (targets first, then the project flips derived from
-/// the targets' post-pass state) and the summary counts the status line reports.</summary>
-internal sealed record VisibleTonightPlan(
+/// <summary>Stage 1's decision set: the <c>target.active</c> flips plus the target-side summary counts
+/// the status line reports.</summary>
+internal sealed record VisibleTonightTargetPlan(
     IReadOnlyList<VisibleTonightEdit> Edits,
-    int TargetsEnabled,
-    int TargetsDisabled,
-    int TargetsUnchanged,
-    int ProjectsActivated,
-    int ProjectsDeactivated);
+    int Enabled,
+    int Disabled,
+    int Unchanged);
+
+/// <summary>Stage 2's decision set: the <c>project.state</c> flips derived from the target flips that
+/// actually landed, plus the project-side summary counts.</summary>
+internal sealed record VisibleTonightProjectPlan(
+    IReadOnlyList<VisibleTonightEdit> Edits,
+    int Activated,
+    int Deactivated);
 
 /// <summary>
 /// The Visible-tonight pass: reconciles <c>target.active</c> / <c>project.state</c> with tonight's sky.
@@ -28,7 +33,9 @@ internal sealed record VisibleTonightPlan(
 /// between tonight's astronomical dusk and dawn — deliberately independent of TS's own per-project
 /// altitude rules, which TS re-applies at plan time. Pure planning: consumes the load's retained
 /// <see cref="TsPlanData"/> rows and returns the edits; the caller applies them through the guarded edit
-/// gate so they journal like hand edits.
+/// gate so they journal like hand edits. Two stages: <see cref="PlanTargets"/> computes the target flips;
+/// after the caller applies them, <see cref="PlanProjects"/> derives the project flips from the target
+/// edits that actually landed — a failed flip contributes the target's old value, never the intent.
 /// </summary>
 /// <remarks>
 /// "Tonight" is <see cref="NightCalculator.ComputeNight"/>'s bracket convention: the window whose dawn is
@@ -43,34 +50,22 @@ internal static class VisibleTonightPass
     private const int StateInactive = 2;
 
     /// <summary>
-    /// Computes the flips for one button press. Projects outside the Active/Inactive pair are skipped
-    /// entirely (their targets too); each remaining target's <c>active</c> tracks its visibility verdict,
-    /// then each project's <c>state</c> follows "no enabled targets → Inactive, any → Active" over the
-    /// post-pass values. Unchanged fields yield no edit.
+    /// Stage 1: computes the <c>target.active</c> flips for one button press. Projects outside the
+    /// Active/Inactive pair are skipped entirely (their targets too); each remaining target's
+    /// <c>active</c> tracks its visibility verdict. Unchanged fields yield no edit.
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// A processed target has no RA/Dec — a TS contract violation; the pass aborts before any edit.
     /// </exception>
-    public static VisibleTonightPlan Plan(
+    public static VisibleTonightTargetPlan PlanTargets(
         TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double horizonAltitudeDeg)
     {
         NightWindow night = NightCalculator.ComputeNight(site, utcNow);
         ScalarHorizonProfile altitudeFloor = new(horizonAltitudeDeg);
 
         List<VisibleTonightEdit> targetEdits = [];
-        List<VisibleTonightEdit> projectEdits = [];
-        int enabled = 0, disabled = 0, unchanged = 0, activated = 0, deactivated = 0;
-
-        Dictionary<long, bool> anyEnabledByProject = [];
-        HashSet<long> processedProjects = [];
-        foreach (TsProject project in ts.Projects)
-        {
-            if (project.State is StateActive or StateInactive)
-            {
-                processedProjects.Add(project.Id);
-                anyEnabledByProject[project.Id] = false;
-            }
-        }
+        int enabled = 0, disabled = 0, unchanged = 0;
+        HashSet<long> processedProjects = ProcessedProjects(ts);
 
         foreach (TsTarget target in ts.Targets)
         {
@@ -86,9 +81,6 @@ internal static class VisibleTonightPass
                     target.Name, raHours, decDegrees, north: true, directory: null, enabled: true),
                 site, night, altitudeFloor, minDuration);
 
-            if (visible)
-                anyEnabledByProject[projectId] = true;
-
             bool currentlyActive = target.Active != 0;
             if (visible == currentlyActive)
             {
@@ -101,6 +93,38 @@ internal static class VisibleTonightPass
                 TsTable.Target, EditKey(target.TsGuid, target.Id), "active", visible ? 1 : 0, target.Name));
         }
 
+        return new VisibleTonightTargetPlan(targetEdits, enabled, disabled, unchanged);
+    }
+
+    /// <summary>
+    /// Stage 2: derives the <c>project.state</c> flips from the target flips that actually landed.
+    /// Each processed target's effective <c>active</c> is the applied edit's value when one landed for
+    /// its key, else the snapshot value — so a refused/failed flip contributes the target's OLD state,
+    /// never the intent (overlay-on-snapshot: only the snapshot knows a failed flip's surviving value).
+    /// Each project's <c>state</c> then follows "no effectively enabled targets → Inactive, any →
+    /// Active". Pure derivation — no visibility math, cannot throw.
+    /// </summary>
+    public static VisibleTonightProjectPlan PlanProjects(
+        TsPlanData ts, IReadOnlyList<VisibleTonightEdit> appliedTargetEdits)
+    {
+        Dictionary<string, int> appliedByKey = appliedTargetEdits.ToDictionary(e => e.Key, e => e.Value);
+        HashSet<long> processedProjects = ProcessedProjects(ts);
+
+        Dictionary<long, bool> anyEnabledByProject = processedProjects.ToDictionary(id => id, _ => false);
+        foreach (TsTarget target in ts.Targets)
+        {
+            if (target.ProjectId is not long projectId || !processedProjects.Contains(projectId))
+                continue;
+
+            int effectiveActive = appliedByKey.TryGetValue(EditKey(target.TsGuid, target.Id), out int landed)
+                ? landed
+                : target.Active;
+            if (effectiveActive != 0)
+                anyEnabledByProject[projectId] = true;
+        }
+
+        List<VisibleTonightEdit> projectEdits = [];
+        int activated = 0, deactivated = 0;
         foreach (TsProject project in ts.Projects)
         {
             if (!processedProjects.Contains(project.Id))
@@ -116,9 +140,12 @@ internal static class VisibleTonightPass
                 $"{project.Name} — project"));
         }
 
-        return new VisibleTonightPlan(
-            [.. targetEdits, .. projectEdits], enabled, disabled, unchanged, activated, deactivated);
+        return new VisibleTonightProjectPlan(projectEdits, activated, deactivated);
     }
+
+    // The pass's project universe: only the Active/Inactive pair is ever read or written.
+    private static HashSet<long> ProcessedProjects(TsPlanData ts) =>
+        [.. ts.Projects.Where(p => p.State is StateActive or StateInactive).Select(p => p.Id)];
 
     // The gate's row key convention: the TS guid when the row has one, else the integer Id as a string.
     private static string EditKey(string? tsGuid, long id) =>

@@ -14,6 +14,28 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — visible-tonight applied-state derivation
+(`openspec/changes/visible-tonight-applied-states`; review m5 un-parked by user — the last parked review
+item; slate now fully terminal).** Project `state` flips now derive from the target flips that
+**landed**, not the intended set: `VisibleTonightPass.Plan` split into `PlanTargets` (verdicts + target
+edits; RA/Dec fail-fast unchanged) and `PlanProjects(ts, appliedTargetEdits)` (pure derivation —
+applied-edit overlay on the snapshot by `EditKey`; a refused/failed flip contributes the target's OLD
+value). `RunVisibleTonightAsync` applies two sequenced `ApplyManyAsync` batches (targets → recompute →
+projects) under one unbroken busy scope — the seam between them admits no bulk op and no row edit —
+failure counts sum across both, and the closing reload now runs **only when a flip actually landed** (an
+all-refused pass changed nothing; also lets the VM-level test avoid a real disk scan). Free win: a whole
+target batch failing (editor can't open) now derives projects against unchanged states — zero orphaned
+flips by construction, not by batch luck. Spec: both `visible-tonight-toggle` requirements modified
+(applied-derivation + two-sequenced-batches), 4 new scenarios. Tests 230→235: matrix retargeted to the
+two-stage API (all-applied overlay reproduces the old combined behavior), 4 new derivation tests
+(failed enable / failed disable / partial landing / zero-target-edit project flip), VM wiring test
+(refused flip ⇒ empty journal, "0 project(s) flipped", no reload). Happy path byte-identical —
+auto-archived per standing rule. Context: the meridian-flip question that triggered the m5 sanity check
+also pinned a spec non-goal (`e98127a`): pier-flip downtime is TS/NINA's runtime concern, never modeled
+in the visibility predicate.**
+
+---
+
 **▶ SHIPPED 2026-07-24 — presentation conventions (`openspec/changes/presentation-conventions`;
 P3+P4+P5 folded per user call — the presentation lane's close-out).** **P3:** `Models/Format.cs` is the
 display-convention home — `Dash`/`CountOrDash` (the em-dash empty convention, 15 sites across 5 files

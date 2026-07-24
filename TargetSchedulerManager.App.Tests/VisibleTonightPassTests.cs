@@ -10,6 +10,8 @@ namespace TargetSchedulerManager.App.Tests;
 // The Visible-tonight planner in isolation: pure records in, edits + counts out. Real astronomy (the
 // library computes tonight's window and each verdict) over a fixed site + instant so every verdict is
 // deterministic: Penns Park latitude (~40.3°N), mid-night 2026-01-15 02:00 UTC (~21:00 EST Jan 14).
+// The Plan helper runs both stages with an all-applied overlay (every target edit landed) — the
+// happy-path combined behavior; the applied-derivation section exercises partial/empty landings.
 public class VisibleTonightPassTests
 {
     private static readonly Location Site = new(
@@ -31,25 +33,25 @@ public class VisibleTonightPassTests
     [Fact]
     public void CircumpolarTarget_DisabledInActiveProject_GetsEnableEdit()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, _) = Plan(
             [Project(1, Active)],
             [Target(10, 1, CircumpolarDec, active: 0)]);
 
-        VisibleTonightEdit edit = Assert.Single(plan.Edits);
+        VisibleTonightEdit edit = Assert.Single(targets.Edits);
         Assert.Equal((TsTable.Target, "active", 1), (edit.Table, edit.Column, edit.Value));
-        Assert.Equal(1, plan.TargetsEnabled);
-        Assert.Equal(0, plan.TargetsDisabled);
+        Assert.Equal(1, targets.Enabled);
+        Assert.Equal(0, targets.Disabled);
     }
 
     [Fact]
     public void NeverRisesTarget_Enabled_GetsDisableEdit()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, _) = Plan(
             [Project(1, Active)],
             [Target(10, 1, NeverRisesDec, active: 1)]);
 
-        Assert.Contains(plan.Edits, e => e is { Table: TsTable.Target, Column: "active", Value: 0 });
-        Assert.Equal(1, plan.TargetsDisabled);
+        Assert.Contains(targets.Edits, e => e is { Table: TsTable.Target, Column: "active", Value: 0 });
+        Assert.Equal(1, targets.Disabled);
     }
 
     [Fact]
@@ -62,82 +64,148 @@ public class VisibleTonightPassTests
         double raAtMidNight = SiderealTime.Local(midNight, longitudeDegEast: -Site.Longitude);
         TsTarget target = Target(10, 1, dec: -48.7, active: 0, raHours: raAtMidNight);
 
-        VisibleTonightPlan under30 = VisibleTonightPass.Plan(
+        VisibleTonightTargetPlan under30 = VisibleTonightPass.PlanTargets(
             Data([Project(1, Active)], [target]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
-        VisibleTonightPlan underFourHours = VisibleTonightPass.Plan(
+        VisibleTonightTargetPlan underFourHours = VisibleTonightPass.PlanTargets(
             Data([Project(1, Active)], [target]), Site, UtcNow, TimeSpan.FromHours(4), horizonAltitudeDeg: 0);
 
-        Assert.Equal(1, under30.TargetsEnabled);        // ~2 h window clears a 30-min bar
-        Assert.Equal(0, underFourHours.TargetsEnabled); // the same window can't stretch to 4 h
-        Assert.Equal(1, underFourHours.TargetsUnchanged);
+        Assert.Equal(1, under30.Enabled);        // ~2 h window clears a 30-min bar
+        Assert.Equal(0, underFourHours.Enabled); // the same window can't stretch to 4 h
+        Assert.Equal(1, underFourHours.Unchanged);
     }
 
     [Fact]
     public void TsMinimumAltitude_IsIgnored()
     {
         // The project demands 80° minimum altitude; the predicate is the geometric 0° horizon only.
-        VisibleTonightPlan plan = Plan(
+        var (targets, _) = Plan(
             [Project(1, Active, minimumAltitude: 80.0)],
             [Target(10, 1, CircumpolarDec, active: 0)]);
 
-        Assert.Equal(1, plan.TargetsEnabled);
+        Assert.Equal(1, targets.Enabled);
     }
 
     [Fact]
     public void MatchingValue_YieldsNoEdit()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, projects) = Plan(
             [Project(1, Active)],
             [Target(10, 1, CircumpolarDec, active: 1)]);
 
-        Assert.Empty(plan.Edits);
-        Assert.Equal(1, plan.TargetsUnchanged);
+        Assert.Empty(targets.Edits);
+        Assert.Empty(projects.Edits);
+        Assert.Equal(1, targets.Unchanged);
     }
 
     // ---- project derivation ------------------------------------------------------------------------
 
     [Fact]
-    public void ProjectWithNoEnabledTargets_GoesInactive_TargetEditsFirst()
+    public void ProjectWithNoEnabledTargets_GoesInactive()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, projects) = Plan(
             [Project(1, Active)],
             [Target(10, 1, NeverRisesDec, active: 1)]);
 
-        Assert.Equal(2, plan.Edits.Count);
-        Assert.Equal((TsTable.Target, "active", 0), (plan.Edits[0].Table, plan.Edits[0].Column, plan.Edits[0].Value));
-        Assert.Equal((TsTable.Project, "state", Inactive), (plan.Edits[1].Table, plan.Edits[1].Column, plan.Edits[1].Value));
-        Assert.Equal(1, plan.ProjectsDeactivated);
+        VisibleTonightEdit targetEdit = Assert.Single(targets.Edits);
+        Assert.Equal((TsTable.Target, "active", 0), (targetEdit.Table, targetEdit.Column, targetEdit.Value));
+        VisibleTonightEdit projectEdit = Assert.Single(projects.Edits);
+        Assert.Equal((TsTable.Project, "state", Inactive), (projectEdit.Table, projectEdit.Column, projectEdit.Value));
+        Assert.Equal(1, projects.Deactivated);
     }
 
     [Fact]
     public void InactiveProject_RegainingAVisibleTarget_GoesActive()
     {
-        VisibleTonightPlan plan = Plan(
+        var (_, projects) = Plan(
             [Project(1, Inactive)],
             [Target(10, 1, CircumpolarDec, active: 0)]);
 
-        Assert.Contains(plan.Edits, e => e is { Table: TsTable.Project, Column: "state", Value: Active });
-        Assert.Equal(1, plan.ProjectsActivated);
+        Assert.Contains(projects.Edits, e => e is { Table: TsTable.Project, Column: "state", Value: Active });
+        Assert.Equal(1, projects.Activated);
     }
 
     [Fact]
     public void MixedProject_StaysActive_OnlyTheInvisibleTargetFlips()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, projects) = Plan(
             [Project(1, Active)],
             [Target(10, 1, CircumpolarDec, active: 1), Target(11, 1, NeverRisesDec, active: 1)]);
 
-        VisibleTonightEdit edit = Assert.Single(plan.Edits);   // no project edit — one target stays enabled
+        VisibleTonightEdit edit = Assert.Single(targets.Edits);
         Assert.Equal(TsTable.Target, edit.Table);
-        Assert.Equal(0, plan.ProjectsDeactivated);
+        Assert.Empty(projects.Edits);   // one target stays enabled — no project flip
+        Assert.Equal(0, projects.Deactivated);
     }
 
     [Fact]
     public void ProjectWithNoTargets_GoesInactive()
     {
-        VisibleTonightPlan plan = Plan([Project(1, Active)], []);
+        var (targets, projects) = Plan([Project(1, Active)], []);
 
-        VisibleTonightEdit edit = Assert.Single(plan.Edits);
+        Assert.Empty(targets.Edits);
+        VisibleTonightEdit edit = Assert.Single(projects.Edits);
+        Assert.Equal((TsTable.Project, "state", Inactive), (edit.Table, edit.Column, edit.Value));
+    }
+
+    // ---- applied-state derivation (a failed flip contributes the target's OLD value) ---------------
+
+    [Fact]
+    public void FailedEnable_SoleVisibleTarget_DoesNotActivateTheProject()
+    {
+        // Stage 1 wants the target enabled; nothing landed — the derivation sees it still disabled,
+        // so the Inactive project must NOT flip Active over a premise that never applied.
+        TsPlanData data = Data([Project(1, Inactive)], [Target(10, 1, CircumpolarDec, active: 0)]);
+        VisibleTonightTargetPlan targets = PlanTargets(data);
+
+        Assert.Single(targets.Edits);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(data, appliedTargetEdits: []);
+
+        Assert.Empty(projects.Edits);
+        Assert.Equal(0, projects.Activated);
+    }
+
+    [Fact]
+    public void FailedDisable_TargetEffectivelyStillEnabled_ProjectStaysActive()
+    {
+        // Stage 1 wants the sole target disabled; the write failed — the target is effectively still
+        // enabled, so the Active project keeps its state.
+        TsPlanData data = Data([Project(1, Active)], [Target(10, 1, NeverRisesDec, active: 1)]);
+        VisibleTonightTargetPlan targets = PlanTargets(data);
+
+        Assert.Single(targets.Edits);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(data, appliedTargetEdits: []);
+
+        Assert.Empty(projects.Edits);
+    }
+
+    [Fact]
+    public void PartialLanding_OneSurvivingEnable_KeepsTheProjectActive()
+    {
+        // Both targets get disable edits; only the first landed. The second is effectively still
+        // enabled, so no project flip.
+        TsPlanData data = Data(
+            [Project(1, Active)],
+            [Target(10, 1, NeverRisesDec, active: 1), Target(11, 1, NeverRisesDec, active: 1)]);
+        VisibleTonightTargetPlan targets = PlanTargets(data);
+
+        Assert.Equal(2, targets.Edits.Count);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(data, [targets.Edits[0]]);
+
+        Assert.Empty(projects.Edits);
+    }
+
+    [Fact]
+    public void ZeroTargetEdits_CanStillFlipAProject()
+    {
+        // Every target is already settled (disabled, not visible) — stage 2 still runs and reconciles
+        // the Active project against the snapshot.
+        TsPlanData data = Data([Project(1, Active)], [Target(10, 1, NeverRisesDec, active: 0)]);
+        VisibleTonightTargetPlan targets = PlanTargets(data);
+
+        Assert.Empty(targets.Edits);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(data, appliedTargetEdits: []);
+
+        VisibleTonightEdit edit = Assert.Single(projects.Edits);
         Assert.Equal((TsTable.Project, "state", Inactive), (edit.Table, edit.Column, edit.Value));
     }
 
@@ -146,12 +214,13 @@ public class VisibleTonightPassTests
     [Fact]
     public void DraftAndClosedProjects_AndTheirTargets_AreUntouched()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, projects) = Plan(
             [Project(1, Draft), Project(2, Closed)],
             [Target(10, 1, NeverRisesDec, active: 1), Target(20, 2, NeverRisesDec, active: 1)]);
 
-        Assert.Empty(plan.Edits);
-        Assert.Equal(0, plan.TargetsDisabled + plan.TargetsEnabled + plan.TargetsUnchanged);
+        Assert.Empty(targets.Edits);
+        Assert.Empty(projects.Edits);
+        Assert.Equal(0, targets.Disabled + targets.Enabled + targets.Unchanged);
     }
 
     [Fact]
@@ -167,12 +236,12 @@ public class VisibleTonightPassTests
     [Fact]
     public void EditKeys_PreferTheTsGuid_FallBackToId()
     {
-        VisibleTonightPlan plan = Plan(
+        var (targets, projects) = Plan(
             [Project(1, Active, tsGuid: null)],
             [Target(10, 1, NeverRisesDec, active: 1, tsGuid: "guid-10")]);
 
-        Assert.Equal("guid-10", plan.Edits[0].Key);   // target row has a guid
-        Assert.Equal("1", plan.Edits[1].Key);         // project row falls back to its Id
+        Assert.Equal("guid-10", targets.Edits[0].Key);   // target row has a guid
+        Assert.Equal("1", projects.Edits[0].Key);        // project row falls back to its Id
     }
 
     [Fact]
@@ -182,22 +251,30 @@ public class VisibleTonightPassTests
         // never over a 30° floor.
         TsTarget lowArc = Target(10, 1, dec: -25.0, active: 0);
 
-        VisibleTonightPlan overZero = VisibleTonightPass.Plan(
+        VisibleTonightTargetPlan overZero = VisibleTonightPass.PlanTargets(
             Data([Project(1, Active)], [lowArc]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
-        VisibleTonightPlan overThirty = VisibleTonightPass.Plan(
+        VisibleTonightTargetPlan overThirty = VisibleTonightPass.PlanTargets(
             Data([Project(1, Active)], [lowArc]), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 30);
 
-        Assert.Equal(1, overZero.TargetsEnabled);
-        Assert.Equal(0, overThirty.TargetsEnabled);
-        Assert.Equal(1, overThirty.TargetsUnchanged);   // active stays 0 — no edit under the 30° floor
+        Assert.Equal(1, overZero.Enabled);
+        Assert.Equal(0, overThirty.Enabled);
+        Assert.Equal(1, overThirty.Unchanged);   // active stays 0 — no edit under the 30° floor
     }
 
     // ---- builders ----------------------------------------------------------------------------------
 
     // Scenario tests pin the horizon parameter at 0° (the geometric-horizon scenarios of the spec);
     // HorizonAltitudeFloor_GatesLowTargets exercises the knob itself.
-    private static VisibleTonightPlan Plan(IReadOnlyList<TsProject> projects, IReadOnlyList<TsTarget> targets) =>
-        VisibleTonightPass.Plan(Data(projects, targets), Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
+    private static (VisibleTonightTargetPlan, VisibleTonightProjectPlan) Plan(
+        IReadOnlyList<TsProject> projects, IReadOnlyList<TsTarget> targets)
+    {
+        TsPlanData data = Data(projects, targets);
+        VisibleTonightTargetPlan targetPlan = PlanTargets(data);
+        return (targetPlan, VisibleTonightPass.PlanProjects(data, targetPlan.Edits));   // all landed
+    }
+
+    private static VisibleTonightTargetPlan PlanTargets(TsPlanData data) =>
+        VisibleTonightPass.PlanTargets(data, Site, UtcNow, ThirtyMinutes, horizonAltitudeDeg: 0);
 
     private static TsPlanData Data(IReadOnlyList<TsProject> projects, IReadOnlyList<TsTarget> targets) =>
         new(projects, targets, [], []);

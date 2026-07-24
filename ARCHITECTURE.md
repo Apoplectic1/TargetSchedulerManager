@@ -119,8 +119,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   Cancel-pull/search/filters/Ambiguities stay live). The reverse direction is closed too: an in-flight funnel
   call (edit *or* read — both hold a db connection) blocks `TryBeginBusy` until its worker completes, so no
   edit can overlap a load's write-back, a pull's atomic swap, or a push replay. The visible-tonight pass applies
-  its flips as **one worker batch on one editor session** (`TsEditGate.ApplyManyAsync`; `ApplyAsync` is its
-  one-element case), so the pass has no UI-thread seams at all.
+  its flips as **two sequenced worker batches** (`TsEditGate.ApplyManyAsync`; `ApplyAsync` is its one-element
+  case) — targets, then the project flips derived from the target flips that **landed** — under one unbroken
+  busy scope, so the UI-thread seam between the batches admits no bulk op and no row edit (2026-07-24,
+  `visible-tonight-applied-states`).
 - **TS interop:** reads via `TargetSchedulerReader` (opened `Mode=ReadOnly` + busy-timeout, explicit column
   lists, schema-version aware); edits via the in-grid editing path (reference-driven `TsEditableSchema`) onto
   the local copy; write-back runs automatically each load (see below). All TS interop (read *and* write) is a
@@ -316,14 +318,19 @@ confirm dialog (user decision: "this is why it's a button"), push stays optional
   `NightCalculator.ComputeNight`'s bracket: the window whose dawn is the next dawn at-or-after now (the
   current night mid-night, the upcoming night in daylight).
 - **Flip rules:** `target.active ← verdict` for every target of an `Active`/`Inactive` project; then
-  `project.state ← any-enabled-child ? Active : Inactive` over the **post-pass** values (a project with no
-  enabled targets — including one with no targets — goes Inactive). `Draft`/`Closed` projects and their
-  targets are never read or written. Panels are ordinary target rows. No-op values journal nothing.
+  `project.state ← any-enabled-child ? Active : Inactive` over the **applied** values — recomputed after the
+  target batch lands, so a refused/failed target flip contributes the target's *old* value and can never
+  orphan a project flip whose premise didn't land (2026-07-24, `visible-tonight-applied-states`; a project
+  with no effectively enabled targets — including one with no targets — goes Inactive). `Draft`/`Closed`
+  projects and their targets are never read or written. Panels are ordinary target rows. No-op values
+  journal nothing.
 - **Data + writes:** consumes the load's retained `TsPlanData` snapshot (`LoadResult.Ts` — the single TS
-  read; no re-open), plans as pure records (`Services/VisibleTonightPass`, unit-tested without SQLite),
-  applies each flip through `TsEditGate.ApplyAsync` — so every flip journals, marks, badges, and replays
-  at Push exactly like a hand edit — then reloads (no pull) and reports counts on the status line.
-  Fail-fast: a processed TS target without RA/Dec aborts the whole pass **before any edit**.
+  read; no re-open), plans as pure records (`Services/VisibleTonightPass` — `PlanTargets` then
+  `PlanProjects` over the landed target edits, unit-tested without SQLite), applies through
+  `TsEditGate.ApplyManyAsync` in two sequenced batches — so every flip journals, marks, badges, and replays
+  at Push exactly like a hand edit — then reloads (no pull) **only when a flip actually landed** and reports
+  counts on the status line (project counts are actual, post-apply). Fail-fast: a processed TS target
+  without RA/Dec aborts the whole pass **before any edit**.
 - **Site input:** `DevDefaults` constants (Penns Park lat/long/TZ/elevation, mirroring TP's preset)
   materialized by `DevDefaults.Site()` — the app's first `Astronomy.Core` dependency (pure-managed; build
   model unchanged). The Duration/Horizon knobs live only on the toolbar — no `DevDefaults` constants.

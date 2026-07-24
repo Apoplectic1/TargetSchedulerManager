@@ -81,7 +81,8 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
 - **Busy exclusion** — bulk operations (load, pull, push, visible-tonight) are mutually exclusive via
   `TryBeginBusy()`/`EndBusy()` (the only writers of `IsLoading`); row edits are refused in the VM funnel while
   one runs and their surfaces disable off `CanEdit`; an in-flight edit blocks a bulk op from starting. The
-  visible-tonight pass batches through `TsEditGate.ApplyManyAsync` (one editor session, no UI-thread seams).
+  visible-tonight pass batches through `TsEditGate.ApplyManyAsync` — targets, then project flips derived
+  from the target flips that **landed** — under one unbroken busy scope (no seam admits an edit).
 
 ## Shared-library discipline
 

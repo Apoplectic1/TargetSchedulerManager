@@ -99,8 +99,10 @@ public sealed partial class MainViewModel
     {
         if (!TryBeginBusy())
             return;
-        VisibleTonightPlan plan;
+        VisibleTonightTargetPlan targetPlan;
+        VisibleTonightProjectPlan projectPlan;
         int failed;
+        bool anythingLanded;   // reload only when a flip actually landed — an all-refused pass changed nothing
         try
         {
             if (_lastLoad is not LoadResult load)
@@ -111,7 +113,7 @@ public sealed partial class MainViewModel
 
             try
             {
-                plan = VisibleTonightPass.Plan(
+                targetPlan = VisibleTonightPass.PlanTargets(
                     load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, horizonAltitudeDeg);
             }
             catch (Exception ex)
@@ -123,26 +125,38 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            // One worker, one editor session for the whole pass — no UI-thread re-entry between flips, so
-            // the busy scope has no seams. Per-flip failures count and log (in the gate); the rest apply.
-            IReadOnlyList<EditOutcome> outcomes = await _gate.ApplyManyAsync(
-                [.. plan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
-            failed = outcomes.Count(o => o is not EditOutcome.Applied);
+            // Two sequenced batches, each one worker on one editor session; the busy scope spans both, so
+            // the UI-thread seam between them admits no bulk op and no row edit. Project flips derive from
+            // the target flips that LANDED (a failed flip contributes the target's old state), so a per-row
+            // failure can't orphan a project.state change. Per-flip failures count and log (in the gate).
+            IReadOnlyList<EditOutcome> targetOutcomes = await _gate.ApplyManyAsync(
+                [.. targetPlan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
+            VisibleTonightEdit[] landed = [.. targetPlan.Edits
+                .Where((_, i) => targetOutcomes[i] is EditOutcome.Applied)];
+
+            // Always derived, even with zero target edits — a project can need a flip over already-settled targets.
+            projectPlan = VisibleTonightPass.PlanProjects(load.Ts, landed);
+            IReadOnlyList<EditOutcome> projectOutcomes = await _gate.ApplyManyAsync(
+                [.. projectPlan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
+
+            failed = targetOutcomes.Count(o => o is not EditOutcome.Applied)
+                + projectOutcomes.Count(o => o is not EditOutcome.Applied);
+            anythingLanded = landed.Length > 0 || projectOutcomes.Any(o => o is EditOutcome.Applied);
         }
         finally
         {
             EndBusy();
         }
 
-        if (plan.Edits.Count > 0)
+        if (anythingLanded)
             await LoadAsync(PullPolicy.Never);   // after EndBusy — the reload takes the gate itself
 
-        StatusText = $"Visible tonight: {plan.TargetsEnabled} enabled · {plan.TargetsDisabled} disabled · "
-            + $"{plan.TargetsUnchanged} unchanged · {plan.ProjectsActivated + plan.ProjectsDeactivated} project(s) flipped"
+        StatusText = $"Visible tonight: {targetPlan.Enabled} enabled · {targetPlan.Disabled} disabled · "
+            + $"{targetPlan.Unchanged} unchanged · {projectPlan.Activated + projectPlan.Deactivated} project(s) flipped"
             + (failed > 0 ? $" · {failed} FAILED — see tsm.log" : "");
-        Log.Info($"VISIBLE-TONIGHT: enabled={plan.TargetsEnabled} disabled={plan.TargetsDisabled}"
-            + $" unchanged={plan.TargetsUnchanged} projOn={plan.ProjectsActivated}"
-            + $" projOff={plan.ProjectsDeactivated} failed={failed}");
+        Log.Info($"VISIBLE-TONIGHT: enabled={targetPlan.Enabled} disabled={targetPlan.Disabled}"
+            + $" unchanged={targetPlan.Unchanged} projOn={projectPlan.Activated}"
+            + $" projOff={projectPlan.Deactivated} failed={failed}");
     }
 
     /// <summary>The loaded graph's templates for the Templates… picker: name-ordered, with used-by counts
