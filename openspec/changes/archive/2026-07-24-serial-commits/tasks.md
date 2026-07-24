@@ -19,5 +19,5 @@
 
 - [x] 3.1 Build + full test run (slnx-only).
 - [x] 3.2 CHANGELOG entry + ROADMAP digest line, same commit.
-- [ ] 3.3 Human sanity pass (user-run — bugfix, no auto-archive): rapid flyout edits (Enter, retype,
+- [x] 3.3 Human sanity pass (user-run — bugfix, no auto-archive): rapid flyout edits (Enter, retype,
       Enter) and rapid inline Desired edits feel unchanged; values land as typed; then archive.
