@@ -26,8 +26,10 @@ START), Ctrl+Enter commit, `CenterOverOwner`, and the three delegates (owner `Ap
 the `_terminationLogged` flag is gone; OK honors `CompleteAsync`'s false return (capture in flight →
 stay open). Net ~−60 lines; zero behavior change intended. Also fixed the stale header claim that
 TP's dialog "shoots only at OK" (TP has had a repeatable Capture button all along). Verified: TSM sln
-builds, App.Tests 235/235; **visual pass pending** (Ctrl+N open/focus, capture ghost check, delayed
-capture over a flyout, one-terminator log audit).
+builds, App.Tests 235/235; visual pass 2026-07-24 (session id=8296: open → OK, END line + ctx +
+screenshot on disk, one terminator, build stamp = this commit). The capture-button paths were
+exercised in TP's pass of the same shared session type (TP session id=d162: instant + delayed
+captures both clean); the TSM-side ghost check remains covered by the 450 ms settle default.
 
 
 **▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
