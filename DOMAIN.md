@@ -47,8 +47,10 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   acquired; a drift shows as an `acc≠acq` badge. (Full rationale: `ARCHITECTURE.md` → *Grid count columns*.)
 - **Source** column shows the row's *plane*: `TS` / `Disk` / `Both`. The `TS` count-header deliberately doubles
   this token (author's call).
-- Widths are fixed per column except **Target** (`*`). The header `Grid` and all three templates must stay in
-  lockstep — changing a column means editing **four grids** and renumbering `Grid.Column`.
+- Widths are fixed per column except **Target** (`*`), and live **once** in the ruler (`GridColumns.cs`), stamped
+  into the header `Grid` and all three row templates via the `ApplyRuler` attached property (2026-07-24, openspec
+  `grid-column-ruler`) — never hand-edited in XAML. Only cell `Grid.Column` placement still spans the four grids,
+  so changing a column means renumbering those indexes per template (see the *add a UI element* checklist).
 
 ## Sorting
 
@@ -127,8 +129,8 @@ goal of zero); measured disk-side absence = `0`.
 - **Cadence-breaking edits write directly - no confirm (user decision 2026-07-07):** plan `enabled` (checkbox
   on 1:1 filter rows + flyout) and project `filterswitchfrequency` (project flyout) commit like any field.
   Safety is structural, not dialog-based — the library clears the invalidated `filtercadenceitem` rows in the
-  same transaction as the write (mechanism + the slot-0-restart / rotation-angle-untouched detail:
-  `ARCHITECTURE.md` → *TS write-back* and the `TsEditGate` paragraph). **Scope caveat:** a hand-authored
+  same transaction as the write (mechanism: `ARCHITECTURE.md` → *TS write-back* + the `TsEditGate` paragraph; the
+  cadence-clear scope contract is specced in `openspec/specs/per-filter-enabled-editing`). **Scope caveat:** a hand-authored
   override exposure order blocks only a **target-scope** clear (plan `enabled`); a **project-scope**
   `filterswitchfrequency` edit clears cadence for every target under the project and does **not** check for an
   override order (mirroring TS's own `filterswitchfrequency` behavior). Nothing reaches BIRDWATCHER until the

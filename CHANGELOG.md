@@ -1,8 +1,8 @@
 # TargetSchedulerManager (TSM) — Changelog
 
 **Charter:** the shipped-history journal — every completed unit of work (`▶ SHIPPED` / `▶ DECIDED` / dated
-built-narrative), **newest first**, append-only. Read it for *what shipped and when*. `ROADMAP.md` keeps only a
-short recent digest + a pointer here; git remains the commit-level backstop. New entries go **at the top**.
+built-narrative), **newest first**, append-only. Read it for *what shipped and when*. `ROADMAP.md` keeps only the
+forward plan + current status and points here; git remains the commit-level backstop. New entries go **at the top**.
 
 > **Reading dated entries:** "Pending / Awaiting / Next" language inside an entry records the state *as of
 > that date*. Every such pass or queue was subsequently completed — each later entry built on verified prior
@@ -11,6 +11,28 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
+
+---
+
+**▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
+resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under
+the corrected model TSM manages TS, period — ISP is its own project, and merging TS's targets into it is a
+future, separate effort. No live deficiency exists (matching is validated, ambiguity report zero), the join's
+semantics already live in the shared `Astronomy.Catalog` (available to any future consumer with that effort's
+real requirements in hand — the "don't design for IS until IS has real needs" guardrail), and the orphaned
+sub-items were never TSM's: disk-dir promotion + the TS→store lift belong to the future LCM/ISP efforts
+(recorded in `docs/2026-07-08-resolver-rejection-isp-lane.md`, decisions 5 + 7); the rig key remains
+extend-when-it-lands. Commit `78ced80`.
+
+---
+
+**▶ DECIDED 2026-07-24 — docs-audit flags #7/18/20/21 RESOLVED; "post-BIRDWATCHER refresh" retired.**
+The phrase (from the 2026-07-10 audit commit `977b259`) never meant a machine event — it meant "fix these
+four stale-forward-pointer flags during the ROADMAP tidy after the user's BIRDWATCHER hand-fix pass." That
+pass completed 2026-07-23 (Swan · Rosette · Dumbell, done by hand), satisfying the deferral; the phrase then
+decayed into looking like a rig rebuild we were waiting on. Resolved by the 2026-07-24 CHANGELOG sweep: a
+charter reading-note (dated "Pending/Awaiting" language records state as-of-date) plus explicit
+**Closed/Superseded** annotations on the six entries whose resolution no later entry recorded. Commit `9e5d84b`.
 
 ---
 

@@ -1,96 +1,34 @@
 # TargetSchedulerManager (TSM) — Roadmap
 
-**Charter:** the forward-looking plan + current status + a short Recently-shipped digest. Read it for
-*what's next / where things stand*. Full shipped history lives in `CHANGELOG.md` (git is the commit-level backstop).
+**Charter:** the forward-looking plan + current status. Read it for *what's next / where things stand*. The
+shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the commit-level backstop).
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-23)
+## Status — pick up here (2026-07-24)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
 over the **local TS working copy** under the pull → edit-local → push-as-replay **sync model** (shipped
 2026-07-06: baseline-skipped pull at open, journaled local edits, reviewed Push to BIRDWATCHER, automatic
-write-back each load — user-verified against the rig same day). Editing shipped so far: target enable checkbox
-+ in-grid `desired` (verified live in NINA pre-sync-model) + the **edit flyout** (hover glyph / right-click on
-target + filter rows → schema-generated form: target `priority`/`rotation`, plan `exposure`; per-field guarded
-commit). Each load reconciles disk targets against TS targets into Both / Planned-only / Actual-only, with
-mosaics resolved per panel; live counts show in the app + `tsm.log` (not pinned here — they move with every
-edit and every imaging night). Match tolerance **0.5°** (validated 2026-06-04).
-**Next:** editing-surface Parts 1–4 all shipped + verified (Part 4 below, 2026-07-07). The **load-split is
-RETIRED** (2026-07-08): the full scan (~2 s, ~97% of load) is acceptable even at 2× the library, so a
-cross-load scan cache would buy the stale-ACTUAL window for time that isn't felt — every load keeps scanning
-fresh ("the grid can never show stale ACTUAL" stays unconditional). The `ScanLibraryAsync`/`ResolveAsync`
-seam stays (it serves the in-load write-back re-resolve). If scan time ever hurts, reach for per-target
-`ScanUnitsAsync` rescans or LCM's persistent catalog — not a session scan cache.
-**~~Next (2026-07-09)~~ DONE 2026-07-23:** the whole queue completed — user's BIRDWATCHER hand-fix pass
-(Swan stray plan deleted · Rosette settled · **Dumbell twin consolidated**; FishHead renamed earlier), clean
-re-run (dups=0, zero held cells, **ambiguity report: 0 action items** — tsm.log 21:07), task 4.2 ticked,
-`ts-ambiguity-report` ARCHIVED (main spec seeded at `openspec/specs/ts-ambiguity-report`), and
-`remove-alias-fold` shipped + verified + ARCHIVED the same day (SHIPPED block below). **Zero open changes.**
-Next lanes: **presentation readiness COMPLETE** (2026-07-24 consultation: P2 window split, P1 column
-ruler, P3 Format home, P4 editor factories, P5 ThemeBrushes — all shipped; DOMAIN checklist current);
-strategic = the ISP transition (lift/regenerate + intent store — not TSM work). **Nothing deferred.**
+write-back each load — user-verified against the rig same day). Editing shipped: target enable checkbox
++ in-grid `desired` + the **edit flyout** (hover glyph / right-click on target + filter rows → schema-generated
+form: target `priority`/`rotation`, plan `exposure`; per-field guarded commit). Each load reconciles disk targets
+against TS targets into Both / Planned-only / Actual-only, with mosaics resolved per panel; live counts show in
+the app + `tsm.log` (not pinned here — they move with every edit and every imaging night). Match tolerance
+**0.5°** (validated 2026-06-04).
 
-**▶ DECIDED 2026-07-24 — docs-audit flags #7/18/20/21 RESOLVED; "post-BIRDWATCHER refresh" retired.**
-The phrase (from the 2026-07-10 audit commit `977b259`) never meant a machine event — it meant "fix these
-four stale-forward-pointer flags during the ROADMAP tidy after the user's BIRDWATCHER hand-fix pass."
-That pass completed 2026-07-23 (Swan · Rosette · Dumbell, done by hand), satisfying the deferral; the
-phrase then decayed into looking like a rig rebuild we were waiting on. Resolved by the 2026-07-24
-CHANGELOG sweep: a charter reading-note (dated "Pending/Awaiting" language records state as-of-date) plus
-explicit **Closed/Superseded** annotations on the six entries whose resolution no later entry recorded.
-
-**▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
-resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under
-the corrected model TSM manages TS, period — ISP is its own project, and merging TS's targets into it is
-a future, separate effort. No live deficiency exists (matching is validated, ambiguity report zero), the
-join's semantics already live in the shared `Astronomy.Catalog` (available to any future consumer with
-that effort's real requirements in hand — the "don't design for IS until IS has real needs" guardrail),
-and the orphaned sub-items were never TSM's: disk-dir promotion + the TS→store lift belong to the future
-LCM/ISP efforts (recorded in `docs/2026-07-08-resolver-rejection-isp-lane.md`, decisions 5 + 7); the rig
-key remains extend-when-it-lands.
-
-## Recently shipped (digest — full history in `CHANGELOG.md`)
-
-- **2026-07-24** — visible-tonight project flips derive from **applied** target states: `PlanTargets` +
-  `PlanProjects` over the landed edits, two sequenced batches under one busy scope, reload only when a
-  flip landed (`visible-tonight-applied-states`; review m5 un-parked — the last parked review item).
-- **2026-07-24** — await-friendly probe: `StatAsync`/`ProbeRemoteAsync` (no parked thread; VM probe
-  state now written on the UI thread) (review N8 — the last async-cleanup item; m5 stayed parked here, shipped later same day — see above).
-- **2026-07-24** — inline-edit owner map: `RecomputeOwners` O(1) via a leaf→(group, panel) map built in
-  `ApplyFilters` (review N6, unparked — the library keeps growing).
-- **2026-07-24** — async-void elimination: all nine remaining bare handlers route through
-  `Shared/UiTask.FireAndLog` — the only `async void` left IS the guard (N3 completed; plain commit).
-- **2026-07-24** — ambiguity-report section builders: `Build` → five per-section builders, bodies
-  verbatim (review N9 — the final review item; plain commit, sections already specced).
-- **2026-07-24** — sentinel cell: `BuildSentinelNumber`'s closure-captured handler state → nested
-  `SentinelCell` with named rule methods; interaction contract specced (`sentinel-cell`; M7's last half).
-- **2026-07-24** — view-model partial split: `MainViewModel` → core / `.Sync` / `.Edits` / `.Reports`
-  partials, members verbatim (review M4; plain commit — no requirement delta to spec).
-- **2026-07-24** — review polish: journal durability doc honesty (M2), badge count cached off the UI
-  thread (N2), clamp/router/format dedups + `FireAndLog` + naming (`review-polish`; remaining N-items).
-- **2026-07-24** — serial commits: `CommitChain` serializes flyout + inline-Desired commits in
-  confirmation order — kills the double-commit spurious-revert race (`serial-commits`; review cross-check).
-- **2026-07-24** — row parameter objects: `ReconciliationRow` 29 ctor params → `RowIdentity` +
-  `RowNumbers` records, identity built once per emit (`row-param-objects`; review M3).
-- **2026-07-24** — push decomposition: `TsSync.Push` → orchestrator + named legs (`PushReplayState`,
-  probe/write-back/field/commit), abort cascade spec-pinned (`push-decomposition`; review M1).
-- **2026-07-24** — push-rule dedup: one `CountEntry` rule for review+replay, one `BaselineMatches` for
-  skip-rule+staleness warning (`push-rule-dedup`; review M6).
-- **2026-07-24** — truthful outcomes: closing-pull fault contained (push reports success honestly), Discard
-  is pull-first (a cancelled discard-pull keeps dirty state intact) (`truthful-outcome`; review cross-check).
-- **2026-07-24** — busy exclusion: load/push/visible-tonight mutually exclusive, row edits refused + surfaces
-  disabled while busy, visible-tonight batches on one editor session (`busy-gate`; review C1+M5 + grid gating).
-- **2026-07-23** — alias fold removed in full: a multi-claim is always a flagged duplicate (`remove-alias-fold`).
-- **2026-07-23** — Visible-Tonight toolbar group: Duration + Horizon up-downs + Find (`enable-visible-tonight`).
-- **2026-07-23** — pull hardening: atomic tmp+swap pull, torn-local heal, % + cancel (`harden-ts-pull`).
-- **2026-07-08** — printable ambiguity report (`ts-ambiguity-report`); resolver rejected → hygiene by hand, ISP lane opened.
-- **2026-07-06** — TS sync model: pull → edit local → push-as-replay; edit-flyout Parts 1–4 (project/template/cadence).
-
-→ everything before this, back to 2026-06-08, lives in **`CHANGELOG.md`** (newest first).
+**Where things stand:** the editing surface (Parts 1–4), the sync model, pull hardening, the Visible-Tonight
+toolbar group, the alias-fold removal, the full 2026-07-24 code-review campaign, and the presentation-readiness
+lane (P1–P5) have all shipped and archived. The load-split is **retired** (2026-07-08 — the ~2 s fresh scan is
+acceptable even at 2× the library, so a cross-load scan cache would buy the stale-ACTUAL window for time that
+isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes,
+nothing parked, nothing deferred.** The next lane is strategic — the **ISP transition** (intent store +
+lift/regenerate), which is *not* TSM work. Shipped history and the 2026-07-24 decision records (docs-audit
+flags resolved; disk-matcher lane cancelled) live in **`CHANGELOG.md`**.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
@@ -119,13 +57,13 @@ key remains extend-when-it-lands.
   reconciliation report and goal-vs-actual summary (CLI removed 2026-06-11 — app-only since; see Status).
 - Catalog + NINA library suites pass (145 Catalog / 33 NINA tests as of 2026-07-23).
 
-## Phase 3 — TCM app: TS Editor (WinUI 3)  ◀ IN PROGRESS (planned 2026-06-10; M1 ✅ · M2 ✅ editing surface shipped, load-split retired 2026-07-08 · M3 pending — see Status above)
+## Phase 3 — TSM app: TS Editor (WinUI 3)  ✅ DONE (M1 view ✅ 2026-06-10 · M2 edit ✅ 2026-07-06 · M3 resolve retired 2026-07-08; remaining work is the out-of-phase ISP transition)
 
-**Purpose.** TS remains the daily scheduler until IS exists; TCM is the bridge: view + edit TS's database with
+**Purpose.** TS remains the daily scheduler until IS exists; TSM is the bridge: view + edit TS's database with
 disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data
 layer* is the disposable stop-gap; the **UI shell is permanent** — it retargets `Catalog.db` plans when IS
-arrives. Supersedes the old "migrate XFM's scheduler tab" framing: the grid replaces that tab (XFM's is deleted
-at Phase 5 cutover).
+arrives. Supersedes the old "migrate XFM's scheduler tab" framing: the grid replaces that role — XFM removed its
+own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left to cut over.
 
 - **DB touched:** the **local TS working copy only** — since 2026-07-06 synced by the pull/push model
   (`TsSync`; see the Status digest): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
@@ -187,8 +125,10 @@ ignored-missing, the `Sh2-142` fix, the `Mosaic - Cygnus Loop` surgical run) is 
 
 ## Phase 5 — Consumer cutover
 
-- Point XFM / TP / IS at `Astronomy.Catalog` to read `Catalog.db`; remove XFM's scheduler tab.
+- Point the future `Catalog.db` consumers — **ISP / TP** — at `Astronomy.Catalog` to read it. **XFM is ruled
+  out** (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or `Catalog.db`, and it already
+  removed its own scheduler surface, so there is no XFM tab to cut over).
 - Add TSM to TP's glossary; reconcile the IS design docs (Catalog.db is the hub; IS is a consumer).
 
 > **Plan supersession:** this replaces the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and
-> IS becomes a consumer.
+> IS becomes a consumer. XFM's consumer role was dropped 2026-07-07 when it went TS-free.

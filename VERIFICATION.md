@@ -6,7 +6,8 @@ by running + screenshotting the app** (the author's call), not by the build.
 
 ## Build & run
 ```bash
-# Build (slnx pulls in Astronomy.Catalog + Astronomy.XISF from ..\Library)
+# Build (slnx pulls in Astronomy.Catalog + Astronomy.Diagnostics + Astronomy.Core from ..\Library,
+# plus Astronomy.XISF transitively via .Catalog)
 dotnet build TargetSchedulerManager.slnx -v:m -nologo
 
 # Run the WinUI app: TS plan vs disk grid (fresh in-memory scan on load, no Catalog.db needed)
@@ -22,7 +23,8 @@ PCL projects aren't in TSM's solution). Path defaults live in
 copy** (`Processing\Catalog\TS Database\schedulerdb.sqlite`) only; `TsSync` pulls it fresh from
 BIRDWATCHER at open (skipped when the persisted baseline says it's unchanged — so rapid test
 relaunches skip the copy) and pushes journaled edits back through the reviewed **Push** button.
-Toolbar: sync badge ("synced HH:mm · N unpushed") · Push… · Pull now; Reload never pulls.
+Toolbar: sync badge ("synced HH:mm · N unpushed") · Push… · Pull now · Templates… · Ambiguities… ·
+**Visible Tonight:** (Duration + Horizon up-downs + Find); Reload never pulls. Full toolbar map: `DOMAIN.md` → Chrome.
 
 ### Sync flows worth exercising after a sync-layer change
 1. **Fresh pull:** delete `schedulerdb.sqlite.tsm-sync.json` beside the local db → open → status says
