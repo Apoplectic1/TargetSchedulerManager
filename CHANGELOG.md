@@ -9,6 +9,16 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — push-rule dedup (`openspec/changes/push-rule-dedup`; review M6).** The push path's
+two twice-spelled rules became one definition each: `PreparePush` now selects its count entry through the
+replay's `CountEntry` (deriving "desired-only ⇒ no count pair" from the returned column — the review can
+never show a count change the replay won't perform), and a single `BaselineMatches(probe)` serves both the
+pull skip rule (straight — no baseline ⇒ pull) and the push review's staleness warning (negated behind its
+own has-a-baseline guard — no baseline ⇒ no "changed since" claim; the review doc's own fix snippet dropped
+that guard and would have introduced a false warning). Behavior-preserving; spec delta records the
+review-replay-agreement invariant on `ts-sync-model`. 220 App.Tests (2 new: mixed acquired+desired group
+keeps its count pair; no-baseline makes no staleness claim while ShouldPull still pulls).
+
 **▶ SHIPPED 2026-07-24 — truthful outcomes (`openspec/changes/truthful-outcome`; the review cross-check's
 two misreports).** (1) **Closing-pull containment:** `TsSync.Push` rewrote the journal *before* the closing
 pull but only caught cancellation there — a `SqliteException`/`IOException` in the pull escaped into

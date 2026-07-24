@@ -143,10 +143,16 @@ internal sealed class TsSync
     /// touching the main file's mtime, so sidecar-present means "ambiguous → pull"). Unbaselined always pulls.
     /// </summary>
     public bool ShouldPull(TsDbStat probe) =>
-        probe.HasSidecar
-        || _state.Baseline is not { } b
-        || b.RemoteLength != probe.Length
-        || b.RemoteLastWriteUtc != probe.LastWriteUtc;
+        probe.HasSidecar || !BaselineMatches(probe);
+
+    // The one definition of "the baseline still matches this probe": the skip rule reads it straight
+    // (no baseline ⇒ no match ⇒ pull), the push review's staleness warning negates it BEHIND its own
+    // has-a-baseline guard (no baseline ⇒ nothing to have changed *since* ⇒ silent). One comparison,
+    // two consumers with opposite null postures — keep the guard at the consumer, never in here.
+    private bool BaselineMatches(TsDbStat probe) =>
+        _state.Baseline is { } b
+        && b.RemoteLength == probe.Length
+        && b.RemoteLastWriteUtc == probe.LastWriteUtc;
 
     /// <summary>Pulls only when <see cref="ShouldPull"/> says the local copy may be stale; true when it pulled.</summary>
     public bool PullIfChanged(TsDbStat probe, IProgress<int>? progress = null, CancellationToken cancel = default)
@@ -361,17 +367,19 @@ internal sealed class TsSync
             .Where(e => e.Kind == TsEditKind.WriteBack)
             .GroupBy(e => e.Key, StringComparer.OrdinalIgnoreCase))
         {
-            // The count pair only when a count column was journaled — a desired-only raise (counts already
-            // matched disk) must not display as a phantom acquired change.
+            // One selection rule with the replay (CountEntry): the entry it returns IS the count —
+            // unless it fell through to the desired-only case, where no count pair displays (a
+            // desired-only raise means the counts already matched disk; showing one would be a phantom
+            // acquired change).
+            TsJournalEntry entry = CountEntry(plan);
             TsJournalEntry? count =
-                plan.FirstOrDefault(e => string.Equals(e.Column, "acquired", StringComparison.OrdinalIgnoreCase))
-                ?? plan.FirstOrDefault(e => string.Equals(e.Column, "accepted", StringComparison.OrdinalIgnoreCase));
+                entry.Column.Equals("desired", StringComparison.OrdinalIgnoreCase) ? null : entry;
             TsJournalEntry? desired = plan.FirstOrDefault(e =>
                 string.Equals(e.Column, "desired", StringComparison.OrdinalIgnoreCase));
             long? newCount = count is null ? null : Convert.ToInt64(count.Value, CultureInfo.InvariantCulture);
             bool isDecrease = newCount is { } n && long.TryParse(count!.Old, out long oldCount) && n < oldCount;
             writeBack.Add(new PushReviewCountLine(
-                (count ?? desired ?? plan.First()).Label, count?.Old, newCount,
+                entry.Label, count?.Old, newCount,
                 desired?.Old, desired is null ? null : Convert.ToInt64(desired.Value, CultureInfo.InvariantCulture),
                 isDecrease));
         }
@@ -381,8 +389,7 @@ internal sealed class TsSync
 
         return new PushReview(
             writeBack, manual,
-            RemoteChangedSinceBaseline: probe is not null && _state.Baseline is { } b
-                && (b.RemoteLength != probe.Length || b.RemoteLastWriteUtc != probe.LastWriteUtc),
+            RemoteChangedSinceBaseline: probe is not null && _state.Baseline is not null && !BaselineMatches(probe),
             RemoteBusy: probe?.HasSidecar == true,
             OldestEditAt: Journal.IsEmpty ? null : Journal.Entries.Min(e => e.At),
             CollapsedCount: collapsed.Count);
@@ -568,6 +575,8 @@ internal sealed class TsSync
 
     // A write-back plan group's count entry: acquired when journaled, else accepted, else desired (a
     // desired-only raise still carries the disk count — the ratchet only ever raises TO the count).
+    // ONE rule, two consumers: the replay executes it and PreparePush's review displays it (deriving
+    // "desired-only" from the returned column) — the review can never show what the replay won't do.
     private static TsJournalEntry CountEntry(IGrouping<string, TsJournalEntry> plan) =>
         plan.FirstOrDefault(e => string.Equals(e.Column, "acquired", StringComparison.OrdinalIgnoreCase))
         ?? plan.FirstOrDefault(e => string.Equals(e.Column, "accepted", StringComparison.OrdinalIgnoreCase))

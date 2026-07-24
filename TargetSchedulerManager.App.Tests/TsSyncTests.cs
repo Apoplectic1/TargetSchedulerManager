@@ -388,4 +388,35 @@ public class TsSyncTests
         Assert.Equal("34", line.OldDesired);
         Assert.Equal(42L, line.NewDesired);
     }
+
+    [Fact]
+    public void PreparePush_AcquiredPlusDesiredGroup_KeepsTheCountPair()
+    {
+        // The shared selection rule (CountEntry, openspec push-rule-dedup): acquired wins the count slot
+        // and the desired half still rides the same line.
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        sync.RecordWriteBack("500", "acquired", 42, "40", "M 81 · Ha @300s");
+        sync.RecordWriteBack("500", "desired", 42, "34", "M 81 · Ha @300s");
+
+        PushReviewCountLine line = Assert.Single(sync.PreparePush(null).WriteBack);
+        Assert.Equal(42L, line.NewCount);
+        Assert.Equal("40", line.OldCount);
+        Assert.Equal(42L, line.NewDesired);
+        Assert.Equal("34", line.OldDesired);
+    }
+
+    [Fact]
+    public void PreparePush_NoBaseline_MakesNoStalenessClaim()
+    {
+        // Same comparison, opposite null posture (openspec push-rule-dedup): the skip rule treats "no
+        // baseline" as must-pull, but the review must not claim "changed since the baseline" when there
+        // is no baseline to have changed since.
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");       // remote exists, never pulled
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+
+        TsDbStat probe = sync.ProbeRemote()!;
+        Assert.True(sync.ShouldPull(probe));                    // unbaselined always pulls…
+        Assert.False(sync.PreparePush(probe).RemoteChangedSinceBaseline);   // …but nothing "changed since"
+    }
 }
