@@ -26,7 +26,7 @@ public sealed class PanelGroupRow : AggregateHeaderRow
     /// <summary>"Panel 01of16 · CygnusLoop P1" — one name when the panel is one-sided.</summary>
     public string Label { get; }
 
-    /// <summary>This panel's canonical target id — the detail panel's key into the retained graph.</summary>
+    /// <summary>This panel's canonical target id — the edit flyout / sync-marks key into the retained graph.</summary>
     public Guid TargetId => Children[0].TargetId;
 
     /// <summary>Write-back key for this panel's TS target — a panel IS a normal TS target, so it gets the

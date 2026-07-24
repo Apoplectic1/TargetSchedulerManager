@@ -44,7 +44,8 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
 - **`TargetSchedulerManager`** (this app) — `TargetSchedulerManager.App` (assembly `tsmui`), a grid-first
   reconciliation editor over the **local TS working copy** (synced with BIRDWATCHER by pull/push — see the
   sync-model section below): plan vs disk-ACTUAL per (target, filter, purpose, exposure seconds), tiered
-  editing (counts/toggles → identity → project knobs → structural). Each load runs scan → resolve → project
+  editing (counts/toggles → identity → project knobs; structural fixes are hand-edits in NINA's TS UI, not
+  TSM verbs — resolver rejected 2026-07-08). Each load runs scan → resolve → project
   **in memory** (`ReconciliationLoader`); no `Catalog.db` is needed or written. Its TS data layer is a
   deletable stop-gap; the **UI shell is permanent** and retargets `Catalog.db` when IS arrives.
   Guarded TS writes go through two App-side modules: **`TsSync`** (`Shared/`) owns the sync model — the two
@@ -93,9 +94,14 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   centroid, own TS provenance, own plans + inventory). Bulk write-back therefore treats panels as ordinary
   targets (the old mosaic→manual routing is gone); `GetShotTargets()` returns top-level rows only (panels
   via `GetChildTargets`); reporting rolls panel reconciliations up under the parent's name
-  (`Reconciler.Merge`). Real run: 6 mosaics → 28 matched / 10 planned-only / 7 disk-only panels.
+  (`Reconciler.Merge`). A mosaic-parent **project-priority** edit is one `project.priority` write: TS's own
+  scoring cascade has panels at priority Default (−1) inherit the project value, while per-panel priority
+  overrides survive — so the single write reprioritizes the mosaic without disturbing intentional per-panel
+  differences. Each panel reconciles independently (matched / planned-only / disk-only) and rolls up under the parent; live
+  counts are a run-time measurement (app + `tsm.log`), not pinned here.
 - **Schema rules:** GUID `BLOB(16)` PKs (big-endian, see `GuidBlob`), `snake_case`, NULL not sentinels, enum
-  lookup tables + CHECK, every FK indexed, UNIX-seconds timestamps. **No `schema_migration` / `user_version`** —
+  lookup tables + CHECK, substantive FKs indexed (small enum/lookup FKs may ride a composite index or go
+  unindexed), UNIX-seconds timestamps. **No `schema_migration` / `user_version`** —
   a schema change just means deleting the regenerable `Catalog.db`.
 - **Harden rule:** never pass a raw TS integer into a CHECK/FK column — `TargetResolver` coerces unknown
   epoch/state/priority codes to a safe default and normalizes/clamps planned RA/Dec, so one bad external TS row
@@ -206,8 +212,8 @@ per-field `old → new` lines on leaves, direction counts on headers. Spec:
   wiping the overnight info.
 - **One in-place sweep** (`MainViewModel.RefreshAllMarks`): rebuilds the resolver from journal + inbound +
   graph and re-applies every mark via PropertyChanged (raise-on-change only, never a collection rebuild — the
-  scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, a push without a reload,
-  and Discard. Known gap (accepted): exposure-template edits mark no row — templates have no grid row; the
+  scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, and a push without a reload
+  (Discard refreshes marks via its own full reload, not a direct sweep). Known gap (accepted): exposure-template edits mark no row — templates have no grid row; the
   badge and push review still carry them.
 
 ## TS write-back (engine built 2026-06-08; app action shipped 2026-07-06)
@@ -254,11 +260,14 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
   never forced**; reuses the same writer (acq/acc + `desired` ratchet + verify) and guards. **Deliberate
   asymmetry:** the surgical path never zeroes plans with no matching cell (a per-cell push tool must not let a
   partial scan silently zero the target's other plans); the bulk path does. Surface: `SingleTargetPlanner`
-  (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan).
-- **Audited.** Every write-back run (bulk or surgical, dry-run or apply) appends its full decision trail —
-  writes with old→new and flags, manual groups, unplanned buckets, verify results — to the diagnostics log
-  (the standing M2 rule: the writer logs every TS write; today that is `tsm.log` under
-  `%APPDATA%\TargetSchedulerManager\Logs\`).
+  (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan). **Not app-wired yet** — the surgical path is a
+  tested library capability (it backed the retired `tcm writeback --target`), but no TSM UI invokes it today; the
+  app runs only the bulk automatic pass.
+- **Audited.** The automatic write-back pass logs its outcome to the diagnostics log (`tsm.log` under
+  `%APPDATA%\TargetSchedulerManager\Logs\`): one summary line (plans stamped, fields journaled, manual, ignored),
+  a warning when cells need manual reconciliation, and a line per verify failure — no per-write `old→new` trail
+  and no dry-run mode (both went with the retired CLI's `WriteBackAuditLog`). The reviewed **Push** dialog is
+  where every stamp is shown `old→new` (decreases first) before it reaches BIRDWATCHER.
 - **Held decisions surface as the ambiguity report** (`Services/AmbiguityReport`, 2026-07-08): a pure builder
   over the retained graph/report + a fresh in-memory `WriteBackPlanner.Plan` rolls every held cell, identity
   flag, and TS-internal check (same-key plans across all TS-sourced targets, planned-only twins, duplicate

@@ -29,12 +29,15 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
 - An **Exposure Template** defines *how* to shoot a filter (filter, default exposure, gain, offset, bin, readout
   mode, twilight level, moon avoidance family, humidity cap, dither cadence, minutes offset). Profile-scoped.
 - An **Exposure Plan** is a target's *commitment* to a template: **counts live here** (`desired` = intent,
-  `acquired`/`accepted` = TS's tallies — the columns write-back stamps), plus `enabled` and the exposure override.
+  `acquired`/`accepted` = TS's tallies). Write-back stamps all three — `acquired`/`accepted` ← disk count and
+  `desired` ratcheted **up** to ≥ that (never lowered) — plus `enabled` and the exposure override.
 - **Two-name identity system:** integer `Id` (autoincrement, **per-copy** — the FK glue; diverges between local
   copy and BIRDWATCHER for inserted rows) vs `guid` (minted at row creation, travels with the row — the
   **cross-copy stable name**; what TSM keys targets by and must carry through any insert replay).
 - **Units:** `target.ra` is **hours** (0–24); `target.dec` degrees. `exposureplan.exposure` / `defaultexposure`
-  seconds; `exposure = -1` is the **use-template-default sentinel** (rendered by TSM's sentinel checkbox).
+  seconds; `exposure = -1` is the **use-template-default sentinel** (rendered by TSM's sentinel checkbox). The
+  template columns `gain` / `offset` / `readoutmode` carry the same `-1` convention meaning **use-camera-default**
+  (also rendered as a sentinel checkbox; `-1` is exempt from the field's Min bound on write).
 - No uniqueness constraints beyond PKs: duplicate template names, duplicate targets (any level), and same-key
   plans are all **legal to TS** — see `DOMAIN.md` "TS authoring conventions" for why we forbid them by convention.
 
@@ -55,18 +58,19 @@ TSM: the coordinate anchor for disk matching (ra hours / dec degrees, 0.5° tole
 harden-rule coerced if unknown; `guid` is the write-back/edit address retained as `imported_from_ts_guid`.
 
 ### exposureplan — 658 rows · FK: `targetid → target.Id`, `exposureTemplateId → exposuretemplate.Id`
-`Id` PK · `profileId` · `exposure` ✎ (−1 sentinel) · `desired` ✎ · `acquired` ⚙ · `accepted` ⚙ ·
+`Id` PK · `profileId` · `exposure` ✎ (−1 sentinel) · `desired` ✎⚙ · `acquired` ⚙ · `accepted` ⚙ ·
 `targetid` · `exposureTemplateId` · `enabled` ✎ · `guid`
 TSM: the write-back target — `acquired`/`accepted` ← disk count, `desired` ratchets up to ≥ count (never
 lowered); effective seconds = `exposure < 0 ? template.defaultexposure : exposure`, rounded to whole seconds
 (the cell-identity bucket).
 
 ### exposuretemplate — 20 rows (profile-scoped)
-`Id` PK · `profileId` · `name` · `filtername` · `gain` · `offset` · `bin` · `readoutmode` · `twilightlevel` ·
-`moonavoidanceenabled` · `moonavoidanceseparation` · `moonavoidancewidth` · `maximumhumidity` ·
-`defaultexposure` · `moonrelaxscale` · `moonrelaxmaxaltitude` · `moonrelaxminaltitude` · `moondownenabled` ·
-`ditherevery` · `minutesOffset` · `guid`
-TSM: template manager edits 18 of these fields (see `TsEditableSchema` — the authoritative editable list);
+`Id` PK · `profileId` · `name` ✎ · `filtername` ✎ · `gain` ✎ (−1 sentinel) · `offset` ✎ (−1 sentinel) ·
+`bin` ✎ · `readoutmode` ✎ (−1 sentinel) · `twilightlevel` ✎ · `moonavoidanceenabled` ✎ ·
+`moonavoidanceseparation` ✎ · `moonavoidancewidth` ✎ · `maximumhumidity` ✎ · `defaultexposure` ✎ ·
+`moonrelaxscale` ✎ · `moonrelaxmaxaltitude` ✎ · `moonrelaxminaltitude` ✎ · `moondownenabled` ✎ ·
+`ditherevery` ✎ · `minutesOffset` ✎ · `guid`
+TSM: template manager edits all 18 non-key fields above (see `TsEditableSchema` — the authoritative editable list);
 `"Stars "` name prefix is the Light/Stars purpose convention shared with disk directories.
 
 ### filtercadenceitem — 165 rows (references `targetid`, no declared FK)

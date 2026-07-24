@@ -80,8 +80,9 @@ goal of zero); measured disk-side absence = `0`.
   `ThemeBrushes.cs`).
 - **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
   sub-lengths; Hours carries the caution/success fill by sign.
-- **Badges** (caution-colored, rightmost): `mosaic · duplicate · name≠ · ambiguous · no-coords ·
-  multi-plan · acc≠acq`. Built in `ReconciliationLoader.BuildRows`; they **bubble to the header** (distinct
+- **Badges** (caution-colored, rightmost): `mosaic · duplicate · name≠ · ambiguous · no-coords · no data ·
+  multi-plan · acc≠acq` (`no data` = a target with neither plans nor scanned frames; `no-coords` when it is
+  also unanchored). Built in `ReconciliationLoader.BuildRows`; they **bubble to the header** (distinct
   union, `RowAggregates`). `IsFlagged` (duplicate / name≠ / ambiguous / multi-plan / acc≠acq) drives the
   **flagged-only** filter. (The `alias` badge died with the fold mechanism, 2026-07-23.)
 
@@ -98,8 +99,8 @@ goal of zero); measured disk-side absence = `0`.
   rejected (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.** The edit
   flyout (below) is per-invocation and anchored to the clicked row — a popup answering one gesture, not a
   persistent panel.
-- **Direct in-grid controls** (high-frequency scalars): the **target-enable checkbox** (leftmost, on target
-  headers only — hidden on disk-only + mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows;
+- **Direct in-grid controls** (high-frequency scalars): the **target-enable checkbox** (column 1, immediately
+  right of the sync-mark gutter; on target headers only — hidden on disk-only + mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows;
   read-only on headers, disk rows, and mixed rollups — **each plan is inline-editable in exactly one place**, the
   row showing its own exposure time, so a mixed rollup's box moves down to the plan's detail line (TS or nested
   Both); the rollup keeps its flyout/pencil as the deliberate secondary gesture, 2026-07-23).
@@ -120,15 +121,18 @@ goal of zero); measured disk-side absence = `0`.
 - **Mosaics are a special case (user decision 2026-07-06):** a mosaic *parent* row is a grouping node (no TS
   target), so its flyout edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
   to every TS-backed panel; tri-state display when panels disagree; each write individually guarded + audited)
-  and **project priority** (one `project.priority` write — TS-native cascade: panels at priority Default (−1)
-  inherit it in scoring, per-panel overrides survive). **Panels are normal targets**: standard target
+  and **project priority** (one `project.priority` write; per-panel priority overrides survive — mechanism in
+  `ARCHITECTURE.md` → *Key facts* / Mosaics). **Panels are normal targets**: standard target
   glyph/flyout on the panel mini-header rows.
 - **Cadence-breaking edits write directly - no confirm (user decision 2026-07-07):** plan `enabled` (checkbox
   on 1:1 filter rows + flyout) and project `filterswitchfrequency` (project flyout) commit like any field.
-  Safety is structural, not dialog-based: the library clears `filtercadenceitem` atomically with the write
-  (TS regenerates the shoot-next filter order from the new plan set; slot-0 restart accepted - and the
-  rotation ANGLE is never touched), a hand-authored override exposure order refuses the edit (re-author in
-  the TS editor), and nothing reaches BIRDWATCHER until the reviewed push.
+  Safety is structural, not dialog-based — the library clears the invalidated `filtercadenceitem` rows in the
+  same transaction as the write (mechanism + the slot-0-restart / rotation-angle-untouched detail:
+  `ARCHITECTURE.md` → *TS write-back* and the `TsEditGate` paragraph). **Scope caveat:** a hand-authored
+  override exposure order blocks only a **target-scope** clear (plan `enabled`); a **project-scope**
+  `filterswitchfrequency` edit clears cadence for every target under the project and does **not** check for an
+  override order (mirroring TS's own `filterswitchfrequency` behavior). Nothing reaches BIRDWATCHER until the
+  reviewed push.
 - **Templates are shared config with no rows — so their editor is list-first (user decision 2026-07-06):**
   the toolbar **Templates…** picker lists every template from the loaded graph (name · filter · used-by count,
   zero-use templates included), and plan rows offer "Edit template…" for the template behind that plan. The
@@ -201,8 +205,10 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 
 ## Chrome
 
-- **Toolbar:** Reload (rescan) · progress ring · sync badge · Push… · Pull now · Templates… · Ambiguities… ·
-  summary line. Ambiguities… (enabled once a load exists) writes a dated printable Markdown report of every
+- **Toolbar:** Reload (rescan) · progress ring · Cancel pull (shown only while pulling) · sync badge · Push… ·
+  Pull now · Templates… · Ambiguities… · **Visible Tonight:** (Duration + Horizon up-downs + Find). (The old
+  toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced it.) Ambiguities…
+  (enabled once a load exists) writes a dated printable Markdown report of every
   TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`
   and opens it; the status line carries `· N ambiguities` when the tripwire is non-zero.
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·

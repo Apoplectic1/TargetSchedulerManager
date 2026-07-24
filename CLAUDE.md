@@ -11,12 +11,9 @@ journaled local edits + automatic write-back, one reviewed **Push** replaying on
 the disk image library *read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does
 **not** own or write `Catalog.db`.
 
-> **History (2026-06-11):** This project was **TargetCatalogManager (TCM)** — it *also* used to be a headless
-> console host (`tcm`) that built `Catalog.db`. That CLI was removed — catalog-building moves to a future
-> **LibraryCatalogManager (LCM)** (sibling dir `..\LibraryCatalogManager`, ROADMAP there) — and the project was
-> then **renamed to TargetSchedulerManager** (same day) to match its real role: a TS-database manager. The
-> catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `targetSchedulerDbPath: null`); nothing was
-> lost. Dated docs and git history before the rename say TCM/`tcm`/`tcmui`.
+> **History:** born **TargetCatalogManager (TCM)** with a `tcm` CLI that built `Catalog.db`; the CLI was removed
+> and the project renamed to TSM on 2026-06-11 (catalog-building → future **LCM**, sibling `..\LibraryCatalogManager`).
+> Pre-rename docs/git say TCM/`tcm`/`tcmui`. Full story: `CHANGELOG.md`.
 
 **Almost all logic lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`).
 When a change is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files
@@ -26,12 +23,12 @@ under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` 
 
 Reference docs (current truth — update in the same commit as the code):
 - **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants.
-- **`ROADMAP.md`** — phased plan + current status + a Recently-shipped digest.
+- **`ROADMAP.md`** — phased plan + current status + a short Recently-shipped digest (full history → `CHANGELOG.md`).
 - **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions (incl. the TS authoring conventions).
 - **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.
 - **`VERIFICATION.md`** — how to build, run, test, and verify a change.
 
-Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings).
+Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings) + `CHANGELOG.md` (shipped-history journal, newest first — the deep archive behind ROADMAP's digest).
 
 Scope-excluded (not this project's docs): `.claude/`, `openspec/`, `.superpowers/` (tooling), `bin`/`obj` (generated). `..\Library` is a separate repo with its own docs.
 
@@ -46,30 +43,21 @@ TSM has three cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astr
 `..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract),
 and `..\Library\Astronomy.Core\Astronomy.Core.csproj` (night window + visibility math for the
 Visible-tonight pass, added 2026-07-23) (local disk is source of truth; no NuGet/package hop).
-`Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF header reader for the scanner). All are **pure-managed**
-(Microsoft.Data.Sqlite only), AnyCPU/x64, no native deps — so this project graph builds with plain
-`dotnet build` (the `.vcxproj` MSBuild caveat does *not* apply here; the native PCL projects are not in
-TSM's solution).
+`Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF header reader for the scanner). Build specifics
+(pure-managed, plain `dotnet build`, why the `.vcxproj` MSBuild caveat doesn't apply here) → `VERIFICATION.md`.
 
 ## Build, run, test, verify
 
 See **`VERIFICATION.md`** — build/run commands, the test projects, and the xUnit-v3 build trap. TSM is
 pure-managed (plain `dotnet build`); visual/UX correctness is verified by **running the app**, not the build.
 
-## The source-of-truth model (why the code is shaped this way)
+## Source-of-truth model + load-bearing invariants
 
-The disk image library is **ACTUAL** (ground truth of what was captured). N.I.N.A. Target Scheduler (TS) is the
-**PLAN**. `Catalog.db` reconciles the two onto **one canonical `target`** row carrying both facets, tagged by
-`source_id`: `Actual` (on disk only), `Planned` (in TS only), `Both` (resolved onto one row). Because
-`inventory_filter` (actuals) and `exposure_plan` (goals/`desired_count`) both hang off the one target,
-"goal vs actual" is a single join.
+Disk = **ACTUAL**, TS = **PLAN**, reconciled onto **one canonical `target`** (`source_id` Actual / Planned /
+Both). Full model + the build pipeline (`ImageLibraryScanner` → `TargetResolver` + `CatalogBuilder` →
+`CatalogStore` → `Reconciler`) → `ARCHITECTURE.md` → *Source-of-truth model* / *Components*.
 
-The catalog-build pipeline (all in `Astronomy.Catalog`; TSM runs it in memory each load, minus the Catalog.db
-write): `ImageLibraryScanner` (Scan/) → `TargetResolver` + `CatalogBuilder.BuildAsync` (Build/) →
-`CatalogStore.WriteCatalog`, then read-back + `Reconciler` / `CatalogStore.GetReconciliation` (Reconcile/).
-TS is read via the hardened read-only `TargetSchedulerReader` (TargetScheduler/).
-
-Load-bearing invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both**; full detail there):
+Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both**; full detail there):
 - **Coordinate-primary, scope-equal matching** — each TS target anchors to the nearest disk unit *of its own
   scope* within a haversine tolerance (default **0.5°**; an *unaligned* panel claim only within **0.1°** —
   a name-aligned panel directory anchors at the full 0.5°, an unrelated framing nearby stays unclaimed);
@@ -93,9 +81,7 @@ Load-bearing invariants (condensed mirror of `ARCHITECTURE.md` → Key facts —
 
 ## Shared-library discipline
 
-`Astronomy.Catalog` is built as a shared multi-consumer library — today TSM is its only live consumer
-(TP / IS / ISP are planned; XFM opted out 2026-07-07, TS-free). When editing the library, **do not bake
-consumer-specific terminology into its public surface** — use "caller"/"consumer" framing; doc strings describe
-the abstract contract, not how one app happens to use it. Consumer-specific behavior belongs in TSM or the
-consumer, not the contract. The catalog's actual-only world for actuals-only consumers is
-`CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
+`Astronomy.Catalog` is a shared multi-consumer library (TSM is today's only live consumer). When editing it,
+**keep consumer-specific terminology out of its public surface** — caller/consumer framing, abstract-contract
+doc strings. Full rule → `..\Library\CLAUDE.md`; the consumer split + the actual-only `CatalogStore.GetShotTargets()`
+world → `ARCHITECTURE.md` → *Components*.
