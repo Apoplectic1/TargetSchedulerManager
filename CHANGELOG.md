@@ -9,7 +9,21 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
-**▶ SHIPPED 2026-07-24 — busy exclusion (`openspec/changes/busy-gate`; from the 2026-07-24 code review's
+**▶ SHIPPED 2026-07-24 — truthful outcomes (`openspec/changes/truthful-outcome`; the review cross-check's
+two misreports).** (1) **Closing-pull containment:** `TsSync.Push` rewrote the journal *before* the closing
+pull but only caught cancellation there — a `SqliteException`/`IOException` in the pull escaped into
+`PushAsync`'s catch, which reported "PUSH FAILED … edits stay journaled" with the journal already empty and
+every remote write landed (the code comment asserted the backwards claim). Now any closing-pull fault is
+contained inside `Push` and surfaces as `PushResult.ClosingPullFailed` → "pushed N · closing pull failed —
+next open pulls fresh"; the baseline rule heals convergence (push changed the remote mtime). The catch's
+premise is now guaranteed AND test-pinned: every throw that escapes `Push` precedes the journal rewrite.
+(2) **Discard pull-first:** the open-with-dirty Discard used to clear journal+baseline *then* pull — a
+cancelled pull stranded the discarded values in the grid as clean, journal-less truth for the session. The
+discarding pull now runs first; `Discard` shrank to journal-only bookkeeping invoked when the pull lands
+(baseline stays — the pull just recorded it; the old baseline-drop guard existed only for the crash window
+the reordering removed). Cancelled ⇒ "discard not completed — unpushed edits kept", everything intact.
+`TsPullHardeningTests`' old Discard-clears-baseline test replaced by the inverted-guard pin. 218 App.Tests
+(5 new). (`openspec/changes/busy-gate`; from the 2026-07-24 code review's
 concurrency cluster — C1 + M5 + the blind cross-check's grid-gating finding).** The "IsLoading doubles as
 the mutual exclusion" convention became structural: `MainViewModel.TryBeginBusy()`/`EndBusy()` are now the
 only writers of `IsLoading` (check-and-set on the UI thread), adopted by load, push, **and the

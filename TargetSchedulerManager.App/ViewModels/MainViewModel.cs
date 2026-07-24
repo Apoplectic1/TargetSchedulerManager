@@ -571,10 +571,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
                         ? push.PulledFresh ? "pushed + pulled fresh" : "pushed (closing pull skipped)"
                         : $"PUSH INCOMPLETE ({DescribePush(push)}) — kept local";
                 case OpenDirtyDecision.Discard:
-                    await Task.Run(Sync.Discard);   // also drops the baseline — a cancelled pull below can't strand the discarded values behind a matching skip
-                    return await TryPullAsync(probe)
-                        ? "edits discarded · pulled fresh"
-                        : CancelledPullNote("edits discarded · ");
+                    // Pull-first: only the swap physically replacing the discarded values makes the
+                    // discard true. A cancelled pull changes NOTHING — journal, baseline, badge, and
+                    // marks stay intact, so the grid never shows discarded values as clean truth.
+                    if (!await TryPullAsync(probe))
+                        return "discard not completed — unpushed edits kept";
+                    await Task.Run(Sync.Discard);   // bookkeeping only: journal cleared, baseline stays (the pull just recorded it)
+                    return "edits discarded · pulled fresh";
                 default:
                     return "unpushed edits — pull deferred";
             }
@@ -639,8 +642,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            // A thrown push (remote db failed to open mid-push, network drop during the closing pull) never
-            // reached the journal rewrite — every entry is still journaled, so re-push recovers. Fail loud.
+            // Every throw that can escape Push precedes the journal rewrite (the closing pull is
+            // contained inside Push and reported on the result, never thrown): probe/editor/applier
+            // faults leave every entry journaled, and even a faulted journal rewrite leaves the file
+            // holding them — so re-push genuinely recovers. Fail loud.
             Log.Error("push threw — journal intact, re-push after fixing the cause", ex);
             StatusText = $"PUSH FAILED: {ex.Message} — edits stay journaled, see tsm.log";
             return;
@@ -660,7 +665,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private static string DescribePush(PushResult result) => result.Outcome switch
     {
         PushOutcome.Success => $"pushed {result.AppliedCount} field(s) to BIRDWATCHER" +
-            (result.PulledFresh ? " · pulled fresh" : " — see the badge for anything still unpushed"),
+            (result.PulledFresh ? " · pulled fresh"
+             : result.ClosingPullFailed ? " · closing pull failed — next open pulls fresh (see tsm.log)"
+             : " — see the badge for anything still unpushed"),
         PushOutcome.PartialFailure =>
             $"PUSH INCOMPLETE: {result.AppliedCount} applied, {result.Failures.Count} FAILED and kept in the journal — see tsm.log",
         PushOutcome.RefusedBusy => "push refused: TS db busy on BIRDWATCHER (NINA imaging?) — try again later",

@@ -211,21 +211,27 @@ public class TsPullHardeningTests
     // ---- discard hardening --------------------------------------------------------------------------------
 
     [Fact]
-    public void Discard_ClearsBaseline_SoAnInterruptedFollowUpPullCannotStrandLocalValues()
+    public void Discard_RunsAfterThePull_SoNoInterruptedPullCanStrandLocalValues()
     {
+        // Pull-first (openspec truthful-outcome) inverted the old guard: Discard is bookkeeping AFTER
+        // the discarding pull landed, so there is no follow-up pull left to die — the swap already
+        // physically replaced the discarded values. The one remaining window (crash between the pull and
+        // Discard) leaves a dirty journal over the fresh copy: the next open re-prompts instead of ever
+        // showing discarded values as clean, journal-less truth.
         TsSync sync = SyncTestEnv.NewSync(out _);
         SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
-        sync.Pull(sync.ProbeRemote()!);
         sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
 
-        sync.Discard();
+        sync.Pull(sync.ProbeRemote()!);                      // the discarding pull lands first
 
-        Assert.Null(sync.Baseline);
-        Assert.True(sync.ShouldPull(sync.ProbeRemote()!));   // even if the pull after Discard dies, the next open pulls
-
-        TsSync relaunched = new(sync.RemotePath, sync.LocalPath,
+        TsSync crashed = new(sync.RemotePath, sync.LocalPath,
             _ => throw new InvalidOperationException(), _ => throw new InvalidOperationException());
-        Assert.Null(relaunched.Baseline);                    // the clear persisted
+        Assert.True(crashed.IsDirty);                        // crash before Discard ⇒ still dirty ⇒ re-prompt
+
+        sync.Discard();                                      // bookkeeping: journal clears, baseline stays
+        Assert.False(sync.IsDirty);
+        Assert.NotNull(sync.Baseline);
+        Assert.False(sync.ShouldPull(sync.ProbeRemote()!));  // fresh baseline — no forced extra pull either
     }
 
     // ---- pull log lines (task 4.1) ------------------------------------------------------------------------

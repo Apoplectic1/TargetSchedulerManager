@@ -167,8 +167,7 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   undiagnosable live. The **torn-local gate** closes that skip-rule blind spot: a `-journal`/`-wal` beside
   the local db at open is healed loudly (`LOCAL TORN` log line; discard local + sidecars + baseline; pull
   fresh; torn + offline fails the load loudly instead) — the edit journal is untouched, so unpushed edits
-  survive and replay at push. `Discard` also drops the baseline, so an interrupted discard-pull can't strand
-  discarded values behind a matching skip.
+  survive and replay at push.
 - **Every edit writes locally and journals.** The gate targets the local path only; each verified write appends
   `(seq, kind, table, key, column, absolute value, old, label, at)` to the journal. **Dirty ≡ journal
   non-empty** — derived from the persisted file, never a stored flag, so it is crash-safe by construction. The
@@ -183,11 +182,23 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   gone, verify mismatch) are reported loudly and retained in the journal. A fully-applied push ends in an
   immediate pull — the invariant everything hangs on: **a baseline is recorded exactly when the local copy
   mirrors the remote**.
+- **Push outcomes are truthful (2026-07-24, openspec `truthful-outcome`).** The journal clears exactly when
+  the writes applied and verified, and the report never contradicts it: a **closing-pull fault** (network
+  drop mid-backup, swap failure) is contained inside `Push` and reported as a successful push whose pull
+  didn't land (`ClosingPullFailed` on the result → "closing pull failed — next open pulls fresh"), never as
+  "PUSH FAILED / edits stay journaled". The convergence gap heals itself: the push changed the remote mtime,
+  so the baseline rule pulls at the next open. Corollary the VM's catch relies on: any throw that *escapes*
+  `Push` precedes the journal rewrite — "journal intact, re-push recovers" is guaranteed accurate.
 - **Open-with-dirty prompts before any pull** (reachable + dirty): push (recommended — replay makes offline
   edits pushable at reconnect) / discard-and-pull (the deliberate debug-session path) / continue local. The
   push review dialog shows manual edits + the write-back summary with **decreases first**, and warns (not
   blocks) when the remote changed since the baseline — field replay makes cross-field interleaving safe;
-  same-field collisions stay covered by the edits-by-day discipline.
+  same-field collisions stay covered by the edits-by-day discipline. **Discard is pull-first (2026-07-24):**
+  the discarding pull runs before anything clears; `Discard` is bookkeeping (journal only — the baseline
+  stays, that pull just recorded it) invoked exactly when the pull lands and the swap has physically
+  replaced the discarded values. A cancelled discard-pull changes *nothing* — journal, baseline, badge, and
+  marks stay intact ("discard not completed — unpushed edits kept"), so the grid can never show discarded
+  values as clean, journal-less truth; a crash between pull and clear just re-prompts at the next open.
 - **Retired (2026-07-06):** the LIVE/LOCAL radios, direct SMB writes, `TsSource`, `EditOutcome.LiveDropped` +
   sticky-fall, and the post-write `ClearAllPools` SMB workaround. Edits can no longer fail from BIRDWATCHER
   dropping because they never travel over SMB.

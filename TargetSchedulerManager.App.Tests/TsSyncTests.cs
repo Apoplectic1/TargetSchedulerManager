@@ -180,6 +180,74 @@ public class TsSyncTests
         Assert.Equal("night-1", SyncTestEnv.ReadMarker(sync.LocalPath));
     }
 
+    // ---- truthful outcome (openspec truthful-outcome) -----------------------------------------------------
+
+    [Fact]
+    public void Push_ClosingPullFails_StillSuccess_JournalClearedAndFlagged()
+    {
+        RecordingEditor editor = new();
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        // Stats fine (the probe is a file stat) but is no SQLite db — the replay legs use the stub
+        // editors and never notice; the closing pull's backup chokes on it.
+        File.WriteAllText(sync.RemotePath, "not a sqlite database");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.Success, result.Outcome);      // the push DID land — never "failed"
+        Assert.True(result.ClosingPullFailed);
+        Assert.False(result.PulledFresh);
+        Assert.Single(editor.Writes);                           // the write applied…
+        Assert.False(sync.IsDirty);                             // …and the journal cleared with it
+    }
+
+    [Fact]
+    public void Push_ClosingPullCancelled_Success_NotFlaggedAsFailed()
+    {
+        RecordingEditor editor = new();
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+
+        PushResult result = sync.Push(pullCancel: new CancellationToken(canceled: true));
+
+        Assert.Equal(PushOutcome.Success, result.Outcome);
+        Assert.False(result.PulledFresh);
+        Assert.False(result.ClosingPullFailed);                 // the user cancelled — not a fault
+        Assert.False(sync.IsDirty);
+    }
+
+    [Fact]
+    public void Push_ReplayLegThrows_EscapesWithJournalIntact()
+    {
+        // Pins the PushAsync catch's premise: every throw that ESCAPES Push precedes the journal rewrite.
+        string dir = SyncTestEnv.NewDir();
+        TsSync sync = new(
+            Path.Combine(dir, "remote.sqlite"), Path.Combine(dir, "local.sqlite"),
+            _ => throw new IOException("editor open fault"), _ => new StubWriteBackApplier());
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+
+        Assert.Throws<IOException>(() => sync.Push());
+        Assert.True(sync.IsDirty);                              // every entry still journaled — re-push recovers
+        Assert.Single(sync.Journal.Entries);
+    }
+
+    [Fact]
+    public void Discard_ClearsJournalOnly_BaselineStays()
+    {
+        TsSync sync = NewPushSync(new RecordingEditor(), new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+        sync.Pull(sync.ProbeRemote()!);                         // the discarding pull lands first…
+
+        sync.Discard();                                         // …then Discard is bookkeeping only
+
+        Assert.False(sync.IsDirty);
+        Assert.NotNull(sync.Baseline);                          // pull-first keeps the fresh baseline
+        Assert.Equal("night-1", SyncTestEnv.ReadMarker(sync.LocalPath));
+    }
+
     [Fact]
     public void Push_RowMissing_RetainsThatEntry_AppliesTheRest()
     {

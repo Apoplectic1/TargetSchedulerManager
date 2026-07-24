@@ -36,6 +36,8 @@ ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
+- **2026-07-24** — truthful outcomes: closing-pull fault contained (push reports success honestly), Discard
+  is pull-first (a cancelled discard-pull keeps dirty state intact) (`truthful-outcome`; review cross-check).
 - **2026-07-24** — busy exclusion: load/push/visible-tonight mutually exclusive, row edits refused + surfaces
   disabled while busy, visible-tonight batches on one editor session (`busy-gate`; review C1+M5 + grid gating).
 - **2026-07-23** — alias fold removed in full: a multi-claim is always a flagged duplicate (`remove-alias-fold`).

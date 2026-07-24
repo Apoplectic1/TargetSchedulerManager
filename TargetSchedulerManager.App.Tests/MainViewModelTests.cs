@@ -243,6 +243,31 @@ public class MainViewModelTests
         Assert.Equal(false, vm.GetMosaicEnabledState(mosaic));
     }
 
+    [Fact]
+    public async Task PushAsync_ClosingPullFailure_ReportsHonestSuccess()
+    {
+        // openspec truthful-outcome: the replay lands (stub editor), the closing pull chokes (the remote
+        // stats fine but is no SQLite db) — the status must report a successful push, never "PUSH FAILED"
+        // with a claim the (already cleared) journal still holds the edits.
+        RecordingEditor pushEditor = new();
+        string dir = SyncTestEnv.NewDir();
+        var sync = new TargetSchedulerManager.App.Shared.TsSync(
+            Path.Combine(dir, "remote.sqlite"), Path.Combine(dir, "local.sqlite"),
+            _ => pushEditor, _ => new StubWriteBackApplier());
+        File.WriteAllText(sync.RemotePath, "not a sqlite database");
+        sync.RecordEdit(Astronomy.Catalog.TargetScheduler.TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+        var vm = new MainViewModel(new TargetSchedulerManager.App.Shared.TsEditGate(
+            sync, _ => throw new InvalidOperationException("no local edits in this test")));
+
+        await vm.PushAsync();
+
+        Assert.Contains("closing pull failed", vm.StatusText);
+        Assert.Contains("pushed 1 field(s)", vm.StatusText);
+        Assert.DoesNotContain("PUSH FAILED", vm.StatusText);
+        Assert.False(sync.IsDirty);                             // report and journal agree
+        Assert.False(vm.IsLoading);                             // the busy scope released normally
+    }
+
     private static MainViewModel Vm(params ReconciliationRow[] rows)
     {
         MainViewModel vm = new();

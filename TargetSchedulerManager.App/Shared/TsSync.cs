@@ -48,13 +48,17 @@ internal enum PushOutcome
 internal sealed record PushFailure(string Label, string Detail);
 
 /// <summary>The outcome of one push: what applied, what failed (and stayed journaled), and whether the
-/// closing pull ran (local now mirrors the remote, including its overnight accruals).</summary>
+/// closing pull ran (local now mirrors the remote, including its overnight accruals).
+/// <see cref="ClosingPullFailed"/> marks a push whose writes all landed but whose closing pull faulted —
+/// still a SUCCESS (the journal cleared when the writes verified; the next open pulls fresh), the flag
+/// only lets the status line say so.</summary>
 internal sealed record PushResult(
     PushOutcome Outcome,
     int AppliedCount,
     IReadOnlyList<PushFailure> Failures,
     bool PulledFresh,
-    string? RefusalDetail = null);
+    string? RefusalDetail = null,
+    bool ClosingPullFailed = false);
 
 /// <summary>
 /// The sync-model orchestrator, one per session: BIRDWATCHER is read at <b>pull</b> and written only at
@@ -332,15 +336,16 @@ internal sealed class TsSync
     /// <summary>Opens the write-back applier on the local db (the post-load stamping step).</summary>
     public ITsWriteBackApplier CreateLocalWriteBackApplier() => _applierFactory(LocalPath);
 
-    /// <summary>The user's deliberate Discard: drop every unpushed edit (the caller then pulls fresh).
-    /// Also drops the baseline: the local db still holds the discarded values until that pull lands, and
-    /// without this a crash or cancel in between would leave them local behind a matching baseline —
-    /// silently skipping every future pull. Unbaselined, the next open always pulls.</summary>
+    /// <summary>The user's deliberate Discard bookkeeping: drop every unpushed journal entry. Call only
+    /// AFTER the discarding pull landed — the swap already physically replaced the discarded values, so
+    /// this clears the journal that described them. The baseline stays: that pull just recorded it.
+    /// (Pull-first removed the old ordering's crash window — discard-then-crash-before-pull could strand
+    /// the discarded values behind a matching baseline; now a crash before this call just leaves a dirty
+    /// journal over the fresh copy, and the next open re-prompts.)</summary>
     public void Discard()
     {
-        Log.Info($"DISCARD {Journal.Count} unpushed journal entries (user chose discard-and-pull)");
+        Log.Info($"DISCARD {Journal.Count} unpushed journal entries (the discarding pull landed)");
         Journal.Clear();
-        _state.Clear();
     }
 
     /// <summary>Shapes the collapsed journal + the probe's facts into the push/open-with-dirty review.</summary>
@@ -513,6 +518,7 @@ internal sealed class TsSync
         // cancelled or unreachable closing pull just means the next open pulls fresh.
         TsDbStat? post = ProbeRemote();
         bool pulledFresh = false;
+        bool closingPullFailed = false;
         if (post is not null)
         {
             try
@@ -524,13 +530,23 @@ internal sealed class TsSync
             {
                 Log.Warn("PUSH applied; closing pull cancelled — next open will pull fresh");
             }
+            catch (Exception ex)
+            {
+                // The push is DONE by here — writes applied and verified, journal rewritten. A
+                // closing-pull fault (network drop mid-backup, swap failure) must never masquerade as a
+                // push failure: contain it, flag it, and let the baseline rule heal the convergence gap
+                // (the push changed the remote mtime, so the next open pulls fresh).
+                closingPullFailed = true;
+                Log.Error("PUSH applied but the closing pull failed — next open will pull fresh", ex);
+            }
         }
         else
         {
             Log.Warn("PUSH applied but BIRDWATCHER dropped before the closing pull — next open will pull fresh");
         }
         Log.Info($"PUSH applied {applied} field(s) to {RemotePath}");
-        return new PushResult(PushOutcome.Success, applied, [], PulledFresh: pulledFresh);
+        return new PushResult(PushOutcome.Success, applied, [], PulledFresh: pulledFresh,
+            ClosingPullFailed: closingPullFailed);
 
         void Fail(IEnumerable<TsJournalEntry> entries, string detail)
         {
