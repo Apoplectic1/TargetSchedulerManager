@@ -9,6 +9,19 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — push decomposition (`openspec/changes/push-decomposition`; review M1).**
+`TsSync.Push` went from one ~170-line method (five concerns + two state-capturing local functions) to a
+~10-line orchestrator over named parts, bodies moved verbatim: `PushReplayState` (FailedSeqs/Failures +
+the one `Fail` rule — replay state is now an explicit parameter, not closure captures),
+`ProbePushPreconditions` (unreachable/busy refusals), `ReplayWriteBackLeg` (non-null return = whole-db
+structural refusal, nothing written), `ReplayFieldLeg` (seq-order guarded replay + the abort cascade),
+`CommitAndClose` (retention → partial/mid-push-edit returns → the contained closing pull). The spec delta
+codifies two existing behaviors the decomposition must preserve — leg order (write-back before fields, so
+a later manual desired edit outranks the ratchet) and the whole-db-refusal abort cascade — and the
+cascade, untested before, is now pinned (`RecordingEditor` gained `TrySetFieldCalls`; one attempt, no
+hammering, everything retained). Behavior-preserving: the full push suite (incl. the truthful-outcome
+group) passed unchanged. 221 App.Tests (1 new).
+
 **▶ SHIPPED 2026-07-24 — push-rule dedup (`openspec/changes/push-rule-dedup`; review M6).** The push path's
 two twice-spelled rules became one definition each: `PreparePush` now selects its count entry through the
 replay's `CountEntry` (deriving "desired-only ⇒ no count pair" from the returned column — the review can

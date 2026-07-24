@@ -36,6 +36,8 @@ ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
+- **2026-07-24** — push decomposition: `TsSync.Push` → orchestrator + named legs (`PushReplayState`,
+  probe/write-back/field/commit), abort cascade spec-pinned (`push-decomposition`; review M1).
 - **2026-07-24** — push-rule dedup: one `CountEntry` rule for review+replay, one `BaselineMatches` for
   skip-rule+staleness warning (`push-rule-dedup`; review M6).
 - **2026-07-24** — truthful outcomes: closing-pull fault contained (push reports success honestly), Discard

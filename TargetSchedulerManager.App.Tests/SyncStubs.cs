@@ -69,9 +69,11 @@ internal sealed class RecordingEditor : ITsEditor
     public List<(TsTable Table, string Key, string Column, object? Value)> Writes { get; } = [];
     public HashSet<string> MissingKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
     public RefusalReason RefuseAll { get; set; } = RefusalReason.None;
+    public int TrySetFieldCalls { get; private set; }
 
     public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(TsTable table, string tsKey, string column, object? value)
     {
+        TrySetFieldCalls++;
         if (RefuseAll != RefusalReason.None)
             return (null, RefuseAll);
         if (MissingKeys.Contains(tsKey))

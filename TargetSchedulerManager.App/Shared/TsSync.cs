@@ -408,6 +408,40 @@ internal sealed class TsSync
         if (collapsed.Count == 0)
             return new PushResult(PushOutcome.NothingToPush, 0, [], PulledFresh: false);
 
+        if (ProbePushPreconditions() is { } refused)
+            return refused;
+
+        PushReplayState state = new();
+        if (ReplayWriteBackLeg(collapsed, state) is { } structuralRefusal)
+            return structuralRefusal;
+        ReplayFieldLeg(collapsed, state);
+
+        return CommitAndClose(collapsed, state, pullProgress, pullCancel);
+    }
+
+    /// <summary>Mutable state of one push replay — which seqs failed and why — passed to each leg so the
+    /// orchestrator's flow stays linear and no closure captures accumulate invisibly.</summary>
+    private sealed class PushReplayState
+    {
+        public HashSet<long> FailedSeqs { get; } = [];
+        public List<PushFailure> Failures { get; } = [];
+
+        /// <summary>Marks entries failed (deduped by seq) and logs each — the one failure-recording rule.</summary>
+        public void Fail(IEnumerable<TsJournalEntry> entries, string detail)
+        {
+            foreach (TsJournalEntry e in entries)
+            {
+                if (!FailedSeqs.Add(e.Seq))
+                    continue;
+                Failures.Add(new PushFailure(e.Label, $"{e.Column}: {detail}"));
+                Log.Error($"PUSH failed for \"{e.Label}\" {e.Table}.{e.Column}: {detail}");
+            }
+        }
+    }
+
+    /// <summary>Probe-time refusals: an unreachable or busy remote refuses the whole push before any write.</summary>
+    private PushResult? ProbePushPreconditions()
+    {
         TsDbStat? probe = ProbeRemote();
         if (probe is null)
         {
@@ -419,97 +453,114 @@ internal sealed class TsSync
             Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
             return new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false);
         }
+        return null;
+    }
 
-        HashSet<long> failedSeqs = [];
-        List<PushFailure> failures = [];
+    /// <summary>The write-back leg: re-executes the write-back contract per journaled plan on the remote.
+    /// Non-null = a whole-db structural refusal (nothing was written — the push stops); null = leg
+    /// completed, with any per-plan failures recorded in <paramref name="state"/>.</summary>
+    private PushResult? ReplayWriteBackLeg(List<TsJournalEntry> collapsed, PushReplayState state)
+    {
         List<TsJournalEntry> writeBack = [.. collapsed.Where(e => e.Kind == TsEditKind.WriteBack)];
+        if (writeBack.Count == 0)
+            return null;
+
+        using ITsWriteBackApplier applier = _applierFactory(RemotePath);
+        if (!applier.HasRequiredColumns)
+            return RefusedStructurally("remote TS db schema incompatible (exposureplan columns missing)");
+        if (applier.IsReadOnly)
+            return RefusedStructurally("remote TS db file is read-only");
+        if (applier.HasOpenSidecar)
+        {
+            Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
+            return new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false);
+        }
+
+        List<PlannedWrite> writes = [];
+        Dictionary<long, IGrouping<string, TsJournalEntry>> byPlanId = [];
+        foreach (IGrouping<string, TsJournalEntry> plan in writeBack.GroupBy(e => e.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            TsJournalEntry count = CountEntry(plan);
+            if (!long.TryParse(plan.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out long planId))
+            {
+                // Our own journal wrote this key from WriteBackChange.TsExposurePlanId — non-integer is a
+                // contract violation; keep the entries and shout rather than guessing.
+                state.Fail(plan, $"journaled write-back key '{plan.Key}' is not a TS plan id");
+                continue;
+            }
+            byPlanId[planId] = plan;
+            writes.Add(new PlannedWrite(
+                planId, Guid.Empty, count.Label, Filter: "", FilterPurpose.Light, PlanSeconds: 0,
+                DiskCount: checked((int)Convert.ToInt64(count.Value, CultureInfo.InvariantCulture))));
+        }
+
+        if (writes.Count > 0)
+        {
+            WriteBackResult result = applier.Execute(new WriteBackPlan(writes, [], [], 0), apply: true);
+            foreach (WriteBackVerifyFailure f in result.VerifyFailures)
+            {
+                IGrouping<string, TsJournalEntry> plan = byPlanId[f.TsExposurePlanId];
+                state.Fail(plan, f.ActualAcquired < 0
+                    ? "TS plan row no longer exists on BIRDWATCHER"
+                    : $"verify failed: expected {f.Expected}, remote reads {f.ActualAcquired}/{f.ActualAccepted}");
+            }
+        }
+        return null;
+    }
+
+    /// <summary>The field leg: per-field guarded replay in seq order, with the whole-db-refusal abort
+    /// cascade (fail every remaining field as not-attempted instead of hammering a dead db).</summary>
+    private void ReplayFieldLeg(List<TsJournalEntry> collapsed, PushReplayState state)
+    {
         List<TsJournalEntry> fields = [.. collapsed.Where(e => e.Kind == TsEditKind.Manual)];
+        if (fields.Count == 0)
+            return;
 
-        // ---- write-back leg: re-execute the write-back contract per journaled plan on the remote ----------
-        if (writeBack.Count > 0)
+        using ITsEditor editor = _editorFactory(RemotePath);
+        foreach (TsJournalEntry e in fields)
         {
-            using ITsWriteBackApplier applier = _applierFactory(RemotePath);
-            if (!applier.HasRequiredColumns)
-                return RefusedStructurally("remote TS db schema incompatible (exposureplan columns missing)");
-            if (applier.IsReadOnly)
-                return RefusedStructurally("remote TS db file is read-only");
-            if (applier.HasOpenSidecar)
+            if (state.FailedSeqs.Contains(e.Seq))
+                continue;   // already failed by an aborting refusal below
+            (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(e.Table, e.Key, e.Column, e.Value);
+            if (refusal != RefusalReason.None)
             {
-                Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
-                return new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false);
-            }
-
-            List<PlannedWrite> writes = [];
-            Dictionary<long, IGrouping<string, TsJournalEntry>> byPlanId = [];
-            foreach (IGrouping<string, TsJournalEntry> plan in writeBack.GroupBy(e => e.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                TsJournalEntry count = CountEntry(plan);
-                if (!long.TryParse(plan.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out long planId))
+                state.Fail([e], $"refused: {refusal}");
+                if (refusal is RefusalReason.SchemaIncompatible or RefusalReason.ReadOnly or RefusalReason.OpenSidecar)
                 {
-                    // Our own journal wrote this key from WriteBackChange.TsExposurePlanId — non-integer is a
-                    // contract violation; keep the entries and shout rather than guessing.
-                    Fail(plan, $"journaled write-back key '{plan.Key}' is not a TS plan id");
-                    continue;
+                    // A whole-db refusal fails every remaining field the same way — stop hammering.
+                    foreach (TsJournalEntry rest in fields.Where(f => f.Seq > e.Seq && !state.FailedSeqs.Contains(f.Seq)))
+                        state.Fail([rest], $"not attempted — push aborted on {refusal}");
+                    break;
                 }
-                byPlanId[planId] = plan;
-                writes.Add(new PlannedWrite(
-                    planId, Guid.Empty, count.Label, Filter: "", FilterPurpose.Light, PlanSeconds: 0,
-                    DiskCount: checked((int)Convert.ToInt64(count.Value, CultureInfo.InvariantCulture))));
             }
-
-            if (writes.Count > 0)
+            else if (result is not { Succeeded: true })
             {
-                WriteBackResult result = applier.Execute(new WriteBackPlan(writes, [], [], 0), apply: true);
-                foreach (WriteBackVerifyFailure f in result.VerifyFailures)
-                {
-                    IGrouping<string, TsJournalEntry> plan = byPlanId[f.TsExposurePlanId];
-                    Fail(plan, f.ActualAcquired < 0
-                        ? "TS plan row no longer exists on BIRDWATCHER"
-                        : $"verify failed: expected {f.Expected}, remote reads {f.ActualAcquired}/{f.ActualAccepted}");
-                }
+                state.Fail([e], result is { RowFound: false }
+                    ? "row no longer exists on BIRDWATCHER"
+                    : "read-back did not verify");
             }
         }
+    }
 
-        // ---- field leg: per-field guarded replay, seq order --------------------------------------------
-        if (fields.Count > 0)
-        {
-            using ITsEditor editor = _editorFactory(RemotePath);
-            foreach (TsJournalEntry e in fields)
-            {
-                if (failedSeqs.Contains(e.Seq))
-                    continue;   // already failed by an aborting refusal below
-                (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(e.Table, e.Key, e.Column, e.Value);
-                if (refusal != RefusalReason.None)
-                {
-                    Fail([e], $"refused: {refusal}");
-                    if (refusal is RefusalReason.SchemaIncompatible or RefusalReason.ReadOnly or RefusalReason.OpenSidecar)
-                    {
-                        // A whole-db refusal fails every remaining field the same way — stop hammering.
-                        foreach (TsJournalEntry rest in fields.Where(f => f.Seq > e.Seq && !failedSeqs.Contains(f.Seq)))
-                            Fail([rest], $"not attempted — push aborted on {refusal}");
-                        break;
-                    }
-                }
-                else if (result is not { Succeeded: true })
-                {
-                    Fail([e], result is { RowFound: false }
-                        ? "row no longer exists on BIRDWATCHER"
-                        : "read-back did not verify");
-                }
-            }
-        }
-
-        // Seq-aware retention: applied fields' entries drop (up to this push's snapshot), failed fields keep
-        // their raw Old chain, and any edit journaled DURING the push survives untouched.
-        int applied = collapsed.Count - failedSeqs.Count;
+    /// <summary>Seq-aware journal retention, then the outcome: partial failure / mid-push edits (closing
+    /// pull skipped) / full success ending in the CONTAINED closing pull — the one place the baseline
+    /// invariant is restored, and a pull fault is reported on the result, never thrown
+    /// (<see cref="PushResult.ClosingPullFailed"/>).</summary>
+    private PushResult CommitAndClose(
+        List<TsJournalEntry> collapsed, PushReplayState state,
+        IProgress<int>? pullProgress, CancellationToken pullCancel)
+    {
+        // Applied fields' entries drop (up to this push's snapshot), failed fields keep their raw Old
+        // chain, and any edit journaled DURING the push survives untouched.
+        int applied = collapsed.Count - state.FailedSeqs.Count;
         Journal.CommitPush(
-            [.. collapsed.Where(e => !failedSeqs.Contains(e.Seq)).Select(TsJournal.FieldKey)],
+            [.. collapsed.Where(e => !state.FailedSeqs.Contains(e.Seq)).Select(TsJournal.FieldKey)],
             collapsed[^1].Seq);
 
-        if (failures.Count > 0)
+        if (state.Failures.Count > 0)
         {
-            Log.Error($"PUSH partial: {applied}/{collapsed.Count} applied; {failures.Count} FAILED and retained in the journal");
-            return new PushResult(PushOutcome.PartialFailure, applied, failures, PulledFresh: false);
+            Log.Error($"PUSH partial: {applied}/{collapsed.Count} applied; {state.Failures.Count} FAILED and retained in the journal");
+            return new PushResult(PushOutcome.PartialFailure, applied, state.Failures, PulledFresh: false);
         }
         if (!Journal.IsEmpty)
         {
@@ -554,23 +605,12 @@ internal sealed class TsSync
         Log.Info($"PUSH applied {applied} field(s) to {RemotePath}");
         return new PushResult(PushOutcome.Success, applied, [], PulledFresh: pulledFresh,
             ClosingPullFailed: closingPullFailed);
+    }
 
-        void Fail(IEnumerable<TsJournalEntry> entries, string detail)
-        {
-            foreach (TsJournalEntry e in entries)
-            {
-                if (!failedSeqs.Add(e.Seq))
-                    continue;
-                failures.Add(new PushFailure(e.Label, $"{e.Column}: {detail}"));
-                Log.Error($"PUSH failed for \"{e.Label}\" {e.Table}.{e.Column}: {detail}");
-            }
-        }
-
-        PushResult RefusedStructurally(string detail)
-        {
-            Log.Error($"PUSH refused — {detail}");
-            return new PushResult(PushOutcome.Refused, 0, [], PulledFresh: false, RefusalDetail: detail);
-        }
+    private static PushResult RefusedStructurally(string detail)
+    {
+        Log.Error($"PUSH refused — {detail}");
+        return new PushResult(PushOutcome.Refused, 0, [], PulledFresh: false, RefusalDetail: detail);
     }
 
     // A write-back plan group's count entry: acquired when journaled, else accepted, else desired (a

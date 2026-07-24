@@ -180,6 +180,26 @@ public class TsSyncTests
         Assert.Equal("night-1", SyncTestEnv.ReadMarker(sync.LocalPath));
     }
 
+    [Fact]
+    public void Push_WholeDbRefusalMidFieldLeg_AbortsWithoutHammering()
+    {
+        // The abort cascade (openspec push-decomposition — codified, not new): a whole-db refusal fails
+        // every remaining field as not-attempted, issues no further writes, and retains everything.
+        RecordingEditor editor = new() { RefuseAll = RefusalReason.SchemaIncompatible };
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+        sync.RecordEdit(TsTable.Target, "g-1", "active", 0, "1", "B");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.PartialFailure, result.Outcome);
+        Assert.Equal(2, result.Failures.Count);
+        Assert.Contains(result.Failures, f => f.Detail.Contains("not attempted"));
+        Assert.Equal(1, editor.TrySetFieldCalls);               // one attempt, then the cascade — no hammering
+        Assert.Equal(2, sync.Journal.Count);                    // both entries retained for the next push
+    }
+
     // ---- truthful outcome (openspec truthful-outcome) -----------------------------------------------------
 
     [Fact]
