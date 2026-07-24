@@ -149,20 +149,20 @@ internal sealed class DiagnosticsWindow : Window
 
     // Take a mid-session shot and stay open: grab the main window (this window hidden so it's not in its own
     // shot), re-show, and record a USER_OBS_CAP line + bump the status readout. Repeatable.
-    private async void OnCaptureClick(object sender, RoutedEventArgs e)
+    private void OnCaptureClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
         string? path = await CaptureHidingSelfAsync(reshow: true);
         RecordCapture(path, delayed: false);
-    }
+    }, "diagnostics capture");
 
     // The delayed variant: same grab, but the hidden period is 5 s instead of a DWM settle — time to open a
     // flyout / context menu on the main window, which then survives into the shot (no focus change at capture).
     // The window is hidden for the whole countdown, so a second click can't stack timers.
-    private async void OnDelayedCaptureClick(object sender, RoutedEventArgs e)
+    private void OnDelayedCaptureClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
         string? path = await CaptureHidingSelfAsync(reshow: true, delayMs: 5000);
         RecordCapture(path, delayed: true);
-    }
+    }, "diagnostics delayed capture");
 
     private void RecordCapture(string? path, bool delayed)
     {
@@ -178,7 +178,7 @@ internal sealed class DiagnosticsWindow : Window
         }
     }
 
-    private async void OnOkClick(object sender, RoutedEventArgs e)
+    private void OnOkClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
         string? screenshotPath = await CaptureHidingSelfAsync(reshow: false);   // a final shot tied to the note
 
@@ -189,7 +189,7 @@ internal sealed class DiagnosticsWindow : Window
         Log.UserObservationEnd(_id, ctx, _notes.Text, screenshotPath ?? string.Empty);
         _terminationLogged = true;
         Close();
-    }
+    }, "diagnostics OK");
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
     {

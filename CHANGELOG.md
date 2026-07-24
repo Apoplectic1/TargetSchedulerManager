@@ -9,6 +9,18 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — async-void elimination (N3 completed to uniformity; the re-check's "micro-hole",
+scope corrected upward twice).** The re-check counted five plain `async void` handlers; the sweep found
+nine: three code-behind (`TargetEnable_Click`, `PlanEnable_Click`, `Desired_Committed`), six editor sites
+(toggle/number/combo/text + both sentinel handlers), and three more in `DiagnosticsWindow` the re-check
+missed entirely (capture / delayed capture / OK). All now route through `FireAndLog`, promoted from
+`MainWindow` to `Shared/UiTask` (`using static` keeps call sites unchanged). Why beyond uniformity: an
+exception escaping `async void` crashes the app with nothing in tsm.log, and the prior safety ("everything
+they await self-handles") was a non-local invariant nothing enforced — now the guarantee is structural at
+every handler. **The invariant is grep-clean: the only `async void` in the app is `UiTask.FireAndLog`
+itself.** Success paths byte-identical; plain commit (fail-loud plumbing isn't a specced capability);
+226 App.Tests green unchanged.
+
 **▶ SHIPPED 2026-07-24 — ambiguity-report section builders (review N9, the last surviving review item;
 plain commit like M4 — the report's sections are already fully specced in `ts-ambiguity-report`, so a
 pure reorganization has no honest delta).** `AmbiguityReport.Build`'s ~170 inline lines → five section

@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Controls;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels;
+using static TargetSchedulerManager.App.Shared.UiTask;   // FireAndLog — the fire-and-forget seam (review N3)
 using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App;
@@ -39,15 +40,6 @@ public sealed partial class MainWindow : Window
             _initialLoadStarted = true;
             FireAndLog(() => ViewModel.LoadAsync(PullPolicy.IfChanged), "initial load");   // VM surfaces progress/errors via IsLoading/StatusText
         };
-    }
-
-    // Fire-and-forget seam for async handlers (review N3): the VM methods catch their own domain
-    // failures; anything escaping them (a resource lookup, a dialog-construction bug) used to die as an
-    // unobserved task exception — invisible in tsm.log, the one place this project promises failures land.
-    private static async void FireAndLog(Func<Task> action, string what)
-    {
-        try { await action(); }
-        catch (Exception ex) { Log.Error($"{what} failed unhandled", ex); }
     }
 
     // Reload = rescan the disk + re-read the local db; it never pulls (pull is an open/Pull-now decision).
@@ -101,26 +93,26 @@ public sealed partial class MainWindow : Window
     // fires only on user interaction (not on the IsChecked binding), so there's no spurious write at bind time;
     // on a failed/unverified write we put the box back. The checkbox swallows the click, so Row_ItemClick
     // (whole-row expand) does not also fire.
-    private async void TargetEnable_Click(object sender, RoutedEventArgs e)
+    private void TargetEnable_Click(object sender, RoutedEventArgs e) => FireAndLog(async () =>
     {
         if (sender is not CheckBox box || box.DataContext is not ViewModels.Rows.TargetGroupRow group)
             return;
         bool now = box.IsChecked == true;
         if (!await ViewModel.SetTargetEnabledAsync(group, now))
             box.IsChecked = !now;   // write failed — restore the prior state
-    }
+    }, "target enable toggle");
 
     // Per-plan enable: writes directly, no confirmation (user decision 2026-07-07) — the library clears the
     // target's cadence rows in the same transaction, TS regenerates the sequence from the new plan set on its
     // next pass (slot-0 restart accepted), and nothing reaches BIRDWATCHER until the reviewed push.
-    private async void PlanEnable_Click(object sender, RoutedEventArgs e)
+    private void PlanEnable_Click(object sender, RoutedEventArgs e) => FireAndLog(async () =>
     {
         if (sender is not CheckBox box || box.DataContext is not ViewModels.Rows.ReconciliationRow row)
             return;
         bool wanted = box.IsChecked == true;
         if (!await ViewModel.SetPlanEnabledAsync(row, wanted))
             box.IsChecked = !wanted;   // refused (e.g. override order) or failed — restore
-    }
+    }, "plan enable toggle");
 
     // Inline Desired commits serialize like the flyout's (openspec serial-commits): two rapid confirms
     // used to overlap their write+verify — the first's read-back could see the second's value and
@@ -131,7 +123,7 @@ public sealed partial class MainWindow : Window
     // TS db through the guarded path (which mirrors the row in place on success); on a failed write or an
     // empty/NaN box, snap the box back to the row's current value. Only fires when the value differs, so
     // re-focusing without editing — and the binding settling the value on realization — write nothing.
-    private async void Desired_Committed(object sender, RoutedEventArgs e)
+    private void Desired_Committed(object sender, RoutedEventArgs e) => FireAndLog(async () =>
     {
         if (sender is not NumberBox box || box.DataContext is not ViewModels.Rows.ReconciliationRow row)
             return;
@@ -143,7 +135,7 @@ public sealed partial class MainWindow : Window
 
         if (!await _desiredCommits.Run(() => ViewModel.SetPlanDesiredAsync(row, wanted)))
             box.Value = current;   // write failed — restore the prior value
-    }
+    }, "inline Desired commit");
 
     // ---- context-sensitive field editing (edit glyph + right-click → flyout) --------------------------------
 

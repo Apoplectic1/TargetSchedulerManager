@@ -3,6 +3,7 @@ using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using TargetSchedulerManager.App.Shared;
+using static TargetSchedulerManager.App.Shared.UiTask;   // FireAndLog — the fire-and-forget seam (review N3)
 
 namespace TargetSchedulerManager.App.Controls;
 
@@ -123,7 +124,7 @@ internal sealed class TsFieldsEditor : UserControl
             MinWidth = 0,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        toggle.Toggled += async (_, _) =>
+        toggle.Toggled += (_, _) => FireAndLog(async () =>
         {
             if (_reverting) return;
             int wanted = toggle.IsOn ? 1 : 0;
@@ -132,7 +133,7 @@ internal sealed class TsFieldsEditor : UserControl
                 _lastKnown[field.Column] = (long)wanted;
             else
                 Revert(() => toggle.IsOn = ToLong(_lastKnown[field.Column]) != 0);
-        };
+        }, $"{field.Column} toggle commit");
         return toggle;
     }
 
@@ -150,7 +151,7 @@ internal sealed class TsFieldsEditor : UserControl
         // ValueChanged, not LostFocus: inside a flyout, focus rarely leaves the box before dismissal, which
         // made typed edits commit only at close while toggle/checkbox edits committed instantly. ValueChanged
         // fires when the value is CONFIRMED (Enter / focus loss / spin) — same immediacy as the toggles.
-        box.ValueChanged += async (_, _) =>
+        box.ValueChanged += (_, _) => FireAndLog(async () =>
         {
             if (_reverting) return;
             double current = ToDouble(_lastKnown[field.Column]);
@@ -167,7 +168,7 @@ internal sealed class TsFieldsEditor : UserControl
                 _lastKnown[field.Column] = value;
             else
                 Revert(() => box.Value = ToDouble(_lastKnown[field.Column]));
-        };
+        }, $"{field.Column} commit");
         return box;
     }
 
@@ -225,11 +226,11 @@ internal sealed class TsFieldsEditor : UserControl
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
-            _useDefault.Checked += async (_, _) => await OnUseDefaultCheckedAsync();
+            _useDefault.Checked += (_, _) => FireAndLog(OnUseDefaultCheckedAsync, $"{field.Column} sentinel commit");
             _useDefault.Unchecked += (_, _) => OnUseDefaultUnchecked();
             // ValueChanged, not LostFocus — same reasoning as the plain number box: a typed override must
             // commit (and mirror) the moment it's confirmed, matching the checkbox's immediacy.
-            _box.ValueChanged += async (_, _) => await OnValueConfirmedAsync();
+            _box.ValueChanged += (_, _) => FireAndLog(OnValueConfirmedAsync, $"{field.Column} override commit");
 
             StackPanel inner = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
             inner.Children.Add(_box);
@@ -320,7 +321,7 @@ internal sealed class TsFieldsEditor : UserControl
             MinWidth = 110,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        combo.SelectionChanged += async (_, _) =>
+        combo.SelectionChanged += (_, _) => FireAndLog(async () =>
         {
             if (_reverting || combo.SelectedItem is not TsEnumValue picked) return;
             if (picked.Code == ToLong(_lastKnown[field.Column])) return;
@@ -328,7 +329,7 @@ internal sealed class TsFieldsEditor : UserControl
                 _lastKnown[field.Column] = (long)picked.Code;
             else
                 Revert(() => combo.SelectedItem = values.FirstOrDefault(v => v.Code == ToLong(_lastKnown[field.Column])));
-        };
+        }, $"{field.Column} commit");
         return combo;
     }
 
@@ -340,7 +341,7 @@ internal sealed class TsFieldsEditor : UserControl
             MinWidth = 140,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        box.LostFocus += async (_, _) =>
+        box.LostFocus += (_, _) => FireAndLog(async () =>
         {
             if (_reverting) return;
             string current = _lastKnown[field.Column]?.ToString() ?? string.Empty;
@@ -349,7 +350,7 @@ internal sealed class TsFieldsEditor : UserControl
                 _lastKnown[field.Column] = box.Text;
             else
                 Revert(() => box.Text = _lastKnown[field.Column]?.ToString() ?? string.Empty);
-        };
+        }, $"{field.Column} commit");
         return box;
     }
 
