@@ -78,6 +78,10 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   is written only inside the reviewed push replay — `TsSync`, see `ARCHITECTURE.md`'s sync-model section),
   `Catalog.db`'s builder (future LCM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
   over network shares (relevant if a consumer runs on another PC).
+- **Busy exclusion** — bulk operations (load, pull, push, visible-tonight) are mutually exclusive via
+  `TryBeginBusy()`/`EndBusy()` (the only writers of `IsLoading`); row edits are refused in the VM funnel while
+  one runs and their surfaces disable off `CanEdit`; an in-flight edit blocks a bulk op from starting. The
+  visible-tonight pass batches through `TsEditGate.ApplyManyAsync` (one editor session, no UI-thread seams).
 
 ## Shared-library discipline
 

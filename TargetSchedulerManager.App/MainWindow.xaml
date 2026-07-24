@@ -271,7 +271,11 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+            <!-- Busy-sensitive actions disable off CanEdit (openspec busy-exclusion): the VM funnel refuses
+                 anyway — these bindings are the visible half. Cancel pull, search, filters, and
+                 Ambiguities… (read-only) deliberately stay enabled. -->
             <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"
+                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Rescan the disk library + re-read the local TS copy (no pull)"/>
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
             <!-- Pull progress is a text percentage on the status line (no progress-bar element — user's
@@ -291,10 +295,12 @@
                     IsEnabled="{x:Bind ViewModel.CanPush, Mode=OneWay}"
                     ToolTipService.ToolTip="Review + replay the journaled edits onto BIRDWATCHER (only edited fields are written)"/>
             <Button Content="Pull now" Click="PullNow_Click" MinWidth="0" Opacity="0.85"
+                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Force a fresh copy from BIRDWATCHER (unpushed edits prompt first)"/>
             <!-- Templates have no grid rows (they're shared config), so the picker is the app-level entry;
                  plan rows also offer "Edit template…" for the template behind that plan. -->
             <Button Content="Templates…" Click="Templates_Click" MinWidth="0" Opacity="0.85"
+                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Edit an exposure template (shared — an edit affects every plan using it)"/>
             <!-- The tripwire's detail (decision 2026-07-08): a printable report of every TS/disk ambiguity
                  with its hand-fix; TSM detects, edits happen in NINA's TS UI. -->
@@ -319,6 +325,7 @@
                        VerticalAlignment="Center"
                        ToolTipService.ToolTip="Altitude floor (whole degrees, 0–89): the target must climb above this to count as visible"/>
             <Button Content="Find" Click="VisibleTonight_Click" MinWidth="0"
+                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Enable targets with a ≥ Duration-minute stretch above Horizon tonight, disable the rest; a project with no enabled targets goes Inactive (Draft/Closed skipped)"/>
         </StackPanel>
 
@@ -385,8 +392,12 @@
         <!-- A flattened tree, not a real TreeView: the VM owns the visible-row list (group headers +
              expanded children), like a WinForms TreeListView in VirtualMode. Still fully virtualized.
              Clicking anywhere on a group row toggles it (ItemClick is a no-op on filter rows). -->
+        <!-- Whole-grid disable while busy: row controls live in DataTemplates where x:Bind scopes to the
+             row, so CanEdit gates here (one binding) rather than per control. Scroll/expansion freeze for
+             the seconds a bulk operation runs — accepted; revisit per-row only if it grates. -->
         <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                   ItemTemplateSelector="{StaticResource RowTemplateSelector}"
+                  IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                   SelectionMode="Single" IsItemClickEnabled="True" ItemClick="Row_ItemClick"
                   RightTapped="Row_RightTapped">
             <ListView.ItemContainerStyle>

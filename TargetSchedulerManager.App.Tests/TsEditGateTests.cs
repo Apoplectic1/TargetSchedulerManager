@@ -115,6 +115,95 @@ public class TsEditGateTests
         Assert.True(sync.Journal.IsEmpty);
     }
 
+    // ---- the batch path -------------------------------------------------------------------------------
+
+    // Per-call scripted editor: each TrySetField consumes the next step (a result, or a throw).
+    private sealed class ScriptedEditor : ITsEditor
+    {
+        public readonly Queue<Func<(FieldEditResult? Result, RefusalReason Refusal)>> Script = new();
+        public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(
+            TsTable table, string tsKey, string column, object? value) => Script.Dequeue()();
+        public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) => (false, null);
+        public bool IsFieldAvailable(TsTable table, string column) => true;
+        public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => (false, null);
+        public void Dispose() { }
+    }
+
+    private static TsFieldEdit Edit(string key, string column = "desired", object? value = null) =>
+        new(TsTable.ExposurePlan, key, column, value ?? 10, $"T · {key}");
+
+    [Fact]
+    public async Task ApplyMany_OneEditorSession_OutcomesAlignByIndex()
+    {
+        ScriptedEditor ed = new();
+        ed.Script.Enqueue(() => (new FieldEditResult(RowFound: true, OldValue: "5", Verified: true), RefusalReason.None));
+        ed.Script.Enqueue(() => (null, RefusalReason.OpenSidecar));
+        ed.Script.Enqueue(() => (new FieldEditResult(RowFound: true, OldValue: "7", Verified: false), RefusalReason.None));
+
+        int opens = 0;
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        TsEditGate gate = new(sync, _ => { opens++; return ed; });
+
+        IReadOnlyList<EditOutcome> outcomes =
+            await gate.ApplyManyAsync([Edit("ep-1"), Edit("ep-2"), Edit("ep-3")]);
+
+        Assert.Equal(1, opens);                                   // ONE session serves the whole batch
+        Assert.IsType<EditOutcome.Applied>(outcomes[0]);
+        Assert.IsType<EditOutcome.Refused>(outcomes[1]);
+        Assert.IsType<EditOutcome.Failed>(outcomes[2]);
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);   // only the applied edit journals
+        Assert.Equal("ep-1", entry.Key);
+    }
+
+    [Fact]
+    public async Task ApplyMany_ThrowingEdit_FailsOnlyItself()
+    {
+        ScriptedEditor ed = new();
+        ed.Script.Enqueue(() => (new FieldEditResult(RowFound: true, OldValue: "1", Verified: true), RefusalReason.None));
+        ed.Script.Enqueue(() => throw new InvalidOperationException("boom"));
+        ed.Script.Enqueue(() => (new FieldEditResult(RowFound: true, OldValue: "3", Verified: true), RefusalReason.None));
+
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        TsEditGate gate = new(sync, _ => ed);
+
+        IReadOnlyList<EditOutcome> outcomes =
+            await gate.ApplyManyAsync([Edit("ep-1"), Edit("ep-2"), Edit("ep-3")]);
+
+        Assert.IsType<EditOutcome.Applied>(outcomes[0]);
+        Assert.IsType<EditOutcome.Failed>(outcomes[1]);           // the throw fails only its own edit
+        Assert.IsType<EditOutcome.Applied>(outcomes[2]);
+        Assert.Equal(2, sync.Journal.Entries.Count);
+    }
+
+    [Fact]
+    public async Task ApplyMany_EditorCannotOpen_FailsEveryEdit_NothingJournaled()
+    {
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        TsEditGate gate = new(sync, _ => throw new InvalidOperationException("no db"));
+
+        IReadOnlyList<EditOutcome> outcomes = await gate.ApplyManyAsync([Edit("ep-1"), Edit("ep-2")]);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, o => Assert.IsType<EditOutcome.Failed>(o));
+        Assert.True(sync.Journal.IsEmpty);
+    }
+
+    [Fact]
+    public async Task ApplyMany_OneElement_MatchesApplyAsync()
+    {
+        StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "5", Verified: true), RefusalReason.None) };
+        TsEditGate gate = Gate(ed, out TsSync sync);
+
+        IReadOnlyList<EditOutcome> outcomes = await gate.ApplyManyAsync(
+            [new TsFieldEdit(TsTable.ExposurePlan, "ep-1", "desired", 10, "A · H")]);
+
+        EditOutcome.Applied a = Assert.IsType<EditOutcome.Applied>(Assert.Single(outcomes));
+        Assert.Equal("5", a.Old);
+        Assert.Equal(10, a.New);
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);   // same journal shape as ApplyAsync
+        Assert.Equal(10L, entry.Value);
+    }
+
     [Fact]
     public async Task ReadFields_ReturnsEveryEditableColumnFromTheDb()
     {

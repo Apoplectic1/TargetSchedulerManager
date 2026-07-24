@@ -147,13 +147,72 @@ public sealed class MainViewModel : INotifyPropertyChanged
         $"Edits land in the local copy and journal; nothing reaches BIRDWATCHER until you push.\n" +
         $"Local: {Sync.LocalPath}\nBIRDWATCHER: {Sync.RemotePath}";
 
-    /// <summary>Push is the one real decision — enabled exactly when unpushed edits exist.</summary>
-    public bool CanPush => Sync.IsDirty;
+    /// <summary>Push is the one real decision — enabled exactly when unpushed edits exist and no bulk
+    /// operation is running (its gate would refuse anyway; the button says so up front).</summary>
+    public bool CanPush => Sync.IsDirty && !_isLoading;
 
     public bool IsLoading
     {
         get => _isLoading;
-        private set => Set(ref _isLoading, value);
+        private set
+        {
+            if (Set(ref _isLoading, value))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanEdit)));
+        }
+    }
+
+    /// <summary>Edit surfaces (the row grid + busy-sensitive toolbar buttons) enable off this: edits are
+    /// visibly disabled exactly while a bulk operation holds the busy exclusion. The view-model funnel
+    /// refuses independently (<see cref="RefuseIfBusy"/>) — this is feedback, that is the invariant.</summary>
+    public bool CanEdit => !_isLoading;
+
+    // ---- the busy exclusion (openspec busy-exclusion) --------------------------------------------------
+    // One check-and-set gate for every bulk db-touching operation (load/reload, pull, push,
+    // visible-tonight). Only these helpers write IsLoading, and both run on the UI thread, so acquisition
+    // is atomic by construction — a future bulk command cannot forget the gate, it has to call it.
+
+    private int _gateWorkInFlight;   // funnel calls whose worker hasn't completed (UI-thread ++/--)
+
+    internal bool TryBeginBusy()
+    {
+        if (_isLoading)
+            return false;
+        if (_gateWorkInFlight > 0)
+        {
+            // An edit's worker still holds a db connection — starting a bulk operation now could overlap
+            // its write (or the pull's file swap). Refuse loudly; the retry costs one click.
+            StatusText = "an edit is still applying — try again in a moment";
+            return false;
+        }
+        IsLoading = true;
+        RaiseSyncState();
+        return true;
+    }
+
+    internal void EndBusy()
+    {
+        IsLoading = false;
+        RaiseSyncState();
+    }
+
+    // The funnel backstop: every edit entry point refuses while a bulk operation runs, independent of the
+    // view's disabling. True = refused (the caller returns false and its control reverts).
+    private bool RefuseIfBusy(string what)
+    {
+        if (!_isLoading)
+            return false;
+        StatusText = $"busy — {what} not applied; retry when the load/push finishes";
+        Log.Info($"EDIT refused (busy): {what}");
+        return true;
+    }
+
+    // Counts a funnel call as in flight so TryBeginBusy can refuse while its worker holds a db connection
+    // (closes the "edit committed, Reload clicked instantly" window). ++/-- run on the calling (UI) thread.
+    private async Task<T> WithEditInFlightAsync<T>(Func<Task<T>> gateCall)
+    {
+        _gateWorkInFlight++;
+        try { return await gateCall(); }
+        finally { _gateWorkInFlight--; }
     }
 
     /// <summary>True while a pull-capable operation runs — shows the Cancel-pull affordance. (During a
@@ -330,39 +389,45 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// reports the counts on the status line.</summary>
     public async Task RunVisibleTonightAsync(TimeSpan minDuration, double horizonAltitudeDeg)
     {
-        if (_isLoading)
+        if (!TryBeginBusy())
             return;
-        if (_lastLoad is not LoadResult load)
-        {
-            StatusText = "no load yet — nothing to reconcile";
-            return;
-        }
-
         VisibleTonightPlan plan;
+        int failed;
         try
         {
-            plan = VisibleTonightPass.Plan(
-                load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, horizonAltitudeDeg);
-        }
-        catch (Exception ex)
-        {
-            // Fail fast, zero edits: a contract violation (e.g. a TS target without RA/Dec) aborts the
-            // whole pass rather than skipping the row.
-            Log.Error("VISIBLE-TONIGHT aborted before any edit", ex);
-            StatusText = $"Visible tonight aborted: {ex.Message}";
-            return;
-        }
+            if (_lastLoad is not LoadResult load)
+            {
+                StatusText = "no load yet — nothing to reconcile";
+                return;
+            }
 
-        int failed = 0;
-        foreach (VisibleTonightEdit edit in plan.Edits)
+            try
+            {
+                plan = VisibleTonightPass.Plan(
+                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, horizonAltitudeDeg);
+            }
+            catch (Exception ex)
+            {
+                // Fail fast, zero edits: a contract violation (e.g. a TS target without RA/Dec) aborts the
+                // whole pass rather than skipping the row.
+                Log.Error("VISIBLE-TONIGHT aborted before any edit", ex);
+                StatusText = $"Visible tonight aborted: {ex.Message}";
+                return;
+            }
+
+            // One worker, one editor session for the whole pass — no UI-thread re-entry between flips, so
+            // the busy scope has no seams. Per-flip failures count and log (in the gate); the rest apply.
+            IReadOnlyList<EditOutcome> outcomes = await _gate.ApplyManyAsync(
+                [.. plan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
+            failed = outcomes.Count(o => o is not EditOutcome.Applied);
+        }
+        finally
         {
-            EditOutcome outcome = await _gate.ApplyAsync(edit.Table, edit.Key, edit.Column, edit.Value, edit.Label);
-            if (outcome is not EditOutcome.Applied)
-                failed++;   // the gate already logged the reason; keep applying the remaining flips
+            EndBusy();
         }
 
         if (plan.Edits.Count > 0)
-            await LoadAsync(PullPolicy.Never);   // re-read the local db: flips, marks, and badge render fresh
+            await LoadAsync(PullPolicy.Never);   // after EndBusy — the reload takes the gate itself
 
         StatusText = $"Visible tonight: {plan.TargetsEnabled} enabled · {plan.TargetsDisabled} disabled · "
             + $"{plan.TargetsUnchanged} unchanged · {plan.ProjectsActivated + plan.ProjectsDeactivated} project(s) flipped"
@@ -422,8 +487,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// </summary>
     public async Task LoadAsync(PullPolicy policy = PullPolicy.IfChanged)
     {
-        if (IsLoading) return;
-        IsLoading = true;
+        if (!TryBeginBusy()) return;
         Stopwatch sw = Stopwatch.StartNew();
         _targetActiveEdits.Clear();   // a fresh load re-reads TS active; in-session overrides are now authoritative-stale
 
@@ -460,8 +524,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         finally
         {
-            IsLoading = false;
-            RaiseSyncState();
+            EndBusy();
         }
     }
 
@@ -547,20 +610,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// </summary>
     public async Task PushAsync()
     {
-        if (IsLoading) return;
-        if (!Sync.IsDirty)
-        {
-            StatusText = "nothing to push — no unpushed edits";
-            return;
-        }
-
-        // IsLoading doubles as the load/push mutual exclusion (both check-and-set synchronously on the UI
-        // thread): a second Push… click can't stack a second ContentDialog, and Reload can't run a write-back
-        // pass while the push replays.
-        IsLoading = true;
+        // TryBeginBusy is the load/push/visible-tonight mutual exclusion (check-and-set on the UI thread):
+        // a second Push… click can't stack a second ContentDialog, and Reload can't run a write-back pass
+        // while the push replays.
+        if (!TryBeginBusy()) return;
         PushResult? result = null;
         try
         {
+            if (!Sync.IsDirty)
+            {
+                StatusText = "nothing to push — no unpushed edits";
+                return;
+            }
+
             TsDbStat? probe = await Task.Run(Sync.ProbeRemote);
             RaiseSyncState();
             if (probe is null)
@@ -585,8 +647,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         finally
         {
-            IsLoading = false;
-            RaiseSyncState();
+            EndBusy();
         }
 
         if (result.PulledFresh)
@@ -701,9 +762,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public async Task<bool> SetTargetEnabledAsync(TargetGroupRow group, bool enabled)
     {
+        if (RefuseIfBusy($"enable change for {group.Target}"))
+            return false;
         if (group.TsTargetKey is not string key)
             return false;
-        EditOutcome outcome = await _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target);
+        EditOutcome outcome = await WithEditInFlightAsync(() =>
+            _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, group.Target));
         bool applied = ApplyOutcome(outcome, group.Target);
         if (applied)
         {
@@ -735,6 +799,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// whatever partial state resulted.</summary>
     public async Task<bool> SetMosaicEnabledAsync(TargetGroupRow group, bool enabled)
     {
+        if (RefuseIfBusy($"enable change for {group.Target}"))
+            return false;
         if (group.Panels is not { Count: > 0 } panels)
             return false;
         bool allApplied = true;
@@ -742,7 +808,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             if (panel.TsTargetKey is not string key) continue;
             string label = $"{group.Target} · {panel.Label}";
-            EditOutcome outcome = await _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, label);
+            EditOutcome outcome = await WithEditInFlightAsync(() =>
+                _gate.ApplyAsync(TsTable.Target, key, "active", enabled ? 1 : 0, label));
             if (ApplyOutcome(outcome, label))
                 _targetActiveEdits[key] = enabled;
             else
@@ -754,14 +821,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// <summary>Seeds a field-editor form: the current db values of one TS row's editable columns
     /// (null = row missing or read fault — show an error, not a form).</summary>
     public Task<IReadOnlyDictionary<string, object?>?> ReadTsFieldsAsync(TsTable table, string key, string label) =>
-        _gate.ReadFieldsAsync(table, key, label);
+        WithEditInFlightAsync(() => _gate.ReadFieldsAsync(table, key, label));   // reads hold a connection too
 
     /// <summary>Writes one editable TS field through the guarded gate; true when applied + verified. The generic
     /// path for fields with no in-grid mirror — `target.active` and plan `desired` route through their specific
     /// setters so their grid cells refresh in place.</summary>
     public async Task<bool> SetTsFieldAsync(TsTable table, string key, string column, object? value, string label)
     {
-        EditOutcome outcome = await _gate.ApplyAsync(table, key, column, value, label);
+        if (RefuseIfBusy($"{column} edit for {label}"))
+            return false;
+        EditOutcome outcome = await WithEditInFlightAsync(() =>
+            _gate.ApplyAsync(table, key, column, value, label));
         return ApplyOutcome(outcome, label);
     }
 
@@ -770,10 +840,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// cadence convention in DOMAIN.md). Mirrors the row's checkbox in place on success.</summary>
     public async Task<bool> SetPlanEnabledAsync(ReconciliationRow row, bool enabled)
     {
+        if (RefuseIfBusy($"enable change for {row.Target} · {row.Filter}"))
+            return false;
         if (row.PlanTsKey is not string key)
             return false;
         string label = $"{row.Target} · {row.Filter}";
-        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "enabled", enabled ? 1 : 0, label);
+        EditOutcome outcome = await WithEditInFlightAsync(() =>
+            _gate.ApplyAsync(TsTable.ExposurePlan, key, "enabled", enabled ? 1 : 0, label));
         if (!ApplyOutcome(outcome, label))
             return false;
         row.ApplyPlanEnabled(enabled);
@@ -782,9 +855,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public async Task<bool> SetPlanDesiredAsync(ReconciliationRow row, int desired)
     {
+        if (RefuseIfBusy($"Desired edit for {row.Target} · {row.Filter}"))
+            return false;
         if (row.PlanTsKey is not string key)
             return false;
-        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}");
+        EditOutcome outcome = await WithEditInFlightAsync(() =>
+            _gate.ApplyAsync(TsTable.ExposurePlan, key, "desired", desired, $"{row.Target} · {row.Filter}"));
         if (!ApplyOutcome(outcome, $"{row.Target} · {row.Filter}"))
             return false;
 
@@ -800,14 +876,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
     /// either way (standing rule: a flyout edit reflects in its column at once).</summary>
     public async Task<bool> SetPlanExposureAsync(ReconciliationRow row, double exposure, int? mirrorSeconds)
     {
+        if (RefuseIfBusy($"exposure edit for {row.Target} · {row.Filter}"))
+            return false;
         if (row.PlanTsKey is not string key)
             return false;
         string label = $"{row.Target} · {row.Filter}";
-        EditOutcome outcome = await _gate.ApplyAsync(TsTable.ExposurePlan, key, "exposure", exposure, label);
+        EditOutcome outcome = await WithEditInFlightAsync(() =>
+            _gate.ApplyAsync(TsTable.ExposurePlan, key, "exposure", exposure, label));
         if (!ApplyOutcome(outcome, label))
             return false;
 
-        mirrorSeconds ??= await _gate.ReadPlanEffectiveSecondsAsync(key, label);
+        mirrorSeconds ??= await WithEditInFlightAsync(() => _gate.ReadPlanEffectiveSecondsAsync(key, label));
         if (mirrorSeconds is int seconds)
         {
             row.ApplyPlanSeconds(seconds);

@@ -9,7 +9,20 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
-**▶ SHIPPED 2026-07-23 — alias fold removed in full (`openspec/changes/remove-alias-fold`; paired lib commit
+**▶ SHIPPED 2026-07-24 — busy exclusion (`openspec/changes/busy-gate`; from the 2026-07-24 code review's
+concurrency cluster — C1 + M5 + the blind cross-check's grid-gating finding).** The "IsLoading doubles as
+the mutual exclusion" convention became structural: `MainViewModel.TryBeginBusy()`/`EndBusy()` are now the
+only writers of `IsLoading` (check-and-set on the UI thread), adopted by load, push, **and the
+visible-tonight pass — which previously only checked the flag**, leaving Reload/Push/second-Find free to
+interleave writers mid-pass. Row edits are gated both ways: every `Set*Async` funnel entry refuses while
+busy (`RefuseIfBusy` — status note, control reverts) and edit surfaces disable off a new `CanEdit`
+(whole-ListView + Find/Reload/Pull-now/Templates; `CanPush` now busy-aware; Cancel-pull/search/filters/
+Ambiguities stay live); in the reverse direction an in-flight funnel call (edit or read — both hold a db
+connection) blocks `TryBeginBusy`, closing the "edit committed, Reload clicked instantly" window against
+the pull's atomic swap. The pass batches its flips through new `TsEditGate.ApplyManyAsync` — one worker,
+one editor session, per-edit outcomes; `ApplyAsync` is its one-element case — so an N-flip pass opens 1
+connection instead of N and has no UI-thread seams. Main spec seeded conceptually as `busy-exclusion` +
+a `visible-tonight-toggle` delta. 213 App.Tests (9 new). (`openspec/changes/remove-alias-fold`; paired lib commit
 `306f6fd` in `..\Library`).** The agreed 2026-07-08 removal (NOTEBOOK correction: "explained ≠ approved" — the
 fold masked the unintentional M27/Dumbell twin): a multi-claim is always a flagged **duplicate** (resolver's
 `IsAliasName` branch, `AliasTsTarget`/`AliasMemberCount`/`TargetMatchIssues.Alias`, and the planner's

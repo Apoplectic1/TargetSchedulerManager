@@ -29,6 +29,10 @@ internal sealed class TsEditorAdapter : ITsEditor
     public void Dispose() => _editor.Dispose();
 }
 
+/// <summary>One field edit for the gate: the field coordinate (table, TS key, column), the absolute value
+/// to write, and the grid-style label ("M 81 · Ha") for logging and the journal.</summary>
+internal sealed record TsFieldEdit(TsTable Table, string Key, string Column, object? Value, string Label);
+
 /// <summary>The outcome of one guarded write — a sealed set so callers match exhaustively.</summary>
 internal abstract record EditOutcome
 {
@@ -124,33 +128,66 @@ internal sealed class TsEditGate
         });
 
     /// <summary>Guard-checks and applies one field edit to the local TS db, off the UI thread; a verified
-    /// write also journals for the next push.</summary>
-    public Task<EditOutcome> ApplyAsync(TsTable table, string key, string column, object? value, string label) =>
-        Task.Run<EditOutcome>(() =>
+    /// write also journals for the next push. The one-element case of <see cref="ApplyManyAsync"/>.</summary>
+    public async Task<EditOutcome> ApplyAsync(TsTable table, string key, string column, object? value, string label)
+    {
+        IReadOnlyList<EditOutcome> outcomes =
+            await ApplyManyAsync([new TsFieldEdit(table, key, column, value, label)]);
+        return outcomes[0];
+    }
+
+    /// <summary>
+    /// Applies many field edits in one worker invocation on ONE editor session — the batch counterpart of
+    /// <see cref="ApplyAsync"/> with the same per-edit contract: guard-check, read-back verify, journal,
+    /// audit. Outcomes align with <paramref name="edits"/> by index; a faulted edit fails only itself and
+    /// the batch continues. An editor that cannot open fails every edit (nothing was attempted).
+    /// </summary>
+    public Task<IReadOnlyList<EditOutcome>> ApplyManyAsync(IReadOnlyList<TsFieldEdit> edits) =>
+        Task.Run<IReadOnlyList<EditOutcome>>(() =>
         {
+            List<EditOutcome> outcomes = new(edits.Count);
             try
             {
                 using ITsEditor editor = _editorFactory(_sync.LocalPath);
-                (FieldEditResult? result, RefusalReason refusal) = editor.TrySetField(table, key, column, value);
-                if (refusal != RefusalReason.None)
-                {
-                    Log.Warn($"{table}.{column} write refused for \"{label}\": {refusal}");
-                    return new EditOutcome.Refused(refusal);
-                }
-                if (result is not { Succeeded: true })
-                {
-                    Log.Error($"{table}.{column} write failed for \"{label}\" (found={result?.RowFound} verified={result?.Verified})");
-                    return new EditOutcome.Failed(result?.RowFound ?? false, result?.Verified ?? false);
-                }
-
-                _sync.RecordEdit(table, key, column, value, result.OldValue, label);
-                Log.Info($"EDIT {table}.{column} \"{label}\": {result.OldValue} -> {value} on local {_sync.LocalPath} (journaled)");
-                return new EditOutcome.Applied(result.OldValue, value);
+                foreach (TsFieldEdit edit in edits)
+                    outcomes.Add(ApplyOne(editor, edit));
             }
             catch (Exception ex)
             {
-                Log.Error($"{table}.{column} write threw for \"{label}\"", ex);
-                return new EditOutcome.Failed(Found: false, Verified: false);
+                // The editor session itself failed (open/dispose) — every unattempted edit fails loudly.
+                Log.Error($"edit batch aborted at {outcomes.Count}/{edits.Count}", ex);
+                while (outcomes.Count < edits.Count)
+                    outcomes.Add(new EditOutcome.Failed(Found: false, Verified: false));
             }
+            return outcomes;
         });
+
+    // The per-edit contract, shared by the single and batch paths.
+    private EditOutcome ApplyOne(ITsEditor editor, TsFieldEdit edit)
+    {
+        try
+        {
+            (FieldEditResult? result, RefusalReason refusal) =
+                editor.TrySetField(edit.Table, edit.Key, edit.Column, edit.Value);
+            if (refusal != RefusalReason.None)
+            {
+                Log.Warn($"{edit.Table}.{edit.Column} write refused for \"{edit.Label}\": {refusal}");
+                return new EditOutcome.Refused(refusal);
+            }
+            if (result is not { Succeeded: true })
+            {
+                Log.Error($"{edit.Table}.{edit.Column} write failed for \"{edit.Label}\" (found={result?.RowFound} verified={result?.Verified})");
+                return new EditOutcome.Failed(result?.RowFound ?? false, result?.Verified ?? false);
+            }
+
+            _sync.RecordEdit(edit.Table, edit.Key, edit.Column, edit.Value, result.OldValue, edit.Label);
+            Log.Info($"EDIT {edit.Table}.{edit.Column} \"{edit.Label}\": {result.OldValue} -> {edit.Value} on local {_sync.LocalPath} (journaled)");
+            return new EditOutcome.Applied(result.OldValue, edit.Value);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"{edit.Table}.{edit.Column} write threw for \"{edit.Label}\"", ex);
+            return new EditOutcome.Failed(Found: false, Verified: false);
+        }
+    }
 }

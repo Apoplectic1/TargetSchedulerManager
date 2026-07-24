@@ -111,6 +111,16 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   imaging; the push's sidecar guard refuses that overlap). The future LCM is `Catalog.db`'s single writer with
   WAL on so consumers read without blocking. (WAL is unhappy over network shares — relevant if a consumer runs
   on another PC.)
+- **Busy exclusion (shipped 2026-07-24, openspec `busy-exclusion`):** in-app, the one-writer rule is enforced
+  structurally, not by convention — every bulk db-touching operation (load/reload, pull, push, visible-tonight)
+  acquires `MainViewModel.TryBeginBusy()` / `EndBusy()` (check-and-set on the UI thread; the only writers of
+  `IsLoading`); row edits are **refused in the view-model funnel** while one runs (`RefuseIfBusy` — status note,
+  control reverts) and their surfaces disable off `CanEdit` (whole-ListView + busy-sensitive toolbar buttons;
+  Cancel-pull/search/filters/Ambiguities stay live). The reverse direction is closed too: an in-flight funnel
+  call (edit *or* read — both hold a db connection) blocks `TryBeginBusy` until its worker completes, so no
+  edit can overlap a load's write-back, a pull's atomic swap, or a push replay. The visible-tonight pass applies
+  its flips as **one worker batch on one editor session** (`TsEditGate.ApplyManyAsync`; `ApplyAsync` is its
+  one-element case), so the pass has no UI-thread seams at all.
 - **TS interop:** reads via `TargetSchedulerReader` (opened `Mode=ReadOnly` + busy-timeout, explicit column
   lists, schema-version aware); edits via the in-grid editing path (reference-driven `TsEditableSchema`) onto
   the local copy; write-back runs automatically each load (see below). All TS interop (read *and* write) is a
