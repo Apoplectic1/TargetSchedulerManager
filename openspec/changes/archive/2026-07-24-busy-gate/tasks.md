@@ -51,5 +51,5 @@
       (bulk ops mutually exclusive, edits refused while busy, both structural); note
       `ApplyManyAsync` as the gate's batch path. ROADMAP recently-shipped digest line. Same commit as
       the code.
-- [ ] 5.2 Human verification pass (user-run): grid greys during load/pull/pass; refused-edit status
+- [x] 5.2 Human verification pass (user-run): grid greys during load/pull/pass; refused-edit status
       note reads well; Cancel pull reachable mid-pull; visible-tonight summary unchanged.
