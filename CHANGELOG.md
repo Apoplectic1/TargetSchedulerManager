@@ -14,6 +14,22 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-24 — DiagnosticsWindow thins to the WinUI shell over the Library's new
+`ObservationSession` (AL Diagnostics consolidation; this window was the model the type was lifted
+from).** The observation orchestration — id minting, START/CAP/END/CANCEL sequencing with the
+single-terminator guarantee, capture counting, status wording, the hide → 450 ms settle → grab →
+reshow choreography, the 5 s delayed capture, and the guarded context-provider call — now lives in
+`Astronomy.Diagnostics.ObservationSession` (AL commit `731a245`, contract assumption #25). The window
+keeps only framework glue: the `Window`/controls, the `_current` singleton (focus-existing, no second
+START), Ctrl+Enter commit, `CenterOverOwner`, and the three delegates (owner `AppWindow` bounds /
+`Hide` / `Show`+`Activate`+focus-notes). `Closed` now just calls the idempotent `_session.Cancel()` —
+the `_terminationLogged` flag is gone; OK honors `CompleteAsync`'s false return (capture in flight →
+stay open). Net ~−60 lines; zero behavior change intended. Also fixed the stale header claim that
+TP's dialog "shoots only at OK" (TP has had a repeatable Capture button all along). Verified: TSM sln
+builds, App.Tests 235/235; **visual pass pending** (Ctrl+N open/focus, capture ghost check, delayed
+capture over a flyout, one-terminator log audit).
+
+
 **▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
 resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under
 the corrected model TSM manages TS, period — ISP is its own project, and merging TS's targets into it is a

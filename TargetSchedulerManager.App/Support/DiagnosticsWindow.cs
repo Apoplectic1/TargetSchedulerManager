@@ -8,46 +8,54 @@ using Windows.Graphics;
 namespace TargetSchedulerManager.App.Support;
 
 /// <summary>
-/// Ctrl+N diagnostics window, ported from TargetPlanner's UserObservationDialog. A separate modeless
-/// always-on-top <see cref="Window"/> (NOT a ContentDialog — that would block the main UI, defeating the
-/// point: the open period brackets the user's actions in tsm.log between USER_OBS_START and USER_OBS_END,
-/// so intervening DIAG lines are chronologically scoped). OK captures notes + a context snapshot + a
-/// screenshot of the main window; blank notes = "all-okay checkpoint". Singleton: Ctrl+N while open
-/// focuses the existing window instead of stacking a second START marker.
+/// Ctrl+N diagnostics window — the WinUI shell over <see cref="ObservationSession"/>, which owns the
+/// orchestration (id, START/CAP/END/CANCEL sequencing, single-terminator guarantee, capture counting,
+/// status wording, hide → settle → grab → reshow). This window was the model the library type was lifted
+/// from (2026-07-24); what remains here is only the framework glue: the <see cref="Window"/> itself, its
+/// controls, the singleton focus-existing rule, and the three delegates the session drives.
 ///
-/// <para><b>Capture</b> grabs the main window on demand and stays open, so one session can interleave
-/// several timestamped shots with notes (capture → change UI → capture → type → OK). Every shot's PNG is
-/// stamped in local time (matching tsm.log), and a USER_OBS_CAP line records each, so images and notes can be
-/// ordered against each other after the fact. (TP's dialog shoots only at OK; the repeatable button is TSM's.)</para>
-///
-/// <para>The window is the TSM-side UI; the underlying log protocol (USER_OBS_START/END/CAP markers) is the
-/// shared Astronomy.Diagnostics contract and keeps its name.</para>
+/// A separate modeless always-on-top <see cref="Window"/> (NOT a ContentDialog — that would block the main
+/// UI, defeating the point: the open period brackets the user's actions in tsm.log between USER_OBS_START
+/// and USER_OBS_END, so intervening DIAG lines are chronologically scoped). OK captures notes + a context
+/// snapshot + a screenshot of the main window; blank notes = "all-okay checkpoint". Singleton: Ctrl+N
+/// while open focuses the existing window instead of stacking a second START marker.
 ///
 /// Built in code rather than XAML — WinUI controls construct imperatively exactly like WinForms, and this
-/// stays close to the TP original it ports.
+/// stays close to the TP sibling (<c>DiagnosticsDialog</c>), which drives the same session type.
 /// </summary>
 internal sealed class DiagnosticsWindow : Window
 {
     private static DiagnosticsWindow? _current;
 
-    private readonly string _id;
-    private readonly Window _owner;
-    private readonly Func<string> _contextProvider;
+    private readonly ObservationSession _session;
     private readonly TextBox _notes;
     private readonly TextBlock _status;
-    private int _captureCount;
-    // True when END/CANCEL was logged from a button handler; stops Closed from double-logging.
-    private bool _terminationLogged;
 
     private DiagnosticsWindow(Window owner, Func<string> contextProvider)
     {
-        _id = Guid.NewGuid().ToString("N")[..4];
-        _owner = owner;
-        _contextProvider = contextProvider;
+        // The session logs START and owns the choreography; the delegates are this window's only
+        // framework-specific contribution to a capture. 450 ms settle = the WinUI default (fade-out +
+        // DWM recomposite; the empirical basis lives in the library type's docs).
+        _session = ObservationSession.Begin(
+            contextProvider,
+            ownerBounds: () =>
+            {
+                PointInt32 pos = owner.AppWindow.Position;
+                SizeInt32 size = owner.AppWindow.Size;
+                return (pos.X, pos.Y, size.Width, size.Height);
+            },
+            hideOverlay: () => AppWindow.Hide(),
+            showOverlay: () =>
+            {
+                AppWindow.Show();
+                Activate();
+                // Null-forgiving: the delegate can only run after the ctor finishes assigning _notes.
+                _notes!.Focus(FocusState.Programmatic);
+            });
 
-        Title = $"Diagnostics (id={_id})";
+        Title = $"Diagnostics (id={_session.Id})";
         AppWindow.Resize(new SizeInt32(660, 360));   // wide enough for the button row + "captured N (delayed) · hh:mm:ss"
-        CenterOverOwner();              // TP's StartPosition.CenterParent — default placement can land on another monitor
+        CenterOverOwner(owner);         // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
         {
             p.IsAlwaysOnTop = true;     // TP's TopMost: stays over the main window while you drive it
@@ -62,9 +70,8 @@ internal sealed class DiagnosticsWindow : Window
             VerticalAlignment = VerticalAlignment.Stretch,
         };
         ScrollViewer.SetVerticalScrollBarVisibility(_notes, ScrollBarVisibility.Auto);
-        // Ctrl+Enter commits from inside the notes box (TP convention, inverted: there Enter=OK and
-        // Ctrl+Enter=newline; here Enter=newline). Handled in KeyDown because the TextBox consumes Enter
-        // before a button KeyboardAccelerator would see it.
+        // Ctrl+Enter commits from inside the notes box (Enter=newline). Handled in KeyDown because the
+        // TextBox consumes Enter before a button KeyboardAccelerator would see it.
         _notes.KeyDown += (s, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Enter && IsCtrlDown())
@@ -140,71 +147,39 @@ internal sealed class DiagnosticsWindow : Window
             return;
         }
 
-        DiagnosticsWindow w = new(owner, contextProvider);
+        DiagnosticsWindow w = new(owner, contextProvider);   // ObservationSession.Begin logs START
         _current = w;
-        Log.UserObservationStart(w._id);
         w.Activate();
         w._notes.Focus(FocusState.Programmatic);
     }
 
-    // Take a mid-session shot and stay open: grab the main window (this window hidden so it's not in its own
-    // shot), re-show, and record a USER_OBS_CAP line + bump the status readout. Repeatable.
     private void OnCaptureClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
-        string? path = await CaptureHidingSelfAsync(reshow: true);
-        RecordCapture(path, delayed: false);
+        ObservationCapture cap = await _session.CaptureAsync();
+        _status.Text = cap.StatusText;
     }, "diagnostics capture");
 
-    // The delayed variant: same grab, but the hidden period is 5 s instead of a DWM settle — time to open a
-    // flyout / context menu on the main window, which then survives into the shot (no focus change at capture).
-    // The window is hidden for the whole countdown, so a second click can't stack timers.
     private void OnDelayedCaptureClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
-        string? path = await CaptureHidingSelfAsync(reshow: true, delayMs: 5000);
-        RecordCapture(path, delayed: true);
+        ObservationCapture cap = await _session.CaptureAsync(delayMs: 5000, markDelayed: true);
+        _status.Text = cap.StatusText;
     }, "diagnostics delayed capture");
-
-    private void RecordCapture(string? path, bool delayed)
-    {
-        if (path is not null)
-        {
-            _captureCount++;
-            Log.UserObservationCapture(_id, path);
-            _status.Text = $"captured {_captureCount}{(delayed ? " (delayed)" : string.Empty)} · {DateTime.Now:HH:mm:ss}";
-        }
-        else
-        {
-            _status.Text = "capture failed — see tsm.log";
-        }
-    }
 
     private void OnOkClick(object sender, RoutedEventArgs e) => Shared.UiTask.FireAndLog(async () =>
     {
-        string? screenshotPath = await CaptureHidingSelfAsync(reshow: false);   // a final shot tied to the note
-
-        string ctx = string.Empty;
-        try { ctx = _contextProvider() ?? string.Empty; }
-        catch (Exception ex) { Log.Warn("Observation contextProvider threw", ex); }
-
-        Log.UserObservationEnd(_id, ctx, _notes.Text, screenshotPath ?? string.Empty);
-        _terminationLogged = true;
-        Close();
+        if (await _session.CompleteAsync(_notes.Text))   // false = capture in flight; stay open, retry
+            Close();
     }, "diagnostics OK");
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
     {
-        Log.UserObservationCancel(_id);
-        _terminationLogged = true;
+        _session.Cancel();
         Close();
     }
 
     private void OnClosed(object sender, WindowEventArgs e)
     {
-        if (!_terminationLogged)
-        {
-            Log.UserObservationCancel(_id);
-            _terminationLogged = true;
-        }
+        _session.Cancel();   // idempotent: a no-op after OK/Cancel, the terminator on close-X
         if (ReferenceEquals(_current, this)) _current = null;
     }
 
@@ -214,12 +189,12 @@ internal sealed class DiagnosticsWindow : Window
 
     // Center over the owner window so the dialog appears where the user is looking (and never on a
     // different monitor); both AppWindow rects are physical pixels, so the math is direct.
-    private void CenterOverOwner()
+    private void CenterOverOwner(Window owner)
     {
         try
         {
-            PointInt32 oPos = _owner.AppWindow.Position;
-            SizeInt32 oSize = _owner.AppWindow.Size;
+            PointInt32 oPos = owner.AppWindow.Position;
+            SizeInt32 oSize = owner.AppWindow.Size;
             SizeInt32 mine = AppWindow.Size;
             AppWindow.Move(new PointInt32(
                 oPos.X + ((oSize.Width - mine.Width) / 2),
@@ -229,32 +204,5 @@ internal sealed class DiagnosticsWindow : Window
         {
             // Positioning is cosmetic; never fail the window over it.
         }
-    }
-
-    // Hide this always-on-top window, let its fade-out + a DWM recomposite settle, grab the owner's pixels,
-    // then (for a mid-session Capture) bring this window back and refocus the notes. 450 ms: 150 ms left a
-    // translucent ghost of this window in the shot (observed 2026-06-10); 450 ms grabs clean. A longer
-    // delayMs turns the hidden period into the delayed-capture countdown.
-    private async Task<string?> CaptureHidingSelfAsync(bool reshow, int delayMs = 450)
-    {
-        AppWindow.Hide();
-        await Task.Delay(delayMs);
-        string? path = TryCaptureScreenshot();
-        if (reshow)
-        {
-            AppWindow.Show();
-            Activate();
-            _notes.Focus(FocusState.Programmatic);
-        }
-        return path;
-    }
-
-    // Adapt the owner's physical-pixel bounds to the shared screen capture + the shared obs-<id>-<stamp> filename
-    // convention; Astronomy.Diagnostics owns the grab, encode, local-time stamp, and best-effort failure path.
-    private string? TryCaptureScreenshot()
-    {
-        PointInt32 pos = _owner.AppWindow.Position;
-        SizeInt32 size = _owner.AppWindow.Size;
-        return ScreenCapture.ToPng(pos.X, pos.Y, size.Width, size.Height, Log.NewObservationScreenshotPath(_id));
     }
 }
