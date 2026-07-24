@@ -36,6 +36,8 @@ ROADMAP flags #7/18/20/21 (post-BIRDWATCHER refresh).
 
 ## Recently shipped (digest — full history in `CHANGELOG.md`)
 
+- **2026-07-24** — serial commits: `CommitChain` serializes flyout + inline-Desired commits in
+  confirmation order — kills the double-commit spurious-revert race (`serial-commits`; review cross-check).
 - **2026-07-24** — row parameter objects: `ReconciliationRow` 29 ctor params → `RowIdentity` +
   `RowNumbers` records, identity built once per emit (`row-param-objects`; review M3).
 - **2026-07-24** — push decomposition: `TsSync.Push` → orchestrator + named legs (`PushReplayState`,

@@ -2,6 +2,7 @@ using System.Globalization;
 using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using TargetSchedulerManager.App.Shared;
 
 namespace TargetSchedulerManager.App.Controls;
 
@@ -29,6 +30,13 @@ internal sealed class TsFieldsEditor : UserControl
     private readonly Dictionary<string, object?> _lastKnown;   // last committed (or seeded) raw value per column
     private readonly EffectiveValue? _effective;               // resolved values behind sentinel columns
     private bool _reverting;                                   // suppresses commit while a control is put back
+
+    // One commit at a time per form, in confirmation order (openspec serial-commits): overlapping awaits
+    // used to race write+verify and _lastKnown bookkeeping — a later confirm could spuriously revert an
+    // earlier verified write. Every handler routes _commit through this chain.
+    private readonly CommitChain _chain = new();
+
+    private Task<bool> Commit(string column, object? value) => _chain.Run(() => _commit(column, value));
 
     private TsFieldsEditor(
         TsTable table, string title, IReadOnlyDictionary<string, object?> seed, CommitField commit,
@@ -120,7 +128,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (_reverting) return;
             int wanted = toggle.IsOn ? 1 : 0;
             if (ToLong(_lastKnown[field.Column]) == wanted) return;
-            if (await _commit(field.Column, wanted))
+            if (await Commit(field.Column, wanted))
                 _lastKnown[field.Column] = (long)wanted;
             else
                 Revert(() => toggle.IsOn = ToLong(_lastKnown[field.Column]) != 0);
@@ -157,7 +165,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (wanted == current) return;
 
             object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
-            if (await _commit(field.Column, value))
+            if (await Commit(field.Column, value))
                 _lastKnown[field.Column] = value;
             else
                 Revert(() => box.Value = ToDouble(_lastKnown[field.Column]));
@@ -207,7 +215,7 @@ internal sealed class TsFieldsEditor : UserControl
             box.IsEnabled = false;
             if (ToDouble(_lastKnown[field.Column]) == sentinel) return;   // seeded state settling, not an edit
             object value = field.Type == TsFieldType.Whole ? (int)sentinel : sentinel;
-            if (await _commit(field.Column, value))
+            if (await Commit(field.Column, value))
             {
                 _lastKnown[field.Column] = value;
                 // The column now holds the sentinel, so the provider's value IS the default (the commit path
@@ -255,7 +263,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (wanted == current) return;
 
             object value = field.Type == TsFieldType.Whole ? (int)wanted : wanted;
-            if (await _commit(field.Column, value))
+            if (await Commit(field.Column, value))
                 _lastKnown[field.Column] = value;
             else if (current == sentinel)
                 Revert(() => { useDefault.IsChecked = true; box.IsEnabled = false; box.Value = effective ?? double.NaN; });
@@ -289,7 +297,7 @@ internal sealed class TsFieldsEditor : UserControl
         {
             if (_reverting || combo.SelectedItem is not TsEnumValue picked) return;
             if (picked.Code == ToLong(_lastKnown[field.Column])) return;
-            if (await _commit(field.Column, picked.Code))
+            if (await Commit(field.Column, picked.Code))
                 _lastKnown[field.Column] = (long)picked.Code;
             else
                 Revert(() => combo.SelectedItem = values.FirstOrDefault(v => v.Code == ToLong(_lastKnown[field.Column])));
@@ -310,7 +318,7 @@ internal sealed class TsFieldsEditor : UserControl
             if (_reverting) return;
             string current = _lastKnown[field.Column]?.ToString() ?? string.Empty;
             if (box.Text == current) return;
-            if (await _commit(field.Column, box.Text))
+            if (await Commit(field.Column, box.Text))
                 _lastKnown[field.Column] = box.Text;
             else
                 Revert(() => box.Text = _lastKnown[field.Column]?.ToString() ?? string.Empty);

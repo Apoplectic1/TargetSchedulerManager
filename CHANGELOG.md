@@ -9,6 +9,21 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — serial commits (`openspec/changes/serial-commits`; the review cross-check's last
+open correctness item, scope widened).** Every commit handler in `TsFieldsEditor` (all six control kinds —
+the review flagged only the number boxes) and the grid's inline `Desired_Committed` ran
+`await commit(...)` with the surface still live: two rapid confirms overlapped their write + read-back
+verify on separate connections — completion order could leave the control, db, and journal disagreeing,
+and the first write's verify could observe the second's value → `Failed` → a spurious revert of a good
+edit. Fix: `Shared/CommitChain` — a UI-thread task chain (no locks, no `SemaphoreSlim`): each commit
+starts only after every earlier one from the same surface completed; callers await their own task, so
+per-site revert handling is untouched and confirmation order is preserved end-to-end. One chain per
+editor form + one for the grid's Desired boxes. Rejected: disabling the form (focus moves fire
+`TextBox.LostFocus` commits re-entrantly — the cure invokes the disease) and refuse-while-busy (bounces a
+valid second value). Also fixes the stale "reloads on success" comment on `Desired_Committed` (blind
+review m4). Spec delta: serialization requirement on `schema-driven-field-editor`. 225 App.Tests (4 new
+`CommitChainTests`). Bugfix (not a pure refactor) — awaiting the user's rapid-edit sanity pass, then archive.
+
 **▶ SHIPPED 2026-07-24 — row parameter objects (`openspec/changes/row-param-objects`; review M3, count
 corrected 24→29).** `ReconciliationRow`'s 29-positional-parameter constructor — adjacent same-typed runs
 where a transposed pair compiles clean and renders a subtly wrong grid — became 12 parameters over two

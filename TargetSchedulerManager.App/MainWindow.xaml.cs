@@ -110,10 +110,15 @@ public sealed partial class MainWindow : Window
             box.IsChecked = !wanted;   // refused (e.g. override order) or failed — restore
     }
 
+    // Inline Desired commits serialize like the flyout's (openspec serial-commits): two rapid confirms
+    // used to overlap their write+verify — the first's read-back could see the second's value and
+    // spuriously revert a good edit. One chain for all Desired boxes (cross-row serialization costs ms).
+    private readonly Shared.CommitChain _desiredCommits = new();
+
     // A 1:1 plan row's Desired NumberBox committed (focus left): if the integer actually changed, write it to the
-    // TS db through the guarded path (which reloads on success); on a failed write or an empty/NaN box, snap the
-    // box back to the row's current value. Only fires when the value differs, so re-focusing without editing — and
-    // the binding settling the value on realization — write nothing.
+    // TS db through the guarded path (which mirrors the row in place on success); on a failed write or an
+    // empty/NaN box, snap the box back to the row's current value. Only fires when the value differs, so
+    // re-focusing without editing — and the binding settling the value on realization — write nothing.
     private async void Desired_Committed(object sender, RoutedEventArgs e)
     {
         if (sender is not NumberBox box || box.DataContext is not ViewModels.Rows.ReconciliationRow row)
@@ -124,7 +129,7 @@ public sealed partial class MainWindow : Window
         int wanted = double.IsNaN(box.Value) ? current : (int)System.Math.Round(box.Value);
         if (wanted == current) { box.Value = current; return; }
 
-        if (!await ViewModel.SetPlanDesiredAsync(row, wanted))
+        if (!await _desiredCommits.Run(() => ViewModel.SetPlanDesiredAsync(row, wanted)))
             box.Value = current;   // write failed — restore the prior value
     }
 
