@@ -66,7 +66,7 @@ arrives. Supersedes the old "migrate XFM's scheduler tab" framing: the grid repl
 own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left to cut over.
 
 - **DB touched:** the **local TS working copy only** — since 2026-07-06 synced by the pull/push model
-  (`TsSync`; see the Status digest): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
+  (`TsSync`; see Status): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
 - **Structure:** new app project (WinUI 3; born **`TargetCatalogManager.App`**, renamed
   `TargetSchedulerManager.App` 2026-06-11) beside the then-extant `tcm` CLI (removed 2026-06-11). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
   Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
@@ -119,7 +119,7 @@ for mosaics) path — is the load-bearing spec in **`ARCHITECTURE.md` → TS wri
 don't re-document the mechanism here). The 2026-06-08 real-data validation run (182 written / 13 held / 92
 ignored-missing, the `Sh2-142` fix, the `Mosaic - Cygnus Loop` surgical run) is recorded in `CHANGELOG.md`.
 - ~~**Out of scope (later phase):** automated network push of the local copy back to the imaging PC~~ —
-  **shipped 2026-07-06** as the sync model's push-as-replay (never a file copy; see the Status digest).
+  **shipped 2026-07-06** as the sync model's push-as-replay (never a file copy; see Status).
   ~~Creating missing targets~~ — **not a TSM verb** (resolver rejected 2026-07-08); target creation is a
   hand-edit in NINA's TS UI.
 
