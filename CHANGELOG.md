@@ -9,6 +9,18 @@ short recent digest + a pointer here; git remains the commit-level backstop. New
 
 ---
 
+**▶ SHIPPED 2026-07-24 — await-friendly probe (review N8, the FINAL review item, unparked to finish the
+cycle).** `TsDatabaseResolver.StatAsync` — the same stat, the same abandoned-worker hard-timeout semantics
+(a hung SMB call on a down host is abandoned and completes harmlessly later), but via `Task.WaitAsync`:
+no thread parks for the wait. `TsSync.ProbeRemoteAsync` wraps it, and the view-model's three probe sites
+drop their `Task.Run(Sync.ProbeRemote)` — with a free correctness dividend: the UI-thread continuation
+now writes `LastProbe`/`HasProbed` on the same thread that reads them for the badge, retiring the
+re-check's by-convention concurrency note #2 for the VM paths. The sync `Stat`/`ProbeRemote` pair stays
+for the push replay (which runs wholly on a worker by design) and shares one `StartProbe` worker. 230
+App.Tests (3 new `StatAsync` mirrors). Plain commit (probe plumbing isn't a specced capability).
+**Every item from the 2026-07-24 review cycle now terminates in shipped or declined-with-reasons —
+nothing remains parked.**
+
 **▶ SHIPPED 2026-07-24 — inline-edit owner map (review N6, unparked on the user's call — the image
 library will definitely keep growing, so the trigger is a when, not an if).** `RecomputeOwners` was a
 groups × children scan per committed inline Desired/exposure edit; now `ApplyFilters` (which touches

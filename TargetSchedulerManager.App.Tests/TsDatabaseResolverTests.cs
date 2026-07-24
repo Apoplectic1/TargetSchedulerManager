@@ -52,4 +52,37 @@ public class TsDatabaseResolverTests
         // The probe must never bubble an exception onto the startup path — a bad path is simply "not reachable".
         Assert.Null(TsDatabaseResolver.Stat("\\\\?\\bogus|path", TimeSpan.FromMilliseconds(500)));
     }
+
+    // ---- the await-friendly form (review N8) — same contract, no parked thread ----------------------------
+
+    [Fact]
+    public async Task StatAsync_ExistingPath_ReturnsStat()
+    {
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, "abc");
+            TsDbStat? stat = await TsDatabaseResolver.StatAsync(path, TimeSpan.FromSeconds(2));
+            Assert.NotNull(stat);
+            Assert.Equal(3, stat!.Length);
+            Assert.False(stat.HasSidecar);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task StatAsync_MissingPath_ReturnsNull()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"no-such-{Guid.NewGuid():N}.sqlite");
+        Assert.Null(await TsDatabaseResolver.StatAsync(path, TimeSpan.FromSeconds(2)));
+    }
+
+    [Fact]
+    public async Task StatAsync_UnusablePath_NeverThrows_ReturnsNull()
+    {
+        Assert.Null(await TsDatabaseResolver.StatAsync("\\\\?\\bogus|path", TimeSpan.FromMilliseconds(500)));
+    }
 }

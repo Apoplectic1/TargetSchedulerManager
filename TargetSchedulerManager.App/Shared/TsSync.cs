@@ -130,11 +130,22 @@ internal sealed class TsSync
     /// <summary>True when the latest probe answered (reachability as displayed, not re-checked).</summary>
     public bool RemoteReachable => LastProbe is not null;
 
-    /// <summary>Stats the remote db under the probe timeout (blocking up to ~1.5 s — call off the UI thread).</summary>
+    /// <summary>Stats the remote db under the probe timeout, blocking up to ~1.5 s — the push replay's
+    /// form (it runs wholly on a worker). Async callers use <see cref="ProbeRemoteAsync"/>.</summary>
     public TsDbStat? ProbeRemote()
     {
         HasProbed = true;
         return LastProbe = TsDatabaseResolver.Stat(RemotePath, _probeTimeout);
+    }
+
+    /// <summary>The await-friendly probe (review N8): no thread parks for the timeout, and a UI-thread
+    /// caller's continuation writes <see cref="LastProbe"/>/<see cref="HasProbed"/> back on the UI thread —
+    /// the same thread that reads them for the badge.</summary>
+    public async Task<TsDbStat?> ProbeRemoteAsync()
+    {
+        TsDbStat? probe = await TsDatabaseResolver.StatAsync(RemotePath, _probeTimeout);
+        HasProbed = true;
+        return LastProbe = probe;
     }
 
     /// <summary>

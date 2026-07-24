@@ -143,10 +143,10 @@ public sealed partial class MainViewModel
         }
     }
 
-    // The BIRDWATCHER half of a load: heal a torn local copy, probe (off-thread — the SMB stat can block up
-    // to its timeout), route a dirty journal through the user's push/discard decision BEFORE any pull can
-    // overwrite local edits, then pull / skip per the baseline rule. Returns the status-line fragment
-    // describing what happened.
+    // The BIRDWATCHER half of a load: heal a torn local copy, probe (await-friendly — no thread parks for
+    // the SMB timeout, review N8), route a dirty journal through the user's push/discard decision BEFORE
+    // any pull can overwrite local edits, then pull / skip per the baseline rule. Returns the status-line
+    // fragment describing what happened.
     private async Task<string> PrepareTsForLoadAsync(PullPolicy policy)
     {
         // Torn-local gate: runs before the skip decision can trust a baseline that never validates local
@@ -155,7 +155,7 @@ public sealed partial class MainViewModel
         // heal untouched, so no local value can be lost by pulling.
         if (await Task.Run(Sync.HealTornLocal))
         {
-            TsDbStat? healProbe = await Task.Run(Sync.ProbeRemote);
+            TsDbStat? healProbe = await Sync.ProbeRemoteAsync();
             if (healProbe is null)
                 throw new InvalidOperationException(
                     $"local TS copy was torn and has been discarded, but BIRDWATCHER is unreachable — nothing to load ({Sync.LocalPath})");
@@ -168,7 +168,7 @@ public sealed partial class MainViewModel
         if (policy == PullPolicy.Never)
             return "not re-pulled";
 
-        TsDbStat? probe = await Task.Run(Sync.ProbeRemote);
+        TsDbStat? probe = await Sync.ProbeRemoteAsync();
         if (probe is null)
             return "BIRDWATCHER offline";
 
@@ -241,7 +241,7 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            TsDbStat? probe = await Task.Run(Sync.ProbeRemote);
+            TsDbStat? probe = await Sync.ProbeRemoteAsync();
             RaiseSyncState();
             if (probe is null)
             {
