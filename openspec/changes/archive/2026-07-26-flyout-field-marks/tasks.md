@@ -28,5 +28,5 @@
 ## 5. Docs + verification
 
 - [x] 5.1 `ARCHITECTURE.md` marks section notes the per-field surface; `CHANGELOG.md` entry
-- [ ] 5.2 Build + tests green; user verifies visually (flyout mark column + alignment, live `→` on
+- [x] 5.2 Build + tests green; user verifies visually (flyout mark column + alignment, live `→` on
       commit, `⇄` collision, mosaic rows) — behavior-changing, archive waits for the verify word

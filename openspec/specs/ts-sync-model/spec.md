@@ -93,6 +93,14 @@ append a persisted journal entry `(table, key, column, value, label, timestamp)`
 written outside an explicit push. The dirty state (journal non-empty) SHALL be persisted and survive an app
 crash/restart.
 
+The journal SHALL NOT retain net-no-op fields: each field's **baseline** is the first journaled Old since
+the last push, and a verified write whose value equals that baseline (under the journal's one invariant
+display-text rule; equality fails safe to retention) SHALL prune the field's entries — crash-safely —
+instead of appending; a first-touch write of the current value SHALL journal nothing. A pruned field is
+clean everywhere the journal is read: direction marks on every surface, the unpushed count, the push review
+and replay, and the dirty-open prompt. Push retention resets baselines (the pushed value is the next
+edit's baseline).
+
 Durability boundary: a journal append SHALL be flushed to the operating system before the entry is
 visible in memory, so entries survive a process crash. An OS or power failure MAY lose the final
 append — the local db still holds that write (the grid stays correct); only its replay at push is lost.
@@ -106,6 +114,19 @@ the journal SHALL NOT claim stronger durability than this.
 #### Scenario: Process crash loses nothing
 - **WHEN** the app process dies immediately after an edit committed
 - **THEN** the relaunch shows the value, the journal entry, and the dirty badge
+
+#### Scenario: A toggle round-trip leaves no edit
+- **WHEN** the user toggles a template's moon avoidance off and back on (its baseline state)
+- **THEN** the journal holds no entry for the field, no surface marks it, the unpushed count excludes it,
+  and a push replays nothing for it
+
+#### Scenario: Re-committing the current value journals nothing
+- **WHEN** the user commits a field's existing value (the editor verifies without writing)
+- **THEN** no journal entry is created and the field stays clean
+
+#### Scenario: Baseline resets at push
+- **WHEN** a field's edit is pushed and the user then changes the field and changes it back to the pushed value
+- **THEN** the field reads clean again (the pushed value is the new baseline)
 
 ### Requirement: Push replays the journal through the guarded per-field path
 The push action SHALL apply the journal — collapsed to the last write per (table, key, column) — to the

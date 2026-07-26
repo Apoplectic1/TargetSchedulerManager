@@ -20,5 +20,5 @@
 ## 3. Docs + verification
 
 - [x] 3.1 `ARCHITECTURE.md` (journal bullet gains the pruning invariant) + `CHANGELOG.md`
-- [ ] 3.2 Build + tests green; user verifies visually (toggle round-trip clears marks live in flyout +
+- [x] 3.2 Build + tests green; user verifies visually (toggle round-trip clears marks live in flyout +
       grid) — behavior-changing, archive waits for the verify word
