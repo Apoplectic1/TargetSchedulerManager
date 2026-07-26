@@ -206,6 +206,71 @@ public class SyncMarksTests
         Assert.Equal(("", null), marks.ForTemplate("5"));
     }
 
+    // ---- per-field (ForField — the flyout rows) -----------------------------------------------------------
+
+    [Fact]
+    public void ForField_UnpushedField_ResolvesOut_WithGrammarTooltip()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 1, "0", "H900");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
+
+        (string glyph, string? tooltip) = marks.ForField(TsTable.ExposureTemplate, "5", "moonavoidanceenabled");
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Equal("→ unpushed: moonavoidanceenabled 0 → 1", tooltip);
+    }
+
+    [Fact]
+    public void ForField_InboundField_ResolvesIn()
+    {
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "42", "acquired", "10", "14")]);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, null);
+
+        (string glyph, string? tooltip) = marks.ForField(TsTable.ExposurePlan, "42", "acquired");
+        Assert.Equal(SyncMarks.In, glyph);
+        Assert.Equal("← BIRDWATCHER: acquired 10 → 14", tooltip);
+    }
+
+    [Fact]
+    public void ForField_ExactFieldCollision_IsBothWays_SiblingStaysSingle()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "exposure", 600, "300", "A · H");
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "42", "desired", "20", "30")]);
+        SyncMarks marks = SyncMarks.Build(journal, inbound, null);
+
+        (string glyph, string? tooltip) = marks.ForField(TsTable.ExposurePlan, "42", "desired");
+        Assert.Equal(SyncMarks.BothWays, glyph);                        // the exact-field collision
+        Assert.Contains("← BIRDWATCHER: desired 20 → 30", tooltip);
+        Assert.Contains("→ unpushed: desired 20 → 25", tooltip);
+        Assert.Equal(SyncMarks.Out, marks.ForField(TsTable.ExposurePlan, "42", "exposure").Glyph);
+    }
+
+    [Fact]
+    public void ForField_CleanField_IsBlank_EvenOnAMarkedRow()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
+
+        Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "42", "enabled"));
+        Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "77", "desired"));
+    }
+
+    [Fact]
+    public void ForField_NewRowEntry_NeverSurfacesPerField()
+    {
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "43", TsInboundDiff.NewRowColumn, null, "row")]);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, null);
+
+        Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "43", "desired"));
+        Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "43", TsInboundDiff.NewRowColumn));
+    }
+
     // ---- header (ForKeys) ---------------------------------------------------------------------------------
 
     [Fact]

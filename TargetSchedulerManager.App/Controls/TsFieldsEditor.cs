@@ -27,9 +27,17 @@ internal sealed class TsFieldsEditor : UserControl
     /// must reflect the caller's freshest state — not a snapshot from flyout-open time.</summary>
     public delegate double? EffectiveValue(string column);
 
+    /// <summary>Resolves every listed column's sync-direction mark in one pass (glyph blank when clean,
+    /// tooltip null then). Batched so a refresh costs the caller one fact snapshot, not one per column.
+    /// Re-invoked after every commit — must reflect fresh facts, not a flyout-open snapshot.</summary>
+    public delegate IReadOnlyDictionary<string, (string Glyph, string? Tooltip)> MarkResolver(
+        IReadOnlyList<string> columns);
+
     private readonly CommitField _commit;
     private readonly Dictionary<string, object?> _lastKnown;   // last committed (or seeded) raw value per column
     private readonly EffectiveValue? _effective;               // resolved values behind sentinel columns
+    private readonly MarkResolver? _marks;                     // per-field direction marks (null = no mark column)
+    private readonly Dictionary<string, TextBlock> _markBlocks = new(StringComparer.OrdinalIgnoreCase);
     private bool _reverting;                                   // suppresses commit while a control is put back
 
     // One commit at a time per form, in confirmation order (openspec serial-commits): overlapping awaits
@@ -37,15 +45,21 @@ internal sealed class TsFieldsEditor : UserControl
     // earlier verified write. Every handler routes _commit through this chain.
     private readonly CommitChain _chain = new();
 
-    private Task<bool> Commit(string column, object? value) => _chain.Run(() => _commit(column, value));
+    private async Task<bool> Commit(string column, object? value)
+    {
+        bool applied = await _chain.Run(() => _commit(column, value));
+        RefreshMarks();   // verified, refused, or failed — the marks show the facts either way
+        return applied;
+    }
 
     private TsFieldsEditor(
         TsTable table, string title, IReadOnlyDictionary<string, object?> seed, CommitField commit,
-        EffectiveValue? effective)
+        EffectiveValue? effective, MarkResolver? marks)
     {
         _commit = commit;
         _lastKnown = new Dictionary<string, object?>(seed, StringComparer.OrdinalIgnoreCase);
         _effective = effective;
+        _marks = marks;
 
         StackPanel panel = new() { Spacing = 8, MinWidth = 260, Padding = new Thickness(4) };
         panel.Children.Add(new TextBlock
@@ -55,10 +69,14 @@ internal sealed class TsFieldsEditor : UserControl
             Margin = new Thickness(0, 0, 0, 4),
         });
 
-        // Two columns: label | control(+unit). Rows added per field below.
+        // Columns: [mark] | label | control(+unit) — the mark column exists only with a resolver, and its
+        // MinWidth reserves the slot even when every mark is blank so labels stay mutually aligned.
         Grid form = new() { ColumnSpacing = 12, RowSpacing = 8 };
+        if (marks is not null)
+            form.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 18 });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        int labelColumn = marks is null ? 0 : 1;
 
         int rowIndex = 0;
         foreach (TsField field in TsEditableSchema.For(table))
@@ -69,10 +87,23 @@ internal sealed class TsFieldsEditor : UserControl
 
             form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
+            if (marks is not null)
+            {
+                TextBlock mark = new()
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                Grid.SetRow(mark, rowIndex);
+                Grid.SetColumn(mark, 0);
+                form.Children.Add(mark);
+                _markBlocks[field.Column] = mark;
+            }
+
             TextBlock label = new() { Text = field.Label, VerticalAlignment = VerticalAlignment.Center };
             if (field.Notes is not null) ToolTipService.SetToolTip(label, field.Notes);
             Grid.SetRow(label, rowIndex);
-            Grid.SetColumn(label, 0);
+            Grid.SetColumn(label, labelColumn);
             form.Children.Add(label);
 
             FrameworkElement input = BuildControl(field, seed[field.Column]);
@@ -81,7 +112,7 @@ internal sealed class TsFieldsEditor : UserControl
             FrameworkElement cell = field.Unit is null || field.Sentinel is not null ? input : WithUnit(input, field.Unit);
             if (field.Guarded) cell = WithArmGuard(cell, field);
             Grid.SetRow(cell, rowIndex);
-            Grid.SetColumn(cell, 1);
+            Grid.SetColumn(cell, labelColumn + 1);
             form.Children.Add(cell);
 
             rowIndex++;
@@ -89,14 +120,31 @@ internal sealed class TsFieldsEditor : UserControl
 
         panel.Children.Add(form);
         Content = panel;
+        RefreshMarks();
+    }
+
+    /// <summary>Re-resolves every rendered field's mark in one resolver pass (fresh facts — the resolver
+    /// must not cache across commits). Tooltip is cleared with the glyph on a clean field.</summary>
+    private void RefreshMarks()
+    {
+        if (_marks is null || _markBlocks.Count == 0)
+            return;
+        IReadOnlyDictionary<string, (string Glyph, string? Tooltip)> resolved = _marks([.. _markBlocks.Keys]);
+        foreach ((string column, TextBlock block) in _markBlocks)
+        {
+            (string glyph, string? tooltip) = resolved.TryGetValue(column, out (string, string?) mark) ? mark : ("", null);
+            block.Text = glyph;
+            ToolTipService.SetToolTip(block, tooltip);
+        }
     }
 
     /// <summary>Builds the form, or an error placeholder when the seed is null (row missing / read fault) —
     /// never a form with fabricated values. <paramref name="effective"/> optionally resolves a sentinel
-    /// column's current effective value (for the "use default (…)" label and the box after a revert).</summary>
+    /// column's current effective value (for the "use default (…)" label and the box after a revert);
+    /// <paramref name="marks"/> optionally lights the leading per-field direction-mark column.</summary>
     public static UIElement Create(
         TsTable table, string title, IReadOnlyDictionary<string, object?>? seed, CommitField commit,
-        EffectiveValue? effective = null) =>
+        EffectiveValue? effective = null, MarkResolver? marks = null) =>
         seed is null
             ? new TextBlock
             {
@@ -104,7 +152,7 @@ internal sealed class TsFieldsEditor : UserControl
                 MaxWidth = 300,
                 TextWrapping = TextWrapping.Wrap,
             }
-            : new TsFieldsEditor(table, title, seed, commit, effective);
+            : new TsFieldsEditor(table, title, seed, commit, effective, marks);
 
     private FrameworkElement BuildControl(TsField field, object? seeded) => field.Type switch
     {

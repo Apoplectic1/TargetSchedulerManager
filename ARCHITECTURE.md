@@ -251,6 +251,13 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
   graph and re-applies every mark via PropertyChanged (raise-on-change only, never a collection rebuild — the
   scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, and a push without a reload
   (Discard refreshes marks via its own full reload, not a direct sweep).
+- **Per-field marks in the flyouts** (2026-07-26): `SyncMarks.ForField(table, key, column)` resolves one
+  field's own directions (unattributed — the flyout names the entity; the row-scoped new-row fact never
+  surfaces per field), and `TsFieldsEditor` renders a leading fixed-width mark column through an optional
+  batched `MarkResolver` delegate (one `BuildMarks()` per refresh pass, re-run after every commit — a
+  just-committed field flips `→` live). A per-field `⇄` is the exact-field collision signal: an unpushed
+  local write and a rig-side change on that one field. The hand-built mosaic flyout wires the same marks
+  (master enable = union over the panels' `target.active`, per-panel tooltip lines).
 
 ## TS write-back (engine built 2026-06-08; app action shipped 2026-07-06)
 

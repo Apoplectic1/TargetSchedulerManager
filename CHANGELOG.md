@@ -14,6 +14,25 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Per-field sync marks inside the edit flyouts** (openspec `flyout-field-marks`;
+user request same day, follow-on to `template-change-marks`). Every field row in the four schema-generated
+flyouts (target / project / exposure plan / template) now carries a leading `←`/`→`/`⇄` mark — blank when
+clean, fixed-width slot so labels stay aligned — with the field's old→new lines as tooltip. **The
+per-field `⇄` is the point:** an unpushed local write and a rig-side change colliding on *that exact
+field* (the row-level `⇄` could only say "somewhere on this row"). **Mechanism:** new
+`SyncMarks.ForField(table, key, column)` (unattributed — the flyout names the entity; the inbound new-row
+fact is row-scoped and never surfaces per field); `TsFieldsEditor` gains an optional **batched**
+`MarkResolver` delegate (`columns → per-column (glyph, tooltip)`, same seam style as
+`CommitField`/`EffectiveValue` — one `BuildMarks()` per refresh pass, not one per column) and a
+`RefreshMarks()` pass run at construction and in the `CommitChain` continuation after **every** commit
+(verified, refused, failed) — so toggling a field flips its `→` on live, and a refused commit shows the
+true facts. No resolver injected → no mark column (the editor stays sync-agnostic). The hand-built
+mosaic flyout wires the same marks: master enable = union over the panels' `target.active` field states
+with per-panel tooltip lines (a fan-out control carries a fan-in mark), priority =
+`ForField(Project, key, "priority")`. 269 tests (264 + 5 `ForField` units: out/in/exact-field-collision
+with sibling isolation/clean-blank/new-row-excluded). Layout half is XAML-runtime — visual verification
+pending (mark column + alignment, live `→` on commit, `⇄` collision, mosaic rows).
+
 **▶ SHIPPED 2026-07-26 — Template + project changes now visible in the direction marks: template edits
 light every using plan row, headers attribute their own-scope fields** (openspec `template-change-marks`;
 USER_OBS d14e — moon avoidance enabled on 'H900'/49 plans showed "2 unpushed" but no `→` anywhere).

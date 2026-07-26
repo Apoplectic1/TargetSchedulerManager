@@ -211,6 +211,32 @@ internal sealed class SyncMarks
         return (Glyph(anyIn, anyOut), string.Join("\n", lines));
     }
 
+    /// <summary>One field's mark for an editing surface (the flyout field rows): the (table, key, column)'s
+    /// own directions, unattributed — the surface names the entity. A per-field ⇄ means an unpushed local
+    /// write and a rig-side change collide on exactly this field. Row-scoped facts (the inbound new-row
+    /// entry) never surface per field.</summary>
+    public (string Glyph, string? Tooltip) ForField(TsTable table, string tsKey, string column)
+    {
+        List<Line>? inb = OfColumn(Get(_inbound, table, tsKey), column);
+        List<Line>? outb = OfColumn(Get(_outbound, table, tsKey), column);
+        if (inb is null && outb is null)
+            return ("", null);
+        List<string> lines = [];
+        AddLines(lines, inb, In, "BIRDWATCHER", attribution: null);
+        AddLines(lines, outb, Out, "unpushed", attribution: null);
+        return (Glyph(inb is not null, outb is not null), string.Join("\n", lines));
+    }
+
+    private static List<Line>? OfColumn(List<Line>? lines, string column)
+    {
+        if (lines is null)
+            return null;
+        List<Line> matched = [.. lines.Where(l =>
+            l.Column != TsInboundDiff.NewRowColumn
+            && string.Equals(l.Column, column, StringComparison.OrdinalIgnoreCase))];
+        return matched.Count == 0 ? null : matched;
+    }
+
     /// <summary>A single template's mark for the Templates… picker: its own entries, unattributed — the
     /// picker row already names the template.</summary>
     public (string Glyph, string? Tooltip) ForTemplate(string tsKey)

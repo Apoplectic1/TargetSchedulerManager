@@ -130,6 +130,36 @@ public sealed partial class MainWindow
             Margin = new Thickness(0, 0, 0, 4),
         });
 
+        // Per-field marks, hand-wired (this flyout isn't schema-generated): the master enable's mark is the
+        // union over the panels' target.active states (tooltip lists per-panel lines — a fan-out control
+        // carries a fan-in mark), priority resolves the project field. Refreshed after every commit here,
+        // same as the generated forms.
+        TextBlock enableMark = MosaicMark();
+        TextBlock priorityMark = MosaicMark();
+        void RefreshMosaicMarks()
+        {
+            SyncMarks marks = ViewModel.BuildMarks();
+            bool anyIn = false, anyOut = false;
+            List<string> lines = [];
+            foreach (PanelGroupRow panel in group.Panels ?? [])
+            {
+                if (panel.TsTargetKey is not string panelKey)
+                    continue;
+                (string glyph, string? tooltip) = marks.ForField(TsTable.Target, panelKey, "active");
+                if (glyph.Length == 0)
+                    continue;
+                anyIn |= glyph is SyncMarks.In or SyncMarks.BothWays;
+                anyOut |= glyph is SyncMarks.Out or SyncMarks.BothWays;
+                if (tooltip is not null)
+                    lines.AddRange(tooltip.Split('\n').Select(line => $"{panel.Label}: {line}"));
+            }
+            ApplyMark(enableMark,
+                anyIn && anyOut ? SyncMarks.BothWays : anyIn ? SyncMarks.In : anyOut ? SyncMarks.Out : "",
+                lines.Count == 0 ? null : string.Join("\n", lines));
+            (string projectGlyph, string? projectTip) = marks.ForField(TsTable.Project, projectKey, "priority");
+            ApplyMark(priorityMark, projectGlyph, projectTip);
+        }
+
         // Master enable: checked = all TS-backed panels active, indeterminate = mixed. Click always yields a
         // definite on/off (user gesture is a master switch); a partial failure re-reads whatever state resulted.
         CheckBox enableAll = new()
@@ -145,8 +175,12 @@ public sealed partial class MainWindow
             bool wanted = enableAll.IsChecked == true;
             if (!await ViewModel.SetMosaicEnabledAsync(group, wanted))
                 enableAll.IsChecked = ViewModel.GetMosaicEnabledState(group);
+            RefreshMosaicMarks();
         };
-        form.Children.Add(enableAll);
+        form.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 12, Children = { enableMark, enableAll },
+        });
 
         // Project priority (TS ProjectPriority): seeded from the project row; commit on selection.
         if (seed is not null && seed.TryGetValue("priority", out object? rawPriority))
@@ -169,9 +203,11 @@ public sealed partial class MainWindow
                     committed = picked.Code;
                 else
                     combo.SelectedItem = values.FirstOrDefault(v => v.Code == committed);
+                RefreshMosaicMarks();
             };
 
             StackPanel priorityRow = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
+            priorityRow.Children.Add(priorityMark);
             priorityRow.Children.Add(new TextBlock { Text = "Project priority", VerticalAlignment = VerticalAlignment.Center });
             priorityRow.Children.Add(combo);
             form.Children.Add(priorityRow);
@@ -187,8 +223,22 @@ public sealed partial class MainWindow
             });
         }
 
+        RefreshMosaicMarks();
         Flyout flyout = new() { Content = form, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
+    }
+
+    private static TextBlock MosaicMark() => new()
+    {
+        MinWidth = 18,
+        TextAlignment = TextAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private static void ApplyMark(TextBlock block, string glyph, string? tooltip)
+    {
+        block.Text = glyph;
+        ToolTipService.SetToolTip(block, tooltip);
     }
 
     private static MenuFlyoutItem EditMenuItem(string text, Func<Task> open)
@@ -227,6 +277,16 @@ public sealed partial class MainWindow
 
     private static string TemplateTitle(TemplateInfo template) =>
         $"Template '{template.Name}' — used by {template.UsedByPlans} plan(s)";
+
+    // The per-field mark resolver behind a flyout's leading column: one fresh SyncMarks per refresh pass
+    // (the editor batches all columns into one call), ForField per column. Fresh facts every pass — the
+    // whole point is the mark flipping → the moment a commit lands.
+    private TsFieldsEditor.MarkResolver MarkResolverFor(TsTable table, string key) => columns =>
+    {
+        SyncMarks marks = ViewModel.BuildMarks();
+        return columns.ToDictionary(
+            column => column, column => marks.ForField(table, key, column), StringComparer.OrdinalIgnoreCase);
+    };
 
     // Seeds the schema-driven form from the current db (off the UI thread), then shows it in a flyout anchored
     // at the gesture's row. Every field commits itself through the guarded gate; fields with dedicated in-grid
@@ -272,7 +332,7 @@ public sealed partial class MainWindow
                 RefreshPairWarn();
             }
             return applied;
-        }, effective);
+        }, effective, marks: MarkResolverFor(table, key));
 
         if (pairWarn is not null)
         {
