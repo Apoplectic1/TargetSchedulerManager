@@ -82,11 +82,23 @@ goal of zero); measured disk-side absence = `0`.
   `ThemeBrushes.cs`).
 - **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
   sub-lengths; Hours carries the caution/success fill by sign.
-- **Badges** (caution-colored, rightmost): `mosaic · duplicate · name≠ · ambiguous · no-coords · no data ·
-  multi-plan · acc≠acq` (`no data` = a target with neither plans nor scanned frames; `no-coords` when it is
-  also unanchored). Built in `ReconciliationLoader.BuildRows`; they **bubble to the header** (distinct
-  union, `RowAggregates`). `IsFlagged` (duplicate / name≠ / ambiguous / multi-plan / acc≠acq) drives the
-  **flagged-only** filter. (The `alias` badge died with the fold mechanism, 2026-07-23.)
+- **Badges** (rightmost, **two-tier color per token** — 2026-07-26, openspec `badge-severity-color`):
+  - **warning** (caution foreground) = repairable authoring, fix it by hand in NINA's TS UI:
+    `duplicate · name≠ · ambiguous · multi-plan · acc≠acq · no-coords`
+  - **informative** (`ThemeBrushes.Secondary`, quiet) = a fact with no call to action: `mosaic · no data`
+
+  Severity resolves **per token**, so `mosaic · multi-plan` shows one of each rather than promoting the whole
+  cell — one `TextBlock` whose `Inlines` are filled by the `Controls/BadgeRuns.Tokens` attached property (a
+  `StackPanel` of TextBlocks was rejected: it can't ellipsis-trim). The informative tier uses a dimmed *brush*,
+  not the grid's usual `Opacity="0.7"`, because a `Run` is a `TextElement` and **`TextElement` has no
+  `Opacity`**; green was rejected because it already means "goal met" in the fills.
+
+  Vocabulary + severity live in `Models\Badges.cs` (the token strings are a soft contract — they're what the
+  search box matches); rows are built in `ReconciliationLoader.BuildRows`. Badges **bubble to the header** as a
+  **token-level** distinct union (`RowAggregates`). The warning set **is** the `IsFlagged` set driving the
+  **flagged-only** filter — colour and filter must never disagree, which is why `no-coords` (a TS target with
+  no RA/Dec: unschedulable by TS, can never accrue disk credit) is flagged while `no data` (valid coords, no
+  plans, no frames — queued work) is not. (The `alias` badge died with the fold mechanism, 2026-07-23.)
 
 ## Alignment & spacing
 
@@ -275,8 +287,12 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    `Format.Cell` ("H @900s"), `Format.Label` ("target · filter" — journal-persisted, shape is contract).
    Code-side brush lookups go through `ThemeBrushes` (app root; defensive null-on-missing), never raw
    `Application.Current.Resources` casts. Editor numeric inputs come from `TsFieldsEditor.MakeNumberBox`.
-3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
-4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
+3. New **state worth flagging**? Add the token to `Models\Badges.cs` (const + its tier in `IsWarning`) and
+   emit it in `BuildRows`. Decide the **severity tier**, and set `IsFlagged` to match it — warning tier and
+   `IsFlagged` are one set, so a warning-coloured row is never hidden by the flagged-only filter. Confirm it
+   bubbles via `RowAggregates` (token-level distinct).
+4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical fills; `CautionText` / `Secondary`
+   foregrounds) — don't hard-code. Note `Run`/`Inline` foregrounds can't use `Opacity`; reach for `Secondary`.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
 6. New **integer edit box**? Digit-budget width. In-grid, no spinners → `NumberBox` + `Loaded="NarrowNumberBox_Loaded"` (centers digits, lets a narrow `Width` stick). Visible spinners → `Controls/UpDownBox` (never a narrow inline `NumberBox` — see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they

@@ -77,9 +77,10 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                    <!-- Per-token severity colour (warning amber vs. quiet informative) — BadgeRuns fills the
+                         Inlines; one TextBlock so the 150px column keeps ellipsis trimming. -->
+                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
-                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
             </DataTemplate>
@@ -154,9 +155,8 @@
                     </Border>
                     <TextBlock Grid.Column="12" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
-                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
             </DataTemplate>
@@ -200,9 +200,8 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="13" Text="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
-                               Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
             </DataTemplate>

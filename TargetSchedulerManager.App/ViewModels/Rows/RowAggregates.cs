@@ -1,3 +1,5 @@
+using TargetSchedulerManager.App.Models;
+
 namespace TargetSchedulerManager.App.ViewModels.Rows;
 
 /// <summary>
@@ -42,7 +44,10 @@ internal sealed record RowAggregates(
             disk,
             remaining,
             anyHours ? diskHours - desiredHours : null,
-            string.Join(" · ", children.Select(r => r.Badge).Where(b => b.Length > 0).Distinct()),
+            // Distinct over TOKENS, not whole child badge strings: children of one mosaic read "mosaic" and
+            // "mosaic · multi-plan" (target-scope vs. filter-scope flags), which deduped as strings would
+            // render "mosaic · mosaic · multi-plan". First-appearance order preserved.
+            Badges.Join(children.SelectMany(r => Badges.Split(r.Badge)).Select(t => t.Token).Distinct()),
             flagged);
     }
 }

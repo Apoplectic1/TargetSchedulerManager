@@ -14,6 +14,35 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Badges column reads by severity: per-token two-tier colour, and `no-coords`
+promoted to a genuine flag** (openspec `badge-severity-color`). The column painted **every** token
+`SystemFillColorCautionBrush` (hard-coded in all three row templates), so `mosaic` — a neutral structural
+fact — shouted exactly as loud as `duplicate`. Now **warning** (caution foreground) =
+`duplicate · name≠ · ambiguous · multi-plan · acc≠acq · no-coords`, **informative** (dimmed
+`TextFillColorSecondaryBrush`) = `mosaic · no data`, resolved **per token** so `mosaic · multi-plan` shows
+one of each. **Mechanism:** a new `Controls/BadgeRuns` attached property fills one `TextBlock`'s `Inlines`
+with a coloured `Run` per token — chosen over a `StackPanel`/`ItemsRepeater` of TextBlocks because a panel
+can't ellipsis-trim, and a TextBlock trims across inlines so the 150 px column needed no thought. The
+informative tier uses a dimmed **brush**, not the grid's usual `Opacity="0.7"`: a `Run` is a `TextElement`
+and **`TextElement` exposes no `Opacity`** (dimming the parent would have muted the amber too). Green was
+rejected for the quiet tier — it already means "goal met" in the Hours/Seconds fills, and one colour
+shouldn't carry two meanings grid-wide. **New `Models/Badges.cs`** takes ownership of the vocabulary: the
+eight token consts (previously inline literals in the loader), the `" · "` separator (previously duplicated
+in the loader and `RowAggregates`), the severity predicate, and the pure `Split`/`Join` the renderer walks —
+so the classification is unit-testable with no XAML runtime, and `BadgeRuns` holds no logic. **Behaviour
+change worth knowing:** `no-coords` (a TS target with null RA/Dec — unschedulable by TS, can never accrue
+disk credit) now sets `IsFlagged`, so **flagged-only counts can rise** on a database carrying
+coordinate-less TS targets. That's deliberate: colouring it amber while leaving it unflagged would have let
+the flagged-only filter *hide* a row just painted as a warning. `no data` (valid coords, no plans, no frames)
+stays informative and unflagged — queued work, not breakage. **Bonus fix:** the header badge rollup deduped
+whole child *strings*, so a mosaic with one multi-plan filter rendered `mosaic · mosaic · multi-plan`; it now
+dedupes tokens, making DOMAIN.md's long-standing "distinct union" description true. 252 tests (235 + 17: a
+`BadgesTests` severity/round-trip suite, two `BuildRowsTests` flag assertions + an unanchored-with-a-plan
+case, two header-rollup cases). Badge *text* is byte-identical, so the search vocabulary is untouched.
+DOMAIN.md's Badges bullet + checklist steps 3-4 rewritten. **Author's visual check pending:** per-token
+colours across all three row kinds, and whether the secondary brush reads as "quiet fact" rather than
+"disabled".
+
 **▶ SHIPPED 2026-07-26 — Visible-Tonight toolbar: up-downs right-sized, **Horizon** knob deep-renamed
 to **Floor**, and the button's `Find` → `Tonight` drift corrected in the docs** (openspec
 `toolbar-floor-knob`; driven by observations `obs-9b52` → `obs-d589` → `obs-1fe4`). **Sizing — final

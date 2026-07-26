@@ -163,16 +163,19 @@ public static class ReconciliationLoader
                 // Accepted column.
                 bool accNeAcq = fp.Any(c => c.PlanCount > 0 && c.Accepted != c.Acquired);
                 List<string> badges = [];
-                if (isMosaic) badges.Add("mosaic");
-                if (isDup) badges.Add("duplicate");
-                if (isMismatch) badges.Add("name≠");
-                if (isAmbiguous) badges.Add("ambiguous");
-                if (isUnanchored) badges.Add("no-coords");
-                if (multiPlan) badges.Add("multi-plan");
-                if (accNeAcq) badges.Add("acc≠acq");
+                if (isMosaic) badges.Add(Badges.Mosaic);
+                if (isDup) badges.Add(Badges.Duplicate);
+                if (isMismatch) badges.Add(Badges.NameMismatch);
+                if (isAmbiguous) badges.Add(Badges.Ambiguous);
+                if (isUnanchored) badges.Add(Badges.NoCoords);
+                if (multiPlan) badges.Add(Badges.MultiPlan);
+                if (accNeAcq) badges.Add(Badges.AccNeAcq);
 
-                string badge = string.Join(" · ", badges);
-                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan || accNeAcq;
+                string badge = Badges.Join(badges);
+                // The flagged set IS the warning-badge set (Badges.IsWarning) — colour and the flagged-only
+                // filter must agree, or an amber row gets hidden by the filter that should surface it. An
+                // unanchored target counts: TS can't schedule it and it can never accrue disk credit.
+                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan || accNeAcq || isUnanchored;
 
                 List<ReconciliationCell> planCells = [], diskCells = [];
                 foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))
@@ -253,7 +256,8 @@ public static class ReconciliationLoader
                     badge, flagged, isDetail: isDetail);
             }
 
-            // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid.
+            // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid. Its one
+            // badge splits the two cases: no-coords is broken authoring (flagged), "no data" is queued work.
             if (tc.Cells.Count == 0)
             {
                 rows.Add(new ReconciliationRow(
@@ -262,7 +266,7 @@ public static class ReconciliationLoader
                         PlanSeconds: 0, DiskSeconds: 0,
                         Desired: null, Acquired: null, Accepted: null,
                         Disk: 0, PlanCount: 0, PlanHours: null, DiskHours: null),
-                    badge: isUnanchored ? "no-coords" : "no data", isFlagged: false));
+                    badge: isUnanchored ? Badges.NoCoords : Badges.NoData, isFlagged: isUnanchored));
             }
         }
 

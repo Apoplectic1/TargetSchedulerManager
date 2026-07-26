@@ -96,10 +96,14 @@ public sealed class ReconciliationRow(
     /// <summary>TS plans contributing (&gt;1 = mosaic fold, duplicate fold, or a same-purpose multi-plan).</summary>
     public int PlanCount { get; } = numbers.PlanCount;
 
-    /// <summary>Match-state badges for the row's target ("duplicate", "name≠", "mosaic", …); empty when clean.</summary>
+    /// <summary>Match-state badges for the row's target ("duplicate", "name≠", "mosaic", …); empty when clean.
+    /// The vocabulary and its per-token severity colour live in <see cref="Badges"/>.</summary>
     public string Badge { get; } = badge;
 
-    /// <summary>True when the target needs human attention (duplicate / name-mismatch / ambiguous / multi-plan).</summary>
+    /// <summary>True when the target needs human attention — duplicate / name-mismatch / ambiguous /
+    /// multi-plan / accepted≠acquired / no-coords. Exactly the warning-severity badge set
+    /// (<see cref="Badges.IsWarning"/>), so the flagged-only filter can never hide a row the Badges column
+    /// painted as a warning.</summary>
     public bool IsFlagged { get; } = isFlagged;
 
     /// <summary>Planned commitment in decimal hours, summed per sub length by the loader; null without a plan

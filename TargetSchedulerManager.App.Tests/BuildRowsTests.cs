@@ -96,17 +96,37 @@ public class BuildRowsTests
         ReconciliationRow r = Assert.Single(rows);
         Assert.Equal("no data", r.Badge);
         Assert.Equal(RowPlane.Ts, r.Plane);
+        Assert.False(r.IsFlagged);      // coordinates are fine — queued work, not broken authoring
     }
 
     [Fact]
-    public void UnanchoredPlannedTarget_GetsNoCoordsBadge()
+    public void UnanchoredPlannedTarget_GetsNoCoordsBadge_AndIsFlagged()
     {
         Guid t = Guid.NewGuid();
         List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
             Graph([T(t, "LBN 437", TargetSource.Planned)], [], [], []),
             Report(unanchored: [new UnanchoredTsTarget(null, "LBN 437")]));
 
-        Assert.Equal("no-coords", Assert.Single(rows).Badge);
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal("no-coords", r.Badge);
+        // TS can't schedule a coordinate-less target: repairable authoring, so the flagged-only filter keeps it.
+        Assert.True(r.IsFlagged);
+    }
+
+    [Fact]
+    public void UnanchoredTargetWithAPlan_FlagsItsCellRows()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "LBN 437", TargetSource.Planned)],
+                [Plan(t, tpl, desired: 20, seconds: 300.0)], [Tpl(tpl, "H", "H")], []),
+            Report(unanchored: [new UnanchoredTsTarget(null, "LBN 437")]));
+
+        // With a plan the target HAS cells, so it takes the badge path rather than the no-cells fallback.
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal("no-coords", r.Badge);
+        Assert.True(r.IsFlagged);
+        Assert.Equal(20, r.Desired);
     }
 
     [Fact]

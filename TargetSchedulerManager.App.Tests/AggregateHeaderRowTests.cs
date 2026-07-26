@@ -53,6 +53,36 @@ public class AggregateHeaderRowTests
         Assert.Contains(nameof(AggregateHeaderRow.ChevronGlyph), raised);
     }
 
+    /// <summary>The rollup unions TOKENS, not whole child badge strings — a mosaic's children carry the
+    /// target-scope "mosaic" plus whatever filter-scope flags they have of their own, so string-level dedup
+    /// used to repeat the shared token.</summary>
+    [Fact]
+    public void BadgeRollup_DedupesTokens_NotWholeChildStrings()
+    {
+        ReconciliationRow[] kids =
+        [
+            Make.Leaf(target: "A", filter: "H", badge: "mosaic"),
+            Make.Leaf(target: "A", filter: "O", badge: "mosaic · multi-plan", flagged: true),
+        ];
+        AggregateHeaderRow header = new TargetGroupRow("A", kids, isExpanded: false, isTargetEnabled: true);
+
+        Assert.Equal("mosaic · multi-plan", header.Badge);
+    }
+
+    [Fact]
+    public void UnanchoredChild_BubblesIsFlagged_ToTheHeader()
+    {
+        ReconciliationRow[] kids =
+        [
+            Make.Leaf(target: "A", filter: "H"),
+            Make.Ts(target: "A", filter: "O", badge: "no-coords", flagged: true),
+        ];
+        AggregateHeaderRow header = new TargetGroupRow("A", kids, isExpanded: false, isTargetEnabled: true);
+
+        Assert.True(header.IsFlagged);
+        Assert.Equal("no-coords", header.Badge);
+    }
+
     [Fact]
     public void Recompute_AfterAnInPlaceEdit_RefreshesTheTotals()
     {
