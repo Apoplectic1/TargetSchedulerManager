@@ -1,3 +1,4 @@
+using Astronomy.Catalog.Build;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetSchedulerManager.App.Services;
@@ -6,9 +7,9 @@ using Xunit;
 
 namespace TargetSchedulerManager.App.Tests;
 
-// The marks resolver in isolation: journal (→) + inbound store (←) + the graph's plan-key map, resolved to
-// glyph + tooltip per row kind. Covers the spec's mark-meaning, rollup, project-scope, template-gap, and
-// tooltip requirements.
+// The marks resolver in isolation: journal (→) + inbound store (←) + the graph-derived maps (plan keys,
+// template keys, display names), resolved to glyph + tooltip per row kind. Covers the spec's mark-meaning,
+// rollup, template-scope, own-scope attribution, and tooltip requirements.
 public class SyncMarksTests
 {
     private static readonly Guid Tid = Guid.NewGuid();
@@ -16,17 +17,41 @@ public class SyncMarksTests
     private static TsJournal NewJournal() =>
         new(Path.Combine(SyncTestEnv.NewDir(), "edits.jsonl"));
 
-    private static ExposurePlan Plan(string tsKey, Guid? targetId = null) =>
-        new(Guid.NewGuid(), targetId ?? Tid, Guid.NewGuid(),
+    private static ExposurePlan Plan(string tsKey, Guid? targetId = null, Guid? templateId = null) =>
+        new(Guid.NewGuid(), targetId ?? Tid, templateId ?? Guid.NewGuid(),
             ExposureSeconds: 300, DesiredCount: 10, AcquiredCount: 5, AcceptedCount: 5,
             Enabled: true, ImportedFromTsGuid: tsKey);
+
+    private static ExposureTemplate Template(string tsKey, string name, Guid? id = null) =>
+        new(id ?? Guid.NewGuid(), Guid.NewGuid(), name, "H", Gain: null, OffsetAdu: null, Binning: null,
+            ReadoutMode: null, DefaultExposureSeconds: 900, ImportedFromTsGuid: tsKey);
+
+    private static Target TargetRow(string tsKey, string name) =>
+        new(Guid.NewGuid(), TargetSource.Both, ProjectId: null, name, Enabled: true,
+            RaHours: null, DecDegreesSigned: null, Epoch.J2000, RotationDeg: null, RoiPercent: null,
+            Priority: null, DirectoryName: null, Catalog: null, CommonName: null, ObjectName: null,
+            ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: tsKey);
+
+    private static Project ProjectRow(string tsKey, string name) =>
+        new(Guid.NewGuid(), Guid.NewGuid(), name, Description: null, ProjectState.Active,
+            ProjectPriority.Normal, MinimumAltitudeDeg: null, MaximumAltitudeDeg: null,
+            MinimumTimeMinutes: null, UseCustomHorizon: false, HorizonOffsetDeg: null,
+            MeridianWindowMinutes: null, IsMosaic: false, EnableGrader: false,
+            CreatedAt: 0, ActiveAt: null, InactiveAt: null, ImportedFromTsGuid: tsKey);
+
+    private static CatalogGraph Graph(
+        IReadOnlyList<ExposurePlan>? plans = null,
+        IReadOnlyList<ExposureTemplate>? templates = null,
+        IReadOnlyList<Target>? targets = null,
+        IReadOnlyList<Project>? projects = null) =>
+        new([], projects ?? [], templates ?? [], targets ?? [], plans ?? [], []);
 
     // ---- leaf (ForPlan) -----------------------------------------------------------------------------------
 
     [Fact]
     public void CleanPlan_AndKeylessRow_AreBlank()
     {
-        SyncMarks marks = SyncMarks.Build(NewJournal(), new TsInboundStore(), []);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), new TsInboundStore(), null);
         Assert.Equal(("", null), marks.ForPlan("42"));
         Assert.Equal(("", null), marks.ForPlan(null));   // disk-plane / rollup rows: structurally blank
     }
@@ -36,7 +61,7 @@ public class SyncMarksTests
     {
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), []);
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
 
         (string glyph, string? tooltip) = marks.ForPlan("42");
         Assert.Equal(SyncMarks.Out, glyph);
@@ -49,7 +74,7 @@ public class SyncMarksTests
     {
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.WriteBack, TsTable.ExposurePlan, "42", "acquired", 14, "10", "A · H");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), []);
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
 
         Assert.Equal(SyncMarks.Out, marks.ForPlan("42").Glyph);
     }
@@ -59,7 +84,7 @@ public class SyncMarksTests
     {
         TsInboundStore inbound = new();
         inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "42", "acquired", "10", "14")]);
-        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, []);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, null);
 
         (string glyph, string? tooltip) = marks.ForPlan("42");
         Assert.Equal(SyncMarks.In, glyph);
@@ -74,10 +99,10 @@ public class SyncMarksTests
         TsInboundStore inbound = new();
         inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "42", "desired", "20", "30")]);
 
-        Assert.Equal(SyncMarks.BothWays, SyncMarks.Build(journal, inbound, []).ForPlan("42").Glyph);
+        Assert.Equal(SyncMarks.BothWays, SyncMarks.Build(journal, inbound, null).ForPlan("42").Glyph);
 
         journal.Clear();   // the push applied — outbound gone, the rig's change stays visible
-        Assert.Equal(SyncMarks.In, SyncMarks.Build(journal, inbound, []).ForPlan("42").Glyph);
+        Assert.Equal(SyncMarks.In, SyncMarks.Build(journal, inbound, null).ForPlan("42").Glyph);
     }
 
     [Fact]
@@ -85,9 +110,100 @@ public class SyncMarksTests
     {
         TsInboundStore inbound = new();
         inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "43", TsInboundDiff.NewRowColumn, null, "row")]);
-        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, []);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, null);
 
         Assert.Contains("new row", marks.ForPlan("43").Tooltip);
+    }
+
+    // ---- template-scope (ForPlan inheritance + ForTemplate) -----------------------------------------------
+
+    [Fact]
+    public void TemplateEdit_MarksEveryPlanUsingIt_WithAttribution()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 1, "0", "H900");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("42", templateId: templateId), Plan("43", templateId: templateId), Plan("99")],
+            templates: [Template("5", "H900", templateId)]));
+
+        (string glyph, string? tooltip) = marks.ForPlan("42");
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Contains("template 'H900'", tooltip);
+        Assert.Contains("moonavoidanceenabled 0 → 1", tooltip);
+        Assert.Equal(SyncMarks.Out, marks.ForPlan("43").Glyph);
+        Assert.Equal("", marks.ForPlan("99").Glyph);   // a plan on a different template stays clean
+    }
+
+    [Fact]
+    public void InboundTemplateChange_MarksUsingPlansIn()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposureTemplate, "5", "moonavoidanceseparation", "60", "45")]);
+        SyncMarks marks = SyncMarks.Build(NewJournal(), inbound, Graph(
+            plans: [Plan("42", templateId: templateId)],
+            templates: [Template("5", "H900", templateId)]));
+
+        (string glyph, string? tooltip) = marks.ForPlan("42");
+        Assert.Equal(SyncMarks.In, glyph);
+        Assert.Contains("BIRDWATCHER — template 'H900': moonavoidanceseparation 60 → 45", tooltip);
+    }
+
+    [Fact]
+    public void PlanEdit_AndInboundTemplateChange_UnionToBothWays_WithDistinguishableLines()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposureTemplate, "5", "gain", "139", "100")]);
+        SyncMarks marks = SyncMarks.Build(journal, inbound, Graph(
+            plans: [Plan("42", templateId: templateId)],
+            templates: [Template("5", "H900", templateId)]));
+
+        (string glyph, string? tooltip) = marks.ForPlan("42");
+        Assert.Equal(SyncMarks.BothWays, glyph);
+        Assert.Contains("→ unpushed: desired 20 → 25", tooltip);                       // direct: unattributed
+        Assert.Contains("← BIRDWATCHER — template 'H900': gain 139 → 100", tooltip);   // inherited: attributed
+    }
+
+    [Fact]
+    public void TemplateNameFallsBackToRawKey_WhenGraphLacksIt()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "H900");
+        // The template row itself carries no name here — simulate by naming it its key.
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("42", templateId: templateId)],
+            templates: [Template("5", "5", templateId)]));
+
+        Assert.Contains("template '5'", marks.ForPlan("42").Tooltip);
+    }
+
+    [Fact]
+    public void ZeroUseTemplate_MarksNoRow_ButForTemplateShowsIt()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "H900");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("42")],                       // references some other template
+            templates: [Template("5", "H900")]));
+
+        Assert.Equal("", marks.ForPlan("42").Glyph);
+        Assert.Equal("", marks.ForKeys([], projectKey: null, [Tid]).Glyph);
+
+        (string glyph, string? tooltip) = marks.ForTemplate("5");
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Contains("gain 139 → 100", tooltip);
+    }
+
+    [Fact]
+    public void ForTemplate_CleanTemplate_IsBlank()
+    {
+        SyncMarks marks = SyncMarks.Build(NewJournal(), new TsInboundStore(), null);
+        Assert.Equal(("", null), marks.ForTemplate("5"));
     }
 
     // ---- header (ForKeys) ---------------------------------------------------------------------------------
@@ -98,7 +214,7 @@ public class SyncMarksTests
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "77", "desired", 9, "5", "A · H");
         // The grid folded plan 77 into a multi-plan rollup (no row-level key) — only the graph knows it.
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), [Plan("77")]);
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(plans: [Plan("77")]));
 
         Assert.Equal(SyncMarks.Out, marks.ForKeys([], projectKey: null, [Tid]).Glyph);
     }
@@ -108,34 +224,50 @@ public class SyncMarksTests
     {
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), []);
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
 
         Assert.Equal(SyncMarks.Out, marks.ForKeys([], projectKey: null, [], ["42"]).Glyph);
     }
 
     [Fact]
-    public void TargetEdit_MarksViaTargetKey()
+    public void TargetEdit_MarksViaTargetKey_WithAttributedLine()
     {
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.Manual, TsTable.Target, "guid-A", "active", 0, "1", "A");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), []);
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            targets: [TargetRow("guid-A", "M 81")]));
 
-        Assert.Equal(SyncMarks.Out, marks.ForKeys(["guid-A"], projectKey: null, []).Glyph);
+        (string glyph, string? tooltip) = marks.ForKeys(["guid-A"], projectKey: null, []);
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Contains("→ unpushed — target 'M 81': active 1 → 0", tooltip);
     }
 
     [Fact]
-    public void ProjectEdit_MarksTheProjectKeyHolder_NotThePanelCall()
+    public void ProjectEdit_MarksTheProjectKeyHolder_NotThePanelCall_AndIsAttributed()
     {
         TsJournal journal = NewJournal();
-        journal.Append(TsEditKind.Manual, TsTable.Project, "7", "priority", 2, "1", "Cygnus mosaic");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), []);
+        journal.Append(TsEditKind.Manual, TsTable.Project, "7", "minimumaltitude", 45, "30", "Nebulae - Above 45");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            projects: [ProjectRow("7", "Nebulae - Above 45")]));
 
-        Assert.Equal(SyncMarks.Out, marks.ForKeys([], projectKey: "7", []).Glyph);    // the parent header
-        Assert.Equal("", marks.ForKeys(["panel-guid"], projectKey: null, []).Glyph);  // panels pass no project key
+        (string glyph, string? tooltip) = marks.ForKeys([], projectKey: "7", []);      // the parent header
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Contains("→ unpushed — project 'Nebulae - Above 45': minimumaltitude 30 → 45", tooltip);
+        Assert.Equal("", marks.ForKeys(["panel-guid"], projectKey: null, []).Glyph);   // panels pass no project key
     }
 
     [Fact]
-    public void MixedDirections_UnionToBothWays_WithCountsTooltip()
+    public void OwnScopeAttribution_FallsBackToRawKey_WithoutAGraph()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.Target, "guid-A", "active", 0, "1", "A");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
+
+        Assert.Contains("target 'guid-A'", marks.ForKeys(["guid-A"], projectKey: null, []).Tooltip);
+    }
+
+    [Fact]
+    public void MixedDirections_UnionToBothWays_RolledUpAsCounts_OwnScopeAsLines()
     {
         TsJournal journal = NewJournal();
         journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
@@ -146,22 +278,55 @@ public class SyncMarksTests
             new TsInboundChange(TsTable.ExposurePlan, "77", "acquired", "3", "4"),
             new TsInboundChange(TsTable.ExposurePlan, "77", "accepted", "3", "4"),
         ]);
-        SyncMarks marks = SyncMarks.Build(journal, inbound, [Plan("42"), Plan("77")]);
+        SyncMarks marks = SyncMarks.Build(journal, inbound, Graph(plans: [Plan("42"), Plan("77")]));
 
         (string glyph, string? tooltip) = marks.ForKeys(["guid-A"], projectKey: null, [Tid]);
         Assert.Equal(SyncMarks.BothWays, glyph);
-        Assert.Contains("2 field(s) arrived changed", tooltip);
-        Assert.Contains("2 field(s) unpushed", tooltip);
+        Assert.Contains("2 field(s) arrived changed", tooltip);        // rolled-up plan fields: counts
+        Assert.Contains("1 field(s) unpushed", tooltip);               // the target edit is a line, not a count
+        Assert.Contains("target 'guid-A'", tooltip);
+        Assert.DoesNotContain("desired 20 → 25", tooltip);             // rolled-up detail lives on the leaf row
     }
 
     [Fact]
-    public void TemplateEdit_MarksNothingAnywhere()
+    public void Header_CountsASharedTemplateFieldOnce()
     {
+        Guid templateId = Guid.NewGuid();
         TsJournal journal = NewJournal();
-        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "Ha 6nm");
-        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), [Plan("42")]);
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "H900");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("42", templateId: templateId), Plan("43", templateId: templateId)],
+            templates: [Template("5", "H900", templateId)]));
 
-        Assert.Equal("", marks.ForPlan("42").Glyph);
-        Assert.Equal("", marks.ForKeys(["guid-A"], projectKey: "7", [Tid], ["42", "5"]).Glyph);
+        (string glyph, string? tooltip) = marks.ForKeys([], projectKey: null, [Tid]);
+        Assert.Equal(SyncMarks.Out, glyph);
+        Assert.Contains("1 field(s) unpushed", tooltip);   // once — not once per plan sharing the template
+    }
+
+    [Fact]
+    public void FoldedPlansTemplate_RollsUpToHeader_ViaGraphMap()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "H900");
+        // No row-carried plan keys at all — only the graph links target → plan → template.
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("77", templateId: templateId)],
+            templates: [Template("5", "H900", templateId)]));
+
+        Assert.Equal(SyncMarks.Out, marks.ForKeys([], projectKey: null, [Tid]).Glyph);
+    }
+
+    [Fact]
+    public void RowCarriedPlanKey_ResolvesItsTemplate_WithoutTargetIds()
+    {
+        Guid templateId = Guid.NewGuid();
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "gain", 100, "139", "H900");
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
+            plans: [Plan("42", templateId: templateId)],
+            templates: [Template("5", "H900", templateId)]));
+
+        Assert.Equal(SyncMarks.Out, marks.ForKeys([], projectKey: null, [], ["42"]).Glyph);
     }
 }

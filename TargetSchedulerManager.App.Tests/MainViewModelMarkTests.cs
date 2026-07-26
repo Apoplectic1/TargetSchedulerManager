@@ -1,3 +1,5 @@
+using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
@@ -116,6 +118,36 @@ public class MainViewModelMarkTests
         Assert.Equal("", row.MarkGlyph);
         Assert.Null(row.MarkTooltip);
     }
+
+    [Fact]
+    public void TemplateEdit_MarksUsingRowAndHeader_InPlace()
+    {
+        MainViewModel vm = Vm(out TsSync sync,
+            Make.Leaf(target: "A", planTsKey: "ep-1", tsTargetKey: "guid-A"));
+        Guid templateId = Guid.NewGuid();
+        vm.SetLoadForTest(new LoadResult([], Report(), new CatalogGraph([], [],
+            [new ExposureTemplate(templateId, Guid.NewGuid(), "H900", "H", Gain: null, OffsetAdu: null,
+                Binning: null, ReadoutMode: null, DefaultExposureSeconds: 900.0, ImportedFromTsGuid: "5")],
+            [],
+            [new ExposurePlan(Guid.NewGuid(), Guid.NewGuid(), templateId, ExposureSeconds: null,
+                DesiredCount: 10, AcquiredCount: 0, AcceptedCount: 0, Enabled: true, ImportedFromTsGuid: "ep-1")],
+            []), TsPlanData.Empty, TimeSpan.Zero));
+        sync.Journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 1, "0", "H900");
+
+        vm.RefreshAllMarks();
+
+        TargetGroupRow header = (TargetGroupRow)vm.Rows[0];
+        ReconciliationRow row = header.Children[0];
+        Assert.Equal(SyncMarks.Out, row.MarkGlyph);                  // inherited through the plan's template
+        Assert.Contains("template 'H900'", row.MarkTooltip);         // attributed, not a bare field line
+        Assert.Equal(SyncMarks.Out, header.MarkGlyph);               // rolled up (template counted once)
+        Assert.Same(header, vm.Rows[0]);                             // in place — no collection rebuild
+    }
+
+    private static CatalogBuildReport Report() => new(
+        DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,
+        NameMismatches: [], AmbiguousMatches: [], DuplicateTsTargets: [],
+        UnanchoredTsTargets: [], InvalidTsTargets: []);
 
     [Fact]
     public void OfflineSession_EmptyInbound_MeansNoInMarks()

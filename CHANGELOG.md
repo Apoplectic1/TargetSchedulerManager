@@ -14,6 +14,31 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Template + project changes now visible in the direction marks: template edits
+light every using plan row, headers attribute their own-scope fields** (openspec `template-change-marks`;
+USER_OBS d14e — moon avoidance enabled on 'H900'/49 plans showed "2 unpushed" but no `→` anywhere).
+**Reverses the 2026-07-08 carve-out** ("exposure-template edits mark no row"). Root causes were two
+distinct gaps: the marks sweep never queried the `ExposureTemplate` journal key space, and the pull diff's
+`FieldSet` omitted `exposuretemplate` entirely — a rig-side template change could never produce `←` (while
+a plan *reassigned* to another template could, via the plan's diffed `exposureTemplateId`). **Mechanism:**
+`SyncMarks.Build` now takes the retained `CatalogGraph` (was: plans only) and derives plan→template-key,
+target→template-keys, and key→display-name maps — template key space = integer `Id` string
+(`TargetResolver` provenance), matching journal + inbound. `ForPlan` unions the plan's entries with its
+template's; inherited tooltip lines are attributed (`→ unpushed — template 'H900': moonavoidanceenabled
+0 → 1`) so they read as inherited, not row edits. A header counts a pending (template, field) **once**,
+however many of its plans share the template; a zero-use template marks no row but shows its mark + tooltip
+in the Templates… picker (new `ForTemplate`, resolved at picker open via `MainViewModel.BuildMarks`).
+Inbound: `exposuretemplate` joined the diff `FieldSet` keyed by `Id` with columns **derived from
+`TsEditableSchema`** (18 editable fields, no literal copy — coverage can't drift from the flyout).
+**Second user decision (same session): project flyout changes stay header-only but gain attribution** —
+header tooltips now render own-scope target/project fields as attributed old→new lines (`→ unpushed —
+project 'Nebulae - Above 45': minimumaltitude 30 → 45`) and keep counts only for rolled-up plan/template
+fields, i.e. detail lives where the mark is authoritative. 264 tests (252 + 12: template inheritance/
+attribution/once-per-header/zero-use/`ForTemplate` in `SyncMarksTests`, template pull-diff old→new +
+untouched-records-nothing in `TsInboundDiffTests`, an in-place sweep integration in
+`MainViewModelMarkTests`). Visual verification pending (row arrows on a template edit, picker marks,
+header attribution tooltips).
+
 **▶ SHIPPED 2026-07-26 — Badges column reads by severity: per-token two-tier colour, and `no-coords`
 promoted to a genuine flag** (openspec `badge-severity-color`). The column painted **every** token
 `SystemFillColorCautionBrush` (hard-coded in all three row templates), so `mosaic` — a neutral structural

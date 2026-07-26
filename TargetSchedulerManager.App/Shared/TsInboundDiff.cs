@@ -97,8 +97,9 @@ internal static class TsInboundDiff
     public const string NewRowColumn = "(new)";
 
     // The diffable set: key column + compared columns per table. Column names follow the TS schema exactly
-    // (see TargetSchedulerReader's explicit SELECTs); the key spaces match the journal's — plan/project
-    // integer Id as a string, target guid.
+    // (see TargetSchedulerReader's explicit SELECTs); the key spaces match the journal's — plan/project/
+    // template integer Id as a string, target guid. The template columns are derived from the editable
+    // schema (not a second hand-written list) so ← coverage can never drift from what the flyout edits.
     private static readonly (TsTable Table, string KeyColumn, string[] Columns)[] FieldSet =
     [
         (TsTable.Target, "guid", ["active", "priority", "rotation", "name", "ra", "dec"]),
@@ -108,6 +109,8 @@ internal static class TsInboundDiff
             ["state", "priority", "minimumtime", "minimumaltitude", "maximumaltitude", "usecustomhorizon",
              "horizonoffset", "meridianwindow", "ditherevery", "enablegrader", "smartexposureorder",
              "flatshandling", "filterswitchfrequency"]),
+        (TsTable.ExposureTemplate, "Id",
+            [.. TsEditableSchema.For(TsTable.ExposureTemplate).Select(f => f.Column)]),
     ];
 
     /// <summary>Reads the diffable fields of every table present in the db at <paramref name="path"/>:

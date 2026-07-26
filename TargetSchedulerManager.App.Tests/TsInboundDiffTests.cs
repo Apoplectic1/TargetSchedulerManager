@@ -99,6 +99,38 @@ public class TsInboundDiffTests
         Assert.Equal(TsInboundDiff.NewRowColumn, change.Column);
     }
 
+    [Fact]
+    public void PullDiff_TemplateFieldChange_RecordsOldAndNew()
+    {
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetTemplate(sync.RemotePath, id: 5, name: "H900", moonAvoidance: 0);
+        sync.Pull(sync.ProbeRemote()!);                       // baseline the local copy
+
+        Exec(sync.RemotePath, "UPDATE exposuretemplate SET moonavoidanceenabled = 1 WHERE Id = 5;");
+        sync.Pull(sync.ProbeRemote()!);
+
+        TsInboundChange change = Assert.Single(sync.Inbound.Snapshot());
+        Assert.Equal(TsTable.ExposureTemplate, change.Table);
+        Assert.Equal("5", change.Key);                        // Id-string key space — matches the journal's
+        Assert.Equal("moonavoidanceenabled", change.Column);
+        Assert.Equal("0", change.Old);
+        Assert.Equal("1", change.New);
+    }
+
+    [Fact]
+    public void UntouchedTemplate_RecordsNothing()
+    {
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetTemplate(sync.RemotePath, id: 5, name: "H900", moonAvoidance: 1);
+        sync.Pull(sync.ProbeRemote()!);
+
+        sync.Pull(sync.ProbeRemote()!);                       // remote unchanged — a forced re-pull
+
+        Assert.True(sync.Inbound.IsEmpty);
+    }
+
     // ---- direct Snapshot/Diff units -----------------------------------------------------------------------
 
     [Fact]
@@ -166,13 +198,21 @@ public class TsInboundDiffTests
 
     // ---- helpers ------------------------------------------------------------------------------------------
 
-    /// <summary>A real db carrying the three diffed TS tables (empty).</summary>
+    /// <summary>A real db carrying the four diffed TS tables (empty). The template table is a representative
+    /// subset of the editable columns — absent ones exercise the drift-skip path.</summary>
     private static void CreateTsDb(string path) => Exec(path,
         "CREATE TABLE IF NOT EXISTS target (Id INTEGER PRIMARY KEY, name TEXT, active INTEGER, ra REAL, dec REAL, rotation REAL, priority INTEGER, guid TEXT);"
         + "CREATE TABLE IF NOT EXISTS exposureplan (Id INTEGER PRIMARY KEY, exposure REAL, desired INTEGER, acquired INTEGER, accepted INTEGER, exposureTemplateId INTEGER, enabled INTEGER);"
         + "CREATE TABLE IF NOT EXISTS project (Id INTEGER PRIMARY KEY, state INTEGER, priority INTEGER, minimumtime INTEGER, minimumaltitude REAL, maximumaltitude REAL,"
         + " usecustomhorizon INTEGER, horizonoffset REAL, meridianwindow INTEGER, ditherevery INTEGER, enablegrader INTEGER, smartexposureorder INTEGER,"
-        + " flatshandling INTEGER, filterswitchfrequency INTEGER);");
+        + " flatshandling INTEGER, filterswitchfrequency INTEGER);"
+        + "CREATE TABLE IF NOT EXISTS exposuretemplate (Id INTEGER PRIMARY KEY, name TEXT, filtername TEXT, gain INTEGER, offset INTEGER, bin INTEGER,"
+        + " defaultexposure REAL, moonavoidanceenabled INTEGER, moonavoidanceseparation REAL);");
+
+    private static void SetTemplate(string path, long id, string name, int moonAvoidance) => Exec(path,
+        $"INSERT INTO exposuretemplate (Id, name, filtername, gain, offset, bin, defaultexposure, moonavoidanceenabled, moonavoidanceseparation)"
+        + $" VALUES ({id}, '{name}', 'H', 111, 10, 1, 900.0, {moonAvoidance}, 60.0)"
+        + $" ON CONFLICT(Id) DO UPDATE SET moonavoidanceenabled = {moonAvoidance};");
 
     private static void SetPlan(string path, long id, int desired) => Exec(path,
         $"INSERT INTO exposureplan (Id, exposure, desired, acquired, accepted, exposureTemplateId, enabled)"

@@ -208,9 +208,13 @@ public sealed partial class MainViewModel
     /// plan keys the visible child rows do carry (covers graph-less states); panels pass no project key —
     /// a project edit marks the group header / mosaic parent only.
     /// </summary>
+    /// <summary>A fresh marks resolver over the current journal/inbound facts — for non-grid consumers
+    /// (the Templates… picker resolves per-template marks from it at open).</summary>
+    internal SyncMarks BuildMarks() => SyncMarks.Build(Sync.Journal, Sync.Inbound, _lastLoad?.Graph);
+
     internal void RefreshAllMarks()
     {
-        SyncMarks marks = SyncMarks.Build(Sync.Journal, Sync.Inbound, _lastLoad?.Graph.Plans ?? []);
+        SyncMarks marks = BuildMarks();
         foreach (TargetGroupRow group in _groups)
         {
             if (group.Panels is { } panels)

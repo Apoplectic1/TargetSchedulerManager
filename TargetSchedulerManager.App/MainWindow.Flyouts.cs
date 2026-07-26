@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Controls;
 using TargetSchedulerManager.App.Models;
+using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.ViewModels;
 using TargetSchedulerManager.App.ViewModels.Rows;
 using static TargetSchedulerManager.App.Shared.UiTask;   // FireAndLog — the fire-and-forget seam (review N3)
@@ -208,10 +209,19 @@ public sealed partial class MainWindow
             return;
         }
         MenuFlyout menu = new();
+        SyncMarks marks = ViewModel.BuildMarks();
         foreach (TemplateInfo template in templates)
-            menu.Items.Add(EditMenuItem($"{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
+        {
+            // The template's own sync-direction mark (grid column-0 language) + old→new tooltip when pending.
+            (string glyph, string? tooltip) = marks.ForTemplate(template.TsKey);
+            string prefix = glyph.Length > 0 ? $"{glyph} " : "";
+            MenuFlyoutItem item = EditMenuItem($"{prefix}{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
                 () => ShowEditFlyoutAsync((FrameworkElement)sender, TsTable.ExposureTemplate, template.TsKey,
-                    TemplateTitle(template), null, null)));
+                    TemplateTitle(template), null, null));
+            if (tooltip is not null)
+                ToolTipService.SetToolTip(item, tooltip);
+            menu.Items.Add(item);
+        }
         menu.ShowAt((FrameworkElement)sender);
     }
 

@@ -214,8 +214,9 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
 Every row level (target header / mosaic panel / filter row / rollup detail line) carries one mark in the new
 leftmost 24 px column: **`←`** = inbound (BIRDWATCHER arrived different at a pull), **`→`** = outbound
 (unpushed journal writes — manual edits *and* write-back stamps), **`⇄`** = both, blank = clean. Tooltips:
-per-field `old → new` lines on leaves, direction counts on headers. Spec:
-`openspec/specs/edit-direction-marks/`.
+per-field `old → new` lines on leaves (template-inherited lines attributed "— template '<name>'"); on
+headers, attributed lines for own-scope target/project fields + direction counts for rolled-up plan/template
+fields. Spec: `openspec/specs/edit-direction-marks/`.
 
 - **Outbound is the journal, re-read.** No new state: a row marks `→` iff a journal entry's (table, key)
   matches its `PlanTsKey` / `TsTargetKey` / `ProjectTsKey` — so marks survive restarts (the journal sidecar
@@ -225,23 +226,31 @@ per-field `old → new` lines on leaves, direction counts on headers. Spec:
   local db's diffable fields before the backup overwrites it, diffs against the fresh copy, and unions into a
   **session-sticky in-memory store** (`TsSync.Inbound`). The diffed set is authored (the columns TSM displays
   or edits — the `TsEditableSchema` convention), never `PRAGMA`-discovered, so TS-internal bookkeeping can't
-  produce noise. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
+  produce noise; the `exposuretemplate` columns are *derived* from `TsEditableSchema` (2026-07-26) so ←
+  coverage can't drift from what the flyout edits. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
   have no `←`; a remotely-added row reports one "new row" entry; deletions report nothing.
 - **The actuals mask:** when write-back stamps a plan's `acquired`/`accepted`, `RecordWriteBack` drops those
   columns from the plan's inbound entries — disk supersedes the rig's totals, so the row reads `→` (never
   `⇄`) and goes clean after push, not stale-`←`. `desired` is deliberately not masked: a rig-side goal change
   coexisting with a ratchet raise is a genuine `⇄`.
+- **Template changes mark every plan using them** (2026-07-26, reversing the earlier no-row carve-out):
+  `SyncMarks.Build` takes the retained graph and derives plan→template-key / target→template-keys maps
+  (template key space = integer `Id` string, matching the journal and inbound diff), so `ForPlan` unions a
+  plan's own entries with its template's — tooltip lines attributed so an inherited change is never mistaken
+  for a row edit. A header counts a pending (template, field) once regardless of how many of its plans share
+  the template; a zero-use template marks no grid row but shows its mark in the Templates… picker
+  (`ForTemplate`, resolved fresh at picker open via `MainViewModel.BuildMarks`).
 - **Headers roll up the union of their subtree's directions** (`Services/SyncMarks`): own target key +
-  project key (group header / mosaic parent only — a project edit never lights panels) + every plan key of
-  their target ids from the retained graph (`CatalogGraph.Plans`) — the graph map matters because a plan
+  project key (group header / mosaic parent only — a project edit never lights panels) + every plan and
+  template key of their target ids from the retained graph — the graph map matters because a plan
   folded into a multi-plan rollup row carries no row-level key — plus the plan keys visible child rows do
-  carry. Sticky inbound means a push collapses `⇄` to `←` (the rig's change stays visible) rather than
-  wiping the overnight info.
+  carry. Own-scope target/project fields render as attributed old→new lines (the header is their only home);
+  rolled-up fields stay counts. Sticky inbound means a push collapses `⇄` to `←` (the rig's change stays
+  visible) rather than wiping the overnight info.
 - **One in-place sweep** (`MainViewModel.RefreshAllMarks`): rebuilds the resolver from journal + inbound +
   graph and re-applies every mark via PropertyChanged (raise-on-change only, never a collection rebuild — the
   scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, and a push without a reload
-  (Discard refreshes marks via its own full reload, not a direct sweep). Known gap (accepted): exposure-template edits mark no row — templates have no grid row; the
-  badge and push review still carry them.
+  (Discard refreshes marks via its own full reload, not a direct sweep).
 
 ## TS write-back (engine built 2026-06-08; app action shipped 2026-07-06)
 
