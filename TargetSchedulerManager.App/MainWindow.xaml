@@ -265,7 +265,7 @@
                  Both knobs default 30 (user decision 2026-07-23). UpDownBox is our own WinForms-style
                  NumericUpDown (Controls/UpDownBox.cs) — a narrow inline NumberBox is unreachable
                  (three hard-coded template widths; see DOMAIN.md → WinUI gotchas). It commits typed text
-                 on focus loss/Enter and clamps to range, so a click on Tonight (which steals focus)
+                 on focus loss/Enter and clamps to range, so a click on Tonight (which steals focus)1
                  always reads a valid whole number. Set Minimum/Maximum before Value (setter clamps). -->
             <TextBlock Text="Visible Tonight:" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBlock Text="Duration:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>

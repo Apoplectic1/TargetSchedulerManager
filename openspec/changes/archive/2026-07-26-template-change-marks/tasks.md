@@ -39,5 +39,5 @@
 
 - [x] 5.1 Update `ARCHITECTURE.md` (marks resolution mentions template key space) and `CHANGELOG.md`;
       spec deltas synced at archive time
-- [ ] 5.2 Build + full test run green; user verifies arrows visually (template edit → row arrows +
+- [x] 5.2 Build + full test run green; user verifies arrows visually (template edit → row arrows +
       picker mark) — behavior-changing, so archive waits for the user's verify word
