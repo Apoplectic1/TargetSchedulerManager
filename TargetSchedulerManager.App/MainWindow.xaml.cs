@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;   // RepeatButton — the NumberBox spin buttons
 using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels;
@@ -147,18 +148,40 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
-    // Every narrow NumberBox (the grid's Desired cell, the Visible-Tonight knobs) routes here. WinUI 3 can't
-    // center a NumberBox's inner input via TextAlignment/HorizontalContentAlignment — the property doesn't reach
-    // the template-internal TextBox (microsoft-ui-xaml#7399 / #2896) — and that TextBox's own MinWidth otherwise
-    // overflows any narrow Width we set. Fix both on the realized instance. Fires per container realization in
-    // the virtualized list; idempotent.
+    // Every narrow NumberBox (the grid's Desired cell, the Visible-Tonight knobs) routes here — two template
+    // internals have to be reached on the realized instance, because neither is settable from XAML:
+    //
+    //  1. The input TextBox. WinUI 3 can't center it via TextAlignment/HorizontalContentAlignment (the property
+    //     doesn't reach the template-internal TextBox — microsoft-ui-xaml#7399 / #2896), and its own MinWidth
+    //     otherwise overflows any narrow Width we set.
+    //  2. The inline spin buttons, when shown. In the default template the root Grid is
+    //     col0 `*` · col1 Auto (UpSpinButton) · col2 Auto (DownSpinButton), with the input TextBox spanning all
+    //     three *underneath* them. At stock size that pair costs 76 px (MinWidth 32 + 4 px margins each), which
+    //     is most of an untouched NumberBox — so a Width narrow enough to be worth setting starves a column and
+    //     clips a chevron. Halving MinWidth and trimming the margins brings the pair to ~38 px; the buttons stay
+    //     full height, just narrower to hit. Per-instance on purpose: shadowing NumberBoxSpinButtonStyle can't
+    //     work (a StaticResource inside a framework template resolves in generic.xaml, not app resources), and
+    //     the schema-driven editor's boxes (SpinButtonPlacementMode.Hidden) must keep their stock metrics.
+    //
+    // Fires per container realization in the virtualized list; idempotent.
     private void NarrowNumberBox_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is NumberBox box && FindDescendant<TextBox>(box) is TextBox input)
+        if (sender is not NumberBox box) return;
+
+        if (FindDescendant<TextBox>(box) is TextBox input)
         {
             input.TextAlignment = TextAlignment.Center;
             input.MinWidth = 0;                          // default MinWidth can overflow a narrow box
             input.Padding = new Thickness(2, 0, 2, 0);   // trim inner padding so 3 digits fit centered when narrow
+        }
+
+        foreach (RepeatButton spin in FindDescendants<RepeatButton>(box))
+        {
+            // Mirrors the template's own asymmetry: the pair sits flush, with margin only on the outer edges.
+            if (spin.Name == "UpSpinButton")
+                (spin.MinWidth, spin.Margin) = (16, new Thickness(2, 2, 0, 2));
+            else if (spin.Name == "DownSpinButton")
+                (spin.MinWidth, spin.Margin) = (16, new Thickness(0, 2, 2, 2));
         }
     }
 
@@ -172,5 +195,16 @@ public sealed partial class MainWindow : Window
             if (FindDescendant<T>(child) is T nested) return nested;
         }
         return null;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (T nested in FindDescendants<T>(child)) yield return nested;
+        }
     }
 }

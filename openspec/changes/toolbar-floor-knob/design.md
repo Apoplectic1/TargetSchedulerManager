@@ -49,16 +49,29 @@ Centering comes along with it, which is what the DOMAIN convention prescribes fo
 TextBox. A `Style` cannot reach template internals without a full template override (see D2), and three
 copies of the same walk is exactly the duplication the presentation lane spent P1–P5 removing.
 
-**D2 — Keep `SpinButtonPlacementMode="Inline"`; do not restyle the spinners.**
-The inline spin-button block is template-fixed (~2 × 28 px) and no `Width` shrinks it, so an Inline box has
-a floor near 80 px however few digits it holds. The user chose (2026-07-26) to keep the spinners always
-visible and clickable rather than take `Compact` (spinners hidden behind hover, box ≈ 40 px) — the toolbar
-gains less width, but the up/down targets stay real. A local template override to squeeze the buttons was
-offered and declined as not worth the XAML.
+**D2 — Keep `SpinButtonPlacementMode="Inline"`, and shrink the spin buttons per-instance.**
+*Superseded once mid-change; the first version's estimate was wrong and `obs-d589` caught it.*
 
-**Starting widths: `Duration = 80`, `Floor = 70`** — spinner block plus a centered 3- / 2-digit text area.
-These are eyeball-tuned numbers, not derived: the author runs the app and we adjust by a few px if `480`
-crowds its box. Anything that clips is a bug in this change, since both maxima are inside the digit budget.
+First attempt guessed the spinner block at ~56 px and set `Duration = 80`, `Floor = 70` as eyeball-tuned
+numbers. The app clipped a chevron. Measuring `generic.xaml` (WinUI 2.2.1) gave the real geometry: the
+NumberBox template root Grid is **col0 `*` · col1 `Auto` (`UpSpinButton`, MinWidth 32 + `Margin="4"` both
+sides = 40 px) · col2 `Auto` (`DownSpinButton`, 32 + `Margin="0,4,4,4"` = 36 px)**, with `InputBox`
+carrying `Grid.ColumnSpan="3"` — the text sits *underneath* both buttons rather than competing for a
+column, which is why a starved box shows roomy centered text beside a missing chevron. **Stock pair = 76
+px**, so the no-clip Inline minimum is 104 / 96 — versus the ~110 px we started from. Conclusion the first
+pass got wrong: **stock Inline spinners leave nothing to reclaim.**
+
+So the buttons themselves shrink: `NarrowNumberBox_Loaded` sets `MinWidth = 16` and 2 px margins on the
+two `RepeatButton`s (pair ≈ 38 px), giving **`Duration = 64`, `Floor = 56`** — a real shrink with both
+chevrons always visible at full height, only narrower to click. The user chose this (2026-07-26) over
+`Compact` (spinners behind a hover popup; box ≈ 44/36) and over full-size Inline at 104/96.
+
+*Why per-instance rather than a style override:* the earlier note that this needs "a `NumberBox` style
+override in page resources" was also wrong — shadowing `NumberBoxSpinButtonStyle` in app resources cannot
+work, because a `StaticResource` referenced inside a framework `ControlTemplate` resolves within
+`generic.xaml`, not against `Application.Resources`. Reaching the realized buttons in the existing
+`Loaded` handler is both the working route and the narrow one: the schema-driven editor's boxes
+(`SpinButtonPlacementMode.Hidden`, `Width = 110`) keep their stock metrics untouched.
 
 **D3 — Rename depth: the knob and everything that only ever meant the knob.**
 `VisibleHorizon` → `VisibleFloor`; label `"Horizon:"` → `"Floor:"`; `horizonAltitudeDeg` →
@@ -80,8 +93,12 @@ and updating WinUI-gotchas + checklist step 6 to name the generalized handler.
 
 ## Risks / Trade-offs
 
-- **[80 / 70 px may still crowd `480`]** → The author verifies visually on the first run (the whole point
-  of observation-driven UI work here); adjustment is a one-number edit with no structural consequence.
+- **[Guessed widths clip a spinner]** → **This happened** (`obs-d589`): 80/70 lost a chevron because the
+  spinner block was measured at 56 px by eye instead of 76 px from the template. Resolved in D2 by reading
+  `generic.xaml` and shrinking the buttons. Lesson for the next narrow-control change: template metrics are
+  in the SDK package — measure them, don't estimate from a screenshot.
+- **[16 px spin buttons are small mouse targets]** → They keep full height, so the target is a tall thin
+  strip rather than a square; the author verifies it's comfortable and the value is a one-number edit.
 - **[Toolbar values become centered, which nobody asked for]** → It is the standing DOMAIN convention for
   integer edit boxes and arrives free with the shared handler; called out explicitly for the visual pass,
   and trivially droppable by giving the toolbar boxes their own handler if disliked.

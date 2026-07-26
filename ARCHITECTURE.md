@@ -307,8 +307,8 @@ A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, de
 (whole degrees, 0–89, default 30) numeric up-downs + a **Tonight** button (it replaced the toolbar's old
 load-summary text, removed same day). One press reconciles the enable state with tonight's sky — no
 confirm dialog (user decision: "this is why it's a button"), push stays optional. Each up-down is sized to
-its digit budget (Duration 3, Floor 2) plus the template-fixed inline spinner block — `DOMAIN.md` →
-*integer edit boxes*. The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+its digit budget (Duration 3, Floor 2) plus the shrunk inline spinner pair — `DOMAIN.md` →
+*integer edit boxes* for the 76 px-of-stock-spinners arithmetic that drives the numbers. The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
 collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
 and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 

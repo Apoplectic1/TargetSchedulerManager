@@ -16,15 +16,24 @@ forward plan + current status and points here; git remains the commit-level back
 
 **▶ SHIPPED 2026-07-26 — Visible-Tonight toolbar: up-downs right-sized, **Horizon** knob deep-renamed
 to **Floor**, and the button's `Find` → `Tonight` drift corrected in the docs** (openspec
-`toolbar-floor-knob`; driven by observation `obs-9b52`). **Sizing:** both `NumberBox`es declared
-`MinWidth="0"` but no `Width`, so each measured to template content (~110 px for a 2-digit value — the
-inner `TextBox`'s 64 px `TextControlThemeMinWidth` plus the spinner block). Now `Width="80"` (Duration,
-3-digit budget for 480) and `Width="70"` (Floor, 2-digit for 89), both routed through
-`NarrowNumberBox_Loaded` — the generalized `DesiredBox_Loaded`, now shared by all three narrow boxes;
-zeroing the inner `MinWidth` there is what lets a narrow `Width` take effect at all. Inline spinners kept
-(user decision): the spinner block is template-fixed, so `Compact` placement and a template override were
-both declined to keep the up/down targets real. Toolbar values are now centered, arriving with the shared
-handler per the standing integer-edit-box convention. **Rename:** `VisibleHorizon` → `VisibleFloor`,
+`toolbar-floor-knob`; driven by observations `obs-9b52` then `obs-d589`). **Sizing:** both `NumberBox`es
+declared `MinWidth="0"` but no `Width`, so each measured to template content (~110 px for a 2-digit value).
+Now `Width="64"` (Duration, 3-digit budget for 480) and `Width="56"` (Floor, 2-digit for 89), both routed
+through `NarrowNumberBox_Loaded` — the generalized `DesiredBox_Loaded`, now shared by all three narrow
+boxes. It reaches two template internals that XAML can't: the input `TextBox` (centered, `MinWidth = 0` —
+**that zeroing is what lets a narrow `Width` take effect at all**) and, new here, the **inline spin
+buttons**. `obs-d589` caught the first attempt clipping a chevron at 80/70 px, and measuring
+`generic.xaml` explained it: the stock pair costs **76 px** (root Grid col0 `*` · col1 `Auto` UpSpinButton
+32 + 4 px margins · col2 `Auto` DownSpinButton 32 + 4, input `TextBox` spanning all three *underneath*
+them), i.e. most of an untouched box — so any `Width` worth setting starves a column. **Corrected premise:
+Inline spinners at stock size cannot shrink** (no-clip minimum would be 104/96, no gain over 110). The
+handler now halves the buttons per-instance (MinWidth 16, 2 px margins → pair ≈ 38 px), keeping them
+always visible at full height, just narrower to hit; `Compact` placement and full-size Inline were both
+declined. Per-instance is required, not stylistic: shadowing `NumberBoxSpinButtonStyle` in app resources
+can't work (a `StaticResource` inside a framework `ControlTemplate` resolves in `generic.xaml`, not
+`Application.Resources`), and the schema-driven editor's boxes (`SpinButtonPlacementMode.Hidden`) must
+keep stock metrics. Toolbar values are now centered, arriving with the shared handler per the standing
+integer-edit-box convention. **Rename:** `VisibleHorizon` → `VisibleFloor`,
 label `"Horizon:"` → `"Floor:"`, `horizonAltitudeDeg` → `floorAltitudeDeg` through
 `RunVisibleTonightAsync` / `VisibleTonightPass.PlanTargets` / all call sites and test arguments, test
 `HorizonAltitudeFloor_GatesLowTargets` → `AltitudeFloor_GatesLowTargets`, plus tooltips and comments.
@@ -39,7 +48,7 @@ ARCHITECTURE/DOMAIN/VERIFICATION (user confirmed keeping "Tonight"). DOMAIN's in
 now carries both cases (hidden spinners ~40 px vs inline spinners = digits + ~56 px) and names the shared
 handler in WinUI-gotchas + checklist step 6. No behavior change: predicate, ranges, defaults, busy
 exclusion, and journaling untouched. Verified: build clean, App.Tests 235/235; **visual pass pending the
-author's run** (box widths, `480`/`89` fully visible, centered values).
+author's run** (box widths, `480`/`89` fully visible, both chevrons present, centered values).
 
 **▶ SHIPPED 2026-07-24 — DiagnosticsWindow thins to the WinUI shell over the Library's new
 `ObservationSession` (AL Diagnostics consolidation; this window was the model the type was lifted

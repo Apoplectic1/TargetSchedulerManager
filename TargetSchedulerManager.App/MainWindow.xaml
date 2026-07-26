@@ -263,21 +263,22 @@
                  of ≥ Duration minutes above Floor degrees altitude), project.state follows its targets;
                  Draft/Closed untouched. Flips are ordinary journaled edits — push stays optional.
                  Both knobs default 30 (user decision 2026-07-23). Each box is sized to its digit budget
-                 (Duration 3, Floor 2) plus the template-fixed inline spinner block — see DOMAIN.md's
-                 integer-edit-box convention; NarrowNumberBox_Loaded makes the narrow Width stick. -->
+                 (Duration 3, Floor 2) plus the inline spinner pair, which NarrowNumberBox_Loaded shrinks
+                 from the stock 76 px to ~38 — that handler is also what makes a narrow Width stick at all.
+                 See DOMAIN.md's integer-edit-box convention. -->
             <TextBlock Text="Visible Tonight:" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBlock Text="Duration:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
             <NumberBox x:Name="VisibleDuration" Value="30" Minimum="15" Maximum="480"
                        SmallChange="15" LargeChange="60" SpinButtonPlacementMode="Inline"
                        ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
-                       Width="80" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
+                       Width="64" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
                        VerticalAlignment="Center"
                        ToolTipService.ToolTip="Shortest single stretch above the Floor (minutes, 15–480) that counts as visible tonight"/>
             <TextBlock Text="Floor:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
             <NumberBox x:Name="VisibleFloor" Value="30" Minimum="0" Maximum="89"
                        SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Inline"
                        ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
-                       Width="70" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
+                       Width="56" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
                        VerticalAlignment="Center"
                        ToolTipService.ToolTip="Altitude floor (whole degrees, 0–89): the target must climb above this to count as visible"/>
             <Button Content="Tonight" Click="VisibleTonight_Click" MinWidth="0"
