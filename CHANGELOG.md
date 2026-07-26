@@ -14,6 +14,18 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Template `ditherevery` gains its −1 sentinel ("project default")** — found by
+side-by-side comparison against TS 5.10.3's own UI (which shows "(Project)" where TSM showed a raw −1).
+In TS, template `DitherEvery = −1` defers to the project's dither setting (`DitherManager` tests `>= 0`;
+verified in the released `v5.10.3.0` tag) — the same defer-to-default shape as gain/offset/readout's
+camera sentinels, but TSM's editable schema had it as a plain `Min 0` Whole: it displayed the raw −1 and,
+once edited, could never write −1 back (a one-way door out of "inherit from project"). One-line fix in
+`Astronomy.Catalog`'s `TsEditableSchema` (Library repo, same-day commit): `Sentinel: −1,
+SentinelLabel: "project default"` — the flyout's existing sentinel rendering (checkbox over number box,
+arm-before-write, clamp exemption) lights up for free. No spec change: the sentinel-rendering requirement
+is generic; which columns carry sentinels is schema data. Comparison also confirmed **no 5.10.3 schema
+drift** (PRAGMA column list == TS-SCHEMA.md) and full moon-field coverage. 171 Library + 278 TSM tests.
+
 **▶ SHIPPED 2026-07-26 — Net-no-op pruning: reverting a field to its baseline clears it everywhere**
 (openspec `noop-edit-pruning`; user observed via the new flyout marks that a toggle round-trip kept its
 `→`, chose option 1 — and "apply this anywhere syncmarks are used"). Root cause was one layer: the editor

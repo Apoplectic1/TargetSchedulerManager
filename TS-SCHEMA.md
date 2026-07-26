@@ -69,7 +69,7 @@ lowered); effective seconds = `exposure < 0 ? template.defaultexposure : exposur
 `bin` ✎ · `readoutmode` ✎ (−1 sentinel) · `twilightlevel` ✎ · `moonavoidanceenabled` ✎ ·
 `moonavoidanceseparation` ✎ · `moonavoidancewidth` ✎ · `maximumhumidity` ✎ · `defaultexposure` ✎ ·
 `moonrelaxscale` ✎ · `moonrelaxmaxaltitude` ✎ · `moonrelaxminaltitude` ✎ · `moondownenabled` ✎ ·
-`ditherevery` ✎ · `minutesOffset` ✎ · `guid`
+`ditherevery` ✎ (−1 sentinel = defer to project; TS planner tests `>= 0`) · `minutesOffset` ✎ · `guid`
 TSM: template manager edits all 18 non-key fields above (see `TsEditableSchema` — the authoritative editable list);
 `"Stars "` name prefix is the Light/Stars purpose convention shared with disk directories.
 
