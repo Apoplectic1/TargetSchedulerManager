@@ -62,9 +62,17 @@ px**, so the no-clip Inline minimum is 104 / 96 — versus the ~110 px we starte
 pass got wrong: **stock Inline spinners leave nothing to reclaim.**
 
 So the buttons themselves shrink: `NarrowNumberBox_Loaded` sets `MinWidth = 16` and 2 px margins on the
-two `RepeatButton`s (pair ≈ 38 px), giving **`Duration = 64`, `Floor = 56`** — a real shrink with both
-chevrons always visible at full height, only narrower to click. The user chose this (2026-07-26) over
-`Compact` (spinners behind a hover popup; box ≈ 44/36) and over full-size Inline at 104/96.
+two `RepeatButton`s (pair ≈ 36 px). The user chose this (2026-07-26) over `Compact` (spinners behind a
+hover popup) and over full-size Inline at 104/96.
+
+*Second fire (`obs-1fe4`):* the first shrunk version (`Width` 64/56) centered the digits — the grid
+convention applied reflexively — and they landed under the chevrons. The template has **no overlap
+protection at all**: the spin buttons draw on top of the `InputBox`, and the stock control stays clean
+only because its forced 120 px minimum keeps short left-aligned text away from them. A narrow inline box
+must therefore supply its own clearance, and centering is structurally wrong for it (center of the *full*
+box = under the buttons). Final shape: **left-aligned digits** (the WinForms up-down idiom), 38 px right
+padding, **`Duration = 68`, `Floor = 60`** (= digits + 4 left pad + 38). The handler branches on
+`SpinButtonPlacementMode` — hidden-spinner grid cells keep their centered convention untouched.
 
 *Why per-instance rather than a style override:* the earlier note that this needs "a `NumberBox` style
 override in page resources" was also wrong — shadowing `NumberBoxSpinButtonStyle` in app resources cannot
@@ -97,6 +105,10 @@ and updating WinUI-gotchas + checklist step 6 to name the generalized handler.
   spinner block was measured at 56 px by eye instead of 76 px from the template. Resolved in D2 by reading
   `generic.xaml` and shrinking the buttons. Lesson for the next narrow-control change: template metrics are
   in the SDK package — measure them, don't estimate from a screenshot.
+- **[Convention applied without checking the geometry]** → **Also happened** (`obs-1fe4`): centering — the
+  grid's integer-edit-box convention — put digits under the chevrons, because the template's `InputBox`
+  spans the buttons with no reservation. A convention written for one template shape (hidden spinners)
+  doesn't transfer to another (inline) without re-deriving; the handler now branches on placement mode.
 - **[16 px spin buttons are small mouse targets]** → They keep full height, so the target is a tall thin
   strip rather than a square; the author verifies it's comfortable and the value is a one-number edit.
 - **[Toolbar values become centered, which nobody asked for]** → It is the standing DOMAIN convention for

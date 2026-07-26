@@ -148,36 +148,39 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
-    // Every narrow NumberBox (the grid's Desired cell, the Visible-Tonight knobs) routes here — two template
-    // internals have to be reached on the realized instance, because neither is settable from XAML:
-    //
-    //  1. The input TextBox. WinUI 3 can't center it via TextAlignment/HorizontalContentAlignment (the property
-    //     doesn't reach the template-internal TextBox — microsoft-ui-xaml#7399 / #2896), and its own MinWidth
-    //     otherwise overflows any narrow Width we set.
-    //  2. The inline spin buttons, when shown. In the default template the root Grid is
-    //     col0 `*` · col1 Auto (UpSpinButton) · col2 Auto (DownSpinButton), with the input TextBox spanning all
-    //     three *underneath* them. At stock size that pair costs 76 px (MinWidth 32 + 4 px margins each), which
-    //     is most of an untouched NumberBox — so a Width narrow enough to be worth setting starves a column and
-    //     clips a chevron. Halving MinWidth and trimming the margins brings the pair to ~38 px; the buttons stay
-    //     full height, just narrower to hit. Per-instance on purpose: shadowing NumberBoxSpinButtonStyle can't
-    //     work (a StaticResource inside a framework template resolves in generic.xaml, not app resources), and
-    //     the schema-driven editor's boxes (SpinButtonPlacementMode.Hidden) must keep their stock metrics.
-    //
+    // Narrow NumberBoxes (the grid's Desired cell, the Visible-Tonight knobs) route here for the template
+    // fix-ups XAML can't express — properties don't reach a NumberBox's internals (microsoft-ui-xaml#7399
+    // / #2896), and a narrow control isn't a mode the template supports:
+    //  - Zero the inner TextBox MinWidth (the template forces 120 with inline spinners, 64 without) —
+    //    the one thing that lets a narrow Width stick at all.
+    //  - Inline spinners: shrink the chevron pair (stock 76 px) and right-pad the text clear of it. The
+    //    template draws the buttons ON TOP of the TextBox with no reservation — stock layout survives
+    //    only because the 120 px minimum keeps short left-aligned text away from them.
+    //  - Hidden spinners (grid cells): center the digits per the integer-edit-box rule. (Toolbar boxes
+    //    stay left-aligned, WinForms-up-down style — centering across the full box is what put digits
+    //    under the chevrons, obs-1fe4.)
     // Fires per container realization in the virtualized list; idempotent.
     private void NarrowNumberBox_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not NumberBox box) return;
+        bool inlineSpinners = box.SpinButtonPlacementMode == NumberBoxSpinButtonPlacementMode.Inline;
 
         if (FindDescendant<TextBox>(box) is TextBox input)
         {
-            input.TextAlignment = TextAlignment.Center;
-            input.MinWidth = 0;                          // default MinWidth can overflow a narrow box
-            input.Padding = new Thickness(2, 0, 2, 0);   // trim inner padding so 3 digits fit centered when narrow
+            input.MinWidth = 0;
+            if (inlineSpinners)
+                input.Padding = new Thickness(4, 0, 38, 0);   // keep digits clear of the 36 px chevron pair
+            else
+            {
+                input.TextAlignment = TextAlignment.Center;
+                input.Padding = new Thickness(2, 0, 2, 0);    // trim so 3 digits fit centered when narrow
+            }
         }
 
+        if (!inlineSpinners) return;
         foreach (RepeatButton spin in FindDescendants<RepeatButton>(box))
         {
-            // Mirrors the template's own asymmetry: the pair sits flush, with margin only on the outer edges.
+            // 16 px wide (stock 32), 2 px outer margins (stock 4) — full height, just narrower to hit.
             if (spin.Name == "UpSpinButton")
                 (spin.MinWidth, spin.Margin) = (16, new Thickness(2, 2, 0, 2));
             else if (spin.Name == "DownSpinButton")
