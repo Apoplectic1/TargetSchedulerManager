@@ -14,6 +14,66 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 (second sweep) — graduate-and-prune over the openspec archive: 12 truths lifted from
+shipped rationale** — the morning sweep (`feb8f96`) mined the *dated* journal; this one mined the class it
+left untouched, **27 archived `openspec/changes/archive/*/design.md` records**. That class is a genuine
+blind spot: shipped rationale concentrates there and nothing ever reads the archive again, so a decision's
+"why" and its rejected alternatives quietly stop being reachable the moment the change is archived. Six
+fan-out rounds; the archived records themselves were never touched (immutable change records — every
+graduate is a one-line claim plus a pointer written into the reference doc).
+
+**`CONVENTIONS.md` took seven of the twelve** (6.2 → 11.4 KB — the doc carved this morning turning out to be
+exactly the missing home the sweep predicted): the **App-project-root** siting rule for statics XAML reaches
+directly (`GridColumns`, `ThemeBrushes` — the unqualified `xmlns:local` lookup is why, decided twice);
+**shared controls take identity as delegates, never as a key** (`TsFieldsEditor` serves four flyouts and has
+never learned a TS table — commit, effective-value seed, and mark lookup all arrive closed over the key);
+**an untestable surface gets a pure sibling** (`Badges.Split`, `AmbiguityReport.Build`, `SyncMarks`,
+`VisibleTonightPass.Plan*`) **plus its exception** — `SentinelCell` keeps its logic because the state *is*
+the controls, so extraction would relocate code without buying a test; **serialize with UI-thread-confined
+state, not an async lock** (`SemaphoreSlim` rejected independently by both changes that needed it);
+**edit-vs-edit ordering belongs to the surface, not the gate** (why `CommitChain` is per-surface, and the
+three alternatives that were rejected); **named arguments at every same-typed parameter-object call site**;
+and a new **"One helper, two null postures"** section.
+
+That last one is the sweep's own find rather than any single record's: `BaselineMatches` and
+`TsValueText.From` are the *same shape* — one helper, consumers that legitimately want **opposite** answers
+for the absent case, and a guard that must stay at the consumer. Folding it inward looks like removing a
+duplicate and puts a false "remote changed" warning on every first-ever push. Both were already commented at
+the enforcement point; the doc now names the pattern so the third instance gets recognized.
+
+**`ARCHITECTURE.md`** gained three clauses, all re-proposal guards: the push-review staleness warning's
+**null asymmetry** against the pull-skip rule; **why `ApplyManyAsync` exists** at all (the gate would make a
+per-edit loop equally atomic — the batch is there to collapse N connection-opens and N `Task.Run` hops);
+and the **rejected reorder** of `CommitPush` after the closing pull, which reads as the safer ordering and
+reopens the mirror-image lie. **`DOMAIN.md`** gained **edit-only — never structural** (declared a Non-Goal
+independently by two of the three 2026-07-06 flyout efforts; `ruleWeights` out for the same reason — the
+sweep's first draft claimed all three and the verification pass caught it) and **"explained ≠
+approved"**, graduated from NOTEBOOK as a forward constraint on any future ambiguity-resolving mechanism
+rather than a closed alias-fold anecdote.
+
+**Corrections + prune:** `45acbff` renamed the button but left `ARCHITECTURE.md`'s busy-exclusion
+parenthetical and the **live** `openspec/specs/busy-exclusion` contract saying "Cancel pull" — both now say
+Cancel and describe the phase-scoped behavior. ROADMAP's "add TSM to TP's glossary" was struck: **it had
+already been done** in TP's own rename commit and never reported back — the cross-repo shape where a chore
+closed in one repo leaves another repo's list asserting it open indefinitely. Status re-dated to 07-26 with
+the day's units.
+
+**Method note, since the yield curve is the interesting part:** rounds returned 5 · 6 · 1 · 2 · 2 · —, and
+the dedicated dry-check came back empty in round 3 while a *completeness critic* kept finding material. The
+diagnosis was batch imbalance, not exhaustion: round 4 gave one worker 16 records and two workers 6 and 5;
+the small batches came back empty and the overloaded one found two. Re-running that same set split four ways
+found **two more the overloaded worker had skimmed**. Reading density, not lens choice, was the binding
+constraint — worth remembering for the next sweep. Round 6 closed it out: both lens workers returned empty
+(dry), and a **verification worker auditing the applied diff against the source** caught one overstated
+citation, which is the round that earned its keep.
+
+**Open structural question, deliberately not decided here:** `ARCHITECTURE.md` is 38 KB and this sweep added
+to it three times, against the rule that says split before you stuff. Its four feature sections (sync model ·
+sync-direction marks · write-back · visible-tonight) are **61 % of the file** and each already has a parallel
+formal contract under `openspec/specs/`. Left as the author's call.
+
+---
+
 **▶ SHIPPED 2026-07-26 — the toolbar Cancel now covers the whole load, phase by phase** — spending the
 capability the token-threading landed the same day. `Cancel pull` becomes **`Cancel`**, visible while *any*
 cancellable phase runs (`IsPulling` → `IsCancellable`, `CancelPull()` → `CancelLoad()`), and `LoadAsync` opens

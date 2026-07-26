@@ -120,14 +120,18 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   acquires `MainViewModel.TryBeginBusy()` / `EndBusy()` (check-and-set on the UI thread; the only writers of
   `IsLoading`); row edits are **refused in the view-model funnel** while one runs (`RefuseIfBusy` — status note,
   control reverts) and their surfaces disable off `CanEdit` (whole-ListView + busy-sensitive toolbar buttons;
-  Cancel-pull/search/filters/Ambiguities stay live). The reverse direction is closed too: an in-flight funnel
+  Cancel/search/filters/Ambiguities stay live — the button is phase-scoped, `DOMAIN.md` → *Chrome*). The
+  reverse direction is closed too: an in-flight funnel
   call (edit *or* read — both hold a db connection) makes `TryBeginBusy` **refuse immediately** (status note,
   "try again in a moment" — it never silently waits for quiescence), so no
   edit can overlap a load's write-back, a pull's atomic swap, or a push replay. The visible-tonight pass applies
   its flips as **two sequenced worker batches** (`TsEditGate.ApplyManyAsync`; `ApplyAsync` is its one-element
   case) — targets, then the project flips derived from the target flips that **landed** — under one unbroken
   busy scope, so the UI-thread seam between the batches admits no bulk op and no row edit (2026-07-24,
-  `visible-tonight-applied-states`). The gate covers **bulk-vs-edit only** — deliberately *not* edit-vs-edit:
+  `visible-tonight-applied-states`). Batching is *also* why `ApplyManyAsync` exists rather than a loop over
+  `ApplyAsync`: the gate would make a per-edit loop equally atomic, but it pays one connection-open and one
+  `Task.Run` hop **per flip** (`openspec/changes/archive/2026-07-24-busy-gate/design.md` D4) — don't
+  "simplify" it back. The gate covers **bulk-vs-edit only** — deliberately *not* edit-vs-edit:
   per-surface commit ordering is `CommitChain` (a UI-thread task chain, one per `TsFieldsEditor` instance and
   one per window for inline Desired), so rapid re-confirmations of a field apply in confirmation order and
   `_lastKnown` can never disagree with the db (2026-07-24,
@@ -228,11 +232,19 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   didn't land (`ClosingPullFailed` on the result → "closing pull failed — next open pulls fresh"), never as
   "PUSH FAILED / edits stay journaled". The convergence gap heals itself: the push changed the remote mtime,
   so the baseline rule pulls at the next open. Corollary the VM's catch relies on: any throw that *escapes*
-  `Push` precedes the journal rewrite — "journal intact, re-push recovers" is guaranteed accurate.
+  `Push` precedes the journal rewrite — "journal intact, re-push recovers" is guaranteed accurate. Deferring
+  the rewrite until *after* the closing pull lands reads like the safer ordering and was rejected: it couples
+  journal truth to an unrelated network op and reopens the mirror-image lie (writes applied, journal still
+  claims dirty, so a re-push replays onto a db that already holds the values)
+  (`openspec/changes/archive/2026-07-24-truthful-outcome/design.md`).
 - **Open-with-dirty prompts before any pull** (reachable + dirty): push (recommended — replay makes offline
   edits pushable at reconnect) / discard-and-pull (the deliberate debug-session path) / continue local. The
   push review dialog shows manual edits + the write-back summary with **decreases first**, and warns (not
-  blocks) when the remote changed since the baseline — field replay makes cross-field interleaving safe;
+  blocks) when the remote changed since the baseline — silently so when there is no baseline yet (nothing can
+  have changed *since* nothing), the opposite null posture from the pull-skip rule, which counts a missing
+  baseline as an unconditional mismatch; one comparison, two consumers, each keeping its own guard
+  (`openspec/changes/archive/2026-07-24-push-rule-dedup/design.md` D2, `CONVENTIONS.md` → *One helper, two
+  null postures*). Field replay makes cross-field interleaving safe;
   same-field collisions stay covered by the edits-by-day discipline. **Discard is pull-first (2026-07-24):**
   the discarding pull runs before anything clears; `Discard` is bookkeeping (journal only — the baseline
   stays, that pull just recorded it) invoked exactly when the pull lands and the swap has physically

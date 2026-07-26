@@ -112,6 +112,16 @@ goal of zero); measured disk-side absence = `0`.
 
 ## Editing
 
+- **Edit-only — never structural.** Every TSM editor changes *fields on rows that already exist*; it never
+  adds, deletes, or duplicates a TS row at any level (target, project, plan, template). Structural change is
+  TS's own job, done by hand in NINA's TS UI. Two of the 2026-07-06 flyout efforts declared it a Non-Goal
+  independently — "no add/delete/duplicate (TS function, user decision)"
+  (`openspec/changes/archive/2026-07-06-template-manager/design.md`) and "project add/delete (user rule:
+  major surgery is a TS function)" (`…/2026-07-06-project-settings-flyout/design.md`) — and the resolver
+  rejection re-confirmed it (2026-07-08). `ruleWeights` is out for the same reason — a one-to-many table, so editing it is TS-side
+  surgery, not a per-field commit. Don't re-propose an add/delete/duplicate verb for the Templates picker or
+  any flyout. This is the editor-surface form of the membership rule under *TS authoring conventions* below
+  (membership is the user's planning intent), extended to every row kind — templates and plans included.
 - **In/at the grid only.** A docked dossier panel was built then dropped; `WinUI.TableView` was evaluated and
   rejected (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.** The edit
   flyout (below) is per-invocation and anchored to the clicked row — a popup answering one gesture, not a
@@ -225,6 +235,12 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   object auto-resolving unflagged) was removed 2026-07-23 — its sole instance (M27 + Dumbell) was adjudicated
   2026-07-08 as never intentional ("explained ≠ approved"; NOTEBOOK correction), and any multi-claim now
   surfaces as a flagged duplicate to consolidate by hand.
+- **Explained ≠ approved — a structurally odd state must surface, even when the numbers reconcile.** The
+  standing lesson behind the alias removal, and a forward constraint on anything that resolves ambiguity: a
+  mechanism must never quietly auto-fold a multi-claim just because the totals still add up. The fold read as
+  benign for weeks and was in fact an unintended twin the user wanted raised
+  (NOTEBOOK.md 2026-07-08 late: *"this was not intentional and should be brought to my attention"*). Surface
+  it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention

@@ -8,7 +8,7 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-24)
+## Status — pick up here (2026-07-26)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -23,10 +23,12 @@ the app + `tsm.log` (not pinned here — they move with every edit and every ima
 
 **Where things stand:** the editing surface (Parts 1–4), the sync model, pull hardening, the Visible-Tonight
 toolbar group, the alias-fold removal, the full 2026-07-24 code-review campaign, and the presentation-readiness
-lane (P1–P5) have all shipped and archived. The load-split is **retired** (2026-07-08 — the ~2 s fresh scan is
-acceptable even at 2× the library, so a cross-load scan cache would buy the stale-ACTUAL window for time that
-isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes and
-nothing parked**, with one small docs chore (Phase 5). The next lane is
+lane (P1–P5) have all shipped and archived. 2026-07-26 added the sync-mark trilogy (template-change marks ·
+per-field flyout marks · net-no-op pruning), two-tier badge color, the `UpDownBox` Floor knob, a phase-scoped
+toolbar **Cancel** covering the whole load, and `CONVENTIONS.md` as a fourth reference doc. The load-split is
+**retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
+would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
+never show stale ACTUAL). **Zero open changes, nothing parked, no open chores.** The next lane is
 strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
@@ -137,4 +139,3 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the
   pre-inversion premise; that reconciliation belongs to LCM/ISP.
-- Add TSM to TP's glossary (still open — a small docs chore, not tracked as an openspec change).

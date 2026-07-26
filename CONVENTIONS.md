@@ -23,7 +23,14 @@ goes, that ambiguity is the bug — resolve it before writing code.
 | Sync / guarded-write policy | `Shared` (`TsSync`, `TsEditGate`, `TsJournal`, `TsInboundDiff`, `CommitChain`, …) |
 | A whole pipeline stage or report | `Services` (`ReconciliationLoader`, `SyncMarks`, `WriteBackStep`, `AmbiguityReport`, `VisibleTonightPass`) |
 | A custom control | `Controls` (`UpDownBox`, `TsFieldsEditor`, `BadgeRuns`) |
+| A static XAML reaches directly — attached property, brush lookup | the **App project root**, `namespace TargetSchedulerManager.App` (`GridColumns`, `ThemeBrushes`) |
 | Window / app-shell plumbing | `Support`, `MainWindow.*.cs` partials |
+
+The App-root row is a deliberate placement, not leftovers: a type at the project root resolves through the
+existing unqualified `xmlns:local` / enclosing-namespace lookup, so XAML reaches it with no new prefix — the
+reason both `GridColumns.ApplyRuler` and `ThemeBrushes` landed there rather than under `Models`/`Support`
+(`openspec/changes/archive/2026-07-24-grid-column-ruler/design.md` D3,
+`…/2026-07-24-presentation-conventions/design.md` D2).
 
 **Almost all logic is library-side.** When a change is about schema, scanning, reconciliation or TS interop
 you are editing `..\Library\Astronomy.Catalog`, not this repo — and there the *shared-library discipline*
@@ -63,6 +70,28 @@ than extracted helpers — see *A note on long methods*.)
   `x:Bind TwoWay` on `TextBox.Text` updates only on focus-loss, which would kill live filtering.
 - **Reach into a row template with an attached property** (`GridColumns.ApplyRuler`, `BadgeRuns.Tokens`),
   never from `MainWindow` code-behind.
+- **A shared control takes identity as delegates, never as a key.** `TsFieldsEditor` serves the target,
+  project, template and plan flyouts and never learns which table or row it is editing: commit, effective-value
+  seed, and mark lookup all arrive as delegates closed over the key at the call site (`CommitField`,
+  `EffectiveValue`, `MarkResolver`). Each new cross-cutting concern has taken that same seam rather than
+  teaching the control about TS keys — do the same with the next one
+  (`openspec/changes/archive/2026-07-06-field-editor-flyout/design.md` D4–D6,
+  `…/2026-07-26-flyout-field-marks/design.md` D3–D4).
+
+## An untestable surface gets a pure sibling
+
+When a surface can't carry a unit test — an attached property, a code-behind cell, a renderer into a
+virtualized container — the decision logic moves out into a pure static sibling and what remains is a dumb
+renderer with nothing left to test. That is the standing answer to "this can't be unit-tested", not an
+argument for leaving logic uncovered: `Badges.Split`/`IsWarning` behind `BadgeRuns`, `AmbiguityReport.Build`,
+`SyncMarks`, `VisibleTonightPass.PlanTargets`/`PlanProjects`. It is the leaf-level form of the
+zero-`Microsoft.UI.*` rule above.
+
+**The exception, and its test:** `TsFieldsEditor.SentinelCell` deliberately keeps its logic in place. The
+pattern pays off when a *decision layer* sits above dumb controls; here the state **is** the controls (the
+checkbox's `IsChecked`, the box's `IsEnabled`, the captured effective/last-known values), so extraction would
+relocate code without buying a test (`openspec/changes/archive/2026-07-24-sentinel-cell/design.md`). Ask which
+one you have before reaching for the split.
 
 ## Async and the UI thread
 
@@ -72,11 +101,42 @@ than extracted helpers — see *A note on long methods*.)
 - The UI thread serializes every command through the busy gate; workers do I/O only. `TsJournal` and
   `TsInboundStore` are the only cross-thread mutables, both coarsely locked. No lock-then-await, no
   sync-over-async on the UI thread. Mechanics: `ARCHITECTURE.md` → *Concurrency* / *Busy exclusion*.
+- **Serialize with UI-thread-confined state, not an async lock.** A plain check-and-set field
+  (`TryBeginBusy`) or a UI-thread task chain (`CommitChain`) is the house answer; a `SemaphoreSlim` was
+  weighed and rejected independently by both changes that needed serialization
+  (`openspec/changes/archive/2026-07-24-busy-gate/design.md` D1,
+  `…/2026-07-24-serial-commits/design.md` D1). Confinement makes the ordering readable and keeps the
+  no-lock-then-await rule true by construction.
+- **Edit-vs-edit ordering belongs to the surface, not the gate.** `CommitChain` is per editing surface (one
+  per `TsFieldsEditor`, one per window for inline Desired) because a rapid re-commit of the same field is
+  *that surface's* bookkeeping race, not a resource conflict. Pushing it down into the VM funnel or
+  `TsEditGate` would serialize unrelated edits app-wide and change `ApplyAsync`'s contract for every caller;
+  a busy-gate-style refuse-and-revert would bounce a second perfectly valid keystroke back at the user. Both
+  were rejected on those grounds, as was disabling the form (`DOMAIN.md` → *Editing*: disabling moves focus
+  and re-fires the commit). `openspec/changes/archive/2026-07-24-serial-commits/design.md` D3.
 
 ## Naming
 
 Private fields are `_camelCase` (99 of them, uniformly). Ported Hungarian forms — `mId`, `sCurrent` — are not
 used here and should not arrive with code copied from TargetPlanner.
+
+## One helper, two null postures
+
+A shared helper answers exactly one question and stays null-naive; each consumer keeps its own guard, because
+consumers legitimately want **opposite** answers for the absent case. Unifying the guard into the helper looks
+like removing a duplicate and actually breaks one of the two callers:
+
+- **`TsSync.BaselineMatches`** — the pull-skip rule reads it straight (no baseline ⇒ no match ⇒ pull), while
+  the push review's staleness warning negates it behind its own has-a-baseline guard (no baseline ⇒ nothing to
+  have changed *since* ⇒ stay silent). Folding the guard inward puts a false "remote changed" warning on every
+  first-ever push — which is exactly what the originating review's own fix snippet did
+  (`openspec/changes/archive/2026-07-24-push-rule-dedup/design.md` D2).
+- **`TsValueText.From`** — one canonical text form, three consumers: `TsJournal` compares against it for
+  no-op pruning, `TsSync.FormatValue` maps null to the literal `"null"` (a push-review line must render
+  something), `SyncMarks.FormatValue` passes null through (a tooltip's null means "no old value")
+  (`openspec/changes/archive/2026-07-24-review-polish/design.md` D5).
+
+Both are written as comments at the enforcement point, per the rule above. If you find a third, add it here.
 
 ## A note on long methods
 
@@ -86,6 +146,11 @@ signatures — trading one readable pipeline for the parameter-explosion the 202
 elsewhere (M3, the 24-parameter constructor → `row-param-objects`). Length alone is not the smell; *shared
 mutable state that has nowhere to live* is. If this ever does get split, the unit is a phase **object** that
 owns the state, not a static helper that receives it.
+
+The companion rule where that fix *was* applied: when a parameter object groups a run of same-typed fields
+(`RowNumbers` — seven ints and two doubles), **construct it with named arguments at every call site**. The
+type can't enforce this, and a positional build silently restores the transposition hazard the parameter
+object exists to remove (`openspec/changes/archive/2026-07-24-row-param-objects/design.md` D3).
 
 ## Not owned here
 

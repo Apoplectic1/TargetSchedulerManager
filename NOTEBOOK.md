@@ -26,7 +26,9 @@ The morning entry below recorded "user: leave it" — that was tolerance of a st
 as benign, not approval of the twin. User (same night, after the ambiguity report surfaced it as *"If
 unintended, consolidate"*): **"this was not intentional and should be brought to my attention."** Standing
 lesson: **explained ≠ approved** — a structurally weird state must surface for the user's decision even when
-the numbers reconcile. Consequences: (1) Dumbell consolidation joins tomorrow's BIRDWATCHER hand-edit list
+the numbers reconcile. *(Graduated 2026-07-26 to `DOMAIN.md` → TS authoring conventions as a forward
+constraint on any ambiguity-resolving mechanism; this entry keeps the incident that produced it.)*
+Consequences: (1) Dumbell consolidation joins tomorrow's BIRDWATCHER hand-edit list
 (delete the disabled `Dumbell` target in "Nebulae - Above 45"; M27 keeps desired 169; counts restamp next
 load); (2) the **alias fold mechanism gets removed in full** (agreed in explore, 2026-07-08 late): it exists
 to let a "benign" multi-claim auto-resolve unflagged, the hand-edit doctrine abolishes that category, and it

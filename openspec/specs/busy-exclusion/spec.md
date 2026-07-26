@@ -46,15 +46,15 @@ why. The refusal SHALL be enforced in the view-model edit funnel, independent of
 While a bulk operation runs, edit-capable surfaces SHALL be visibly disabled: the row grid's interactive
 controls and the busy-sensitive toolbar actions (Tonight, Reload, Pull now, Push, Templates). Read-only and
 escape-hatch surfaces SHALL stay enabled: search, view filters, expand/collapse, the ambiguity report,
-and Cancel pull during a pull. Surfaces SHALL re-enable when the operation ends.
+and Cancel while any cancellable phase runs. Surfaces SHALL re-enable when the operation ends.
 
 #### Scenario: Grid greys during a pass
 - **WHEN** a visible-tonight pass or load is running
 - **THEN** the grid's checkboxes and edit affordances render disabled, and the busy-sensitive toolbar buttons are disabled
 
-#### Scenario: Cancel stays reachable during a pull
-- **WHEN** a pull is copying from the remote
-- **THEN** the Cancel-pull button remains enabled while edit surfaces are disabled
+#### Scenario: Cancel stays reachable during a cancellable phase
+- **WHEN** a pull is copying from the remote, or a scan/resolve is running
+- **THEN** the Cancel button remains enabled while edit surfaces are disabled
 
 #### Scenario: Surfaces recover after completion
 - **WHEN** the bulk operation completes (success or failure)
