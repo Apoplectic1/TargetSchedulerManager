@@ -56,12 +56,11 @@ public sealed partial class MainWindow : Window
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
 
     // One press, no confirm: enables/disables target.active by tonight's visibility (toolbar Duration
-    // minutes 15–480 above Floor whole degrees 0–89), projects follow. InvalidInputOverwritten has
-    // restored any junk input by the time the click lands (the button steals focus first); the round
-    // makes typed decimals whole (the floor is integer degrees by contract).
+    // minutes 15–480 above Floor whole degrees 0–89), projects follow. The UpDownBox knobs commit any
+    // typed text when the button steals focus and clamp to range, so both reads are valid whole numbers.
     private void VisibleTonight_Click(object sender, RoutedEventArgs e) =>
         FireAndLog(() => ViewModel.RunVisibleTonightAsync(
-            TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleFloor.Value)),
+            TimeSpan.FromMinutes(VisibleDuration.Value), VisibleFloor.Value),
             "visible-tonight");
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
@@ -148,43 +147,19 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
-    // Narrow NumberBoxes (the grid's Desired cell, the Visible-Tonight knobs) route here for the template
-    // fix-ups XAML can't express — properties don't reach a NumberBox's internals (microsoft-ui-xaml#7399
-    // / #2896), and a narrow control isn't a mode the template supports:
-    //  - Zero the inner TextBox MinWidth (the template forces 120 with inline spinners, 64 without) —
-    //    the one thing that lets a narrow Width stick at all.
-    //  - Inline spinners: shrink the chevron pair (stock 76 px) and right-pad the text clear of it. The
-    //    template draws the buttons ON TOP of the TextBox with no reservation — stock layout survives
-    //    only because the 120 px minimum keeps short left-aligned text away from them.
-    //  - Hidden spinners (grid cells): center the digits per the integer-edit-box rule. (Toolbar boxes
-    //    stay left-aligned, WinForms-up-down style — centering across the full box is what put digits
-    //    under the chevrons, obs-1fe4.)
-    // Fires per container realization in the virtualized list; idempotent.
+    // Narrow hidden-spinner NumberBoxes (the grid's Desired cells) route here. WinUI 3 can't center a
+    // NumberBox's input via TextAlignment/HorizontalContentAlignment — the property doesn't reach the
+    // template-internal TextBox (microsoft-ui-xaml#7399 / #2896) — and that TextBox's own MinWidth
+    // otherwise overflows any narrow Width we set. Fix both on the realized instance. Fires per container
+    // realization in the virtualized list; idempotent. (Inline-spinner NumberBoxes are a dead end at
+    // narrow widths — the toolbar knobs are Controls/UpDownBox instead; DOMAIN.md → WinUI gotchas.)
     private void NarrowNumberBox_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is not NumberBox box) return;
-        bool inlineSpinners = box.SpinButtonPlacementMode == NumberBoxSpinButtonPlacementMode.Inline;
-
-        if (FindDescendant<TextBox>(box) is TextBox input)
+        if (sender is NumberBox box && FindDescendant<TextBox>(box) is TextBox input)
         {
-            input.MinWidth = 0;
-            if (inlineSpinners)
-                input.Padding = new Thickness(4, 0, 38, 0);   // keep digits clear of the 36 px chevron pair
-            else
-            {
-                input.TextAlignment = TextAlignment.Center;
-                input.Padding = new Thickness(2, 0, 2, 0);    // trim so 3 digits fit centered when narrow
-            }
-        }
-
-        if (!inlineSpinners) return;
-        foreach (RepeatButton spin in FindDescendants<RepeatButton>(box))
-        {
-            // 16 px wide (stock 32), 2 px outer margins (stock 4) — full height, just narrower to hit.
-            if (spin.Name == "UpSpinButton")
-                (spin.MinWidth, spin.Margin) = (16, new Thickness(2, 2, 0, 2));
-            else if (spin.Name == "DownSpinButton")
-                (spin.MinWidth, spin.Margin) = (16, new Thickness(0, 2, 2, 2));
+            input.TextAlignment = TextAlignment.Center;
+            input.MinWidth = 0;                          // default MinWidth can overflow a narrow box
+            input.Padding = new Thickness(2, 0, 2, 0);   // trim inner padding so 3 digits fit centered when narrow
         }
     }
 
@@ -198,16 +173,5 @@ public sealed partial class MainWindow : Window
             if (FindDescendant<T>(child) is T nested) return nested;
         }
         return null;
-    }
-
-    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
-    {
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match) yield return match;
-            foreach (T nested in FindDescendants<T>(child)) yield return nested;
-        }
     }
 }

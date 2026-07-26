@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:TargetSchedulerManager.App"
+    xmlns:controls="using:TargetSchedulerManager.App.Controls"
     xmlns:m="using:TargetSchedulerManager.App.ViewModels.Rows">
 
     <!-- Layout = nested panels (like WinForms TableLayoutPanel/Dock) declared in XAML.
@@ -262,25 +263,20 @@
             <!-- One press, no confirm (user decision): target.active tracks tonight's sky (a single window
                  of ≥ Duration minutes above Floor degrees altitude), project.state follows its targets;
                  Draft/Closed untouched. Flips are ordinary journaled edits — push stays optional.
-                 Both knobs default 30 (user decision 2026-07-23). Width = digit budget (Duration 3,
-                 Floor 2) + 42 px of handler-managed padding/chevrons: NarrowNumberBox_Loaded shrinks the
-                 spinner pair and keeps the left-aligned digits clear of it — and is what makes a narrow
-                 Width stick at all. See DOMAIN.md's integer-edit-box convention. -->
+                 Both knobs default 30 (user decision 2026-07-23). UpDownBox is our own WinForms-style
+                 NumericUpDown (Controls/UpDownBox.cs) — a narrow inline NumberBox is unreachable
+                 (three hard-coded template widths; see DOMAIN.md → WinUI gotchas). It commits typed text
+                 on focus loss/Enter and clamps to range, so a click on Tonight (which steals focus)
+                 always reads a valid whole number. Set Minimum/Maximum before Value (setter clamps). -->
             <TextBlock Text="Visible Tonight:" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBlock Text="Duration:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
-            <NumberBox x:Name="VisibleDuration" Value="30" Minimum="15" Maximum="480"
-                       SmallChange="15" LargeChange="60" SpinButtonPlacementMode="Inline"
-                       ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
-                       Width="68" Loaded="NarrowNumberBox_Loaded"
-                       VerticalAlignment="Center"
-                       ToolTipService.ToolTip="Shortest single stretch above the Floor (minutes, 15–480) that counts as visible tonight"/>
+            <controls:UpDownBox x:Name="VisibleDuration" Minimum="15" Maximum="480" SmallChange="15"
+                                Value="30" Width="60" VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Shortest single stretch above the Floor (minutes, 15–480) that counts as visible tonight"/>
             <TextBlock Text="Floor:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
-            <NumberBox x:Name="VisibleFloor" Value="30" Minimum="0" Maximum="89"
-                       SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Inline"
-                       ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
-                       Width="60" Loaded="NarrowNumberBox_Loaded"
-                       VerticalAlignment="Center"
-                       ToolTipService.ToolTip="Altitude floor (whole degrees, 0–89): the target must climb above this to count as visible"/>
+            <controls:UpDownBox x:Name="VisibleFloor" Minimum="0" Maximum="89" SmallChange="1"
+                                Value="30" Width="52" VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Altitude floor (whole degrees, 0–89): the target must climb above this to count as visible"/>
             <Button Content="Tonight" Click="VisibleTonight_Click" MinWidth="0"
                     IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Enable targets with a ≥ Duration-minute stretch above the Floor tonight, disable the rest; a project with no enabled targets goes Inactive (Draft/Closed skipped)"/>

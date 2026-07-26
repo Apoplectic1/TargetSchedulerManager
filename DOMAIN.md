@@ -159,19 +159,21 @@ goal of zero); measured disk-side absence = `0`.
   reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
   `ReadPlanEffectiveSecondsAsync`), not left stale.
-- **Integer edit boxes are sized to their digit budget.** Fixed `Width` + trimmed inner padding, text
-  **centered in code-behind** via `NarrowNumberBox_Loaded` (a NumberBox can't center via XAML, and its
-  template-internal `TextBox` `MinWidth` otherwise overflows a narrow `Width` — see *WinUI gotchas*).
-  Real/decimal fields are exempt — they need room for the ".". Two cases:
-  - **No spin buttons** (`SpinButtonPlacementMode="Hidden"` — the grid's Desired cell): **~3 characters,
-    `Width` ~40 px** (fits 999; ≥ 1000 clips in the box but the full value still commits).
-  - **Inline spin buttons** (the Visible-Tonight knobs): digits sit **left-aligned** (WinForms-up-down
-    style, *not* centered — see the overlap gotcha below) and the box budgets `Width` = digits + 42 px
-    (4 px left pad + 38 px right pad clearing the chevron pair): Duration (max 480) `Width="68"`, Floor
-    (max 89) `Width="60"`. `NarrowNumberBox_Loaded` shrinks the pair from its stock 76 px (MinWidth 32 +
-    4 px margins per button) to ≈ 36 (MinWidth 16, 2 px margins) — full height, just narrower to hit —
-    and sets the padding. Rejected 2026-07-26: `Compact` placement (spinners hidden behind hover) and
-    full-size Inline (no-clip minimum 104/96 px ⇒ no visible shrink over the ~110 px stock box).
+- **Integer edit boxes are sized to their digit budget.** Real/decimal fields are exempt — they need room
+  for the ".". Two cases, two different controls:
+  - **No spin buttons** (`NumberBox`, `SpinButtonPlacementMode="Hidden"` — the grid's Desired cell):
+    **~3 characters, `Width` ~40 px** (fits 999; ≥ 1000 clips in the box but the full value still
+    commits); text **centered in code-behind** via `NarrowNumberBox_Loaded` (a NumberBox can't center via
+    XAML, and its template-internal `TextBox` `MinWidth` otherwise overflows a narrow `Width` — see
+    *WinUI gotchas*).
+  - **Visible spin buttons** (the Visible-Tonight knobs): use **`Controls/UpDownBox`** — our own
+    WinForms-style NumericUpDown (TextBox + stacked chevron `RepeatButton`s, integer `Value` clamped to
+    `Minimum`/`Maximum`, steps by `SmallChange` via chevrons and ↑/↓ keys, commits on focus-loss/Enter,
+    reverts unparseable input). Width = digits + ~32 px chrome: Duration (max 480) `Width="60"`, Floor
+    (max 89) `Width="52"`. In XAML set `Minimum`/`Maximum` **before** `Value` (the setter clamps).
+    A narrow *inline* `NumberBox` is a **dead end** — decided 2026-07-26 after three failed passes; see
+    *WinUI gotchas* for the three hard-coded template widths that make it so. Also rejected: `Compact`
+    placement (spinners hidden behind hover).
 
   The clear (✕) button doesn't appear on these, so there's nothing to suppress.
 
@@ -245,16 +247,17 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: one shared `Loaded` handler
   (`NarrowNumberBox_Loaded`, used by every narrow box — the grid's Desired cell and the Visible-Tonight knobs)
   walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its `Padding`/`MinWidth`
-  so digits fit a narrow box. **Zeroing that `MinWidth` is what makes a narrow `Width` take effect at all** —
-  the template forces 120 (inline spinners) / 64 without. The same handler shrinks the **inline spin
-  buttons** and right-pads the text clear of them, because **the template draws the spin buttons ON TOP of
-  the input `TextBox` with no reservation whatsoever** — the stock control avoids overlap only because its
-  120 px minimum keeps short left-aligned text far from the buttons. Two consequences: a narrow inline box
-  must supply that clearance itself (the handler's 38 px right padding), and its text must stay
-  **left-aligned** — centering positions digits at the middle of the *full* box, i.e. under the chevrons
-  (bug obs-1fe4, 2026-07-26). All fix-ups must be **per-instance**: shadowing `NumberBoxSpinButtonStyle`
-  in app resources can't work, because a `StaticResource` referenced inside a framework `ControlTemplate`
-  resolves within `generic.xaml`, not against `Application.Resources`.
+  so digits fit a narrow box. **Zeroing that `MinWidth` is what makes a narrow `Width` take effect at all.**
+- **A narrow inline-spinner `NumberBox` is unreachable — use `Controls/UpDownBox` instead.** Decided
+  2026-07-26 after three failed visual passes against three hard-coded template widths (WASDK 2.2's
+  `generic.xaml`): the input's forced **120 px** `MinWidth` (the `SpinButtonsVisible` state), the
+  **76 px** chevron pair in the outer template (2 × MinWidth 32 + 4 px margins), and a **72 px**
+  `SpinButtonsColumn` reserved for the text inside the *inner* TextBox's own template — a constant, so
+  shrinking the actual buttons reclaims nothing, and any box narrower than ~72 + digits starves the text
+  column. Defeating all three means per-instance surgery on two nested templates (app-resource style
+  shadowing can't work: a `StaticResource` inside a framework `ControlTemplate` resolves within
+  `generic.xaml`, not `Application.Resources`). `UpDownBox` (~100 lines, zero template reach) is the
+  answer whenever visible spinners must be narrow.
 - **`NumberBox`/`TextBox` vertical centering** breaks under a fixed `Height` (the inner ScrollViewer top-aligns).
   Give the box **no fixed `Height`** (let it auto-size; center the box with `VerticalAlignment`) — or template the
   `ContentElement` ScrollViewer to `VerticalAlignment=Center`.
@@ -275,7 +278,7 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
-6. New **integer edit box**? Size it to its digit budget (+ 42 px if it shows inline spin buttons) and wire `Loaded="NarrowNumberBox_Loaded"` — the handler lets a narrow `Width` stick, and per placement mode centers the digits (hidden spinners) or shrinks the chevrons and keeps left-aligned digits clear of them (inline). See *WinUI gotchas*.
+6. New **integer edit box**? Digit-budget width. In-grid, no spinners → `NumberBox` + `Loaded="NarrowNumberBox_Loaded"` (centers digits, lets a narrow `Width` stick). Visible spinners → `Controls/UpDownBox` (never a narrow inline `NumberBox` — see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).
 8. New **editable field whose value shows in a grid column**? Wire its in-place mirror (an `Apply*` on the row

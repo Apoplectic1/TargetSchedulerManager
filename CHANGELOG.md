@@ -16,24 +16,23 @@ forward plan + current status and points here; git remains the commit-level back
 
 **▶ SHIPPED 2026-07-26 — Visible-Tonight toolbar: up-downs right-sized, **Horizon** knob deep-renamed
 to **Floor**, and the button's `Find` → `Tonight` drift corrected in the docs** (openspec
-`toolbar-floor-knob`; driven by observations `obs-9b52` → `obs-d589` → `obs-1fe4`). **Sizing:** both
-`NumberBox`es declared `MinWidth="0"` but no `Width`, so each measured to template content (~110 px for a
-2-digit value). Final: `Width="68"` (Duration, 3-digit budget for 480) and `Width="60"` (Floor, 2-digit
-for 89) = digits + 42 px of padding/chevrons, both routed through `NarrowNumberBox_Loaded` — the
-generalized `DesiredBox_Loaded`, now shared by all three narrow boxes and split by spinner placement:
-hidden-spinner grid cells keep centered digits; inline-spinner toolbar knobs get the chevron pair shrunk
-(stock **76 px** → ≈ 36: MinWidth 32→16, margins 4→2) and 38 px right padding with **left-aligned**
-digits. It took three observations because two template facts had to be learned the hard way: (1) the
-stock spinner pair is 76 px — most of an untouched box — so **Inline spinners at stock size cannot
-shrink** (no-clip minimum 104/96; `obs-d589` caught 80/70 clipping a chevron); (2) **the template draws
-the spin buttons ON TOP of the input `TextBox` with no reservation** — the stock control avoids overlap
-only because its forced 120 px minimum keeps short left-aligned text away from them, so a narrow box must
-supply its own clearance and centering is structurally wrong there (`obs-1fe4` caught centered digits
-under the chevrons). Zeroing the inner `MinWidth` remains what lets a narrow `Width` take effect at all.
-`Compact` placement and full-size Inline were declined; per-instance fix-ups are required, not stylistic
-(a `StaticResource` inside a framework `ControlTemplate` resolves in `generic.xaml`, not
-`Application.Resources`), and the schema-driven editor's boxes (`SpinButtonPlacementMode.Hidden`) keep
-stock metrics. **Rename:** `VisibleHorizon` → `VisibleFloor`,
+`toolbar-floor-knob`; driven by observations `obs-9b52` → `obs-d589` → `obs-1fe4`). **Sizing — final
+shape: the knobs are `Controls/UpDownBox`, a new ~100-line app-local WinForms-style NumericUpDown**
+(TextBox + stacked chevron `RepeatButton`s; integer `Value` clamped to `Minimum`/`Maximum`, chevrons and
+↑/↓ step by `SmallChange` committing typed text first, focus-loss/Enter commits, unparseable input
+reverts — the old `InvalidInputOverwritten` contract, hand-rolled). Duration `Width="60"`, Floor
+`Width="52"`, vs ~110 px stock. The route mattered more than the destination: three visual passes failed
+trying to narrow the stock inline `NumberBox`, each against a different hard-coded template width —
+**120** (forced input `MinWidth`; why a bare `Width` never sticks), **76** (the chevron pair; `obs-d589`
+caught 80/70 clipping the up button), **72** (`SpinButtonsColumn`, a constant reserved for text in the
+*inner* TextBox template — so shrinking the actual buttons reclaims nothing, and `obs-1fe4`'s
+centered-then-vanishing digits fell out of it). Verdict, now a DOMAIN rule: **a narrow inline NumberBox
+is unreachable in WinUI 3** — WinUI ships no NumericUpDown, `NumberBox` assumes it is wide, and app
+resources can't shadow its template constants (a `StaticResource` inside a framework `ControlTemplate`
+resolves in `generic.xaml`). `NarrowNumberBox_Loaded` (the generalized `DesiredBox_Loaded`) survives for
+the hidden-spinner grid cells only: center digits, zero the inner `MinWidth`. The user flagged the
+accumulating template surgery as overly complicated mid-saga — correctly; `UpDownBox` replaced all of it
+with code that owns its layout. `LargeChange` (PageUp/PageDown) not carried over. **Rename:** `VisibleHorizon` → `VisibleFloor`,
 label `"Horizon:"` → `"Floor:"`, `horizonAltitudeDeg` → `floorAltitudeDeg` through
 `RunVisibleTonightAsync` / `VisibleTonightPass.PlanTargets` / all call sites and test arguments, test
 `HorizonAltitudeFloor_GatesLowTargets` → `AltitudeFloor_GatesLowTargets`, plus tooltips and comments.

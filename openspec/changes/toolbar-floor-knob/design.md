@@ -49,8 +49,22 @@ Centering comes along with it, which is what the DOMAIN convention prescribes fo
 TextBox. A `Style` cannot reach template internals without a full template override (see D2), and three
 copies of the same walk is exactly the duplication the presentation lane spent P1–P5 removing.
 
-**D2 — Keep `SpinButtonPlacementMode="Inline"`, and shrink the spin buttons per-instance.**
-*Superseded once mid-change; the first version's estimate was wrong and `obs-d589` caught it.*
+**D2 — the knobs become `Controls/UpDownBox`, an app-local WinForms-style NumericUpDown.**
+*This decision was rewritten twice mid-change; the failed intermediate states are kept below because the
+template facts they uncovered are the reason for the final shape.*
+
+Final: WinUI 3 ships no NumericUpDown, and its `NumberBox` cannot be made narrow with inline spinners —
+three hard-coded template widths stand in the way (the forced 120 px input `MinWidth`, the 76 px chevron
+pair, and a 72 px `SpinButtonsColumn` text reservation inside the inner TextBox's template that does not
+track the actual buttons). After three failed visual passes (`obs-d589` clipped chevron, `obs-1fe4`
+overlapping then invisible digits) and the user's complexity flag on the accumulating per-instance
+template surgery, the knobs were rebuilt as `UpDownBox` (~100 lines): TextBox + stacked chevron
+`RepeatButton`s, integer `Value` clamped to range, `SmallChange` stepping via chevrons and ↑/↓ (typed
+text commits first), focus-loss/Enter commit, unparseable input reverted. Duration `Width="60"`, Floor
+`Width="52"`. `NarrowNumberBox_Loaded` survives for hidden-spinner grid cells only. `LargeChange` was
+not carried over.
+
+*The failed attempts, kept for the record:*
 
 First attempt guessed the spinner block at ~56 px and set `Duration = 80`, `Floor = 70` as eyeball-tuned
 numbers. The app clipped a chevron. Measuring `generic.xaml` (WinUI 2.2.1) gave the real geometry: the
@@ -106,9 +120,13 @@ and updating WinUI-gotchas + checklist step 6 to name the generalized handler.
   `generic.xaml` and shrinking the buttons. Lesson for the next narrow-control change: template metrics are
   in the SDK package — measure them, don't estimate from a screenshot.
 - **[Convention applied without checking the geometry]** → **Also happened** (`obs-1fe4`): centering — the
-  grid's integer-edit-box convention — put digits under the chevrons, because the template's `InputBox`
-  spans the buttons with no reservation. A convention written for one template shape (hidden spinners)
-  doesn't transfer to another (inline) without re-deriving; the handler now branches on placement mode.
+  grid's integer-edit-box convention — put digits under the chevrons. A convention written for one
+  template shape (hidden spinners) doesn't transfer to another (inline) without re-deriving.
+- **[Patching a framework template converges slowly or never]** → **This is what actually terminated the
+  NumberBox approach**: each fix surfaced the next hard-coded metric (120 → 76 → 72), the user correctly
+  flagged the accumulating surgery as overly complicated, and the third constant (the inner
+  `SpinButtonsColumn`) sat one template deeper than the second. Owning the layout (`UpDownBox`) replaced
+  the whole class of problem.
 - **[16 px spin buttons are small mouse targets]** → They keep full height, so the target is a tall thin
   strip rather than a square; the author verifies it's comfortable and the value is a one-number edit.
 - **[Toolbar values become centered, which nobody asked for]** → It is the standing DOMAIN convention for
