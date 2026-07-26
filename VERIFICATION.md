@@ -47,6 +47,12 @@ the transient-UI trick: `DOMAIN.md` → Chrome.
 ### Other surfaces worth exercising
 - **Visible Tonight:** set Duration + Floor → Tonight → target flips apply, then the project flips derived
   only from targets that *landed*; the whole pass is one busy scope.
+- **Cancel (phase-scoped):** the button shows while any cancellable phase runs. Hit it during the **pull** →
+  the copy stops, the previous local copy survives, and the load *continues* onto the scan with a note saying
+  what didn't happen. Hit it during the **scan/resolve** → the load ends, the status reads `load cancelled —
+  showing the previous scan`, and the grid still shows the prior rows (empty on a first-ever load). Never
+  `load failed`, never a blanked grid. *Not unit-tested* — cancelling mid-scan needs a race the suite has no
+  seam for, so this recipe is the check.
 - **Busy refusal:** start a pull, then try a row edit → refused with a status note, edit surfaces disabled off
   `CanEdit` (search / filters / Ambiguities stay live). The reverse: with an edit in flight, a bulk op refuses
   immediately rather than waiting.

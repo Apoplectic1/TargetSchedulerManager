@@ -14,6 +14,33 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — the toolbar Cancel now covers the whole load, phase by phase** — spending the
+capability the token-threading landed the same day. `Cancel pull` becomes **`Cancel`**, visible while *any*
+cancellable phase runs (`IsPulling` → `IsCancellable`, `CancelPull()` → `CancelLoad()`), and `LoadAsync` opens
+a cancel scope around the scan/resolve it previously ran unguarded.
+
+**The design decision worth recording: the scope is PER PHASE, not one token for the whole load** — and that
+was a course correction found mid-implementation. Wrapping the entire load in one token reads as the obvious
+shape, but it would have silently broken a deliberate invariant: cancelling a *pull* does **not** abort a
+load. It falls through with an explanatory note and reads the intact local copy, which is exactly what the
+2026-07-24 pull-first discard rule depends on ("a cancelled discard-pull changes NOTHING — journal, baseline,
+badge and marks stay intact"). A shared token would have poisoned the following scan and converted that into
+an aborted load, with no test to catch it. So each phase owns its scope; the phases are sequential, so one
+button still covers them all — it cancels whichever is in flight. The reasoning is now a comment on
+`WithCancelUiAsync`, where the next person to "simplify" it will read it.
+
+Cancelling the scan/resolve is **not** a failure: a new `catch (OperationCanceledException)` ahead of the
+general catch keeps the rows the grid was already showing and reports `load cancelled — showing the previous
+scan` (plain `load cancelled` on a first-ever load), instead of the general catch's `load failed:` + blanked
+`_allRows`. Write-back stays uncancellable by design — it writes, and a half-applied stamp pass is worse than
+waiting out a fast one (the same rule the push replay follows).
+
+**Verification gap, stated rather than papered over:** cancelling mid-scan needs a race the suite has no seam
+for, so this is *not* unit-tested; `VERIFICATION.md` carries the hands-on recipe instead and says so. 279 tests
+still green (no regression), but the new behavior is author-verified only.
+
+---
+
 **▶ SHIPPED 2026-07-26 — `CONVENTIONS.md`: a fourth reference doc for *how code is written and where it goes***
 — placing the one standing truth the graduate-and-prune sweep held rather than graduated. The **code-siting
 doctrine** (asserted in the 2026-06-10 reviews, independently re-confirmed 2026-07-24) had no home: it is not

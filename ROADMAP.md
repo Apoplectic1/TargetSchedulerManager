@@ -31,11 +31,6 @@ strategic — the **ISP transition** (intent store + lift/regenerate), which is 
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
 
-**Available, not yet wired: a cancellable load.** Since 2026-07-26 the whole load path observes its token
-(`ReadPlanData` per row, `Resolve` per phase + per TS target). Nothing calls it with a live token yet — the
-view-model passes none — so wiring a Cancel-load button is now a small piece of UI work rather than a
-plumbing job. Not a defect; noted so the capability isn't rediscovered.
-
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
 `Astronomy.Catalog` in `Library/Astronomy.sln` (pure-managed, `net10.0-windows`):

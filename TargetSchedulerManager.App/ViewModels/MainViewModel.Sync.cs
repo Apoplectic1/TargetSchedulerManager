@@ -43,40 +43,59 @@ public sealed partial class MainViewModel
     /// operation is running (its gate would refuse anyway; the button says so up front).</summary>
     public bool CanPush => Sync.IsDirty && !_isLoading;
 
-    /// <summary>True while a pull-capable operation runs — shows the Cancel-pull affordance. (During a
-    /// push only the closing pull honors the cancel; replay writes are never interrupted.)</summary>
-    public bool IsPulling
+    /// <summary>True while a cancellable operation runs — shows the Cancel affordance. A load holds it for
+    /// every phase (pull → scan → resolve). (During a push only the closing pull honors the cancel; the
+    /// replay writes are never interrupted.)</summary>
+    public bool IsCancellable
     {
-        get => _isPulling;
-        private set => Set(ref _isPulling, value);
+        get => _isCancellable;
+        private set => Set(ref _isCancellable, value);
     }
 
-    /// <summary>The Cancel-pull action: cooperative — the copy stops between chunks, the temp file is
-    /// discarded, and the previous local copy (and baseline) stay untouched.</summary>
-    public void CancelPull() => _pullCts?.Cancel();
+    /// <summary>The Cancel action: cooperative throughout. A pull stops between chunks with its temp file
+    /// discarded and the previous local copy (and baseline) untouched; a scan or resolve stops at its next
+    /// checkpoint and the grid keeps the rows it was already showing.</summary>
+    public void CancelLoad() => _cancelCts?.Cancel();
 
-    private bool _isPulling;
-    private CancellationTokenSource? _pullCts;
+    private bool _isCancellable;
+    private CancellationTokenSource? _cancelCts;
 
-    // One pull-capable operation: a fresh CTS for the Cancel button and a Progress that surfaces the
-    // copy as a text percentage on the status line (percentage only — deliberately no progress-bar
-    // element). Progress marshals to the construction (UI) thread, so StatusText updates bind safely.
-    private async Task<T> WithPullUiAsync<T>(Func<IProgress<int>, CancellationToken, T> operation)
+    // The cancellable-operation scope: one CTS, and the Cancel affordance live for as long as it runs.
+    //
+    // Scopes are PER PHASE, never one token for a whole load, and that is load-bearing: cancelling a *pull*
+    // deliberately does not abort the load — it falls through with a note and reads the intact local copy
+    // (the discard path depends on it: "a cancelled discard-pull changes NOTHING", see PrepareTsForLoadAsync
+    // and ARCHITECTURE's sync-model section). A single shared token would poison the following scan and
+    // silently convert that into an aborted load. The load's phases run in sequence, so the one Cancel button
+    // still covers all of them — it simply cancels whichever phase is running.
+    private async Task<T> WithCancelUiAsync<T>(Func<CancellationToken, Task<T>> body)
     {
         using CancellationTokenSource cts = new();
-        _pullCts = cts;
-        Progress<int> progress = new(p => StatusText = $"pulling from BIRDWATCHER … {p}%");
-        IsPulling = true;
+        _cancelCts = cts;
+        IsCancellable = true;
         try
         {
-            return await Task.Run(() => operation(progress, cts.Token));
+            return await body(cts.Token);
         }
         finally
         {
-            IsPulling = false;
-            _pullCts = null;
+            IsCancellable = false;
+            _cancelCts = null;
         }
     }
+
+    private Task WithCancelUiAsync(Func<CancellationToken, Task> body) =>
+        WithCancelUiAsync<object?>(async ct => { await body(ct); return null; });
+
+    // One pull-capable operation, inside a cancel scope: a Progress that surfaces the copy as a text
+    // percentage on the status line (percentage only — deliberately no progress-bar element). Progress
+    // marshals to the construction (UI) thread, so StatusText updates bind safely.
+    private Task<T> WithPullUiAsync<T>(Func<IProgress<int>, CancellationToken, T> operation) =>
+        WithCancelUiAsync(async ct =>
+        {
+            Progress<int> progress = new(p => StatusText = $"pulling from BIRDWATCHER … {p}%");
+            return await Task.Run(() => operation(progress, ct));
+        });
 
     // One cancellable pull; false = the user cancelled (previous local copy, if any, untouched).
     private async Task<bool> TryPullAsync(TsDbStat probe)
@@ -112,22 +131,35 @@ public sealed partial class MainViewModel
             string syncNote = await PrepareTsForLoadAsync(policy);
             RaiseSyncState();
 
-            StatusText = $"scanning {DefaultLibrary} …";
-            ImageLibraryReport scan = await ReconciliationLoader.ScanLibraryAsync(DefaultLibrary);
-            LoadResult result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees);
+            await WithCancelUiAsync(async ct =>
+            {
+                StatusText = $"scanning {DefaultLibrary} …";
+                ImageLibraryReport scan = await ReconciliationLoader.ScanLibraryAsync(DefaultLibrary, ct);
+                LoadResult result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees, ct);
 
-            // Write-back stamps the local db AFTER this read — when it changed anything, re-resolve over the
-            // same scan so the grid shows the stamped counts (and the journal badge the new entries).
-            WriteBackStepResult writeBack = await Task.Run(() => WriteBackStep.Run(result.Graph, result.Report, Sync));
-            if (writeBack.PlansStamped > 0)
-                result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees);
+                // Write-back stamps the local db AFTER this read — when it changed anything, re-resolve over the
+                // same scan so the grid shows the stamped counts (and the journal badge the new entries).
+                // Deliberately NOT cancellable: it writes, and a half-applied stamp pass is worse than waiting
+                // out a fast one (the same rule the push replay follows).
+                WriteBackStepResult writeBack = await Task.Run(() => WriteBackStep.Run(result.Graph, result.Report, Sync));
+                if (writeBack.PlansStamped > 0)
+                    result = await ReconciliationLoader.ResolveAsync(scan, Sync.LocalPath, DefaultToleranceDegrees, ct);
 
-            _lastLoad = result;
-            _allRows = result.Rows;
-            RefreshAmbiguities();
-            StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}{AmbiguitySuffix}" +
-                $"  ·  loaded in {sw.Elapsed.TotalSeconds:0.0} s";
-            ApplyFilters();
+                _lastLoad = result;
+                _allRows = result.Rows;
+                RefreshAmbiguities();
+                StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}{AmbiguitySuffix}" +
+                    $"  ·  loaded in {sw.Elapsed.TotalSeconds:0.0} s";
+                ApplyFilters();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // A cancel is a decision, not a failure: keep whatever the grid was already showing (on a
+            // first-ever load that is legitimately nothing) and never blank it the way the catch below does.
+            StatusText = _lastLoad is null
+                ? "load cancelled"
+                : "load cancelled — showing the previous scan";
         }
         catch (Exception ex)
         {

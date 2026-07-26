@@ -238,7 +238,7 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 
 ## Chrome
 
-- **Toolbar:** Reload (rescan) · progress ring · Cancel pull (shown only while pulling) · sync badge · Push… ·
+- **Toolbar:** Reload (rescan) · progress ring · Cancel (shown while any cancellable phase runs) · sync badge · Push… ·
   Pull now · Templates… · Ambiguities… · **Visible Tonight:** (Duration + Floor up-downs + Tonight). (The old
   toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced it.) Ambiguities…
   (enabled once a load exists) writes a dated printable Markdown report of every
@@ -248,6 +248,13 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   targets as `project › target`, **never by plan Id**. (This reverses the archived design's D8, which had
   preferred Ids — `openspec/changes/archive/2026-07-23-ts-ambiguity-report/design.md`; the implementation won.
   Ids appear only where the name itself is the defect, e.g. duplicate template names.)
+- **Cancel is phase-scoped, and deliberately so** (2026-07-26). One button covers a whole load because the
+  phases run in sequence, but it cancels *whichever phase is in flight* rather than the load as a whole —
+  cancelling a **pull** still lets the load continue on the intact local copy (the discard path depends on
+  it: a cancelled discard-pull must change nothing), while cancelling the **scan/resolve** ends the load and
+  the grid keeps the rows it was already showing (`load cancelled — showing the previous scan`). A cancel is
+  never reported as a failure and never blanks the grid. Write-back and push replay stay uncancellable: they
+  write.
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
 - **Status bar:** library path + sync/write-back notes + load time.

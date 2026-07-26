@@ -50,7 +50,7 @@ public sealed partial class MainWindow : Window
     private void PullNow_Click(object sender, RoutedEventArgs e) =>
         FireAndLog(() => ViewModel.LoadAsync(PullPolicy.Force), "pull-now");
 
-    private void CancelPull_Click(object sender, RoutedEventArgs e) => ViewModel.CancelPull();
+    private void CancelLoad_Click(object sender, RoutedEventArgs e) => ViewModel.CancelLoad();
 
     // Write + open the printable ambiguity report (fixes happen by hand in NINA's TS UI, never here).
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();

@@ -176,7 +176,7 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   and is swapped over the local db only on completion (`ClearAllPools` first — a pooled reader handle would
   fail the swap), so a process death at *any* moment leaves the previous copy intact; a dead pull's tmp is
   swept by the next pull. The copy is chunked `sqlite3_backup` steps (~2 MB): the status line shows a **text
-  percentage** (deliberately no progress-bar element) and **Cancel pull** stops between chunks — tmp
+  percentage** (deliberately no progress-bar element) and **Cancel** stops between chunks — tmp
   discarded, no baseline recorded, previous copy untouched (during a push only the closing pull cancels;
   replay writes never do). The log carries `PULL starting` + completion duration — an interrupted pull used
   to be invisible, which is why the incident (app killed at ~87% of a latency-degraded ~40 s pull, leaving a

@@ -224,7 +224,7 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
             <!-- Busy-sensitive actions disable off CanEdit (openspec busy-exclusion): the VM funnel refuses
-                 anyway — these bindings are the visible half. Cancel pull, search, filters, and
+                 anyway — these bindings are the visible half. Cancel, search, filters, and
                  Ambiguities… (read-only) deliberately stay enabled. -->
             <Button x:Name="ReloadButton" Content="Reload (rescan)" Click="Reload_Click"
                     IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
@@ -232,10 +232,12 @@
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="22" Height="22"/>
             <!-- Pull progress is a text percentage on the status line (no progress-bar element — user's
                  call); this cancel is the cooperative alternative to the process kill that tore the local
-                 copy on 2026-07-23. Visible only while a pull-capable operation runs. -->
-            <Button Content="Cancel pull" Click="CancelPull_Click" MinWidth="0"
-                    Visibility="{x:Bind ViewModel.IsPulling, Mode=OneWay}"
-                    ToolTipService.ToolTip="Stop the in-flight copy from BIRDWATCHER — the previous local copy stays untouched (push writes are never interrupted)"/>
+                 copy on 2026-07-23. Visible while any cancellable phase runs — pull, scan, or resolve — and
+                 it cancels whichever one is in flight (cancelling a pull still lets the load continue on the
+                 intact local copy; cancelling the scan/resolve ends the load, keeping the previous rows). -->
+            <Button Content="Cancel" Click="CancelLoad_Click" MinWidth="0"
+                    Visibility="{x:Bind ViewModel.IsCancellable, Mode=OneWay}"
+                    ToolTipService.ToolTip="Stop whatever is running — the copy from BIRDWATCHER, or the disk scan / resolve. Nothing is left half-applied: the previous local copy and the current grid stay untouched (push writes are never interrupted)"/>
             <!-- Sync model: all edits land in the LOCAL copy and journal; BIRDWATCHER is read at pull (open /
                  Pull now) and written only by the reviewed Push. The badge displays the sync facts — last
                  synced time + unpushed count — so state is never something the user must remember. -->
