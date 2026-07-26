@@ -1,5 +1,15 @@
 # TCM Code Review — Round 2 (2026-06-10)
 
+> **ARCHIVED 2026-07-26 — a closed verification pass over work that no longer exists.** B1/B2 fixed CLI
+> option parsing in code deleted 2026-06-11; B3's doc line landed in the **Library** repo; B4's comment was
+> in a `Cli.Tests` project that no longer exists; B5 retired with R1 by design. B6's plain-host test rules
+> are already single-sourced in `VERIFICATION.md`. The §D backlog table is **5/6 closed** (B1–B4 ✅, R1 ✅
+> 2026-06-11, §7.5 ✅, M2-prep ✅ as `TsEditGate` 2026-06-26). Of its §C1 conventions, the view/VM seam
+> graduated to `DOMAIN.md` checklist step 9; the **code-siting doctrine is HELD, not graduated** — see
+> `ROADMAP.md` → *Held for a conventions split*. **Still live:** §C2 item 4 — the `CancellationToken` false affordance
+> (the finding names `LoadAsync`, since split into `ScanLibraryAsync` + `ResolveAsync`; it is `ResolveAsync`
+> that still ignores the token), carried to `ROADMAP.md` → *Carried forward*.
+
 > **Executed status (2026-06-10):** B1 ✅ (`--apply <value>` warns + stays dry-run; '=' form was already
 > safe as an unknown key; Cli tests 11 → 13) and B2 ✅ (unknown key + its value warned AND ignored) in TCM
 > `b67ddfa`; B3 ✅ (single-thread/equality doc line on the report's lazy indexes) in Library `7ce569d`;

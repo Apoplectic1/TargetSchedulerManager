@@ -28,9 +28,13 @@ Reference docs (current truth — update in the same commit as the code):
 - **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.
 - **`VERIFICATION.md`** — how to build, run, test, and verify a change.
 
-Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings) + `CHANGELOG.md` (shipped-history journal, newest first — the full history behind ROADMAP's current-status summary).
+Journal (dated capture — `glob docs/**/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `docs/archive/` (spent records — executed plans, closed reviews; each carries a dated status banner) + `NOTEBOOK.md` (running lab notebook of small findings) + `CHANGELOG.md` (shipped-history journal, newest first — the full history behind ROADMAP's current-status summary).
 
-Scope-excluded (not this project's docs): `.claude/`, `openspec/` (tooling), `bin`/`obj` (generated). `..\Library` is a separate repo with its own docs.
+Scope-excluded (not this project's docs): `.claude/`, `openspec/` **workflow files** (proposals/tasks in flight
+— tooling), `bin`/`obj` (generated). **Not excluded:** `openspec/specs/` (live contract) and archived
+`openspec/changes/archive/*/design.md` — the reference docs above cite these as the authoritative shipped
+rationale, and an archived `design.md` is an **immutable** change record (never edit, relocate, or trim one;
+graduate *from* it by writing a pointer into the reference doc). `..\Library` is a separate repo with its own docs.
 
 ## Two-repo layout
 
@@ -82,7 +86,8 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   `TryBeginBusy()`/`EndBusy()` (the only writers of `IsLoading`); row edits are refused in the VM funnel while
   one runs and their surfaces disable off `CanEdit`; an in-flight edit blocks a bulk op from starting. The
   visible-tonight pass batches through `TsEditGate.ApplyManyAsync` — targets, then project flips derived
-  from the target flips that **landed** — under one unbroken busy scope (no seam admits an edit).
+  from the target flips that **landed** — under one unbroken busy scope (no seam admits an edit). The gate is
+  **bulk-vs-edit only**; edit-vs-edit ordering is `CommitChain` (per editing surface).
 
 ## Shared-library discipline
 

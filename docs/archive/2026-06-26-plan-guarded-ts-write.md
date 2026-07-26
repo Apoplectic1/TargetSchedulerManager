@@ -1,6 +1,13 @@
 # Guarded TS Write — `TsSource` + `TsEditGate` Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **ARCHIVED 2026-07-26 — an executed plan, half of it since superseded. Do not use as a template.** Shipped
+> 2026-06-26 (`1cda326`→`6150b7d`; Library `8d863e5`); all four task checkboxes are done. Its surviving
+> architecture lives in `ARCHITECTURE.md` (`TsEditGate` · `ApplyAsync → EditOutcome` · injected `ITsEditor` ·
+> `TargetSchedulerEditor.TrySetField`, which now folds five predicates, not the plan's four). The **other
+> half is retired** by the 2026-07-06 sync model: `TsSource`, the LIVE/LOCAL radios, direct SMB writes,
+> `EditOutcome.LiveDropped` + sticky-fall, and the post-write `ClearAllPools` workaround are all gone —
+> `ARCHITECTURE.md` records the reversal *and its reason*. Its original "REQUIRED SUB-SKILL" header pointed at
+> the `superpowers:*` skills **retired in `fbc1376`**; removed here as dead tooling guidance.
 
 **Goal:** Pull the LIVE/LOCAL state machine and the guarded TS write — today smeared across `MainViewModel`, `TsDatabaseResolver`, and the library editor — into two deep, injected, unit-tested app modules (`TsSource` + `TsEditGate`) over one consumer-neutral library guarded-apply (`TargetSchedulerEditor.TrySetField`).
 

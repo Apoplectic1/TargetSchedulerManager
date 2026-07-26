@@ -25,10 +25,40 @@ the app + `tsm.log` (not pinned here — they move with every edit and every ima
 toolbar group, the alias-fold removal, the full 2026-07-24 code-review campaign, and the presentation-readiness
 lane (P1–P5) have all shipped and archived. The load-split is **retired** (2026-07-08 — the ~2 s fresh scan is
 acceptable even at 2× the library, so a cross-load scan cache would buy the stale-ACTUAL window for time that
-isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes,
-nothing parked, nothing deferred.** The next lane is strategic — the **ISP transition** (intent store +
-lift/regenerate), which is *not* TSM work. Shipped history and the 2026-07-24 decision records (docs-audit
-flags resolved; disk-matcher lane cancelled) live in **`CHANGELOG.md`**.
+isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes and
+nothing parked**, with one carried-forward defect and one small docs chore (both below). The next lane is
+strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
+and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
+**`CHANGELOG.md`**.
+
+**Carried forward (2026-07-26 docs sweep).** `ReconciliationLoader.ResolveAsync`'s (then `LoadAsync`'s)
+`CancellationToken` is a **false affordance**: `ct` reaches only `Task.Run(…, ct)`, so it cancels *scheduling*,
+never the running body — neither `TargetSchedulerReader.ReadPlanData()` nor `TargetResolver.Resolve(...)`
+accepts a token. (The disk half, `ScanLibraryAsync`, *does* thread it through.) Raised in the 2026-06-10 review,
+deferred with the M2 work, never re-raised by the 2026-07-24 reviews — it fell through the cracks. Fix by
+threading the token through reader + resolver, or drop the parameter so the signature stops promising what it
+can't deliver.
+
+**Carried forward — `TsInboundDiff` project key space (found 2026-07-26, code fix not applied).** Project
+journal/mark keys are the TS **guid** (`TargetResolver.Provenance` returns `tsGuid ?? Id`, and NINA always mints
+a project guid), but `TsInboundDiff.FieldSet` keys `Project` by `"Id"`. So a project-scope inbound `←` is stored
+under an `Id`-string and looked up by guid (`MarkResolver.ForField` from `MainWindow.Flyouts.cs`) — it **silently
+misses**, never throws. Outbound `→` is unaffected (journal and lookup both use the guid), and project *editing*
+works either way because `TargetSchedulerEditor` resolves guid-or-Id — which is why nothing surfaced it.
+`SyncMarksTests` encodes the same wrong assumption (a `"7"` project fixture), so the suite cannot catch it.
+Fix: `FieldSet`'s Project entry → `"guid"`, correct its in-code comment, and move the test fixture to a guid.
+
+**Held for a conventions split (2026-07-26 docs sweep).** One standing truth was adjudicated *worth keeping but
+not placed*, because both natural targets are already large (`ARCHITECTURE.md` ~38 KB, `DOMAIN.md` ~30 KB) and
+the sweep rule is "split before you stuff": the codebase's **code-siting doctrine** — (a) one plausible home per
+kind of change (contract rules → `Astronomy.Catalog`; per-item display → `ViewModels/Rows`; UI-free display
+policy → `Models`; sync/guarded-write policy → `App/Shared`); (b) load-bearing invariants are written at the
+point that *enforces* them, with the reference docs mirroring rather than solely owning; (c) every major flow is
+a single forward pass with no back-edges (load: scan → TS read → resolve → project; `ApplyFilters`: filter →
+group → sort → flatten → publish). Asserted 2026-06-10 and independently re-confirmed by the 2026-07-24 review,
+it is the rule a newcomer needs *before* choosing a file to edit. Sources:
+`docs/archive/2026-06-10-code-review-slice1.md` §2.1/§5.2 + `…-round2.md` §C1. Placing it wants a **CONVENTIONS
+section or doc** carved out of ARCHITECTURE + DOMAIN — a structural job, not an append.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
@@ -55,7 +85,7 @@ flags resolved; disk-matcher lane cancelled) live in **`CHANGELOG.md`**.
 - TS → catalog carries provenance (`imported_from_ts_guid`).
 - **TCM headless host** (`Program.cs`): `tcm [--catalog --library --ts --tolerance]` ran the build + printed the
   reconciliation report and goal-vs-actual summary (CLI removed 2026-06-11 — app-only since; see Status).
-- Catalog + NINA library suites pass (145 Catalog / 33 NINA tests as of 2026-07-23).
+- Catalog + NINA library suites pass (live counts move with every change — see the suites, not this line).
 
 ## Phase 3 — TSM app: TS Editor (WinUI 3)  ✅ DONE (M1 view ✅ 2026-06-10 · M2 edit ✅ 2026-07-06 · M3 resolve retired 2026-07-08; remaining work is the out-of-phase ISP transition)
 
@@ -125,10 +155,15 @@ ignored-missing, the `Sh2-142` fix, the `Mosaic - Cygnus Loop` surgical run) is 
 
 ## Phase 5 — Consumer cutover
 
-- Point the future `Catalog.db` consumers — **ISP / TP** — at `Astronomy.Catalog` to read it. **XFM is ruled
-  out** (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or `Catalog.db`, and it already
-  removed its own scheduler surface, so there is no XFM tab to cut over).
-- Add TSM to TP's glossary; reconcile the IS design docs (Catalog.db is the hub; IS is a consumer).
+Consumer cutover is **not TSM work** — the authored intent store and its consumers belong to **LCM / ISP**
+(parent `CLAUDE.md` → *Data-flow hubs*; rationale in `docs/2026-07-08-resolver-rejection-isp-lane.md`
+decisions 4–5). The phase's original premise — *`Catalog.db` is the derived hub and IS is its consumer* — was
+**inverted 2026-07-08** (an *authored* store holds intent; TS becomes the disposable projection) and the
+bridging lane was cancelled 2026-07-24. That was the **second** reversal: the phase first read *"IS owns
+`scheduler.db`"* before `Catalog.db`-as-hub replaced it. What survives:
 
-> **Plan supersession:** this replaces the earlier "IS owns `scheduler.db`" plan — `Catalog.db` is the hub and
-> IS becomes a consumer. XFM's consumer role was dropped 2026-07-07 when it went TS-free.
+- **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
+  `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
+- ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the
+  pre-inversion premise; that reconciliation belongs to LCM/ISP.
+- Add TSM to TP's glossary (still open — a small docs chore, not tracked as an openspec change).

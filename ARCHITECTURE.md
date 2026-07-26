@@ -110,19 +110,31 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   write-back stamps); BIRDWATCHER's db is written only inside an explicit push replay (TS itself writes during
   imaging; the push's sidecar guard refuses that overlap). The future LCM is `Catalog.db`'s single writer with
   WAL on so consumers read without blocking. (WAL is unhappy over network shares — relevant if a consumer runs
-  on another PC.)
+  on another PC.) *In-process threading model* (true by construction, 2026-07-24 review): the UI thread
+  serializes every command via the busy gate, workers do I/O only, and `TsJournal` + `TsInboundStore` are the
+  **only** cross-thread mutables (both coarsely locked). There is no lock-then-await and no sync-over-async on
+  the UI thread — `TsDatabaseResolver.Stat`'s blocking wait always runs on a worker, and its continuation
+  writes `LastProbe`/`HasProbed` back on the UI thread.
 - **Busy exclusion (shipped 2026-07-24, openspec `busy-exclusion`):** in-app, the one-writer rule is enforced
   structurally, not by convention — every bulk db-touching operation (load/reload, pull, push, visible-tonight)
   acquires `MainViewModel.TryBeginBusy()` / `EndBusy()` (check-and-set on the UI thread; the only writers of
   `IsLoading`); row edits are **refused in the view-model funnel** while one runs (`RefuseIfBusy` — status note,
   control reverts) and their surfaces disable off `CanEdit` (whole-ListView + busy-sensitive toolbar buttons;
   Cancel-pull/search/filters/Ambiguities stay live). The reverse direction is closed too: an in-flight funnel
-  call (edit *or* read — both hold a db connection) blocks `TryBeginBusy` until its worker completes, so no
+  call (edit *or* read — both hold a db connection) makes `TryBeginBusy` **refuse immediately** (status note,
+  "try again in a moment" — it never silently waits for quiescence), so no
   edit can overlap a load's write-back, a pull's atomic swap, or a push replay. The visible-tonight pass applies
   its flips as **two sequenced worker batches** (`TsEditGate.ApplyManyAsync`; `ApplyAsync` is its one-element
   case) — targets, then the project flips derived from the target flips that **landed** — under one unbroken
   busy scope, so the UI-thread seam between the batches admits no bulk op and no row edit (2026-07-24,
-  `visible-tonight-applied-states`).
+  `visible-tonight-applied-states`). The gate covers **bulk-vs-edit only** — deliberately *not* edit-vs-edit:
+  per-surface commit ordering is `CommitChain` (a UI-thread task chain, one per `TsFieldsEditor` instance and
+  one per window for inline Desired), so rapid re-confirmations of a field apply in confirmation order and
+  `_lastKnown` can never disagree with the db (2026-07-24,
+  `openspec/changes/archive/2026-07-24-serial-commits/design.md`). Authoring rule for any new bulk command:
+  sequence its trailing reload **after** `EndBusy()` — a reload left inside the busy scope silently no-ops,
+  since it tries to acquire the gate it is already holding
+  (`openspec/changes/archive/2026-07-24-busy-gate/design.md` D1).
 - **TS interop:** reads via `TargetSchedulerReader` (opened `Mode=ReadOnly` + busy-timeout, explicit column
   lists, schema-version aware); edits via the in-grid editing path (reference-driven `TsEditableSchema`) onto
   the local copy; write-back runs automatically each load (see below). All TS interop (read *and* write) is a
@@ -157,6 +169,9 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   `-wal`/`-shm`/`-journal` exists (WAL hides content changes from the main file's mtime). Unbaselined always
   pulls; the baseline is recorded from the *pre*-pull stat, so a mid-copy write can only cost an extra pull,
   never a false skip. Rapid test relaunches therefore skip the copy. Offline opens proceed on the local copy.
+  One residual remains: a same-second, same-size, non-WAL remote write *can* still false-skip — **Pull now**
+  is the override, and SQLite's file-change counter (4 bytes at offset 24) is the pre-chosen upgrade path if
+  SMB mtime ever proves unreliable (`openspec/changes/archive/2026-07-06-sync-model/design.md` D1).
 - **Pull is atomic, observable, cancellable (hardened 2026-07-23).** The backup lands in `<local>.pull-tmp`
   and is swapped over the local db only on completion (`ClearAllPools` first — a pooled reader handle would
   fail the swap), so a process death at *any* moment leaves the previous copy intact; a dead pull's tmp is
@@ -169,7 +184,10 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   undiagnosable live. The **torn-local gate** closes that skip-rule blind spot: a `-journal`/`-wal` beside
   the local db at open is healed loudly (`LOCAL TORN` log line; discard local + sidecars + baseline; pull
   fresh; torn + offline fails the load loudly instead) — the edit journal is untouched, so unpushed edits
-  survive and replay at push.
+  survive and replay at push. It **heals rather than aborts** because the local copy is disposable derived
+  state over intact upstream truth; the house fail-fast doctrine governs input-*contract* violations, where
+  continuing would mask an upstream bug (`openspec/changes/archive/2026-07-23-harden-ts-pull/design.md` D2).
+  The loud log line is what preserves the forensic trail either way.
 - **Every edit writes locally and journals.** The gate targets the local path only; each verified write appends
   `(seq, kind, table, key, column, absolute value, old, label, at)` to the journal. **Dirty ≡ journal
   non-empty** — derived from the persisted file, never a stored flag, so it is crash-safe by construction. The
@@ -192,9 +210,18 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   *remote* desired); **manual entries** replay per-field via the guarded, read-back-verified
   `TargetSchedulerEditor.TrySetField` — writer leg first, so an explicit desired edit outranks the stamp.
   Only journaled fields are touched. A remote open sidecar refuses the whole push; per-entry failures (row
-  gone, verify mismatch) are reported loudly and retained in the journal. A fully-applied push ends in an
+  gone, verify mismatch) are reported loudly and retained in the journal — and a whole-db refusal met
+  mid-leg **aborts the remaining field entries** (retained as not-attempted), so one dead remote costs one
+  write attempt, not N (`openspec/changes/archive/2026-07-24-push-decomposition/design.md` D3). The two legs
+  are **structural, not stylistic**: `TsEditableSchema` deliberately omits `acquired`/`accepted` (stat columns
+  must never reach a generated edit UI), so `TrySetField`'s whitelist refuses them and write-back entries can
+  *only* replay through `TargetSchedulerWriter` — merging the legs would silently drop write-back replay.
+  A fully-applied push ends in an
   immediate pull — the invariant everything hangs on: **a baseline is recorded exactly when the local copy
-  mirrors the remote**.
+  mirrors the remote**. *Consumer caveat:* a pushed field lands in BIRDWATCHER's db immediately, but NINA's TS
+  plugin can ignore external db writes **mid-session until NINA restarts** (user-reported, unfixed upstream,
+  2026-06-20) — so "verified on BIRDWATCHER" is not "TS will act on it tonight", and a push is best treated as
+  a between-sessions act.
 - **Push outcomes are truthful (2026-07-24, openspec `truthful-outcome`).** The journal clears exactly when
   the writes applied and verified, and the report never contradicts it: a **closing-pull fault** (network
   drop mid-backup, swap failure) is contained inside `Push` and reported as a successful push whose pull
@@ -235,7 +262,10 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
   or edits — the `TsEditableSchema` convention), never `PRAGMA`-discovered, so TS-internal bookkeeping can't
   produce noise; the `exposuretemplate` columns are *derived* from `TsEditableSchema` (2026-07-26) so ←
   coverage can't drift from what the flyout edits. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
-  have no `←`; a remotely-added row reports one "new row" entry; deletions report nothing.
+  have no `←`; a remotely-added row reports one "new row" entry; deletions report nothing. A diffable column
+  **absent from either snapshot is silently skipped** — a deliberate carve-out from the house fail-fast posture,
+  because the differ is *observation, not contract*: a TS-side rename simply stops diffing that column instead
+  of aborting the pull (`openspec/changes/archive/2026-07-08-edit-direction-marks/design.md` D2).
 - **The actuals mask:** when write-back stamps a plan's `acquired`/`accepted`, `RecordWriteBack` drops those
   columns from the plan's inbound entries — disk supersedes the rig's totals, so the row reads `→` (never
   `⇄`) and goes clean after push, not stale-`←`. `desired` is deliberately not masked: a rig-side goal change
@@ -340,6 +370,8 @@ and `Astronomy.Core.Horizons`), and because floor is what the code always called
   dusk and dawn — one library call,
   `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(floorDeg), minDuration)`
   (the library keeps its own horizon-profile vocabulary — only the TSM-side knob is named Floor).
+  Meridian / pier-flip downtime is a deliberate **non-goal** — it is TS/NINA's runtime concern and is never
+  modeled here (asked and settled 2026-07-24).
   TS's own gates (`minimumaltitude`, custom horizon/offset, `minimumtime`, twilight levels) are **not**
   consulted — TS re-applies them itself at plan time; a rejected earlier draft that mirrored the TS gate
   (and promoted TP's `.hrz` parser into the library) was reverted 2026-07-23. "Tonight" is

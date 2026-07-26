@@ -648,7 +648,7 @@ predicates (required-columns / read-only / open-sidecar / column-present) into o
 deleted; the VM now holds the gate and maps `EditOutcome` to status + side-effects. **~16 new tests** drive the
 whole machine (first-probe / re-probe-drop / sticky / `TrySelectMode` / refusal / verify-fail / live-drop-on-write)
 with **no SQLite or SMB** — the probe and editor are injected. Built **subagent-driven** from
-`docs/2026-06-26-plan-guarded-ts-write.md` (per-task TDD + reviews + an opus whole-branch review that caught a
+`docs/archive/2026-06-26-plan-guarded-ts-write.md` (per-task TDD + reviews + an opus whole-branch review that caught a
 swallowed live-drop exception, now fixed). 71 App.Tests + 153 library, **0 warnings**. A future **WriteBack** app
 action reuses the gate via an `ApplyPlanAsync` sibling (deliberately not built — YAGNI). Commits: TSM
 `1cda326`→`6150b7d`, Library `8d863e5`. **Pending: user's live-app pass** — one `desired`/`enable` write hitting
@@ -855,7 +855,7 @@ rows / 102 groups, header deltas unchanged (Abell 21 −10.3 = 15.8 disk − 26.
 visual pass** (nested chevron feel, `mixed` pill readability) — dark-theme caution/success fills are subtle;
 stronger brushes are a one-line swap (`ThemeBrushes.cs`) if wanted.
 
-**▶ SHIPPED 2026-06-10 — review round 2: verified + XS fixes** (`docs\2026-06-10-code-review-round2.md`,
+**▶ SHIPPED 2026-06-10 — review round 2: verified + XS fixes** (`docs\archive\2026-06-10-code-review-round2.md`,
 fixes `b67ddfa` + library `7ce569d`). Independent re-review verified every slice-1 claim against the code
 (library mounted; all round-1 caveats resolved; no regressions). Fixed its findings: **B1** `--apply <value>`
 now warns + stays dry-run (was: any value armed apply on a db-writing verb), **B2** unknown options warn AND
@@ -872,7 +872,7 @@ additivity, `Format.Hours`). The WinUI head tests run in a **plain test host** �
 no-migration rule confirmed portfolio-wide (none present; TS guards are refusal-only), doc dates corrected to
 user-local (machine clock runs ahead in the evening), logs switched to local-time stamps (`603f3a9`).
 
-**▶ SHIPPED 2026-06-10 — code-review slice 1** (review in `docs\2026-06-10-code-review-slice1.md`, executed-status
+**▶ SHIPPED 2026-06-10 — code-review slice 1** (review in `docs\archive\2026-06-10-code-review-slice1.md`, executed-status
 table at its top; library `c381a2e`+`8bf1aef`, host `b3d8b5d`, app `651abb6`). Three drift hazards
 single-sourced into the library — `EffectiveExposure` (THE effective sub-length rule; was 3 hand copies),
 `CatalogBuildReport.IssuesFor(...)` issue-membership API (planner + loader stop hand-indexing the report),

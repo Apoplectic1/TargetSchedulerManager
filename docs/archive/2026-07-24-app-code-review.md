@@ -1,5 +1,14 @@
 # 2026-07-24 — App code review (tsmui, full `TargetSchedulerManager.App` sweep)
 
+> **ARCHIVED 2026-07-26 — cycle 100% terminal.** Every finding (C1 · M1–M7 · N1–N10) shipped, was declined
+> with reasons, or was parked on evidence; the *Suggested order of attack* executed in full as the
+> `busy-gate` · `push-rule-dedup` · `push-decomposition` · `row-param-objects` · `review-polish` ·
+> `sentinel-cell` openspec changes (all archived). Kept as the **resolution key** for the 28 in-code
+> `(review Nx/Mx)` comments (11 distinct tags: M2 · M4 · M7 · N1–N6 · N8 · N9) — read it as history, not as an open list. Its durable outcomes are single-sourced
+> in `ARCHITECTURE.md` (busy exclusion · durability boundary · truthful push outcomes · threading model) and
+> `DOMAIN.md` (checklist step 9, the `FireAndLog` invariant). One finding was **not** resolved and was carried
+> forward to `ROADMAP.md` → *Carried forward*: `ResolveAsync`'s `CancellationToken` false affordance.
+
 **Scope.** Every `.cs` under `TargetSchedulerManager.App` (31 files, ~300 KB) plus a structural pass over
 `TargetSchedulerManager.App.Tests`. The sibling `..\Library` repo (`Astronomy.Catalog` etc.) was **not**
 reviewed — it is a separate repo and was not in scope for this pass. Review lenses, per request:

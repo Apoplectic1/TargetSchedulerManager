@@ -4,6 +4,15 @@ Decision record from a long explore session that started as "describe the write-
 somewhere much better. Captures the **why** — the decisions live in ROADMAP/DOMAIN/TS-SCHEMA; this is the
 reasoning they compress.
 
+> **Status as of 2026-07-26** (body below is untouched as-of-2026-07-08 history; decision numbering is cited
+> cross-repo — do not renumber). Decisions **1, 2, 4, 5, 7, 8, 9 stand**. Decision **3** (printable ambiguity
+> report) shipped 2026-07-08; decision **6** ("Tonight") shipped 2026-07-23. The *Immediate user actions*
+> and the empirical-spine hand fixes (FishHead rename, plan 1040, Dumbell) were all completed in the
+> 2026-07-23 BIRDWATCHER pass. One reversal: the spine's claim that **"M27/Dumbell is NOT held"** was
+> overturned that same night ("explained ≠ approved" — `NOTEBOOK.md`, 2026-07-08 late) and the alias fold it
+> rests on was removed 2026-07-23. The "disk-matcher lane" framing was cancelled 2026-07-24 — under the
+> corrected model **TSM manages TS, period**; the authored intent store belongs to LCM.
+
 ## The empirical spine (what the data said)
 
 - The write-back manual tray ("held cells") on real data = **7 cells, 2 root causes**:

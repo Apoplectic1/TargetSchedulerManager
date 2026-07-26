@@ -16,6 +16,10 @@ busy-gate blocking-editor waits) under build-time disk load. If seen again: capt
 2026-07-08 correction below shipped ahead of the BIRDWATCHER pass (user's call) — so until the Dumbell
 consolidation, the M27/Dumbell twin surfaces every load as a duplicate badge + held write-back cell + report
 action items. That's the intended surface-for-decision behavior, not a regression.
+**Closed 2026-07-23** — the Dumbell consolidation landed by hand in that same BIRDWATCHER pass (Swan · Rosette ·
+Dumbell; CHANGELOG ▶ DECIDED 2026-07-24), so the tray and the ambiguity report are now zero and no duplicate
+badge is live. The doctrine it illustrates stands: `ARCHITECTURE.md` (one TS row per position) + `DOMAIN.md`
+(no alias escape).
 
 **2026-07-08 (late) — CORRECTION: the M27/Dumbell twin was never intentional; alias mechanism to be removed.**
 The morning entry below recorded "user: leave it" — that was tolerance of a state the alias fold presented
@@ -57,6 +61,6 @@ it mirrored the *template default*, actively wrong vs the reload). Both flipped 
 uses `PlanSeconds == 0` as its own no-seconds marker, so the TS-only plane renders 0 as "—" — mirror
 and reload agree on every plane (the real invariant); only plan+disk rows literally display "0".
 
-_Substantial findings to date live as dated `docs/` records (the 2026-06-10 code reviews, the
-2026-06-26 guarded-TS-write plan) and the WinUI landmines are captured in `DOMAIN.md` § "WinUI
-gotchas"._
+_Substantial findings live as dated `docs/` records; spent ones (the 2026-06-10 code reviews, the
+2026-06-26 guarded-TS-write plan, the 2026-07-24 app review + re-check) moved to `docs/archive/` on
+2026-07-26, each with a status banner. The WinUI landmines are captured in `DOMAIN.md` § "WinUI gotchas"._

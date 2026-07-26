@@ -1,5 +1,11 @@
 # 2026-07-24 — Re-check of the app code review (verification pass)
 
+> **ARCHIVED 2026-07-26 — everything on this page's "Still open" list has since closed.** Item 1
+> (`SentinelCell` extraction) shipped `6439941`; item 2 (N9 `AmbiguityReport.Build` split) shipped `317e78f`;
+> item 3's "parked by design" pair both shipped anyway — N6 owner map `00ce30c`, N8
+> `StatAsync`/`ProbeRemoteAsync` `fdcca32`; item 4's `_to_delete\` staging folder was deleted. Read the
+> section below as *open at re-check time*, not as outstanding work.
+
 **Scope.** Verification of every finding from `2026-07-24-app-code-review.md` against the updated sources
 (all files touched today after the review, including the new `MainViewModel.*.cs` partials,
 `CommitChain.cs`, `TsValueText.cs`, and the new/updated test files). Each item was re-read in the new
@@ -132,10 +138,12 @@ spuriously revert a good edit. The implementation is correct for its stated UI-t
 * **N2** (badge `Collapse()` on the UI thread) — **fixed**; `Journal.CollapsedCount` backed by a
   `_fieldKeys` set maintained under the lock; `SyncBadgeText` reads it.
 * **N3** (fire-and-forget swallowing exceptions) — **fixed**; `FireAndLog` wraps every `_ =` site
-  including menu items and the `Loaded` handler. (Remaining micro-hole: `TargetEnable_Click`,
-  `PlanEnable_Click`, `Desired_Committed`, and the two flyout control lambdas are still plain
-  `async void`; everything they await handles its own failures, so only a trivial exception in the
-  revert lines themselves could escape. Not worth churn unless you want uniformity.)
+  including menu items and the `Loaded` handler. (At re-check time a micro-hole remained —
+  `TargetEnable_Click`, `PlanEnable_Click`, `Desired_Committed` and the two flyout control lambdas were still
+  plain `async void` — judged "not worth churn unless you want uniformity". **That verdict was overturned:**
+  the async-void elimination sweep `df66e25` closed all of them, its scope corrected upward twice as it found
+  handlers this re-check had missed. `UiTask.FireAndLog` is now the app's only `async void` — a grep-checkable
+  invariant, graduated to `DOMAIN.md` checklist step 9.)
 * **N4** (duplicate `FormatValue`) — **fixed**; `TsValueText.From` with the null-spelling difference
   now *deliberate and documented* at both call sites (push review shows `"null"`, tooltip passes null
   through). The review had asked whether that difference was intended; the code now answers.

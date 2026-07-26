@@ -34,6 +34,12 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
 - **Two-name identity system:** integer `Id` (autoincrement, **per-copy** — the FK glue; diverges between local
   copy and BIRDWATCHER for inserted rows) vs `guid` (minted at row creation, travels with the row — the
   **cross-copy stable name**; what TSM keys targets by and must carry through any insert replay).
+  TSM's **journal and mark key spaces** are layered per-table on top of this: `Target` and `Project` = **guid**
+  (both come from `TargetResolver.Provenance`, which returns the TS guid and falls back to the `Id`-string only
+  when TS supplies none); `ExposurePlan` and `ExposureTemplate` = the TS integer `Id` as a string (manual
+  `PlanTsKey` and write-back `TsExposurePlanId` share one space). All key compares are **case-insensitive**.
+  Getting a key space wrong makes a mark or journal lookup *silently miss* rather than fail — see the open
+  `TsInboundDiff` project-key defect in `ROADMAP.md` → *Carried forward*.
 - **Units:** `target.ra` is **hours** (0–24); `target.dec` degrees. `exposureplan.exposure` / `defaultexposure`
   seconds; `exposure = -1` is the **use-template-default sentinel** (rendered by TSM's sentinel checkbox). The
   template columns `gain` / `offset` / `readoutmode` carry the same `-1` convention meaning **use-camera-default**
@@ -42,6 +48,11 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
   plans are all **legal to TS** — see `DOMAIN.md` "TS authoring conventions" for why we forbid them by convention.
 
 ## Tables (complete column lists; ✎ = TSM edits via `TsEditableSchema`, ⚙ = write-back stamps)
+
+A ✎ column's `Min`/`Max` in `TsEditableSchema` are **TSM-authored sanity clamps, not TS-enforced bounds** —
+TS publishes no range for most columns (`minutesOffset` ±720 is invented), so a legitimate out-of-range need
+is a one-line reference change, never a schema violation (openspec `template-manager`; per-column derivation
+in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 
 ### project — 10 rows · FK: `target.projectid → project.Id`
 `Id` PK · `profileId` · `name` · `description` · `state` ✎ · `priority` ✎ · `createdate` · `activedate` ·
@@ -56,13 +67,20 @@ TSM: read for grid grouping + project flyout; `isMosaic` drives the mosaic/panel
 `unusedOEO` · `guid` · `priority` ✎
 TSM: the coordinate anchor for disk matching (ra hours / dec degrees, 0.5° tolerance); `epochcode` is
 harden-rule coerced if unknown; `guid` is the write-back/edit address retained as `imported_from_ts_guid`.
+`target.priority` codes are TS's own `TargetPriority` — **−1 Default · 0 Low · 1 Normal · 2 High** — and live
+in `TsEditableSchema.EnumValues`; never reuse `Astronomy.Catalog`'s enums for editing, since the resolver
+deliberately coerces priority away under the harden rule (`SafeTargetPriority`). Why:
+`openspec/changes/archive/2026-07-06-field-editor-flyout/design.md` D3. **`project.priority` is a different
+enum** — `ProjectPriority`, 0 Low / 1 Normal / 2 High, with **no −1 Default**.
 
 ### exposureplan — 658 rows · FK: `targetid → target.Id`, `exposureTemplateId → exposuretemplate.Id`
 `Id` PK · `profileId` · `exposure` ✎ (−1 sentinel) · `desired` ✎⚙ · `acquired` ⚙ · `accepted` ⚙ ·
 `targetid` · `exposureTemplateId` · `enabled` ✎ · `guid`
 TSM: the write-back target — `acquired`/`accepted` ← disk count, `desired` ratchets up to ≥ count (never
 lowered); effective seconds = `exposure < 0 ? template.defaultexposure : exposure`, rounded to whole seconds
-(the cell-identity bucket).
+(the cell-identity bucket). **`0` is legal and taken literally** — TS would schedule 0 s subs; only `−1`
+defers to the template default, so a guard must never read non-positive as "unset" (openspec
+`exposure-zero-literal`).
 
 ### exposuretemplate — 20 rows (profile-scoped)
 `Id` PK · `profileId` · `name` ✎ · `filtername` ✎ · `gain` ✎ (−1 sentinel) · `offset` ✎ (−1 sentinel) ·
@@ -77,6 +95,9 @@ TSM: template manager edits all 18 non-key fields above (see `TsEditableSchema` 
 `Id` PK · `targetid` · `order` · `next` · `action` · `referenceIdx`
 TS's filter-rotation state. **Restored verbatim by TS; empty = safe regenerate; stale = silently wrong** — so
 any TSM edit that breaks cadence must transactionally clear the target's rows (the cadence-safe pattern).
+The complement bounds the obligation: TS clears cadence only on plan-`enabled` and project-`filterswitchfrequency`
+changes, so **no `exposuretemplate` column is cadence-breaking** — a template edit never needs a clear
+(`openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 
 ### overrideexposureorderitem — 22 rows (references `targetid`, no declared FK)
 `Id` PK · `targetid` · `order` · `action` · `referenceIdx`

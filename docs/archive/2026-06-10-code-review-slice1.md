@@ -1,5 +1,17 @@
 # TCM Code Review — 2026-06-10
 
+> **ARCHIVED 2026-07-26 — executed, and largely about code that no longer exists.** The entire CLI half
+> (§1.2, §2.2, §2.3, §3.1, §7.1) concerns the `tcm` console head **removed 2026-06-11**. R1 shipped
+> 2026-06-11 (last leak closed 2026-06-26); §5.4's 13-column XAML duplication was solved by `GridColumns.cs`;
+> §7.5 `ExpansionState` shipped; §8's migration audit is single-sourced in `ARCHITECTURE.md`. The §9
+> sequencing table's one `⏳ deferred` row is **closed or superseded** — `TsEditSession` became `TsEditGate`
+> (2026-06-26) and the loader interface never landed (`SetRowsForTest` remains the seam; the seams that did
+> land are `ITsEditor`/`ITsWriteBackApplier`). §5.2's view/VM seam contract graduated to `DOMAIN.md`
+> checklist step 9; §2.1's single-forward-pass property is **held, not graduated** (`ROADMAP.md` → *Held for a
+> conventions split*). **Still live:** §7 item 2 — the `CancellationToken` false affordance (the finding names
+> `LoadAsync`, since split into `ScanLibraryAsync` + `ResolveAsync`; it is `ResolveAsync` that still ignores
+> the token), carried to `ROADMAP.md` → *Carried forward*.
+
 > **Executed status (2026-06-10, "slice 1"):**
 >
 > | # | Status | Where |

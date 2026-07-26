@@ -41,7 +41,10 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   project edit marks the **parent only**, never panels; disk-plane leaves are structurally blank (marks key on
   the plan; target/project changes mark the header). Tooltip: per-field `old → new` on leaves, direction
   counts on headers. Cleared: `→` by Push/Discard; `←` at the next open's pull. (Mechanics:
-  `ARCHITECTURE.md` → *Sync-direction marks*.)
+  `ARCHITECTURE.md` → *Sync-direction marks*.) The `←`/`→`/`⇄` set is the app's **one sync vocabulary and is
+  not grid-only**: the same marks lead every field row of the schema-generated flyouts (a blank mark still
+  reserves its slot so labels stay aligned) and tag each item in the Templates… picker (2026-07-26, openspec
+  `flyout-field-marks` / `template-change-marks`).
 - **Desired** = TS goal · **TS** = TS's recorded `acquired` (the count TS schedules on with the grader off) ·
   **Actual** = on-disk frames (ground truth). TS `accepted` is **not** a column — write-back keeps it ==
   acquired; a drift shows as an `acc≠acq` badge. (Full rationale: `ARCHITECTURE.md` → *Grid count columns*.)
@@ -126,7 +129,10 @@ goal of zero); measured disk-side absence = `0`.
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
   directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
   change/focus-loss (so light-dismiss can never lose work — no Apply button, ever); a failed write reverts the
-  control. Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
+  control. **A committing surface stays interactive** — never disable it to prevent overlap: disabling moves
+  focus, which re-fires the `LostFocus` commit re-entrantly (the cure invokes the disease). Commit *ordering*
+  is solved by `CommitChain`, never by `IsEnabled`
+  (`openspec/changes/archive/2026-07-24-serial-commits/design.md` D3). Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
   setters, so the grid mirrors in place. **Sentinel columns** (TS stores a reserved −1 meaning "defer to the
   default": plan `exposure` → template, template `gain`/`offset`/`readoutmode` → camera) render as their meaning
   — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
@@ -237,7 +243,11 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced it.) Ambiguities…
   (enabled once a load exists) writes a dated printable Markdown report of every
   TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`
-  and opens it; the status line carries `· N ambiguities` when the tripwire is non-zero.
+  and opens it; the status line carries `· N ambiguities` when the tripwire is non-zero. The report speaks
+  **NINA's TS-UI vocabulary**, since that is where the fix happens: plans are named by *template name* and
+  targets as `project › target`, **never by plan Id**. (This reverses the archived design's D8, which had
+  preferred Ids — `openspec/changes/archive/2026-07-23-ts-ambiguity-report/design.md`; the implementation won.
+  Ids appear only where the name itself is the defect, e.g. duplicate template names.)
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
 - **Status bar:** library path + sync/write-back notes + load time.
@@ -270,6 +280,25 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   shadowing can't work: a `StaticResource` inside a framework `ControlTemplate` resolves within
   `generic.xaml`, not `Application.Resources`). `UpDownBox` (~100 lines, zero template reach) is the
   answer whenever visible spinners must be narrow.
+- **Grid column widths can't live in a `ResourceDictionary`** — there is no implicit `double`→`GridLength`
+  conversion on resource assignment, and `ColumnDefinition` instances can't be shared across grids. That is
+  why the one ruler is an **attached property** (`GridColumns.ApplyRuler`) that stamps definitions in its
+  callback, before children lay out; a template that forgets the attribute fails *loudly* — every cell
+  collapses into column 0 — rather than drifting silently
+  (`openspec/changes/archive/2026-07-24-grid-column-ruler/design.md` D1).
+- **Members shared across row templates go on an abstract base class, not an interface** — `x:Bind` resolves
+  members against each template's concrete `x:DataType`, so the idiomatic C# choice compiles and then fails at
+  bind time (hence `AggregateHeaderRow`, 2026-06-26).
+- **`x:Bind` inside a `DataTemplate` scopes to the row item**, not the page ViewModel — so VM-driven row state
+  must bind at the `ListView` level (how busy-disable works) or via a per-row INPC property swept on each
+  transition (priced and deliberately deferred:
+  `openspec/changes/archive/2026-07-24-busy-gate/design.md` D2).
+- **Imperatively-built cell content must be recycle-safe** — clear and rebuild on every value change, because
+  the grid is a virtualized `ListView` that reuses containers, so a build-once cell goes stale on scroll
+  (`openspec/changes/archive/2026-07-26-badge-severity-color/design.md`). `BadgeRuns.Tokens` is the second
+  instance of the attached-property pattern above: that is how row **state or content** is reached, never
+  `MainWindow` code-behind. The one exception is `NarrowNumberBox_Loaded` — a per-instance *visual* repair for
+  a framework template defect (above), not a content or state write.
 - **`NumberBox`/`TextBox` vertical centering** breaks under a fixed `Height` (the inner ScrollViewer top-aligns).
   Give the box **no fixed `Height`** (let it auto-size; center the box with `VerticalAlignment`) — or template the
   `ContentElement` ScrollViewer to `VerticalAlignment=Center`.
@@ -298,4 +327,17 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).
 8. New **editable field whose value shows in a grid column**? Wire its in-place mirror (an `Apply*` on the row
-   + owner re-aggregation) — the mirror rule above is a hard convention, not polish.
+   + owner re-aggregation) — the mirror rule above is a hard convention, not polish. The invariant it promises
+   is **mirror == reload**, not "the committed value renders literally": `ReconciliationRow.PlanSeconds` uses 0
+   as its own no-seconds marker, so a committed exposure `0` shows `—` on a plan-only row both on commit and
+   after reload (`openspec/changes/archive/2026-07-07-exposure-zero-literal/design.md` D5).
+9. New **handler or binding**? Code-behind handlers are **one-line forwards to the view-model** — never write
+   application state or row content from code-behind (template-centering repairs like `NarrowNumberBox_Loaded`
+   are the documented exception, see *WinUI gotchas*) — and `MainViewModel` holds **zero `Microsoft.UI.*`
+   references**. `x:Bind` is
+   `OneWay` only where state mutates and left at its `OneTime` default for immutable row properties; classic
+   `{Binding}` is never used. The search box's `TextChanged` forward is the deliberate exception — `x:Bind
+   TwoWay` on `TextBox.Text` updates only on focus-loss, which would kill live filtering. Any handler that
+   awaits routes through `UiTask.FireAndLog` — never a bare `async void` or a `_ =` discard (grep invariant:
+   `FireAndLog` is the app's only `async void`; without it an escaping exception crashes the app with nothing
+   in `tsm.log`).
