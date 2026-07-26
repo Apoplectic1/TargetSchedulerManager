@@ -55,12 +55,12 @@ public sealed partial class MainWindow : Window
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
 
     // One press, no confirm: enables/disables target.active by tonight's visibility (toolbar Duration
-    // minutes 15–480 above Horizon whole degrees 0–89), projects follow. InvalidInputOverwritten has
+    // minutes 15–480 above Floor whole degrees 0–89), projects follow. InvalidInputOverwritten has
     // restored any junk input by the time the click lands (the button steals focus first); the round
-    // makes typed decimals whole (horizon is integer degrees by contract).
+    // makes typed decimals whole (the floor is integer degrees by contract).
     private void VisibleTonight_Click(object sender, RoutedEventArgs e) =>
         FireAndLog(() => ViewModel.RunVisibleTonightAsync(
-            TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleHorizon.Value)),
+            TimeSpan.FromMinutes(Math.Round(VisibleDuration.Value)), (int)Math.Round(VisibleFloor.Value)),
             "visible-tonight");
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
@@ -147,10 +147,12 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
-    // WinUI 3 NumberBox can't center its inner input via TextAlignment/HorizontalContentAlignment — the property
-    // doesn't reach the template-internal TextBox (microsoft-ui-xaml#7399 / #2896). Set it on the realized
-    // instance instead. Fires per container realization in the virtualized list; idempotent.
-    private void DesiredBox_Loaded(object sender, RoutedEventArgs e)
+    // Every narrow NumberBox (the grid's Desired cell, the Visible-Tonight knobs) routes here. WinUI 3 can't
+    // center a NumberBox's inner input via TextAlignment/HorizontalContentAlignment — the property doesn't reach
+    // the template-internal TextBox (microsoft-ui-xaml#7399 / #2896) — and that TextBox's own MinWidth otherwise
+    // overflows any narrow Width we set. Fix both on the realized instance. Fires per container realization in
+    // the virtualized list; idempotent.
+    private void NarrowNumberBox_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is NumberBox box && FindDescendant<TextBox>(box) is TextBox input)
         {

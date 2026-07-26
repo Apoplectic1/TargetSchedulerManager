@@ -29,7 +29,7 @@ internal sealed record VisibleTonightProjectPlan(
 /// <summary>
 /// The Visible-tonight pass: reconciles <c>target.active</c> / <c>project.state</c> with tonight's sky.
 /// A target is "visible tonight" iff it has a single contiguous window of at least the caller's minimum
-/// duration above the caller's altitude floor (the toolbar's Duration/Horizon knobs, both defaulting 30)
+/// duration above the caller's altitude floor (the toolbar's Duration/Floor knobs, both defaulting 30)
 /// between tonight's astronomical dusk and dawn — deliberately independent of TS's own per-project
 /// altitude rules, which TS re-applies at plan time. Pure planning: consumes the load's retained
 /// <see cref="TsPlanData"/> rows and returns the edits; the caller applies them through the guarded edit
@@ -58,10 +58,10 @@ internal static class VisibleTonightPass
     /// A processed target has no RA/Dec — a TS contract violation; the pass aborts before any edit.
     /// </exception>
     public static VisibleTonightTargetPlan PlanTargets(
-        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double horizonAltitudeDeg)
+        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double floorAltitudeDeg)
     {
         NightWindow night = NightCalculator.ComputeNight(site, utcNow);
-        ScalarHorizonProfile altitudeFloor = new(horizonAltitudeDeg);
+        ScalarHorizonProfile altitudeFloor = new(floorAltitudeDeg);
 
         List<VisibleTonightEdit> targetEdits = [];
         int enabled = 0, disabled = 0, unchanged = 0;

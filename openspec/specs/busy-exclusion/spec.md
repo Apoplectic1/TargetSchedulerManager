@@ -20,8 +20,8 @@ span — including every point where the operation yields the UI thread.
 - **WHEN** a visible-tonight pass is applying flips and the user clicks Reload
 - **THEN** the reload does not start and no second writer touches the local db
 
-#### Scenario: Second Find click during a pass is refused
-- **WHEN** a visible-tonight pass is running and Find is pressed again
+#### Scenario: Second Tonight click during a pass is refused
+- **WHEN** a visible-tonight pass is running and Tonight is pressed again
 - **THEN** no second pass starts and no flip is journaled twice
 
 #### Scenario: Push during a load is refused
@@ -44,7 +44,7 @@ why. The refusal SHALL be enforced in the view-model edit funnel, independent of
 
 ### Requirement: Edit surfaces are visibly disabled while busy
 While a bulk operation runs, edit-capable surfaces SHALL be visibly disabled: the row grid's interactive
-controls and the busy-sensitive toolbar actions (Find, Reload, Pull now, Push, Templates). Read-only and
+controls and the busy-sensitive toolbar actions (Tonight, Reload, Pull now, Push, Templates). Read-only and
 escape-hatch surfaces SHALL stay enabled: search, view filters, expand/collapse, the ambiguity report,
 and Cancel pull during a pull. Surfaces SHALL re-enable when the operation ends.
 

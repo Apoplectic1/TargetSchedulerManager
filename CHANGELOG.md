@@ -14,6 +14,33 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Visible-Tonight toolbar: up-downs right-sized, **Horizon** knob deep-renamed
+to **Floor**, and the button's `Find` → `Tonight` drift corrected in the docs** (openspec
+`toolbar-floor-knob`; driven by observation `obs-9b52`). **Sizing:** both `NumberBox`es declared
+`MinWidth="0"` but no `Width`, so each measured to template content (~110 px for a 2-digit value — the
+inner `TextBox`'s 64 px `TextControlThemeMinWidth` plus the spinner block). Now `Width="80"` (Duration,
+3-digit budget for 480) and `Width="70"` (Floor, 2-digit for 89), both routed through
+`NarrowNumberBox_Loaded` — the generalized `DesiredBox_Loaded`, now shared by all three narrow boxes;
+zeroing the inner `MinWidth` there is what lets a narrow `Width` take effect at all. Inline spinners kept
+(user decision): the spinner block is template-fixed, so `Compact` placement and a template override were
+both declined to keep the up/down targets real. Toolbar values are now centered, arriving with the shared
+handler per the standing integer-edit-box convention. **Rename:** `VisibleHorizon` → `VisibleFloor`,
+label `"Horizon:"` → `"Floor:"`, `horizonAltitudeDeg` → `floorAltitudeDeg` through
+`RunVisibleTonightAsync` / `VisibleTonightPass.PlanTargets` / all call sites and test arguments, test
+`HorizonAltitudeFloor_GatesLowTargets` → `AltitudeFloor_GatesLowTargets`, plus tooltips and comments.
+Motive: "Horizon" collided with two unrelated horizons in the same files, and *floor* is what the
+implementation always called it (`ScalarHorizonProfile altitudeFloor`, the spec's "altitude floor").
+**Deliberately not renamed** — TS's `usecustomhorizon` / `horizonoffset` columns (external contract) and
+`Astronomy.Core`'s `Horizons` namespace / `ScalarHorizonProfile` / `IsAboveHorizonForAtLeast` plus
+geometric-horizon prose (shared library, different concept); zero `..\Library` edits. **Drift fix:** the
+button's label had been changed `Find` → `Tonight` in the working tree and never committed, leaving eight
+stale "Find" references — corrected in the `visible-tonight-toggle` + `busy-exclusion` specs and
+ARCHITECTURE/DOMAIN/VERIFICATION (user confirmed keeping "Tonight"). DOMAIN's integer-edit-box convention
+now carries both cases (hidden spinners ~40 px vs inline spinners = digits + ~56 px) and names the shared
+handler in WinUI-gotchas + checklist step 6. No behavior change: predicate, ranges, defaults, busy
+exclusion, and journaling untouched. Verified: build clean, App.Tests 235/235; **visual pass pending the
+author's run** (box widths, `480`/`89` fully visible, centered values).
+
 **▶ SHIPPED 2026-07-24 — DiagnosticsWindow thins to the WinUI shell over the Library's new
 `ObservationSession` (AL Diagnostics consolidation; this window was the model the type was lifted
 from).** The observation orchestration — id minting, START/CAP/END/CANCEL sequencing with the

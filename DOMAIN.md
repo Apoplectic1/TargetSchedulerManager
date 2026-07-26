@@ -159,10 +159,18 @@ goal of zero); measured disk-side absence = `0`.
   reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
   `ReadPlanEffectiveSecondsAsync`), not left stale.
-- **Integer edit boxes are ~3 characters wide** (fit 999; ≥ 1000 clips in the box but the full value still
-  commits). Real/decimal fields are exempt — they need room for the ".". Fixed `Width` (~40 px) + trimmed inner
-  padding; the text is **centered in code-behind** (a NumberBox can't center via XAML — see *WinUI gotchas*). The
-  clear (✕) button doesn't appear on these, so there's nothing to suppress.
+- **Integer edit boxes are sized to their digit budget.** Fixed `Width` + trimmed inner padding, text
+  **centered in code-behind** via `NarrowNumberBox_Loaded` (a NumberBox can't center via XAML, and its
+  template-internal `TextBox` `MinWidth` otherwise overflows a narrow `Width` — see *WinUI gotchas*).
+  Real/decimal fields are exempt — they need room for the ".". Two cases:
+  - **No spin buttons** (`SpinButtonPlacementMode="Hidden"` — the grid's Desired cell): **~3 characters,
+    `Width` ~40 px** (fits 999; ≥ 1000 clips in the box but the full value still commits).
+  - **Inline spin buttons** (the Visible-Tonight knobs): the spinner block is **template-fixed (~56 px) and
+    no `Width` shrinks it**, so budget digits *plus* that block — Duration (max 480) `Width="80"`, Floor
+    (max 89) `Width="70"`. Squeezing further means `Compact` placement (spinners hidden behind hover) or a
+    template override; both declined 2026-07-26 to keep the up/down targets real.
+
+  The clear (✕) button doesn't appear on these, so there's nothing to suppress.
 
 ## TS sync (badge · Push · Pull now)
 
@@ -208,7 +216,7 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 ## Chrome
 
 - **Toolbar:** Reload (rescan) · progress ring · Cancel pull (shown only while pulling) · sync badge · Push… ·
-  Pull now · Templates… · Ambiguities… · **Visible Tonight:** (Duration + Horizon up-downs + Find). (The old
+  Pull now · Templates… · Ambiguities… · **Visible Tonight:** (Duration + Floor up-downs + Tonight). (The old
   toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced it.) Ambiguities…
   (enabled once a load exists) writes a dated printable Markdown report of every
   TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`
@@ -231,9 +239,11 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   the implicit route 2026-06-20; it produced uneven columns and was reverted.)
 - **A `NumberBox` can't center its text via XAML.** `TextAlignment` doesn't reach its template-internal TextBox
   (microsoft-ui-xaml [#7399](https://github.com/microsoft/microsoft-ui-xaml/issues/7399) /
-  [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: a `Loaded` handler
-  (`DesiredBox_Loaded`) walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its
-  `Padding`/`MinWidth` so digits fit a narrow box.
+  [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: one shared `Loaded` handler
+  (`NarrowNumberBox_Loaded`, used by every narrow box — the grid's Desired cell and the Visible-Tonight knobs)
+  walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its `Padding`/`MinWidth`
+  so digits fit a narrow box. **Zeroing that `MinWidth` is what makes a narrow `Width` take effect at all** —
+  set `Width` without it and the box stays ~64 px wider than you asked for.
 - **`NumberBox`/`TextBox` vertical centering** breaks under a fixed `Height` (the inner ScrollViewer top-aligns).
   Give the box **no fixed `Height`** (let it auto-size; center the box with `VerticalAlignment`) — or template the
   `ContentElement` ScrollViewer to `VerticalAlignment=Center`.
@@ -254,7 +264,7 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 3. New **state worth flagging**? Add a badge in `BuildRows`, decide whether it sets `IsFlagged`, confirm it bubbles via `RowAggregates`.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical) — don't hard-code.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
-6. New **integer edit box**? ~3 chars wide; center its text in code-behind (NumberBox can't via XAML — see *WinUI gotchas*).
+6. New **integer edit box**? Size it to its digit budget (add ~56 px if it shows inline spin buttons) and wire `Loaded="NarrowNumberBox_Loaded"` — that handler centers the text *and* is what lets a narrow `Width` stick (see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).
 8. New **editable field whose value shows in a grid column**? Wire its in-place mirror (an `Apply*` on the row

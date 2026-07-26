@@ -24,7 +24,7 @@ copy** (`Processing\Catalog\TS Database\schedulerdb.sqlite`) only; `TsSync` pull
 BIRDWATCHER at open (skipped when the persisted baseline says it's unchanged — so rapid test
 relaunches skip the copy) and pushes journaled edits back through the reviewed **Push** button.
 Toolbar: sync badge ("synced HH:mm · N unpushed") · Push… · Pull now · Templates… · Ambiguities… ·
-**Visible Tonight:** (Duration + Horizon up-downs + Find); Reload never pulls. Full toolbar map: `DOMAIN.md` → Chrome.
+**Visible Tonight:** (Duration + Floor up-downs + Tonight); Reload never pulls. Full toolbar map: `DOMAIN.md` → Chrome.
 
 ### Sync flows worth exercising after a sync-layer change
 1. **Fresh pull:** delete `schedulerdb.sqlite.tsm-sync.json` beside the local db → open → status says

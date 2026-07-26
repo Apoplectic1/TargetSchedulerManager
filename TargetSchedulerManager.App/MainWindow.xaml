@@ -133,7 +133,7 @@
                     <TextBlock Grid.Column="8" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
                     <!-- 1:1 plan row's desired, editable in place; focus-loss writes to TS. Width ~3 chars +
-                         centered in code-behind (DesiredBox_Loaded) per the integer-edit-box rule —
+                         centered in code-behind (NarrowNumberBox_Loaded) per the integer-edit-box rule —
                          see DOMAIN.md. Spin buttons hidden; write fires only on a real change. -->
                     <NumberBox Grid.Column="8" Value="{x:Bind DesiredValue}"
                                Visibility="{x:Bind DesiredEditVisibility}"
@@ -141,7 +141,7 @@
                                SpinButtonPlacementMode="Hidden"
                                MinWidth="0" Margin="0" Padding="2,2" VerticalAlignment="Center"
                                Width="40" HorizontalAlignment="Right" HorizontalContentAlignment="Stretch"
-                               Loaded="DesiredBox_Loaded" LostFocus="Desired_Committed"/>
+                               Loaded="NarrowNumberBox_Loaded" LostFocus="Desired_Committed"/>
                     <TextBlock Grid.Column="9" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right"
@@ -260,25 +260,29 @@
                     IsEnabled="{x:Bind ViewModel.CanShowAmbiguities, Mode=OneWay}"
                     ToolTipService.ToolTip="Write + open a printable report of TS/disk ambiguities (what · why · the hand fix in the TS UI)"/>
             <!-- One press, no confirm (user decision): target.active tracks tonight's sky (a single window
-                 of ≥ Duration minutes above Horizon degrees altitude), project.state follows its targets;
+                 of ≥ Duration minutes above Floor degrees altitude), project.state follows its targets;
                  Draft/Closed untouched. Flips are ordinary journaled edits — push stays optional.
-                 Both knobs default 30 (user decision 2026-07-23). -->
+                 Both knobs default 30 (user decision 2026-07-23). Each box is sized to its digit budget
+                 (Duration 3, Floor 2) plus the template-fixed inline spinner block — see DOMAIN.md's
+                 integer-edit-box convention; NarrowNumberBox_Loaded makes the narrow Width stick. -->
             <TextBlock Text="Visible Tonight:" VerticalAlignment="Center" FontWeight="SemiBold"/>
             <TextBlock Text="Duration:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
             <NumberBox x:Name="VisibleDuration" Value="30" Minimum="15" Maximum="480"
                        SmallChange="15" LargeChange="60" SpinButtonPlacementMode="Inline"
                        ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
+                       Width="80" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
                        VerticalAlignment="Center"
-                       ToolTipService.ToolTip="Shortest single above-horizon stretch (minutes, 15–480) that counts as visible tonight"/>
-            <TextBlock Text="Horizon:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
-            <NumberBox x:Name="VisibleHorizon" Value="30" Minimum="0" Maximum="89"
+                       ToolTipService.ToolTip="Shortest single stretch above the Floor (minutes, 15–480) that counts as visible tonight"/>
+            <TextBlock Text="Floor:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
+            <NumberBox x:Name="VisibleFloor" Value="30" Minimum="0" Maximum="89"
                        SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Inline"
                        ValidationMode="InvalidInputOverwritten" MinWidth="0" Padding="4,2"
+                       Width="70" HorizontalContentAlignment="Stretch" Loaded="NarrowNumberBox_Loaded"
                        VerticalAlignment="Center"
                        ToolTipService.ToolTip="Altitude floor (whole degrees, 0–89): the target must climb above this to count as visible"/>
-            <Button Content="Find" Click="VisibleTonight_Click" MinWidth="0"
+            <Button Content="Tonight" Click="VisibleTonight_Click" MinWidth="0"
                     IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                    ToolTipService.ToolTip="Enable targets with a ≥ Duration-minute stretch above Horizon tonight, disable the rest; a project with no enabled targets goes Inactive (Draft/Closed skipped)"/>
+                    ToolTipService.ToolTip="Enable targets with a ≥ Duration-minute stretch above the Floor tonight, disable the rest; a project with no enabled targets goes Inactive (Draft/Closed skipped)"/>
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,10,0,8">

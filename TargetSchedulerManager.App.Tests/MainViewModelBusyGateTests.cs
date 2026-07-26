@@ -106,14 +106,14 @@ public class MainViewModelBusyGateTests
         vm.SetLoadForTest(Load(NeverRisesInactiveTarget()));   // deterministic zero-flip pass
         ReconciliationRow row = Make.Leaf(target: "A", desired: 10, planTsKey: "ep-1");
 
-        Task pass = vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), horizonAltitudeDeg: 0);
+        Task pass = vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), floorAltitudeDeg: 0);
         Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));    // the batch's editor session is open
 
         Assert.True(vm.IsLoading);                             // the pass holds the exclusion…
         Assert.False(vm.CanEdit);
         Assert.False(await vm.SetPlanDesiredAsync(row, 25));   // …so row edits are refused…
 
-        Task second = vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), horizonAltitudeDeg: 0);
+        Task second = vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), floorAltitudeDeg: 0);
         Assert.True(second.IsCompleted);                       // …and a second pass is refused outright
         Assert.Equal(1, opens);                                // no second editor session
 
@@ -137,7 +137,7 @@ public class MainViewModelBusyGateTests
         MainViewModel vm = new(new TsEditGate(sync, _ => ed));
         vm.SetLoadForTest(Load(CircumpolarDisabledTargetInInactiveProject()));
 
-        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), horizonAltitudeDeg: 0);
+        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), floorAltitudeDeg: 0);
 
         Assert.True(sync.Journal.IsEmpty);                        // no orphaned project.state edit
         Assert.Contains("1 FAILED", vm.StatusText);               // the refused target flip is reported
@@ -150,7 +150,7 @@ public class MainViewModelBusyGateTests
     {
         MainViewModel vm = new(Gate(new StubEditor()));
 
-        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), horizonAltitudeDeg: 0);
+        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), floorAltitudeDeg: 0);
 
         Assert.Equal("no load yet — nothing to reconcile", vm.StatusText);
         Assert.False(vm.IsLoading);               // the early return released the exclusion

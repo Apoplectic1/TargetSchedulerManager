@@ -303,15 +303,20 @@ stays minimal and cleanly deletable. Load-bearing invariants (full spec in `ROAD
 
 ## Visible-tonight pass (toolbar group; shipped 2026-07-23)
 
-A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, default 30) and **Horizon**
-(whole degrees, 0–89, default 30) numeric up-downs + a **Find** button (it replaced the toolbar's old
+A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, default 30) and **Floor**
+(whole degrees, 0–89, default 30) numeric up-downs + a **Tonight** button (it replaced the toolbar's old
 load-summary text, removed same day). One press reconciles the enable state with tonight's sky — no
-confirm dialog (user decision: "this is why it's a button"), push stays optional.
+confirm dialog (user decision: "this is why it's a button"), push stays optional. Each up-down is sized to
+its digit budget (Duration 3, Floor 2) plus the template-fixed inline spinner block — `DOMAIN.md` →
+*integer edit boxes*. The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
+and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 
 - **Predicate (deliberately TS-independent):** a target is *visible tonight* iff it has a **single
-  contiguous window ≥ Duration** above the **Horizon altitude floor** between tonight's astronomical
+  contiguous window ≥ Duration** above the **Floor altitude** between tonight's astronomical
   dusk and dawn — one library call,
-  `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(horizonDeg), minDuration)`.
+  `CoarseVisibility.IsAboveHorizonForAtLeast(target, site, night, ScalarHorizonProfile(floorDeg), minDuration)`
+  (the library keeps its own horizon-profile vocabulary — only the TSM-side knob is named Floor).
   TS's own gates (`minimumaltitude`, custom horizon/offset, `minimumtime`, twilight levels) are **not**
   consulted — TS re-applies them itself at plan time; a rejected earlier draft that mirrored the TS gate
   (and promoted TP's `.hrz` parser into the library) was reverted 2026-07-23. "Tonight" is
@@ -333,4 +338,4 @@ confirm dialog (user decision: "this is why it's a button"), push stays optional
   without RA/Dec aborts the whole pass **before any edit**.
 - **Site input:** `DevDefaults` constants (Penns Park lat/long/TZ/elevation, mirroring TP's preset)
   materialized by `DevDefaults.Site()` — the app's first `Astronomy.Core` dependency (pure-managed; build
-  model unchanged). The Duration/Horizon knobs live only on the toolbar — no `DevDefaults` constants.
+  model unchanged). The Duration/Floor knobs live only on the toolbar — no `DevDefaults` constants.

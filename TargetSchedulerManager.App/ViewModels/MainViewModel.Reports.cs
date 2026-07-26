@@ -88,14 +88,14 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>The Visible-Tonight Find button: reconciles <c>target.active</c> / <c>project.state</c>
+    /// <summary>The Visible-Tonight button: reconciles <c>target.active</c> / <c>project.state</c>
     /// with tonight's sky — visible = a single contiguous window of at least <paramref name="minDuration"/>
-    /// above <paramref name="horizonAltitudeDeg"/> at the DevDefaults site (see
+    /// above <paramref name="floorAltitudeDeg"/> at the DevDefaults site (see
     /// <see cref="VisibleTonightPass"/>; both knobs come from the toolbar, defaults 30 min / 30°).
     /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flip
     /// journals like a hand edit), reloads without a pull so the grid shows the flips + marks, then
     /// reports the counts on the status line.</summary>
-    public async Task RunVisibleTonightAsync(TimeSpan minDuration, double horizonAltitudeDeg)
+    public async Task RunVisibleTonightAsync(TimeSpan minDuration, double floorAltitudeDeg)
     {
         if (!TryBeginBusy())
             return;
@@ -114,7 +114,7 @@ public sealed partial class MainViewModel
             try
             {
                 targetPlan = VisibleTonightPass.PlanTargets(
-                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, horizonAltitudeDeg);
+                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, floorAltitudeDeg);
             }
             catch (Exception ex)
             {
