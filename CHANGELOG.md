@@ -67,10 +67,23 @@ constraint — worth remembering for the next sweep. Round 6 closed it out: both
 (dry), and a **verification worker auditing the applied diff against the source** caught one overstated
 citation, which is the round that earned its keep.
 
-**Open structural question, deliberately not decided here:** `ARCHITECTURE.md` is 38 KB and this sweep added
-to it three times, against the rule that says split before you stuff. Its four feature sections (sync model ·
-sync-direction marks · write-back · visible-tonight) are **61 % of the file** and each already has a parallel
-formal contract under `openspec/specs/`. Left as the author's call.
+**And then the split the sweep argued for — `SUBSYSTEMS.md`, a fifth reference doc.** The sweep had added to
+`ARCHITECTURE.md` three times against its own "split before you stuff" rule, so the question went to the
+author, who took the full split. The four feature sections moved **verbatim** (sync model 8.9 KB ·
+sync-direction marks 5.1 KB · write-back 5.7 KB · visible-tonight 3.7 KB): **`ARCHITECTURE.md` 38.6 → 16.1 KB**,
+`SUBSYSTEMS.md` 25.4 KB. The justification is charter, not size — "how is the system designed and what must
+stay true" is a different question from "how does this subsystem behave", and the second was 61 % of a file
+whose charter claims the first. Each moved section already had a parallel formal contract under
+`openspec/specs/`, so both files now table that pairing explicitly. `ARCHITECTURE.md` → *Key facts* keeps the
+one-line invariant mirrors and ends with a routing table; six live cross-refs re-pointed (CLAUDE router,
+DOMAIN ×2, ROADMAP ×3) and five in-file "see below" forward refs rewritten. The archived records under
+`docs/archive/` and `openspec/changes/archive/` keep their historical `ARCHITECTURE.md` wording on purpose.
+
+The move surfaced a **pre-existing mutual-pointer loop**: the write-back section said "full spec in
+`ROADMAP.md` Phase 4" while Phase 4 said the spec was single-sourced in the section pointing at it. Neither
+doc owned it. Now the section names `openspec/specs/write-back/` as the formal contract and says plainly that
+Phase 4 is the plan entry — a defect that had survived every prior audit because each half looked correct
+from the other side.
 
 ---
 

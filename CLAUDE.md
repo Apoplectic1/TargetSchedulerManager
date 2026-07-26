@@ -22,7 +22,10 @@ under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` 
 ## Docs — where to look (this file routes)
 
 Reference docs (current truth — update in the same commit as the code):
-- **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants.
+- **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants. Read it first.
+- **`SUBSYSTEMS.md`** — the four long-running machines in detail: TS sync model · sync-direction marks ·
+  TS write-back · visible-tonight pass. Carved out of `ARCHITECTURE.md` 2026-07-26; each pairs with a formal
+  contract under `openspec/specs/`.
 - **`CONVENTIONS.md`** — how code is written and **where it goes**: the one-plausible-home map, invariants-at-
   the-enforcement-point, single-forward-pass flows, the view/VM seam, the `FireAndLog` async rule. Read before
   choosing a file to edit.
@@ -82,7 +85,7 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   epoch/state/priority codes to a safe default and clamps planned RA/Dec, so one bad external TS row can't abort
   the rebuild.
 - **Single writer + WAL** — one writer per db: TSM's in-app editor owns the **local** TS copy (BIRDWATCHER's db
-  is written only inside the reviewed push replay — `TsSync`, see `ARCHITECTURE.md`'s sync-model section),
+  is written only inside the reviewed push replay — `TsSync`, see `SUBSYSTEMS.md` → *TS sync model*),
   `Catalog.db`'s builder (future LCM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
   over network shares (relevant if a consumer runs on another PC).
 - **Busy exclusion** — bulk operations (load, pull, push, visible-tonight) are mutually exclusive via

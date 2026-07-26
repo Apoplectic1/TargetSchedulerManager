@@ -41,7 +41,7 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   project edit marks the **parent only**, never panels; disk-plane leaves are structurally blank (marks key on
   the plan; target/project changes mark the header). Tooltip: per-field `old → new` on leaves, direction
   counts on headers. Cleared: `→` by Push/Discard; `←` at the next open's pull. (Mechanics:
-  `ARCHITECTURE.md` → *Sync-direction marks*.) The `←`/`→`/`⇄` set is the app's **one sync vocabulary and is
+  `SUBSYSTEMS.md` → *Sync-direction marks*.) The `←`/`→`/`⇄` set is the app's **one sync vocabulary and is
   not grid-only**: the same marks lead every field row of the schema-generated flyouts (a blank mark still
   reserves its slot so labels stay aligned) and tag each item in the Templates… picker (2026-07-26, openspec
   `flyout-field-marks` / `template-change-marks`).
@@ -157,7 +157,7 @@ goal of zero); measured disk-side absence = `0`.
 - **Cadence-breaking edits write directly - no confirm (user decision 2026-07-07):** plan `enabled` (checkbox
   on 1:1 filter rows + flyout) and project `filterswitchfrequency` (project flyout) commit like any field.
   Safety is structural, not dialog-based — the library clears the invalidated `filtercadenceitem` rows in the
-  same transaction as the write (mechanism: `ARCHITECTURE.md` → *TS write-back* + the `TsEditGate` paragraph; the
+  same transaction as the write (mechanism: `SUBSYSTEMS.md` → *TS write-back* + `ARCHITECTURE.md`'s `TsEditGate` paragraph; the
   cadence-clear scope contract is specced in `openspec/specs/per-filter-enabled-editing`). **Scope caveat:** a hand-authored
   override exposure order blocks only a **target-scope** clear (plan `enabled`); a **project-scope**
   `filterswitchfrequency` edit clears cadence for every target under the project and does **not** check for an

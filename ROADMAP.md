@@ -103,7 +103,7 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
   work is the ISP transition, not more TS-editing surface.
 - **Hazards (resolved):** cadence-breaking edits (filterSwitchFrequency, ditherEvery, plan `enabled`) now clear
   the invalidated `filtercadenceitem` rows in the same transaction as the write (lifted from TS's
-  `SchedulerDatabaseContext`; mechanism in `ARCHITECTURE.md` → *TS write-back* + `DOMAIN.md` → *Editing*). The
+  `SchedulerDatabaseContext`; mechanism in `SUBSYSTEMS.md` → *TS write-back* + `DOMAIN.md` → *Editing*). The
   name-round-trip hazard is moot — `name`/RA/Dec/`epoch` are excluded from the editable surface, so no name edit
   exists to re-validate.
 
@@ -113,12 +113,12 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
 back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/ISP reads `Catalog.db` directly —
 minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
 tests). Verb was `tcm writeback [--apply]` (dry-run default; CLI removed 2026-06-11 — the engine now runs as
-the app's automatic write-back + push replay, see `ARCHITECTURE.md` → TS write-back).
+the app's automatic write-back + push replay, see `SUBSYSTEMS.md` → TS write-back).
 
 The full write-back contract — cached-columns-only writes (`acquired`=`accepted`=disk, `desired` ratchets up
 only), disk-wins one-way conflict, the `(target, filter, purpose, seconds)` join, manual-bucket gating, the
 open-sidecar / read-only / private-cache guards, and the surgical single-target (`--target "<dir>"`, per-panel
-for mosaics) path — is the load-bearing spec in **`ARCHITECTURE.md` → TS write-back** (single-sourced there;
+for mosaics) path — is the load-bearing spec in **`SUBSYSTEMS.md` → TS write-back** (single-sourced there;
 don't re-document the mechanism here). The 2026-06-08 real-data validation run (182 written / 13 held / 92
 ignored-missing, the `Sh2-142` fix, the `Mosaic - Cygnus Loop` surgical run) is recorded in `CHANGELOG.md`.
 - ~~**Out of scope (later phase):** automated network push of the local copy back to the imaging PC~~ —
