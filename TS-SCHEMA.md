@@ -38,8 +38,9 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
   (both come from `TargetResolver.Provenance`, which returns the TS guid and falls back to the `Id`-string only
   when TS supplies none); `ExposurePlan` and `ExposureTemplate` = the TS integer `Id` as a string (manual
   `PlanTsKey` and write-back `TsExposurePlanId` share one space). All key compares are **case-insensitive**.
-  Getting a key space wrong makes a mark or journal lookup *silently miss* rather than fail — see the open
-  `TsInboundDiff` project-key defect in `ROADMAP.md` → *Carried forward*.
+  Getting a key space wrong makes a mark or journal lookup *silently miss* rather than fail — which is exactly
+  how `TsInboundDiff` keyed projects by `Id` unnoticed until 2026-07-26; a guid-keyed regression test now pins
+  it (`TsInboundDiffTests.PullDiff_ProjectChange_IsKeyedByGuid_NotId`).
 - **Units:** `target.ra` is **hours** (0–24); `target.dec` degrees. `exposureplan.exposure` / `defaultexposure`
   seconds; `exposure = -1` is the **use-template-default sentinel** (rendered by TSM's sentinel checkbox). The
   template columns `gain` / `offset` / `readoutmode` carry the same `-1` convention meaning **use-camera-default**

@@ -14,6 +14,23 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — `TsInboundDiff` keyed projects by `Id`; project `←` marks silently never resolved**
+— found by the docs graduate-and-prune sweep while graduating the journal/mark key spaces into `TS-SCHEMA.md`
+(the doc claim was written wrong first, and checking it against code surfaced the bug). Project journal and
+mark keys are the TS **guid** — `TargetResolver.Provenance` returns `tsGuid ?? Id`, and NINA mints a guid in
+the project ctor, so in practice always the guid — but `TsInboundDiff.FieldSet` selected `Id` as the project
+key column. Inbound project changes were therefore stored under an `Id`-string and looked up by guid
+(`MarkResolver.ForField` ← `MainWindow.Flyouts.cs`): a **silent miss**, never a throw. Outbound `→` was
+unaffected (journal and lookup both use the guid) and project *editing* worked either way, because
+`TargetSchedulerEditor` resolves guid-or-Id — which is why the defect survived unnoticed. Fix: `FieldSet`'s
+Project entry → `"guid"` (its in-code comment had asserted the wrong space too). **Why no test caught it:**
+`TsInboundDiffTests`' fixture db had no `guid` column on `project` and had *no project diff test at all*,
+while `SyncMarksTests` used a `"7"` project fixture — both encoded the same wrong assumption. Added
+`PullDiff_ProjectChange_IsKeyedByGuid_NotId` (verified failing against the old code before the fix), gave the
+fixture its `guid` column, and moved the marks fixture to a guid key. 279 tests green.
+
+---
+
 **▶ SHIPPED 2026-07-26 — Template `ditherevery` gains its −1 sentinel ("project default")** — found by
 side-by-side comparison against TS 5.10.3's own UI (which shows "(Project)" where TSM showed a raw −1).
 In TS, template `DitherEvery = −1` defers to the project's dither setting (`DitherManager` tests `>= 0`;

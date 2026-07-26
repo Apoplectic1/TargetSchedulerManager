@@ -44,6 +44,25 @@ public class TsInboundDiffTests
     }
 
     [Fact]
+    public void PullDiff_ProjectChange_IsKeyedByGuid_NotId()
+    {
+        // The key space must match TargetResolver.Provenance (the TS guid), which is what the flyout and the
+        // journal look marks up by. Keying projects by Id here made project ← marks silently never resolve.
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetProject(sync.RemotePath, id: 7, guid: "guid-P", minimumAltitude: 30);
+        sync.Pull(sync.ProbeRemote()!);
+
+        Exec(sync.RemotePath, "UPDATE project SET minimumaltitude = 45 WHERE Id = 7;");
+        sync.Pull(sync.ProbeRemote()!);
+
+        TsInboundChange change = Assert.Single(sync.Inbound.Snapshot());
+        Assert.Equal(TsTable.Project, change.Table);
+        Assert.Equal("guid-P", change.Key);          // the guid — never "7"
+        Assert.Equal("minimumaltitude", change.Column);
+    }
+
+    [Fact]
     public void IdenticalPull_RecordsNothing()
     {
         TsSync sync = SyncTestEnv.NewSync(out _);
@@ -205,7 +224,7 @@ public class TsInboundDiffTests
         + "CREATE TABLE IF NOT EXISTS exposureplan (Id INTEGER PRIMARY KEY, exposure REAL, desired INTEGER, acquired INTEGER, accepted INTEGER, exposureTemplateId INTEGER, enabled INTEGER);"
         + "CREATE TABLE IF NOT EXISTS project (Id INTEGER PRIMARY KEY, state INTEGER, priority INTEGER, minimumtime INTEGER, minimumaltitude REAL, maximumaltitude REAL,"
         + " usecustomhorizon INTEGER, horizonoffset REAL, meridianwindow INTEGER, ditherevery INTEGER, enablegrader INTEGER, smartexposureorder INTEGER,"
-        + " flatshandling INTEGER, filterswitchfrequency INTEGER);"
+        + " flatshandling INTEGER, filterswitchfrequency INTEGER, guid TEXT);"
         + "CREATE TABLE IF NOT EXISTS exposuretemplate (Id INTEGER PRIMARY KEY, name TEXT, filtername TEXT, gain INTEGER, offset INTEGER, bin INTEGER,"
         + " defaultexposure REAL, moonavoidanceenabled INTEGER, moonavoidanceseparation REAL);");
 
@@ -218,6 +237,12 @@ public class TsInboundDiffTests
         $"INSERT INTO exposureplan (Id, exposure, desired, acquired, accepted, exposureTemplateId, enabled)"
         + $" VALUES ({id}, 300.0, {desired}, 0, 0, 1, 1)"
         + $" ON CONFLICT(Id) DO UPDATE SET desired = {desired};");
+
+    private static void SetProject(string path, long id, string guid, int minimumAltitude) => Exec(path,
+        $"INSERT INTO project (Id, state, priority, minimumtime, minimumaltitude, maximumaltitude, usecustomhorizon,"
+        + $" horizonoffset, meridianwindow, ditherevery, enablegrader, smartexposureorder, flatshandling, filterswitchfrequency, guid)"
+        + $" VALUES ({id}, 1, 1, 30, {minimumAltitude}, 90, 0, 0, 0, 0, 0, 0, 0, 1, '{guid}')"
+        + $" ON CONFLICT(Id) DO UPDATE SET minimumaltitude = {minimumAltitude};");
 
     private static void SetTarget(string path, string guid, string name, int active, double? rotation = null) => Exec(path,
         $"INSERT INTO target (Id, name, active, ra, dec, rotation, priority, guid)"

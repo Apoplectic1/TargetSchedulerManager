@@ -39,15 +39,6 @@ deferred with the M2 work, never re-raised by the 2026-07-24 reviews — it fell
 threading the token through reader + resolver, or drop the parameter so the signature stops promising what it
 can't deliver.
 
-**Carried forward — `TsInboundDiff` project key space (found 2026-07-26, code fix not applied).** Project
-journal/mark keys are the TS **guid** (`TargetResolver.Provenance` returns `tsGuid ?? Id`, and NINA always mints
-a project guid), but `TsInboundDiff.FieldSet` keys `Project` by `"Id"`. So a project-scope inbound `←` is stored
-under an `Id`-string and looked up by guid (`MarkResolver.ForField` from `MainWindow.Flyouts.cs`) — it **silently
-misses**, never throws. Outbound `→` is unaffected (journal and lookup both use the guid), and project *editing*
-works either way because `TargetSchedulerEditor` resolves guid-or-Id — which is why nothing surfaced it.
-`SyncMarksTests` encodes the same wrong assumption (a `"7"` project fixture), so the suite cannot catch it.
-Fix: `FieldSet`'s Project entry → `"guid"`, correct its in-code comment, and move the test fixture to a guid.
-
 **Held for a conventions split (2026-07-26 docs sweep).** One standing truth was adjudicated *worth keeping but
 not placed*, because both natural targets are already large (`ARCHITECTURE.md` ~38 KB, `DOMAIN.md` ~30 KB) and
 the sweep rule is "split before you stuff": the codebase's **code-siting doctrine** — (a) one plausible home per

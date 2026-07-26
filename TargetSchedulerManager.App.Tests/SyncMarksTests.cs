@@ -340,11 +340,12 @@ public class SyncMarksTests
     public void ProjectEdit_MarksTheProjectKeyHolder_NotThePanelCall_AndIsAttributed()
     {
         TsJournal journal = NewJournal();
-        journal.Append(TsEditKind.Manual, TsTable.Project, "7", "minimumaltitude", 45, "30", "Nebulae - Above 45");
+        // Project keys are guids (TargetResolver.Provenance), not the integer Id.
+        journal.Append(TsEditKind.Manual, TsTable.Project, "guid-P", "minimumaltitude", 45, "30", "Nebulae - Above 45");
         SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), Graph(
-            projects: [ProjectRow("7", "Nebulae - Above 45")]));
+            projects: [ProjectRow("guid-P", "Nebulae - Above 45")]));
 
-        (string glyph, string? tooltip) = marks.ForKeys([], projectKey: "7", []);      // the parent header
+        (string glyph, string? tooltip) = marks.ForKeys([], projectKey: "guid-P", []); // the parent header
         Assert.Equal(SyncMarks.Out, glyph);
         Assert.Contains("→ unpushed — project 'Nebulae - Above 45': minimumaltitude 30 → 45", tooltip);
         Assert.Equal("", marks.ForKeys(["panel-guid"], projectKey: null, []).Glyph);   // panels pass no project key
