@@ -34,5 +34,5 @@
 
 - [x] 5.1 Build + full test run clean; report build/test status separately from visual status.
 - [x] 5.2 Commit code + specs + docs together (one commit, per the docs-are-load-bearing rule).
-- [ ] 5.3 Hand off for the author's visual pass: both boxes narrow with usable spinners, `480` and `89` fully visible, values now centered, label reads "Floor:", Tonight still runs the pass. **Do not run or screenshot the app unprompted.**
-- [ ] 5.4 After the author confirms visually, archive the change (`/opsx:archive`).
+- [x] 5.3 Hand off for the author's visual pass: both boxes narrow with usable spinners, `480` and `89` fully visible, values now centered, label reads "Floor:", Tonight still runs the pass. **Do not run or screenshot the app unprompted.**
+- [x] 5.4 After the author confirms visually, archive the change (`/opsx:archive`).
