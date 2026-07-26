@@ -30,7 +30,7 @@ Reference docs (current truth — update in the same commit as the code):
 
 Journal (dated capture — `glob docs/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `NOTEBOOK.md` (running lab notebook of small findings) + `CHANGELOG.md` (shipped-history journal, newest first — the full history behind ROADMAP's current-status summary).
 
-Scope-excluded (not this project's docs): `.claude/`, `openspec/`, `.superpowers/` (tooling), `bin`/`obj` (generated). `..\Library` is a separate repo with its own docs.
+Scope-excluded (not this project's docs): `.claude/`, `openspec/` (tooling), `bin`/`obj` (generated). `..\Library` is a separate repo with its own docs.
 
 ## Two-repo layout
 
