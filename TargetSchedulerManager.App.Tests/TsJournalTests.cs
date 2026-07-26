@@ -31,8 +31,97 @@ public class TsJournalTests
         Assert.Equal(TsEditKind.Manual, reloaded.Entries[0].Kind);
 
         // Seq continues after reload — no reuse.
-        TsJournalEntry next = reloaded.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "A");
+        TsJournalEntry next = reloaded.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "A")!;
         Assert.Equal(5, next.Seq);
+    }
+
+    // ---- net-no-op pruning (noop-edit-pruning) ------------------------------------------------------------
+
+    [Fact]
+    public void RevertToBaseline_PrunesTheField_EverywhereTheJournalIsRead()
+    {
+        string path = NewPath();
+        TsJournal journal = new(path);
+        Assert.NotNull(journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 1, "0", "H900"));
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
+        Assert.Equal(2, journal.CollapsedCount);
+
+        // Back to the baseline (the FIRST old, 0) — the field resolves clean, the other survives.
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 0, "1", "H900"));
+        Assert.Equal(1, journal.CollapsedCount);
+        Assert.DoesNotContain(journal.Entries, e => e.Table == TsTable.ExposureTemplate);
+        Assert.Single(journal.Collapse());
+
+        Assert.Equal(1, new TsJournal(path).CollapsedCount);   // the prune rewrote the sidecar too
+    }
+
+    [Fact]
+    public void FirstTouchSameValue_JournalsNothing()
+    {
+        // The editor verifies a same-value write without writing; the journal must not invent an edit.
+        TsJournal journal = new(NewPath());
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 20, "20", "A · H"));
+        Assert.True(journal.IsEmpty);
+        Assert.Equal(0, journal.CollapsedCount);
+    }
+
+    [Fact]
+    public void RevertRoundTrip_EmptiesTheJournal_AndDeletesTheSidecar()
+    {
+        string path = NewPath();
+        TsJournal journal = new(path);
+        journal.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 0, "1", "A");
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "A"));
+
+        Assert.True(journal.IsEmpty);
+        Assert.False(File.Exists(path));   // empty journal = no sidecar = clean open, no dirty prompt
+    }
+
+    [Fact]
+    public void BaselineIsTheFirstOld_AcrossManyWrites()
+    {
+        // 10 → 25 → 30 → back to 10: only the full round-trip to the FIRST old prunes.
+        TsJournal journal = new(NewPath());
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "10", "A · H");
+        Assert.NotNull(journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 30, "25", "A · H"));
+        Assert.Equal(1, journal.CollapsedCount);   // intermediate values are not the baseline
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 10, "30", "A · H"));
+        Assert.True(journal.IsEmpty);
+    }
+
+    [Fact]
+    public void PushResetsTheBaseline_ToThePushedValue()
+    {
+        TsJournal journal = new(NewPath());
+        TsJournalEntry pushed = journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H")!;
+        journal.CommitPush([TsJournal.FieldKey(pushed)], pushed.Seq);
+        Assert.True(journal.IsEmpty);
+
+        // 25 is now the value the field holds; editing away and back to 25 nets clean — 20 no longer matters.
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 40, "25", "A · H");
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "40", "A · H"));
+        Assert.True(journal.IsEmpty);
+    }
+
+    [Fact]
+    public void ReloadedSidecar_KeepsBaselines_SoARevertAfterRestartStillPrunes()
+    {
+        string path = NewPath();
+        new TsJournal(path).Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 0, "1", "A");
+
+        TsJournal reloaded = new(path);   // the app restarted with an unpushed edit
+        Assert.Null(reloaded.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "A"));
+        Assert.True(reloaded.IsEmpty);
+    }
+
+    [Fact]
+    public void WholeValuedDouble_ComparesEqualToItsBaselineText()
+    {
+        // Canonicalize folds 300.0 → 300L; the baseline text "300" must still match (the one text rule).
+        TsJournal journal = new(NewPath());
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "exposure", 600.0, "300", "A · H");
+        Assert.Null(journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "exposure", 300.0, "600", "A · H"));
+        Assert.True(journal.IsEmpty);
     }
 
     [Fact]
@@ -93,7 +182,7 @@ public class TsJournalTests
         string path = NewPath();
         TsJournal journal = new(path);
         journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 25, "20", "A · H");
-        TsJournalEntry keep = journal.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "B");
+        TsJournalEntry keep = journal.Append(TsEditKind.Manual, TsTable.Target, "g-1", "active", 1, "0", "B")!;
 
         journal.ReplaceAll([keep]);
         Assert.Equal(1, journal.Count);

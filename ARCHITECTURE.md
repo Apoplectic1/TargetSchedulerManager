@@ -178,6 +178,13 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   a **process** crash; an OS/power failure can lose the final line, and nothing here can close that (the
   SQLite commit and the journal append are two separate durability events, never atomic). The loss mode is
   bounded: the local db still holds the write, only its replay at push is lost.
+  *Net-no-op pruning (2026-07-26):* the journal never retains a field whose value returned to its
+  **baseline** (the first journaled old since the last push, remembered per field) — such a write prunes
+  the field's entries instead of appending, and a first-touch same-value commit journals nothing (the
+  editor verifies those without writing). One producer-side rule, so every consumer heals at once: marks
+  on all surfaces, the unpushed count, the push review/replay (no no-op writes — which for cadence-clearing
+  fields would clear remote cadence for nothing), and the dirty-open prompt. Inbound facts are a separate
+  store, so a field's pre-edit `←` survives the round-trip.
 - **Push = journal replay, never a file copy.** A file push is a time machine — it would revert everything
   BIRDWATCHER accrued since the pull (NINA's nightly counts, `acquiredimage` history, XFM's grades). Instead
   the collapsed journal (last write per field, first write's old for review) replays: **write-back entries**

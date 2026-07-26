@@ -89,9 +89,9 @@ public class MainViewModelMarkTests
             Make.Leaf(target: "A", filter: "H", planTsKey: "ep-1", tsTargetKey: "guid-A"),
             Make.Leaf(target: "A", filter: "O", planTsKey: "ep-2", tsTargetKey: "guid-A"));
         TsJournalEntry applied = sync.Journal.Append(
-            TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 12, "10", "A · H");
+            TsEditKind.Manual, TsTable.ExposurePlan, "ep-1", "desired", 12, "10", "A · H")!;
         TsJournalEntry failed = sync.Journal.Append(
-            TsEditKind.Manual, TsTable.ExposurePlan, "ep-2", "desired", 9, "5", "A · O");
+            TsEditKind.Manual, TsTable.ExposurePlan, "ep-2", "desired", 9, "5", "A · O")!;
 
         sync.Journal.CommitPush([TsJournal.FieldKey(applied)], failed.Seq);   // ep-2 failed and was retained
         vm.RefreshAllMarks();

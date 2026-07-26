@@ -56,6 +56,9 @@ internal sealed class TsJournal
     // Distinct field keys, maintained under _lock — so the badge's collapsed count is two field reads
     // instead of a full Collapse() (dictionaries + sort) on the UI thread per sync-state raise (review N2).
     private readonly HashSet<string> _fieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    // Each field's baseline: the FIRST journaled Old since the last push — the value a later write must
+    // equal for the field to prune back to clean (noop-edit-pruning). Rebuilt with _fieldKeys everywhere.
+    private readonly Dictionary<string, string?> _baselineOld = new(StringComparer.OrdinalIgnoreCase);
     private long _nextSeq = 1;
 
     public TsJournal(string path)
@@ -88,15 +91,31 @@ internal sealed class TsJournal
     }
 
     /// <summary>Appends one verified write, flushed to the OS before it appears in <see cref="Entries"/> —
-    /// survives a process crash; see the class doc for the honest OS/power-loss boundary.</summary>
-    public TsJournalEntry Append(TsEditKind kind, TsTable table, string key, string column, object? value, string? old, string label)
+    /// survives a process crash; see the class doc for the honest OS/power-loss boundary.
+    /// <para>Net-no-op pruning: a write whose value equals the field's baseline (the first journaled Old
+    /// since the last push, or this write's own <paramref name="old"/> on first touch) resolves the field
+    /// back to clean — its entries are pruned (crash-safe rewrite) and null is returned, so no surface
+    /// reading the journal ever sees a net-no-op field. Equality is the one invariant display-text rule;
+    /// a formatting mismatch fails safe to retention.</para></summary>
+    public TsJournalEntry? Append(TsEditKind kind, TsTable table, string key, string column, object? value, string? old, string label)
     {
         lock (_lock)
         {
-            TsJournalEntry entry = new(_nextSeq++, kind, table, key, column, Canonicalize(value), old, label, DateTimeOffset.Now);
+            object? canonical = Canonicalize(value);
+            string field = $"{table}|{key}|{column}";
+            string? baseline = _baselineOld.TryGetValue(field, out string? first) ? first : old;
+            if (string.Equals(TsValueText.From(canonical), baseline, StringComparison.Ordinal))
+            {
+                if (_fieldKeys.Contains(field))
+                    ReplaceAllLocked([.. _entries.Where(e => !FieldKey(e).Equals(field, StringComparison.OrdinalIgnoreCase))]);
+                return null;   // reverted to baseline (or first-touch same-value): nothing to push
+            }
+
+            TsJournalEntry entry = new(_nextSeq++, kind, table, key, column, canonical, old, label, DateTimeOffset.Now);
             File.AppendAllText(_path, JsonSerializer.Serialize(entry, Options) + Environment.NewLine);
             _entries.Add(entry);
-            _fieldKeys.Add(FieldKey(entry));
+            if (_fieldKeys.Add(field))
+                _baselineOld[field] = old;
             return entry;
         }
     }
@@ -157,9 +176,7 @@ internal sealed class TsJournal
     {
         _entries.Clear();
         _entries.AddRange(entries.OrderBy(e => e.Seq));
-        _fieldKeys.Clear();
-        foreach (TsJournalEntry e in _entries)
-            _fieldKeys.Add(FieldKey(e));
+        RebuildIndexesLocked();
         if (_entries.Count == 0)
         {
             File.Delete(_path);
@@ -168,6 +185,17 @@ internal sealed class TsJournal
         string tmp = _path + ".tmp";
         File.WriteAllLines(tmp, _entries.Select(e => JsonSerializer.Serialize(e, Options)));
         File.Move(tmp, _path, overwrite: true);
+    }
+
+    // The derived per-field indexes (badge count + pruning baselines), recomputed from _entries wholesale —
+    // the FIRST entry's Old per field is its baseline (matching Collapse()'s firstOld).
+    private void RebuildIndexesLocked()
+    {
+        _fieldKeys.Clear();
+        _baselineOld.Clear();
+        foreach (TsJournalEntry e in _entries)
+            if (_fieldKeys.Add(FieldKey(e)))
+                _baselineOld[FieldKey(e)] = e.Old;
     }
 
     private void Load()
@@ -195,8 +223,7 @@ internal sealed class TsJournal
             }
         }
         _nextSeq = _entries.Count == 0 ? 1 : _entries.Max(e => e.Seq) + 1;
-        foreach (TsJournalEntry e in _entries)
-            _fieldKeys.Add(FieldKey(e));
+        RebuildIndexesLocked();
     }
 
     // One canonical box per value shape — whole numbers as long (including whole-valued doubles: JSON writes

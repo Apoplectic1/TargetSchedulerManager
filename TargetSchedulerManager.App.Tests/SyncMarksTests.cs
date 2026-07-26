@@ -271,6 +271,35 @@ public class SyncMarksTests
         Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "43", TsInboundDiff.NewRowColumn));
     }
 
+    [Fact]
+    public void RevertedField_ReadsClean_OnRowAndFieldMarks()
+    {
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 20, "25", "A · H");   // reverted
+        SyncMarks marks = SyncMarks.Build(journal, new TsInboundStore(), null);
+
+        Assert.Equal(("", null), marks.ForPlan("42"));
+        Assert.Equal(("", null), marks.ForField(TsTable.ExposurePlan, "42", "desired"));
+        Assert.Equal("", marks.ForKeys([], projectKey: null, [], ["42"]).Glyph);
+    }
+
+    [Fact]
+    public void Revert_RestoresThePriorInboundMark_NotBlank()
+    {
+        // The user's gotcha: the field's initial sync state survives the round-trip.
+        TsInboundStore inbound = new();
+        inbound.Apply([new TsInboundChange(TsTable.ExposurePlan, "42", "desired", "20", "30")]);
+        TsJournal journal = NewJournal();
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 25, "20", "A · H");
+        Assert.Equal(SyncMarks.BothWays, SyncMarks.Build(journal, inbound, null).ForPlan("42").Glyph);
+
+        journal.Append(TsEditKind.Manual, TsTable.ExposurePlan, "42", "desired", 20, "25", "A · H");   // reverted
+        SyncMarks marks = SyncMarks.Build(journal, inbound, null);
+        Assert.Equal(SyncMarks.In, marks.ForPlan("42").Glyph);                              // ← again, not blank
+        Assert.Equal(SyncMarks.In, marks.ForField(TsTable.ExposurePlan, "42", "desired").Glyph);
+    }
+
     // ---- header (ForKeys) ---------------------------------------------------------------------------------
 
     [Fact]

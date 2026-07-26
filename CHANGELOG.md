@@ -14,6 +14,29 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — Net-no-op pruning: reverting a field to its baseline clears it everywhere**
+(openspec `noop-edit-pruning`; user observed via the new flyout marks that a toggle round-trip kept its
+`→`, chose option 1 — and "apply this anywhere syncmarks are used"). Root cause was one layer: the editor
+already short-circuits same-value db writes as verified-without-writing, but the journal appended every
+verified write and `Collapse()` never asked whether first-Old == last-Value — so a round-trip marked all
+surfaces, counted "unpushed", showed "On → On" in the push review, and replayed a no-op to BIRDWATCHER
+(which, for cadence-clearing fields like plan `enabled`, cleared remote filter-cadence rows for nothing).
+**Mechanism — prune at the producer, not filter at the consumers:** `TsJournal.Append` (now
+`TsJournalEntry?`) remembers each field's **baseline** — the first journaled Old since the last push (the
+user-identified state to remember) in a map beside the badge's field-key set (same lock, same rebuild
+sites via a shared `RebuildIndexesLocked`) — and a write whose canonical value text equals the baseline
+prunes the field's entries (crash-safe rewrite; sidecar deleted when the journal empties, so no phantom
+dirty-open prompt) and returns null; a first-touch same-value commit journals nothing. Invariant: *the
+journal never holds a net-no-op field* — grid/header/picker/flyout marks, the unpushed count, push
+review/replay, and the dirty-open prompt all heal with zero per-surface code. Equality is the one
+invariant text rule both sides already share (`TsValueText` ≡ the editor's `ToText`; `Canonicalize` folds
+300.0→300 so whole-valued doubles compare true); mismatch fails safe to retention. **The user's gotcha
+holds:** inbound is a separate store, so a field carrying `←` before the edits reads `←` again after the
+revert — never blank. Push retention resets baselines (pushed value = next baseline). 278 tests (269 + 9:
+seven journal pruning units incl. baseline-is-first-old, push-reset, reload-persistence,
+whole-double equality; two SyncMarks surface/inbound-survival units). Visual verification pending
+(toggle round-trip clears flyout + grid marks live).
+
 **▶ SHIPPED 2026-07-26 — Per-field sync marks inside the edit flyouts** (openspec `flyout-field-marks`;
 user request same day, follow-on to `template-change-marks`). Every field row in the four schema-generated
 flyouts (target / project / exposure plan / template) now carries a leading `←`/`→`/`⇄` mark — blank when
