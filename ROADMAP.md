@@ -26,7 +26,7 @@ toolbar group, the alias-fold removal, the full 2026-07-24 code-review campaign,
 lane (P1–P5) have all shipped and archived. The load-split is **retired** (2026-07-08 — the ~2 s fresh scan is
 acceptable even at 2× the library, so a cross-load scan cache would buy the stale-ACTUAL window for time that
 isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes and
-nothing parked**, with one small docs chore and one held item (both below). The next lane is
+nothing parked**, with one small docs chore (Phase 5). The next lane is
 strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
@@ -35,18 +35,6 @@ and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lan
 (`ReadPlanData` per row, `Resolve` per phase + per TS target). Nothing calls it with a live token yet — the
 view-model passes none — so wiring a Cancel-load button is now a small piece of UI work rather than a
 plumbing job. Not a defect; noted so the capability isn't rediscovered.
-
-**Held for a conventions split (2026-07-26 docs sweep).** One standing truth was adjudicated *worth keeping but
-not placed*, because both natural targets are already large (`ARCHITECTURE.md` ~38 KB, `DOMAIN.md` ~30 KB) and
-the sweep rule is "split before you stuff": the codebase's **code-siting doctrine** — (a) one plausible home per
-kind of change (contract rules → `Astronomy.Catalog`; per-item display → `ViewModels/Rows`; UI-free display
-policy → `Models`; sync/guarded-write policy → `App/Shared`); (b) load-bearing invariants are written at the
-point that *enforces* them, with the reference docs mirroring rather than solely owning; (c) every major flow is
-a single forward pass with no back-edges (load: scan → TS read → resolve → project; `ApplyFilters`: filter →
-group → sort → flatten → publish). Asserted 2026-06-10 and independently re-confirmed by the 2026-07-24 review,
-it is the rule a newcomer needs *before* choosing a file to edit. Sources:
-`docs/archive/2026-06-10-code-review-slice1.md` §2.1/§5.2 + `…-round2.md` §C1. Placing it wants a **CONVENTIONS
-section or doc** carved out of ARCHITECTURE + DOMAIN — a structural job, not an append.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 

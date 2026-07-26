@@ -5,8 +5,8 @@
 > in a `Cli.Tests` project that no longer exists; B5 retired with R1 by design. B6's plain-host test rules
 > are already single-sourced in `VERIFICATION.md`. The §D backlog table is **5/6 closed** (B1–B4 ✅, R1 ✅
 > 2026-06-11, §7.5 ✅, M2-prep ✅ as `TsEditGate` 2026-06-26). Of its §C1 conventions, the view/VM seam
-> graduated to `DOMAIN.md` checklist step 9; the **code-siting doctrine is HELD, not graduated** — see
-> `ROADMAP.md` → *Held for a conventions split*. **Still live:** §C2 item 4 — the `CancellationToken` false affordance
+> graduated to `DOMAIN.md` checklist step 9 (full rules in `CONVENTIONS.md`); the **code-siting doctrine**
+> graduated 2026-07-26 into the new **`CONVENTIONS.md`**. **Still live:** §C2 item 4 — the `CancellationToken` false affordance
 > (the finding names `LoadAsync`, since split into `ScanLibraryAsync` + `ResolveAsync`; it is `ResolveAsync`
 > that still ignores the token), carried to `ROADMAP.md` → *Carried forward*.
 

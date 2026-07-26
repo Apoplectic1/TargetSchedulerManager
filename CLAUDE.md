@@ -23,6 +23,9 @@ under `..\Library\Astronomy.Catalog`, not this repo. See `..\Library\CLAUDE.md` 
 
 Reference docs (current truth — update in the same commit as the code):
 - **`ARCHITECTURE.md`** — how it works: design + the load-bearing invariants.
+- **`CONVENTIONS.md`** — how code is written and **where it goes**: the one-plausible-home map, invariants-at-
+  the-enforcement-point, single-forward-pass flows, the view/VM seam, the `FireAndLog` async rule. Read before
+  choosing a file to edit.
 - **`ROADMAP.md`** — phased plan + current status (shipped history → `CHANGELOG.md`).
 - **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions (incl. the TS authoring conventions).
 - **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.

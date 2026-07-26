@@ -7,8 +7,8 @@
 > sequencing table's one `⏳ deferred` row is **closed or superseded** — `TsEditSession` became `TsEditGate`
 > (2026-06-26) and the loader interface never landed (`SetRowsForTest` remains the seam; the seams that did
 > land are `ITsEditor`/`ITsWriteBackApplier`). §5.2's view/VM seam contract graduated to `DOMAIN.md`
-> checklist step 9; §2.1's single-forward-pass property is **held, not graduated** (`ROADMAP.md` → *Held for a
-> conventions split*). **Still live:** §7 item 2 — the `CancellationToken` false affordance (the finding names
+> checklist step 9, full rules in `CONVENTIONS.md`; §2.1's single-forward-pass property graduated 2026-07-26
+> into that same new **`CONVENTIONS.md`**. **Still live:** §7 item 2 — the `CancellationToken` false affordance (the finding names
 > `LoadAsync`, since split into `ScanLibraryAsync` + `ResolveAsync`; it is `ResolveAsync` that still ignores
 > the token), carried to `ROADMAP.md` → *Carried forward*.
 

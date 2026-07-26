@@ -331,13 +331,6 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    is **mirror == reload**, not "the committed value renders literally": `ReconciliationRow.PlanSeconds` uses 0
    as its own no-seconds marker, so a committed exposure `0` shows `—` on a plan-only row both on commit and
    after reload (`openspec/changes/archive/2026-07-07-exposure-zero-literal/design.md` D5).
-9. New **handler or binding**? Code-behind handlers are **one-line forwards to the view-model** — never write
-   application state or row content from code-behind (template-centering repairs like `NarrowNumberBox_Loaded`
-   are the documented exception, see *WinUI gotchas*) — and `MainViewModel` holds **zero `Microsoft.UI.*`
-   references**. `x:Bind` is
-   `OneWay` only where state mutates and left at its `OneTime` default for immutable row properties; classic
-   `{Binding}` is never used. The search box's `TextChanged` forward is the deliberate exception — `x:Bind
-   TwoWay` on `TextBox.Text` updates only on focus-loss, which would kill live filtering. Any handler that
-   awaits routes through `UiTask.FireAndLog` — never a bare `async void` or a `_ =` discard (grep invariant:
-   `FireAndLog` is the app's only `async void`; without it an escaping exception crashes the app with nothing
-   in `tsm.log`).
+9. New **handler or binding**? One-line forward to the view-model, `x:Bind` only, and every awaiting handler
+   through `UiTask.FireAndLog` — the full seam rules (and their one documented exception) live in
+   **`CONVENTIONS.md`** → *The view/view-model seam* / *Async and the UI thread*.

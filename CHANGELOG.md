@@ -14,6 +14,27 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — `CONVENTIONS.md`: a fourth reference doc for *how code is written and where it goes***
+— placing the one standing truth the graduate-and-prune sweep held rather than graduated. The **code-siting
+doctrine** (asserted in the 2026-06-10 reviews, independently re-confirmed 2026-07-24) had no home: it is not
+architecture, not UI design language, and both natural targets were already at the size where the sweep rule
+says *split before you stuff*. It now leads a doc of its own — one plausible home per kind of change (as a
+table of the real folder map, verified against the tree), invariants written at the point that enforces them
+(with the maintenance duty that makes them trustworthy — the `TsInboundDiff` wrong-key-space comment is the
+cautionary case), and every major flow a single forward pass with no back-edges. Also gathered there: the
+**view/VM seam** (code-behind forwards only · zero `Microsoft.UI.*` in `MainViewModel` · `x:Bind` only, no
+classic `{Binding}` · the `TextChanged` exception and why), the **`FireAndLog` async-void invariant**, the
+`_camelCase` field convention (99 fields, zero ported Hungarian), and a note on why `TargetResolver.Resolve`
+stays one ~310-line method — **28 locals cross its phase boundaries**, so extraction would trade a readable
+pipeline for the parameter explosion the 2026-07-24 review had to fix elsewhere (M3 → `row-param-objects`);
+if it ever splits, the unit is a phase *object* that owns the state, not a static helper that receives it.
+Router updated; `DOMAIN.md` checklist step 9 shrinks to a pointer (the seam rules were never UI design
+language). Global rules — no-back-compat, fail-fast — are deliberately *not* restated; they stay in
+`~/.claude/CLAUDE.md`. **Effect on the binding constraint:** DOMAIN 29.8 → 29.1 KB — modest, because the point
+was never bulk relief but giving code conventions a *non-bloated* home to graduate into next sweep.
+
+---
+
 **▶ SHIPPED 2026-07-26 — the load path's `CancellationToken` is no longer a false affordance** (paired
 Library + app change) — closing the last open finding from the 2026-06-10 review, raised again in round 2,
 deferred with the M2 work and never re-raised. `ReconciliationLoader.ResolveAsync` passed `ct` only to
