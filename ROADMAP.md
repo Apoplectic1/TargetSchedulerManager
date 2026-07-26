@@ -26,18 +26,15 @@ toolbar group, the alias-fold removal, the full 2026-07-24 code-review campaign,
 lane (P1–P5) have all shipped and archived. The load-split is **retired** (2026-07-08 — the ~2 s fresh scan is
 acceptable even at 2× the library, so a cross-load scan cache would buy the stale-ACTUAL window for time that
 isn't felt; every load keeps scanning fresh, so the grid can never show stale ACTUAL). **Zero open changes and
-nothing parked**, with one carried-forward defect and one small docs chore (both below). The next lane is
+nothing parked**, with one small docs chore and one held item (both below). The next lane is
 strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
 
-**Carried forward (2026-07-26 docs sweep).** `ReconciliationLoader.ResolveAsync`'s (then `LoadAsync`'s)
-`CancellationToken` is a **false affordance**: `ct` reaches only `Task.Run(…, ct)`, so it cancels *scheduling*,
-never the running body — neither `TargetSchedulerReader.ReadPlanData()` nor `TargetResolver.Resolve(...)`
-accepts a token. (The disk half, `ScanLibraryAsync`, *does* thread it through.) Raised in the 2026-06-10 review,
-deferred with the M2 work, never re-raised by the 2026-07-24 reviews — it fell through the cracks. Fix by
-threading the token through reader + resolver, or drop the parameter so the signature stops promising what it
-can't deliver.
+**Available, not yet wired: a cancellable load.** Since 2026-07-26 the whole load path observes its token
+(`ReadPlanData` per row, `Resolve` per phase + per TS target). Nothing calls it with a live token yet — the
+view-model passes none — so wiring a Cancel-load button is now a small piece of UI work rather than a
+plumbing job. Not a defect; noted so the capability isn't rediscovered.
 
 **Held for a conventions split (2026-07-26 docs sweep).** One standing truth was adjudicated *worth keeping but
 not placed*, because both natural targets are already large (`ARCHITECTURE.md` ~38 KB, `DOMAIN.md` ~30 KB) and

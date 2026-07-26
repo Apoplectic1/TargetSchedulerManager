@@ -14,6 +14,23 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-26 — the load path's `CancellationToken` is no longer a false affordance** (paired
+Library + app change) — closing the last open finding from the 2026-06-10 review, raised again in round 2,
+deferred with the M2 work and never re-raised. `ReconciliationLoader.ResolveAsync` passed `ct` only to
+`Task.Run(…, ct)`, which cancels *scheduling*: once the body started, cancelling did nothing, because neither
+`TargetSchedulerReader.ReadPlanData()` nor `TargetResolver.Resolve(...)` accepted a token. (The disk half,
+`ScanLibraryAsync`, had always threaded it — that asymmetry was the tell.) Library: `ReadPlanData` and the five
+`Read*` methods take an optional token and forward it to the private `Query`, the **one read choke point**, which
+now checks per row (a cancel mid-read releases the connection promptly rather than at end-of-table);
+`TargetResolver.Resolve` takes one and checks at each of its phase boundaries plus **per TS target** in the
+anchoring pass — the one super-linear loop. App: `ResolveAsync` forwards its token to both. `CatalogBuilder.BuildAsync`
+was fixed by the same change — it already accepted a token and had the identical gap, and its doc now says
+"observed throughout" instead of "during the disk scan". Guarded by `Resolve_ObservesCancellation`.
+**No behavior change today:** the view-model calls the loader with no token at all, so this is contract honesty
+plus capability — a Cancel-load button is now UI work, not plumbing (noted in ROADMAP). Library 172 tests, app 279.
+
+---
+
 **▶ SHIPPED 2026-07-26 — `TsInboundDiff` keyed projects by `Id`; project `←` marks silently never resolved**
 — found by the docs graduate-and-prune sweep while graduating the journal/mark key spaces into `TS-SCHEMA.md`
 (the doc claim was written wrong first, and checking it against code surfaced the bug). Project journal and

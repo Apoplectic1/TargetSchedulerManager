@@ -51,11 +51,11 @@ public static class ReconciliationLoader
 
         TsPlanData ts;
         using (TargetSchedulerReader reader = new(tsDbPath))
-            ts = reader.ReadPlanData();
+            ts = reader.ReadPlanData(ct);
         TimeSpan tTsRead = sw.Elapsed;
 
         (CatalogGraph graph, CatalogBuildReport report) = TargetResolver.Resolve(
-            scan.Targets, ts, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), new ResolveOptions(toleranceDegrees));
+            scan.Targets, ts, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), new ResolveOptions(toleranceDegrees), ct);
         TimeSpan tResolve = sw.Elapsed;
 
         List<ReconciliationRow> rows = BuildRows(graph, report);
