@@ -153,7 +153,7 @@ public class WriteBackStepTests
         CommonName: null, ObjectName: null, ScannedAt: 0, CreatedAt: 0, ImportedFromTsGuid: null);
 
     private static ExposureTemplate Tpl(Guid id, string name, string filter, double? defExp = 300.0) =>
-        new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
+        new(id, Guid.NewGuid(), name, filter, Gain: 100, OffsetAdu: 50, Binning: 1, ReadoutMode: null,
             DefaultExposureSeconds: defExp, ImportedFromTsGuid: null);
 
     private static ExposurePlan Plan(
@@ -163,10 +163,11 @@ public class WriteBackStepTests
             Enabled: true, ImportedFromTsGuid: tsId.ToString(CultureInfo.InvariantCulture));
 
     private static InventoryFilter Inv(
-        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0) =>
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds = 300.0,
+        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533") =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
-            TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            ExposureSeconds: seconds, Cameras: "Z533");
+            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera);
 
     private static CatalogBuildReport Report(int plannedOnly = 0, int actualOnly = 0) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0,

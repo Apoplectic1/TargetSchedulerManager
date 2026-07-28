@@ -89,6 +89,18 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   Cross-scope matches are impossible by construction (`CygnusLoop P3` can never grab `NGC 6995`). Duplicates /
   mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped — a multi-claim
   is always a duplicate (the alias-fold escape was removed 2026-07-23; one TS row per position, no exceptions).
+- **The capture configuration is the cell key** (2026-07-27, openspec `capture-config-keys`). A reconciliation
+  cell is `(target, filter, purpose, whole-second exposure, gain, offset, binning)` — everything that decides
+  whether frames combine into one integration. A plan and a disk aggregate share a cell, and therefore render
+  as one `Both` row, **only when they agree on every one of those**; otherwise the grid emits a TS row and one
+  or more Disk rows, and that separation is the diagnostic (a plan specifying gain 0 never absorbs frames
+  captured at gain 53). **Camera is deliberately NOT in the key**: a TS profile cannot name a camera, so
+  including it would split cells against a plan that can never match them — it rides disk-side cells as a label
+  and never prevents pairing. Scanner aggregates carry the same configuration, so gain/offset/binning are
+  *uniform* within an aggregate rather than a mode over mixed frames. Offset is read **raw**: the writer stores
+  it already in the scale TS's templates use (its "divided by N" comment is descriptive), so it must never be
+  rescaled per camera. `WriteBackPlanner` is unaffected — its key is the coarser `(target, filter, purpose,
+  seconds)` and it *sums* inventory rows, so finer disk buckets still total the same `acquired`.
 - **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
   dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
   sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one

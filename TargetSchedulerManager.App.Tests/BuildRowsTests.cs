@@ -16,6 +16,157 @@ namespace TargetSchedulerManager.App.Tests;
 /// </summary>
 public class BuildRowsTests
 {
+    // ---- capture configuration: pairing, separation, and what the reader sees ----------------------------
+
+    [Theory]
+    // A plan pairs with captured frames only when the whole capture configuration agrees. Each row varies one
+    // dimension of the disk side away from the plan's 100 / 50 / bin 1.
+    [InlineData(53, 50, 1)]    // the 2024 broadband gain switch
+    [InlineData(100, 10, 1)]   // the offset-50 frames scattered through every filter
+    [InlineData(100, 50, 2)]   // bin 2 frames do not stack with bin 1
+    public void ConfigurationDiffers_SeparatesIntoTsAndDiskRows(int diskGain, int diskOffset, int diskBin)
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, gain: diskGain, offset: diskOffset, bin: diskBin)]),
+            Report());
+
+        // The filter still has both planes, so its rollup stays "Both" — but it keeps its disclosure, and
+        // beneath it the planes are separate. Never one merged line asserting the frames satisfy the plan.
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.True(rollup.SecondsMixed);
+        Assert.NotNull(rollup.Detail);
+        Assert.DoesNotContain(rollup.Detail!, r => r.Plane == RowPlane.Both);
+        ReconciliationRow ts = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Ts);
+        ReconciliationRow disk = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk);
+        Assert.Equal(10, ts.Desired);
+        Assert.Equal(4, disk.Disk);
+        Assert.False(rollup.CanEditDesired);   // the sum of unmatched planes is not an inline edit target
+    }
+
+    [Fact]
+    public void ConfigurationAgrees_PairsAndTheRowShowsIt()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, camera: "Z183")]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Both, r.Plane);
+        Assert.Equal("Z183", r.CameraText);
+        Assert.Equal("100", r.GainText);
+        Assert.Equal("50", r.OffsetText);
+        Assert.Equal("1", r.BinText);
+    }
+
+    [Fact]
+    public void CameraDifference_NeverPreventsPairing()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        // A plan cannot name a camera, so the camera must not enter the pairing test.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, camera: "Z533")]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Both, r.Plane);
+        Assert.Equal("Z533", r.CameraText);
+    }
+
+    [Fact]
+    public void TsRow_ShowsNoCameraButKeepsTheTemplatesConfiguration()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Planned)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")], []),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Ts, r.Plane);
+        Assert.Equal(Format.Dash, r.CameraText);   // TS cannot express a camera
+        Assert.Equal("100", r.GainText);           // but the template's configuration is real
+    }
+
+    [Fact]
+    public void SeparatedPlanRow_StaysInlineEditable()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        // A plan that separated from its frames is still exactly one plan, so its desired stays editable.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0, tsKey: "77")], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, gain: 53)]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        ReconciliationRow ts = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Ts);
+        Assert.Equal("77", ts.PlanTsKey);
+        Assert.True(ts.CanEditDesired);
+    }
+
+    [Theory]
+    [InlineData("Misc", Badges.UnknownCamera)]     // a directory naming no camera we know
+    public void UnknownCameraDirectory_FlagsOnlyTheRowsDrawingOnIt(string camera, string expected)
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid(), tpl2 = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0), Plan(t, tpl2, desired: 10, seconds: 300.0)],
+                [Tpl(tpl, "H", "H"), Tpl(tpl2, "L", "L")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, camera: camera),
+                 Inv(t, "L", FilterPurpose.Light, 4, 300.0, camera: "Z183")]),
+            Report());
+
+        ReconciliationRow bad = Assert.Single(rows, r => r.Filter == "H");
+        ReconciliationRow good = Assert.Single(rows, r => r.Filter == "L");
+        Assert.Contains(expected, bad.Badge);
+        Assert.True(bad.IsFlagged);
+        Assert.DoesNotContain(expected, good.Badge);   // never spreads to a sibling row
+        Assert.Equal("Misc", bad.CameraText);          // the offending name stays readable
+    }
+
+    [Fact]
+    public void FramesRecordingAnotherCamera_FlagTheRow()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, disagrees: true)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Contains(Badges.CameraMismatch, r.Badge);
+        Assert.True(r.IsFlagged);
+    }
+
+    [Fact]
+    public void RollupOverDifferingConfigurations_ReadsMixed()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        // One plan, and frames from two gain eras at a different sub length — a mixed rollup whose source
+        // lines disagree on gain but share camera and binning.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0),
+                 Inv(t, "H", FilterPurpose.Light, 6, 600.0, gain: 53)]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows, r => r.Detail is not null);
+        Assert.Equal(Format.Mixed, rollup.GainText);    // the dimension that differs
+        Assert.Equal("Z533", rollup.CameraText);        // the ones that do not still report their value
+        Assert.Equal("1", rollup.BinText);
+    }
+
     [Fact]
     public void BothCell_SameSeconds_MergesIntoSingleBothRow()
     {
@@ -356,7 +507,7 @@ public class BuildRowsTests
         ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: null, ParentTargetId: parent);
 
     private static ExposureTemplate Tpl(Guid id, string name, string filter) =>
-        new(id, Guid.NewGuid(), name, filter, Gain: null, OffsetAdu: null, Binning: null, ReadoutMode: null,
+        new(id, Guid.NewGuid(), name, filter, Gain: 100, OffsetAdu: 50, Binning: 1, ReadoutMode: null,
             DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null);
 
     private static ExposurePlan Plan(Guid target, Guid template, int desired, double? seconds, string? tsKey = null,
@@ -365,8 +516,9 @@ public class BuildRowsTests
             Enabled: true, ImportedFromTsGuid: tsKey);
 
     private static InventoryFilter Inv(
-        Guid target, string filter, FilterPurpose purpose, int count, double seconds) =>
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds,
+        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533", bool disagrees = false) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
-            TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1, TypicalBinningY: 1,
-            ExposureSeconds: seconds, Cameras: "Z533");
+            TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera, CameraDisagrees: disagrees);
 }

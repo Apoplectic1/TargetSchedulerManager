@@ -35,6 +35,24 @@ public sealed record RowNumbers(
     double? PlanHours,
     double? DiskHours);
 
+/// <summary>The capture configuration a row describes (openspec capture-config-keys). Gain/Offset/Bin are
+/// reconciliation keys — a row exists separately from its siblings BECAUSE one of them differs — so they are
+/// present on both planes. <see cref="Camera"/> is disk-side only, because a TS plan cannot name a camera;
+/// it is null on a plan-only row and holds the raw capture directory name otherwise (the alias is applied at
+/// render time, so an unrecognised directory stays visible beside its badge).</summary>
+public sealed record RowConfig(
+    int Gain,
+    int Offset,
+    int BinningX,
+    int BinningY,
+    string? Camera,
+    bool CameraDisagrees)
+{
+    /// <summary>The configuration of a row with no disk side and no plan template behind it (a bare
+    /// no-data row).</summary>
+    public static readonly RowConfig None = new(0, 0, 1, 1, null, false);
+}
+
 /// <summary>
 /// One grid row = one (target, filter, purpose) cell or one plane of it. A filter carrying both a plan and
 /// disk frames is a single <see cref="RowPlane.Both"/> rollup of every sub length; when those sub lengths
@@ -56,7 +74,8 @@ public sealed class ReconciliationRow(
     bool isDetail = false,
     IReadOnlyList<ReconciliationRow>? detail = null,
     string? planTsKey = null,
-    bool? planEnabled = null) : INotifyPropertyChanged
+    bool? planEnabled = null,
+    RowConfig? config = null) : INotifyPropertyChanged
 {
     private bool _isExpanded;
 
@@ -299,6 +318,42 @@ public sealed class ReconciliationRow(
     public Brush? SecondsBackground =>
         Plane == RowPlane.Both && SecondsMixed ? ThemeBrushes.Caution : null;
 
+    /// <summary>The capture configuration this row describes — the reason it stands apart from its siblings.</summary>
+    public RowConfig Config { get; } = config ?? RowConfig.None;
+
+    /// <summary>A configuration cell's text: this row's own value, or — on a rollup — the value its source
+    /// lines share, or the mixed marker when they disagree. A rollup that reads "mixed" names the dimension
+    /// responsible before it is expanded.</summary>
+    private string Cfg(Func<ReconciliationRow, string> cell, string own)
+    {
+        if (Detail is not { Count: > 0 } lines) return own;
+        string first = cell(lines[0]);
+        foreach (ReconciliationRow line in lines)
+            if (!string.Equals(cell(line), first, StringComparison.Ordinal))
+                return Format.Mixed;
+        return first;
+    }
+
+    /// <summary>Camera cell: the alias, or the raw directory name when it names no known camera (so the
+    /// offending name is readable beside its badge), or the dash on a plan-only row.</summary>
+    public string CameraText => Cfg(r => r.CameraText, Format.CameraCell(Config.Camera));
+
+    public string GainText => Cfg(r => r.GainText, Config.Gain.ToString());
+    public string OffsetText => Cfg(r => r.OffsetText, Config.Offset.ToString());
+
+    /// <summary>Binning as the single figure it always is in practice ("1"), or "XxY" if ever asymmetric.</summary>
+    public string BinText => Cfg(r => r.BinText,
+        Config.BinningX == Config.BinningY
+            ? Config.BinningX.ToString()
+            : $"{Config.BinningX}x{Config.BinningY}");
+
+    private static Brush? MixedFill(string text) => text == Format.Mixed ? ThemeBrushes.Caution : null;
+
+    public Brush? CameraBackground => MixedFill(CameraText);
+    public Brush? GainBackground => MixedFill(GainText);
+    public Brush? OffsetBackground => MixedFill(OffsetText);
+    public Brush? BinBackground => MixedFill(BinText);
+
     public string DesiredText => Format.CountOrDash(Desired);
     public string AcquiredText => Format.CountOrDash(Acquired);
     public string AcceptedText => Format.CountOrDash(Accepted);
@@ -325,11 +380,13 @@ public sealed class ReconciliationRow(
 
     public string PlanCountText => PlanCount > 1 ? $"×{PlanCount}" : string.Empty;
 
-    /// <summary>Case-insensitive match against the searchable columns.</summary>
+    /// <summary>Case-insensitive match against the searchable columns. Camera is searchable ("Z533"); the
+    /// numeric configuration columns deliberately are not — a bare number would collide with the counts.</summary>
     public bool Matches(string search) =>
         Target.Contains(search, StringComparison.OrdinalIgnoreCase)
         || Project.Contains(search, StringComparison.OrdinalIgnoreCase)
         || Filter.Contains(search, StringComparison.OrdinalIgnoreCase)
         || Badge.Contains(search, StringComparison.OrdinalIgnoreCase)
+        || CameraText.Contains(search, StringComparison.OrdinalIgnoreCase)
         || (PanelLabel?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
 }

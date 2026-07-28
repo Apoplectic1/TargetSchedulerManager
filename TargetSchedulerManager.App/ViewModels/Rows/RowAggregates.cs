@@ -14,8 +14,25 @@ internal sealed record RowAggregates(
     int Remaining,
     double? HoursDelta,
     string Badge,
-    bool IsFlagged)
+    bool IsFlagged,
+    string Camera,
+    string Gain,
+    string Offset,
+    string Bin)
 {
+    /// <summary>What a rollup cell shows for one capture-configuration column: the shared value when every
+    /// child agrees, or the mixed marker when they do not. Never blank on disagreement — silence would read
+    /// as "nothing to say" exactly when the fact to convey is "these differ".</summary>
+    private static string Uniform(IReadOnlyList<ReconciliationRow> children, Func<ReconciliationRow, string> cell)
+    {
+        if (children.Count == 0) return string.Empty;
+        string first = cell(children[0]);
+        foreach (ReconciliationRow r in children)
+            if (!string.Equals(cell(r), first, StringComparison.Ordinal))
+                return Format.Mixed;
+        return first;
+    }
+
     public static RowAggregates Compute(IReadOnlyList<ReconciliationRow> children)
     {
         bool anyPlanned = false, anyHours = false, flagged = false;
@@ -48,6 +65,12 @@ internal sealed record RowAggregates(
             // "mosaic · multi-plan" (target-scope vs. filter-scope flags), which deduped as strings would
             // render "mosaic · mosaic · multi-plan". First-appearance order preserved.
             Badges.Join(children.SelectMany(r => Badges.Split(r.Badge)).Select(t => t.Token).Distinct()),
-            flagged);
+            flagged,
+            // The capture configuration a header can report before it is expanded: which dimensions are
+            // consistent beneath it, and which are the reason its numbers do not add up.
+            Uniform(children, r => r.CameraText),
+            Uniform(children, r => r.GainText),
+            Uniform(children, r => r.OffsetText),
+            Uniform(children, r => r.BinText));
     }
 }

@@ -66,20 +66,38 @@
                     </StackPanel>
                     <TextBlock Grid.Column="4" Text="{x:Bind Project}" Opacity="0.7"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <!-- Capture configuration rolled up over the subtree: the shared value, or a "mixed"
+                         caution pill naming the dimension whose children disagree — readable BEFORE expanding. -->
+                    <Border Grid.Column="5" Background="{x:Bind CameraBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind CameraText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="6" Background="{x:Bind GainBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind GainText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="7" Background="{x:Bind OffsetBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind OffsetText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="8" Background="{x:Bind BinBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
+                    </Border>
+                    <TextBlock Grid.Column="12" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="13" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                    <TextBlock Grid.Column="14" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                     <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
+                    <Border Grid.Column="15" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <!-- Per-token severity colour (warning amber vs. quiet informative) — BadgeRuns fills the
                          Inlines; one TextBlock so the 150px column keeps ellipsis trimming. -->
-                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="17" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -112,7 +130,27 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="4" Text="{x:Bind Project}" Opacity="0.7"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <!-- Capture configuration: the reason this row stands apart from its siblings. Gain/Offset/
+                         Bin are reconciliation keys, so a row that separated always shows what separated it;
+                         a rollup shows "mixed" where its source lines disagree. Camera is disk-side only — a
+                         TS plan cannot name one, so a TS row shows the dash. -->
+                    <Border Grid.Column="5" Background="{x:Bind CameraBackground}" CornerRadius="4"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind CameraText}"/>
+                    </Border>
+                    <Border Grid.Column="6" Background="{x:Bind GainBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind GainText}"/>
+                    </Border>
+                    <Border Grid.Column="7" Background="{x:Bind OffsetBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind OffsetText}"/>
+                    </Border>
+                    <Border Grid.Column="8" Background="{x:Bind BinBackground}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind BinText}"/>
+                    </Border>
+                    <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                         <TextBlock Text="{x:Bind Filter}" VerticalAlignment="Center"/>
                         <!-- Hover-revealed edit glyph; only on 1:1 TS plan rows (PlanTsKey). Opens the
                              exposure-plan edit flyout. -->
@@ -127,35 +165,35 @@
                     <!-- "mixed" gets a caution pill when a rollup spans 2+ sub lengths; plain otherwise.
                          SecondsText is OneWay (x:Bind defaults to OneTime): an in-place exposure mirror
                          (ApplyPlanSeconds) must repaint the cell. -->
-                    <Border Grid.Column="7" Background="{x:Bind SecondsBackground}" CornerRadius="4"
+                    <Border Grid.Column="11" Background="{x:Bind SecondsBackground}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
                         <TextBlock Text="{x:Bind SecondsText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="6" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="8" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <TextBlock Grid.Column="10" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="12" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
                     <!-- 1:1 plan row's desired, editable in place; focus-loss writes to TS. Width ~3 chars +
                          centered in code-behind (NarrowNumberBox_Loaded) per the integer-edit-box rule —
                          see DOMAIN.md. Spin buttons hidden; write fires only on a real change. -->
-                    <NumberBox Grid.Column="8" Value="{x:Bind DesiredValue}"
+                    <NumberBox Grid.Column="12" Value="{x:Bind DesiredValue}"
                                Visibility="{x:Bind DesiredEditVisibility}"
                                Minimum="0" SmallChange="1" LargeChange="10"
                                SpinButtonPlacementMode="Hidden"
                                MinWidth="0" Margin="0" Padding="2,2" VerticalAlignment="Center"
                                Width="40" HorizontalAlignment="Right" HorizontalContentAlignment="Stretch"
                                Loaded="NarrowNumberBox_Loaded" LostFocus="Desired_Committed"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="13" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right"
+                    <TextBlock Grid.Column="14" Text="{x:Bind DiskText}" TextAlignment="Right"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
+                    <Border Grid.Column="15" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="12" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="16" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="17" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -190,17 +228,34 @@
                             <FontIcon Glyph="&#xE70F;" FontSize="12"/>
                         </Button>
                     </StackPanel>
-                    <TextBlock Grid.Column="8" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <!-- Panel-level rollup of the capture configuration, same idiom as the target header. -->
+                    <Border Grid.Column="5" Background="{x:Bind CameraBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind CameraText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="6" Background="{x:Bind GainBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind GainText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="7" Background="{x:Bind OffsetBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind OffsetText, Mode=OneWay}"/>
+                    </Border>
+                    <Border Grid.Column="8" Background="{x:Bind BinBackground, Mode=OneWay}" CornerRadius="4"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                        <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
+                    </Border>
+                    <TextBlock Grid.Column="12" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="9" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="13" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="10" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                    <TextBlock Grid.Column="14" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
-                    <Border Grid.Column="11" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
+                    <Border Grid.Column="15" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="13" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
+                    <TextBlock Grid.Column="17" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>
@@ -265,7 +320,7 @@
                  of ≥ Duration minutes above Floor degrees altitude), project.state follows its targets;
                  Draft/Closed untouched. Flips are ordinary journaled edits — push stays optional.
                  Both knobs default 30 (user decision 2026-07-23). UpDownBox is our own WinForms-style
-                 NumericUpDown (Controls/UpDownBox.cs) — a narrow inline NumberBox is unreachable
+                 NumericUpDown (Controls/UpDownBox.cs) — a narrow inline NumberBox is unreachables
                  (three hard-coded template widths; see DOMAIN.md → WinUI gotchas). It commits typed text
                  on focus loss/Enter and clamps to range, so a click on Tonight (which steals focus)1
                  always reads a valid whole number. Set Minimum/Maximum before Value (setter clamps). -->
@@ -315,17 +370,24 @@
             <TextBlock Grid.Column="2" Text="Source" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="3" Text="Target" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="4" Text="Project" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="5" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="7" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="6" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="8" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <!-- Capture configuration. Gain/Offset/Bin are reconciliation keys (rows separate on them);
+                 Camera is disk-side only. All four are excluded from sort precedence despite sitting here —
+                 see ReconciliationLoader's sort comment. -->
+            <TextBlock Grid.Column="5" Text="Camera" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="6" Text="Gain" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="7" Text="Offset" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="8" Text="Bin" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="9" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="11" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="10" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="12" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
             <!-- "TS" = TS's recorded acquired (what it schedules on); "Actual" = on-disk frames. "Acc" (accepted)
                  is not shown — see the count-columns note at the top of this file. -->
-            <TextBlock Grid.Column="9" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="10" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="11" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="12" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="13" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="13" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="14" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="15" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="16" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="17" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </Grid>
 
         <!-- A flattened tree, not a real TreeView: the VM owns the visible-row list (group headers +

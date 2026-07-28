@@ -25,15 +25,24 @@ public static class GridColumns
         ("Source", new GridLength(110)),     //  2 chevron + Both/TS/Disk
         ("Target", new GridLength(1, GridUnitType.Star)),   // 3 the one elastic column
         ("Project", new GridLength(170)),    //  4
-        ("Filter", new GridLength(60)),      //  5
-        ("Purpose", new GridLength(70)),     //  6
-        ("Seconds", new GridLength(80)),     //  7
-        ("Desired", new GridLength(88)),     //  8 TS goal (inline-editable on 1:1 rows)
-        ("TS", new GridLength(60)),          //  9 TS's recorded acquired
-        ("Actual", new GridLength(60)),      // 10 on-disk frames (ground truth)
-        ("Hours", new GridLength(60)),       // 11 signed contribution pill
-        ("Plans", new GridLength(45)),       // 12 ×N multiplicity
-        ("Badges", new GridLength(150)),     // 13 match-state flags
+        // The capture configuration (openspec capture-config-keys). Gain/Offset/Bin are reconciliation keys —
+        // rows separate on them — so they must be legible on the row that separated. Camera is disk-side only
+        // (a TS plan cannot name one) and never separates a row; it is carried for the second purpose, showing
+        // the imaging history. NOTE: these four are deliberately EXCLUDED from sort precedence even though they
+        // sit left of Filter — see ReconciliationLoader's sort, which keeps one filter's rows contiguous.
+        ("Camera", new GridLength(60)),      //  5
+        ("Gain", new GridLength(50)),        //  6
+        ("Offset", new GridLength(50)),      //  7
+        ("Bin", new GridLength(40)),         //  8
+        ("Filter", new GridLength(60)),      //  9
+        ("Purpose", new GridLength(70)),     // 10
+        ("Seconds", new GridLength(80)),     // 11
+        ("Desired", new GridLength(88)),     // 12 TS goal (inline-editable on 1:1 rows)
+        ("TS", new GridLength(60)),          // 13 TS's recorded acquired
+        ("Actual", new GridLength(60)),      // 14 on-disk frames (ground truth)
+        ("Hours", new GridLength(60)),       // 15 signed contribution pill
+        ("Plans", new GridLength(45)),       // 16 ×N multiplicity
+        ("Badges", new GridLength(150)),     // 17 match-state flags
     ];
 
     public static readonly DependencyProperty ApplyRulerProperty =

@@ -5,9 +5,13 @@ namespace TargetSchedulerManager.App.Models;
 /// joins them, and the two-tier severity that colours them — defined once and consumed by the loader, the
 /// header rollup, and the renderer. The token strings are a soft contract: they are what the grid's search box
 /// matches on (<c>ReconciliationRow.Matches</c>), so a rename changes the user's search vocabulary.
-/// <para><b>Severity:</b> WARNING = authoring the user must repair outside TSM (by hand in NINA's TS UI);
+/// <para><b>Severity:</b> WARNING = authoring the user must repair **outside TSM** — by hand in NINA's TS UI
+/// for the plan-side states, or on disk / in the image-management tooling for the camera-provenance ones;
 /// INFORMATIVE = a fact carrying no call to action. The warning set is deliberately the same set that sets
 /// <c>IsFlagged</c> and drives the flagged-only filter — colour and filter must never disagree.</para>
+/// <para><b>Scope:</b> most tokens describe a whole target and therefore mark every one of its rows. The
+/// camera-provenance tokens describe particular frames, so they mark only the rows drawing on those frames —
+/// and reach the collapsed view through the ordinary header rollup, never by spreading to siblings.</para>
 /// </summary>
 internal static class Badges
 {
@@ -42,11 +46,20 @@ internal static class Badges
     /// <summary>A plan whose TS accepted ≠ acquired — in-session TS drift to reconcile.</summary>
     public const string AccNeAcq = "acc≠acq";
 
+    /// <summary>A capture directory naming no camera we recognise — repaired on disk, by renaming the
+    /// directory. Row-scoped: only the rows drawing on that directory carry it.</summary>
+    public const string UnknownCamera = "camera";
+
+    /// <summary>Frames recording a camera other than the directory they sit in — filed under the wrong
+    /// camera, repaired on disk. Row-scoped, like <see cref="UnknownCamera"/>.</summary>
+    public const string CameraMismatch = "cam≠";
+
     /// <summary>True when the token marks something the user must repair. An unrecognised token reads as
     /// informative: a badge is never worth failing a load over, and the quiet tier is the safe default.</summary>
     public static bool IsWarning(string token) => token switch
     {
-        NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq => true,
+        NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
+            or UnknownCamera or CameraMismatch => true,
         _ => false,
     };
 

@@ -171,6 +171,9 @@ public static class ReconciliationLoader
                 if (multiPlan) badges.Add(Badges.MultiPlan);
                 if (accNeAcq) badges.Add(Badges.AccNeAcq);
 
+                // Target-scope badges: every row of this (filter, purpose) carries them. The camera-provenance
+                // tokens are row-scoped and are appended per row below, so one bad capture directory marks the
+                // rows drawing on it rather than all of a target's rows.
                 string badge = Badges.Join(badges);
                 // The flagged set IS the warning-badge set (Badges.IsWarning) — colour and the flagged-only
                 // filter must agree, or an amber row gets hidden by the filter that should surface it. An
@@ -196,8 +199,26 @@ public static class ReconciliationLoader
                         else detail.Add(DiskRow(c, isDetail: true));
                     }
 
-                    bool mixed = planCells.Count > 1 || diskCells.Count > 1
-                        || planCells[0].Seconds != diskCells[0].Seconds;
+                    // The rollup collapses to a single plain row ONLY when the group is one cell carrying both
+                    // planes — i.e. the plan and the frames agree on the whole capture configuration, so the
+                    // same cell sits in both lists. Anything else (several sub lengths, or a plan whose gain /
+                    // offset / binning the frames do not match) keeps its disclosure, and the source lines
+                    // below tell the reader which plane is which. Merging an unmatched pair into one Both row
+                    // would assert a match that does not exist.
+                    bool matchedSingle = planCells.Count == 1 && diskCells.Count == 1
+                        && ReferenceEquals(planCells[0], diskCells[0]);
+                    bool mixed = !matchedSingle;
+
+                    // The rollup's own camera provenance is the union over its disk-side cells, so a bad
+                    // capture directory anywhere beneath it is visible without expanding.
+                    ReconciliationCell configCell = diskCells[0];
+                    string rollupBadge = badge;
+                    bool rollupFlagged = flagged;
+                    foreach (ReconciliationCell c in diskCells)
+                    {
+                        rollupBadge = RowBadge(rollupBadge, c, true);
+                        rollupFlagged = RowFlagged(rollupFlagged, c, true);
+                    }
 
                     rows.Add(new ReconciliationRow(
                         id, planCells[0].Filter, fp.Key.Purpose.ToString(), RowPlane.Both,
@@ -210,18 +231,42 @@ public static class ReconciliationLoader
                             PlanCount: planCells.Sum(c => c.PlanCount),
                             PlanHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
                             DiskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0),
-                        badge, flagged,
+                        Badges.Join(Badges.Split(rollupBadge).Select(t => t.Token).Distinct()), rollupFlagged,
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
-                        // 1:1 only: a single plan sub-length is editable; a mixed rollup's sum is not.
+                        // One plan behind the group ⇒ the rollup keeps its flyout anchor, even when it is
+                        // mixed. The INLINE Desired box is gated separately by CanEditDesired (!SecondsMixed),
+                        // so a mixed rollup opens the flyout but edits its count at the plan's own detail line.
                         planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null,
-                        planEnabled: planCells.Count == 1 ? planCells[0].PlanEnabled : null));
+                        planEnabled: planCells.Count == 1 ? planCells[0].PlanEnabled : null,
+                        config: Cfg(configCell, true)));
                 }
                 else
                 {
                     foreach (ReconciliationCell c in planCells) rows.Add(TsRow(c, isDetail: false));
                     foreach (ReconciliationCell c in diskCells) rows.Add(DiskRow(c, isDetail: false));
                 }
+
+                // The capture configuration a cell describes. Camera rides only on rows with a disk side — a
+                // plan cannot name one — so a TS row's camera cell shows the dash.
+                static RowConfig Cfg(ReconciliationCell c, bool withCamera) => new(
+                    c.Gain, c.Offset, c.BinningX, c.BinningY,
+                    withCamera ? c.Camera : null,
+                    withCamera && c.CameraDisagrees);
+
+                // Row-scoped camera provenance, appended to the target-scope tokens for THIS row only.
+                static string RowBadge(string targetBadge, ReconciliationCell c, bool withCamera)
+                {
+                    if (!withCamera) return targetBadge;
+                    List<string> extra = [];
+                    if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
+                    if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
+                    return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
+                }
+
+                static bool RowFlagged(bool targetFlagged, ReconciliationCell c, bool withCamera) =>
+                    targetFlagged
+                    || (withCamera && ((c.Camera is not null && Format.Camera(c.Camera) is null) || c.CameraDisagrees));
 
                 ReconciliationRow BothRow(ReconciliationCell c) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Both,
@@ -231,8 +276,8 @@ public static class ReconciliationLoader
                         Disk: c.Disk, PlanCount: c.PlanCount,
                         PlanHours: c.Desired * (double)c.Seconds / 3600.0,
                         DiskHours: c.Disk * (double)c.Seconds / 3600.0),
-                    badge, flagged, isDetail: true,
-                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
+                    RowBadge(badge, c, true), RowFlagged(flagged, c, true), isDetail: true,
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, true));
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Ts,
@@ -243,7 +288,7 @@ public static class ReconciliationLoader
                         PlanHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null,
                         DiskHours: null),
                     badge, flagged, isDetail: isDetail,
-                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled);
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, false));
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Disk,
@@ -253,7 +298,8 @@ public static class ReconciliationLoader
                         Disk: c.Disk, PlanCount: 0,
                         PlanHours: null,
                         DiskHours: c.Disk * (double)c.Seconds / 3600.0),
-                    badge, flagged, isDetail: isDetail);
+                    RowBadge(badge, c, true), RowFlagged(flagged, c, true), isDetail: isDetail,
+                    config: Cfg(c, true));
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid. Its one
@@ -272,10 +318,14 @@ public static class ReconciliationLoader
 
         rows.Sort((a, b) =>
         {
-            // Sort precedence follows the columns left-to-right: Target → Project → Filter → Purpose → Seconds,
-            // natural order on the text columns ("IC 405" before "IC 1318"). Project only separates same-named
-            // targets in different projects; Panel keeps a mosaic's panels under their parent; Plane (TS above
-            // Disk) is the final tiebreak within a cell.
+            // Sort precedence: Target → Project → Panel → Filter → Purpose → Seconds → capture configuration
+            // → Plane, natural order on the text columns ("IC 405" before "IC 1318").
+            //
+            // DELIBERATE EXCEPTION to "sort follows column order" (openspec capture-config-keys): Camera, Gain,
+            // Offset and Bin sit LEFT of Filter but sort AFTER Seconds. Sorting them in column position would
+            // group every gain-53 row across all filters ahead of every gain-0 row, splitting one filter's rows
+            // apart — precisely when the reader has expanded a target to follow that filter's story. Keeping
+            // them late leaves each filter's rows contiguous, with configuration breaking ties within a filter.
             int byTarget = NaturalComparer.Instance.Compare(a.Target, b.Target);
             if (byTarget != 0) return byTarget;
             int byProject = NaturalComparer.Instance.Compare(a.Project, b.Project);
@@ -287,7 +337,15 @@ public static class ReconciliationLoader
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
             if (byPurpose != 0) return byPurpose;
             int bySeconds = SortSeconds(a).CompareTo(SortSeconds(b));
-            return bySeconds != 0 ? bySeconds : a.Plane.CompareTo(b.Plane);
+            if (bySeconds != 0) return bySeconds;
+            int byGain = a.Config.Gain.CompareTo(b.Config.Gain);
+            if (byGain != 0) return byGain;
+            int byOffset = a.Config.Offset.CompareTo(b.Config.Offset);
+            if (byOffset != 0) return byOffset;
+            int byBin = a.Config.BinningX.CompareTo(b.Config.BinningX);
+            if (byBin != 0) return byBin;
+            int byCamera = string.Compare(a.Config.Camera, b.Config.Camera, StringComparison.OrdinalIgnoreCase);
+            return byCamera != 0 ? byCamera : a.Plane.CompareTo(b.Plane);
         });
         return rows;
 

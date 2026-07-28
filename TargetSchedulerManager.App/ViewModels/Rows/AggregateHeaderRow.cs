@@ -48,6 +48,14 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
         Raise(nameof(DesiredText));
         Raise(nameof(HoursText));
         Raise(nameof(HoursBackground));
+        Raise(nameof(CameraText));
+        Raise(nameof(GainText));
+        Raise(nameof(OffsetText));
+        Raise(nameof(BinText));
+        Raise(nameof(CameraBackground));
+        Raise(nameof(GainBackground));
+        Raise(nameof(OffsetBackground));
+        Raise(nameof(BinBackground));
     }
 
     /// <summary>Summed over the TS children; null when no child has a plan (pure disk-only).</summary>
@@ -58,6 +66,22 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
 
     /// <summary>Sum of per-cell shortfalls max(0, desired − disk) — the "remaining" sort key.</summary>
     public int Remaining => _sums.Remaining;
+
+    // ---- Capture configuration: the shared value beneath this header, or "mixed" where children disagree.
+    // Reading these before expanding tells you WHICH dimension is inconsistent.
+    public string CameraText => _sums.Camera;
+    public string GainText => _sums.Gain;
+    public string OffsetText => _sums.Offset;
+    public string BinText => _sums.Bin;
+
+    /// <summary>Caution fill behind a configuration cell whose children disagree — the same pill the Seconds
+    /// cell uses for mixed sub lengths, so one idiom covers every "these differ" cell.</summary>
+    private static Brush? MixedFill(string text) => text == Format.Mixed ? ThemeBrushes.Caution : null;
+
+    public Brush? CameraBackground => MixedFill(_sums.Camera);
+    public Brush? GainBackground => MixedFill(_sums.Gain);
+    public Brush? OffsetBackground => MixedFill(_sums.Offset);
+    public Brush? BinBackground => MixedFill(_sums.Bin);
 
     /// <summary>Disk hours − desired hours: negative = still needs telescope time; ≥ 0 = the plan's committed
     /// time was met. Null when no row carries hours.</summary>

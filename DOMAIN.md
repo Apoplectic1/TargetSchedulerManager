@@ -10,6 +10,31 @@ is shaped this way* → `ARCHITECTURE.md`. Not a frozen spec; look-and-feel is s
 > The author is a WinForms expert / WinUI novice — idioms below are flagged against their WinForms analogues
 > where it helps.
 
+## What TSM is for (the two purposes)
+
+TSM serves **two** purposes, and nearly every design question resolves by asking which one is in play:
+
+1. **Modify the TS database on BIRDWATCHER** (primary) — the plan you will image against.
+2. **Display the entire imaging history** (secondary) — what you actually captured, in full fidelity.
+
+Four standing truths follow, and they settle most arguments about the grid:
+
+- **Disk is actual history.** Self-describing, immutable, and *never validated against TS*. A frame captured at
+  gain 53 in 2019 is not "failing to match" anything — it is simply what happened. The disk plane's job is
+  fidelity, not agreement.
+- **TS is the future.** An exposure template describes imaging *going forward*. When one happens to match disk
+  files that is a coincidence worth showing, not a correctness condition. Nothing is "broken" when they differ.
+- **A dimension can pair the two planes only if both express it.** The disk plane may key more finely than TS —
+  that is a consequence of purpose 2, not a defect. Where the planes disagree the grid separates them, and the
+  separation *is* the answer to "why don't these numbers add up".
+- **`desired` is camera-agnostic.** One NINA profile is used with cameras exchanged between sessions, so TS
+  cannot express which camera a plan is for. **TSM must never model camera↔plan attribution** — never apportion
+  a desired count between cameras, never infer how many frames a given camera still owes. You decide that at the
+  telescope, and automating it would hard-code complexity that is trivially resolved in the moment.
+
+(Landed 2026-07-27 with openspec `capture-config-keys`, which made gain/offset/binning reconciliation keys and
+camera a disk-side label. Rotation, RA/DEC and telescope are deferred — see `ROADMAP.md`.)
+
 ## The grid idiom
 
 - The home screen is a **flattened, fully-virtualized tree**, not a real `TreeView`: the view-model owns the
@@ -33,7 +58,17 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 
 ## Columns (current)
 
-`[mark] · [enable] · Source · Target · Project · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
+`[mark] · [enable] · Source · Target · Project · Camera · Gain · Offset · Bin · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
+
+- **Camera · Gain · Offset · Bin** = the **capture configuration** (2026-07-27, openspec `capture-config-keys`).
+  Gain/Offset/Bin are **reconciliation keys** — a row stands apart from its siblings *because* one of them
+  differs — so the value responsible is always legible on the row that separated. **Camera is disk-side only**
+  (TS cannot name one), so a TS row's camera cell shows the em dash while its gain/offset/bin come from the
+  exposure template. On a rollup each cell shows the shared value, or a **`mixed` caution pill** when the rows
+  beneath disagree — so a header names the inconsistent dimension *before* you expand it. Camera is searchable
+  ("Z533"); the numeric cells are not (a bare number would collide with the count columns). The camera alias
+  (183→`Z183`, 533→`Z533`, 178→`Q178`, 144→`A144`) is **display only** — it never enters a key — and a capture
+  directory matching none of them shows raw beside a `camera` warning badge.
 
 - **Mark** (column 0, 24 px, unlabeled): the sync-direction mark on every row level — `←` = arrived changed
   from BIRDWATCHER (pull diff, sticky for the session) · `→` = unpushed local writes (journal: manual edits
@@ -61,7 +96,14 @@ Sort precedence follows the columns **left-to-right**: `Target → Project → F
 order** on Target/Project/Filter (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21";
 Purpose compares plain ordinal). Project
 only separates same-named targets in different projects. Structural keys sit outside the column order: a mosaic's
-**panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell. The toolbar
+**panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell.
+
+**One deliberate exception** (2026-07-27, openspec `capture-config-keys`): the **capture-configuration columns
+(Camera · Gain · Offset · Bin) sit left of Filter but sort *after* Seconds.** Sorting them in column position
+would group every gain-53 row across *all* filters ahead of every gain-0 row, splitting one filter's rows apart —
+exactly when you have expanded a target to follow that filter's story. Keeping them late leaves each filter's
+rows contiguous, with configuration breaking ties *within* a filter. Full precedence:
+`Target → Project → Panel → Filter → Purpose → Seconds → Gain → Offset → Bin → Camera → Plane`. The toolbar
 sort picker's other modes (`remaining` / `disk` / `Δ ↓`) are **number-first** with a natural `Target → Project`
 tiebreak. `NaturalComparer` is pure-managed (no `shlwapi` P/Invoke).
 
@@ -332,7 +374,10 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    index), then place the cell in each row template and the header caption (cell `Grid.Column` indexes
    stay per-template; renumber those that shifted). The four grids stamp their `ColumnDefinitions` from
    the ruler (2026-07-24, openspec `grid-column-ruler`) — never hand-edit widths in XAML. Its sort slot
-   follows its header position (left-to-right, per *Sorting*).
+   follows its header position (left-to-right, per *Sorting*) **unless it belongs to the capture-configuration
+   block**, whose documented exception sorts after Seconds. If the column is a **reconciliation key** (rows
+   separate on it), it must be legible on the rows that separated and must render `mixed` on a rollup whose
+   children disagree — a separation the reader cannot explain is worse than no column.
 2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric. Text conventions come from
    `Models\Format.cs` — the one home (2026-07-24, `presentation-conventions`): `Format.Dash`/`CountOrDash`
    for empty cells (— means "nothing to say"; a measured 0 renders 0), `Format.Hours`, `Format.When`,
@@ -342,7 +387,10 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 3. New **state worth flagging**? Add the token to `Models\Badges.cs` (const + its tier in `IsWarning`) and
    emit it in `BuildRows`. Decide the **severity tier**, and set `IsFlagged` to match it — warning tier and
    `IsFlagged` are one set, so a warning-coloured row is never hidden by the flagged-only filter. Confirm it
-   bubbles via `RowAggregates` (token-level distinct).
+   bubbles via `RowAggregates` (token-level distinct). Also decide its **scope**: most tokens describe a whole
+   target and mark every one of its rows, but a token describing particular *frames* (the camera-provenance
+   pair) marks only the rows drawing on them and reaches the collapsed view through the ordinary rollup —
+   never by spreading to siblings.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical fills; `CautionText` / `Secondary`
    foregrounds) — don't hard-code. Note `Run`/`Inline` foregrounds can't use `Opacity`; reach for `Secondary`.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.

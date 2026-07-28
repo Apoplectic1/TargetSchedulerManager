@@ -34,4 +34,31 @@ internal static class Format
     /// contract: these labels persist in the edit journal and surface in the push review — the
     /// convention can gain call sites but its shape must not drift.</summary>
     public static string Label(string left, string right) => $"{left} · {right}";
+
+    /// <summary>The marker a rollup cell shows when its children disagree — the same word the Seconds cell
+    /// already uses for mixed sub lengths, so one idiom covers every "these differ" cell.</summary>
+    public const string Mixed = "mixed";
+
+    /// <summary>
+    /// Resolves a capture directory name to its camera alias, or <see langword="null"/> when the directory
+    /// names no camera we know. Matching is on the model number the directory contains, so a directory named
+    /// for the model in any style resolves the same way.
+    /// <para>Presentation only: the alias never enters a key, so two directory spellings of one camera stay
+    /// separate buckets. Returning null is what raises the <c>camera</c> badge — an unknown camera is
+    /// reported, never shown raw as though understood.</para>
+    /// </summary>
+    public static string? Camera(string? captureDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(captureDirectory)) return null;
+        if (captureDirectory.Contains("183", StringComparison.Ordinal)) return "Z183";
+        if (captureDirectory.Contains("533", StringComparison.Ordinal)) return "Z533";
+        if (captureDirectory.Contains("178", StringComparison.Ordinal)) return "Q178";
+        if (captureDirectory.Contains("144", StringComparison.Ordinal)) return "A144";
+        return null;
+    }
+
+    /// <summary>A camera cell: the alias, the raw directory name when it resolves to none (so the offending
+    /// name is visible beside its badge), or the dash when there is no disk side at all.</summary>
+    public static string CameraCell(string? captureDirectory) =>
+        string.IsNullOrWhiteSpace(captureDirectory) ? Dash : Camera(captureDirectory) ?? captureDirectory;
 }
