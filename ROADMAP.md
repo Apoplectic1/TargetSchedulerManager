@@ -54,7 +54,11 @@ by design but is a real change in how full the grid reads.
 - **Telescope as its own UI section.** 100% uniform today (`APM107R@531` on all 18,904 frames), and a second
   scope would likely bring a disk directory-layout change, so it should be designed *with* that layout rather
   than guessed at now.
-- **Comets** — out of scope entirely; never scheduled in TS, captured manually.
+- **Comets** — ~~out of scope~~ **excluded at the scan** (2026-07-27, openspec `skip-comet-targets`). A
+  `Comet …` target directory is never walked, like `Captures/Calibration`: comets are non-sidereal, so no
+  sidereal plan can describe them (the TS db holds zero comet targets) and every frame is acquired by hand.
+  Their capture trees also nest date-named session folders where filter directories belong, so scanning them
+  published filter codes like `2024-10-18 - Track Comet`. Removes one target and 254 of 18,904 frames.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
