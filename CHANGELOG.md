@@ -14,6 +14,67 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-27 — non-sidereal targets never enter the library scan** (openspec `skip-comet-targets`;
+library `ddada41`, app `6295579`). Comets are captured by hand with their own setup and are **never scheduled in
+TS** — the live database contains no comet target at all — so the four `Comet …` directories produced Disk-only
+rows that reconciled against nothing. Worse, their capture trees nest **date-named session folders where filter
+directories belong**, so the filter parser took the session name verbatim: the grid published
+`2024-10-18 - Track Comet` as a **filter code**, a vocabulary no other target shares.
+
+`ImageLibraryScanner.IsNonSiderealDirectory` now skips them at the walk, beside the existing `Calibration` skip —
+*a directory that is never walked, not a result filtered afterwards.* The predicate is the `"Comet "` prefix
+(**the trailing space is load-bearing**: it excludes a sidereal target that merely contains the word), and the
+guard sits in `ScanTargetAsync`, which both entry points (`ScanAsync`, `ScanUnitsAsync`) already funnel through,
+so neither can bypass it. Removes one target of 84 and **254 of 18,904** light frames (1.3%); the other three
+comet directories hold no lights. TSM itself changed nothing — the grid simply stops receiving the rows.
+
+The change's second half is documentary: the new **`image-library-scan`** spec (TSM's 13th) states what the scan
+reads and, decisively, what it never reads. The **calibration skip had existed since the scanner was written but
+was never written down** — it gets its first contract, and its first tests, here.
+
+**▶ SHIPPED 2026-07-27 — the capture configuration keys the disk plane** (openspec `capture-config-keys`;
+library `53f6c49`, app `c53e655`). The grid reconciled disk against TS on `(target, filter, purpose, seconds)`,
+so frames captured at **different gain, offset or binning folded into one row and read as one stack** — when they
+will not stack at all. The library's own history is the proof: broadband moved from **gain 53 to gain 0 in 2024**,
+and **offset-50 frames are scattered through every filter** while every TS template specifies offset 10. A target
+showed one tidy `Both` row asserting that all of it counted toward the plan.
+
+**Gain, offset and binning became reconciliation keys; camera became a disk-side label.** The dividing rule is
+that a dimension may pair only if **both planes express it** — the disk records camera, but a TS profile does not
+fix one (cameras are exchanged between sessions under a single profile), so camera is carried and displayed and
+never tested. The pairing rule is now explicit: a row is **`Both` if and only if the disk bucket matches the plan
+on every key both planes express**; otherwise it renders as a TS row plus one or more Disk rows. **The separation
+*is* the diagnostic** — the visible answer to "why don't these numbers add up", one expand-level earlier than it
+could be reached before.
+
+Measured against the live library first (18,904 lights): `GAIN` and `OFFSET` present on **18,904 / 18,904** — zero
+contract violations; disk cells **471 → 542** (+15%) from gain + offset, while camera, telescope and binning each
+split **zero** buckets today; **650 of 650** TS plans already unique on `(target, filter, exposure)`, so no plan
+collisions needed resolving. Roughly **245 of 542 buckets stop pairing** — the change's value, not its price.
+
+Four columns (Camera · Gain · Offset · Bin) sit between Project and Filter, and are **deliberately excluded from
+sort** — the grid's "sort follows column order" convention gains its one documented exception, because sorting in
+column order would group every gain-53 row across all filters ahead of every gain-0 row, splitting one filter's
+story exactly when the user expanded to follow it. Rollups render the value when children agree and a `mixed`
+caution pill when they don't, reusing the Seconds column's idiom. Two new badges — `camera` (a directory name
+resolving to no known camera) and `cam≠` (the directory disagreeing with the file's own `INSTRUME`) — are the
+vocabulary's **first row-scoped tokens**: they mark the rows drawing on those frames plus their ancestors, never
+unaffected siblings.
+
+**`XisfHeader.OffsetNormalized` was deleted** (BREAKING, shared-library public surface). XFM never divided — its
+`Offset` setter writes the value unchanged and only the per-camera *comment* differs — so disk offset and
+`exposuretemplate.offset` were always the same scale, and `OffsetNormalized` reported **2 for a Z183 frame
+recording 10**, a number comparable to neither plane. Its one production caller was the scanner. Gating it on the
+comment text was rejected: a defensive fallback papering over a question now answered.
+
+`WriteBackPlanner` is **verified unchanged** — it keys coarser and *sums* inventory rows, so finer disk buckets
+still total the same `acquired`. Hours and Remaining are likewise identical: `RowAggregates` sums components
+rather than per-row gaps. Standing truths graduated to `DOMAIN.md` ("What TSM is for", the capture-configuration
+block and its sort exception) and `ARCHITECTURE.md` (the capture configuration as the cell key). **Deferred
+deliberately** — rotation as a key (needs a circular tolerance, disk-side clustering with no precedent, and a
+meridian-flip rule guarded by an RA/DEC centroid), RA/DEC refinements, and telescope as its own UI section
+(100% uniform today; design it *with* the disk layout change a second scope would bring). Reasons in `ROADMAP.md`.
+
 **▶ SHIPPED 2026-07-26 (second sweep) — graduate-and-prune over the openspec archive: 12 truths lifted from
 shipped rationale** — the morning sweep (`feb8f96`) mined the *dated* journal; this one mined the class it
 left untouched, **27 archived `openspec/changes/archive/*/design.md` records**. That class is a genuine
