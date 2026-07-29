@@ -205,7 +205,9 @@
                     </Border>
                     <TextBlock Grid.Column="17" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="18" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
+                    <!-- BadgeText, OneWay: an expanded rollup hands the framing token down to its visible
+                         source line (collapsed it shows it), so the cell re-renders on toggle. -->
+                    <TextBlock Grid.Column="18" controls:BadgeRuns.Tokens="{x:Bind BadgeText, Mode=OneWay}" Margin="10,0,0,0"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                 </Grid>

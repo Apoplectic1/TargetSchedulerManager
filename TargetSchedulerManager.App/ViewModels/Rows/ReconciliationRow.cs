@@ -123,8 +123,18 @@ public sealed class ReconciliationRow(
     public int PlanCount { get; } = numbers.PlanCount;
 
     /// <summary>Match-state badges for the row's target ("duplicate", "name≠", "mosaic", …); empty when clean.
-    /// The vocabulary and its per-token severity colour live in <see cref="Badges"/>.</summary>
+    /// The vocabulary and its per-token severity colour live in <see cref="Badges"/>. This is the FULL
+    /// union (what headers aggregate and the flagged filter reasons over); the cell renders
+    /// <see cref="BadgeText"/>.</summary>
     public string Badge { get; } = badge;
+
+    /// <summary>What the Badges cell renders: <see cref="Badge"/>, except an EXPANDED rollup drops the
+    /// `framing` token — the badge belongs at the deepest VISIBLE level (user obs 6b72 + 8be0,
+    /// 2026-07-29). Collapsed, the triggering source line is hidden, so the rollup shows it; expanded,
+    /// that line shows it and repeating it on the rollup between header and line is noise.</summary>
+    public string BadgeText => Detail is not null && _isExpanded
+        ? Badges.Join(Badges.Split(Badge).Select(t => t.Token).Where(t => t != Badges.Framing))
+        : Badge;
 
     /// <summary>True when the target needs human attention — duplicate / name-mismatch / ambiguous /
     /// multi-plan / accepted≠acquired / no-coords. Exactly the warning-severity badge set
@@ -272,6 +282,7 @@ public sealed class ReconciliationRow(
             _isExpanded = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ChevronGlyph)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BadgeText)));
         }
     }
 

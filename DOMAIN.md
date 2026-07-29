@@ -93,8 +93,9 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   sky plain (`65.1°`), mechanical marked (`172.3°m`), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
   the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing). The
-  badge displays on the **triggering source line and the target summary row only** — never repeated on an
-  intermediate rollup, which stays *flagged* (filter reachability) but un-badged (user obs 2026-07-29). A
+  badge displays at the **deepest visible level** (user obs 2026-07-29): always on the target summary row;
+  on a collapsed rollup (the triggering line is hidden inside it); on the triggering line itself once
+  expanded — the rollup then hands it down rather than repeating it. Flagging is unaffected by expansion. A
   one-frame framing row is intended, not noise — it is the PixInsight reference-frame hazard, quantified by
   its own count.
 

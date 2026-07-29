@@ -71,13 +71,9 @@ internal sealed record RowAggregates(
             anyHours ? diskHours - desiredHours : null,
             // Distinct over TOKENS, not whole child badge strings: children of one mosaic read "mosaic" and
             // "mosaic · multi-plan" (target-scope vs. filter-scope flags), which deduped as strings would
-            // render "mosaic · mosaic · multi-plan". First-appearance order preserved. The union descends
-            // into rollups' nested detail lines: the `framing` token displays only at the header and on the
-            // triggering source line (user obs 6b72, 2026-07-29), so the header must harvest it from the
-            // lines the intermediate rollup deliberately does not repeat.
-            Badges.Join(children
-                .SelectMany(r => r.Detail is null ? [r] : (IEnumerable<ReconciliationRow>)[r, .. r.Detail])
-                .SelectMany(r => Badges.Split(r.Badge)).Select(t => t.Token).Distinct()),
+            // render "mosaic · mosaic · multi-plan". First-appearance order preserved. Unions the FULL
+            // Badge (not the expansion-aware BadgeText) so the header always names every issue beneath it.
+            Badges.Join(children.SelectMany(r => Badges.Split(r.Badge)).Select(t => t.Token).Distinct()),
             flagged,
             // The capture configuration a header can report before it is expanded: which dimensions are
             // consistent beneath it, and which are the reason its numbers do not add up.

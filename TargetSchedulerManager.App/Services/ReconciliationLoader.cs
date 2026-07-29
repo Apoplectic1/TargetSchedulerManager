@@ -209,19 +209,18 @@ public static class ReconciliationLoader
                         && ReferenceEquals(planCells[0], diskCells[0]);
                     bool mixed = !matchedSingle;
 
-                    // The rollup's camera provenance is the union over its disk-side cells, so a bad capture
-                    // directory anywhere beneath it is visible without expanding. The `framing` token is the
-                    // deliberate exception (user obs 6b72, 2026-07-29): it displays at the target header and
-                    // on the triggering source line only — repeating it on the intermediate rollup was noise.
-                    // The rollup still FLAGS on framing, though: the flagged-only filter walks these rows
-                    // (detail lines live inside them), so an unflagged rollup would make a framing-only
-                    // target unreachable through the filter.
+                    // The rollup's own camera/framing provenance is the union over its disk-side cells, so a
+                    // bad capture directory or a stray framing anywhere beneath it is visible without
+                    // expanding. Display refinement (user obs 6b72 + 8be0, 2026-07-29): `Badge` carries the
+                    // full union, but an EXPANDED rollup renders `BadgeText` without the framing token — the
+                    // visible source line beneath it carries the badge then, and repeating it between the
+                    // header and that line was noise. Collapsed, the rollup shows it (the line is hidden).
                     ReconciliationCell configCell = diskCells[0];
                     string rollupBadge = badge;
                     bool rollupFlagged = flagged;
                     foreach (ReconciliationCell c in diskCells)
                     {
-                        rollupBadge = RollupCameraBadge(rollupBadge, c);
+                        rollupBadge = RowBadge(rollupBadge, c, true);
                         rollupFlagged = RowFlagged(rollupFlagged, c, true);
                     }
 
@@ -276,16 +275,6 @@ public static class ReconciliationLoader
                     if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
                     if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
                     if (c.FramingDisagrees) extra.Add(Badges.Framing);
-                    return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
-                }
-
-                // The rollup variant: camera tokens only — `framing` displays at the header + triggering
-                // line, never on the intermediate rollup (see the rollup comment above).
-                static string RollupCameraBadge(string targetBadge, ReconciliationCell c)
-                {
-                    List<string> extra = [];
-                    if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
-                    if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
                     return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
                 }
 

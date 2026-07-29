@@ -99,10 +99,12 @@ display SHALL NOT participate in row sorting, consistent with the capture-config
 
 A disk row whose framing cluster disagrees with the plan's framing SHALL carry a warning-severity
 row-scoped `framing` badge, so stray framings are findable through the badge filter rather than only by
-scrolling for split rows. The badge SHALL display on the **triggering source line** and on the **target
-summary row**, and SHALL NOT be repeated on an intermediate rollup between them — the rollup still counts
-as flagged, so filtering to flagged rows keeps the target reachable. The badge marks the hazard;
-quantifying it (footprint-overlap percentage) is deliberately out of scope.
+scrolling for split rows. The badge SHALL display at the **deepest visible level**: always on the target
+summary row; on an intermediate rollup while it is collapsed (the triggering line is hidden inside it);
+and on the triggering source line itself once the rollup is expanded — at which point the rollup SHALL NOT
+repeat it. The rollup counts as flagged throughout, so filtering to flagged rows keeps the target
+reachable. The badge marks the hazard; quantifying it (footprint-overlap percentage) is deliberately out
+of scope.
 
 #### Scenario: A separated framing row is readable at a glance
 - **WHEN** a target renders a `Both` row and a Disk row split only by framing
@@ -122,10 +124,11 @@ quantifying it (footprint-overlap percentage) is deliberately out of scope.
 - **THEN** the row carries a warning-severity `framing` badge, and filtering by it surfaces every such row
   in the library
 
-#### Scenario: The badge sits at the header and the triggering line, not between
-- **WHEN** the disagreeing disk line sits nested under a rollup within its target
-- **THEN** the `framing` badge shows on the target summary row and on that line, the rollup between them
-  shows no `framing` token, and the rollup still surfaces under a flagged-only filter
+#### Scenario: The badge follows the deepest visible level
+- **WHEN** the disagreeing disk line sits nested under a collapsed rollup within its target
+- **THEN** the target summary row and the rollup both show `framing`; expanding the rollup moves it — the
+  now-visible triggering line shows it and the rollup no longer repeats it — and the rollup surfaces under
+  a flagged-only filter in both states
 
 #### Scenario: An agreeing framing carries no badge
 - **WHEN** a disk row's framing agrees with the plan, or its target's plan expresses no rotation
