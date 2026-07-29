@@ -89,18 +89,35 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   Cross-scope matches are impossible by construction (`CygnusLoop P3` can never grab `NGC 6995`). Duplicates /
   mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped — a multi-claim
   is always a duplicate (the alias-fold escape was removed 2026-07-23; one TS row per position, no exceptions).
-- **The capture configuration is the cell key** (2026-07-27, openspec `capture-config-keys`). A reconciliation
-  cell is `(target, filter, purpose, whole-second exposure, gain, offset, binning)` — everything that decides
-  whether frames combine into one integration. A plan and a disk aggregate share a cell, and therefore render
-  as one `Both` row, **only when they agree on every one of those**; otherwise the grid emits a TS row and one
-  or more Disk rows, and that separation is the diagnostic (a plan specifying gain 0 never absorbs frames
-  captured at gain 53). **Camera is deliberately NOT in the key**: a TS profile cannot name a camera, so
-  including it would split cells against a plan that can never match them — it rides disk-side cells as a label
-  and never prevents pairing. Scanner aggregates carry the same configuration, so gain/offset/binning are
-  *uniform* within an aggregate rather than a mode over mixed frames. Offset is read **raw**: the writer stores
-  it already in the scale TS's templates use (its "divided by N" comment is descriptive), so it must never be
-  rescaled per camera. `WriteBackPlanner` is unaffected — its key is the coarser `(target, filter, purpose,
-  seconds)` and it *sums* inventory rows, so finer disk buckets still total the same `acquired`.
+- **The capture configuration is the cell key** (2026-07-27, openspec `capture-config-keys`; framing added
+  2026-07-29, openspec `rotation-framing-key`). A reconciliation cell is `(target, filter, purpose,
+  whole-second exposure, gain, offset, binning, framing cluster)` — everything that decides whether frames
+  combine into one integration. A plan and a disk aggregate share a cell, and therefore render as one `Both`
+  row, **only when they agree on every one of those**; otherwise the grid emits a TS row and one or more Disk
+  rows, and that separation is the diagnostic (a plan specifying gain 0 never absorbs frames captured at
+  gain 53; a re-framed plan never absorbs the old framing's frames). **Camera is deliberately NOT in the key**:
+  a TS profile cannot name a camera, so including it would split cells against a plan that can never match
+  them — it rides disk-side cells as a label and never prevents pairing. Scanner aggregates carry the same
+  configuration, so gain/offset/binning are *uniform* within an aggregate rather than a mode over mixed frames.
+  Offset is read **raw**: the writer stores it already in the scale TS's templates use (its "divided by N"
+  comment is descriptive), so it must never be rescaled per camera. `WriteBackPlanner` is unaffected — its key
+  is the coarser `(target, filter, purpose, seconds)` and it *sums* inventory rows, so finer disk buckets
+  still total the same `acquired`.
+- **Framing = (field-center, sky-rotation), clustered per unit before the aggregate grouping**
+  (2026-07-29, openspec `rotation-framing-key`; formal contract → the `framing-keys` spec).
+  `FramingClusterer` partitions a unit's frames by rotation **expression** first — sky (`OBJCTROT`),
+  mechanical-only (`POSANGLE`), unknown — then single-linkage clusters the angle **folded mod 180°** (5°
+  tolerance) and splits each angle group by field center (0.5° single-linkage), so a **pier flip merges**
+  (identical footprint; the fold) while 180°-apart fields with genuinely different centers — and translated
+  strays at an unchanged angle — still separate (the centroid guard, as a consequence of ordering).
+  A single stray frame IS a cluster: low-count off-footprint framings are the PixInsight reference-frame
+  hazard this exists to surface. **Rotation joins the pairing test only as expressed by both planes**: a
+  cluster's sky fold-angle vs the TS *target's* rotation (target-level — TS cannot express per-plan rotation),
+  fold-180 within the same 5°; mechanical/unknown clusters and rotation-less targets skip the term (the camera
+  precedent). Mechanical is **never converted** to sky — the zero point drifts 19–35° across remounts.
+  Disk rows whose sky rotation fails the plan carry the warning `framing` badge. Tolerances are constants on
+  `FramingCluster`, not settings (measured: real framings ≥ 9° apart, jitter ≤ 0.2°). Editing a target's
+  `rotation` re-keys pairing on the next load — the first edit that changes row *identity*, by design.
 - **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
   dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
   sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one

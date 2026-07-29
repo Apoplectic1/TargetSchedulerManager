@@ -239,7 +239,7 @@ public static class ReconciliationLoader
                         // so a mixed rollup opens the flyout but edits its count at the plan's own detail line.
                         planTsKey: planCells.Count == 1 ? planCells[0].PlanTsKey : null,
                         planEnabled: planCells.Count == 1 ? planCells[0].PlanEnabled : null,
-                        config: Cfg(configCell, true)));
+                        config: Cfg(configCell, true, tc.TargetRotationDeg)));
                 }
                 else
                 {
@@ -248,25 +248,36 @@ public static class ReconciliationLoader
                 }
 
                 // The capture configuration a cell describes. Camera rides only on rows with a disk side — a
-                // plan cannot name one — so a TS row's camera cell shows the dash.
-                static RowConfig Cfg(ReconciliationCell c, bool withCamera) => new(
+                // plan cannot name one — so a TS row's camera cell shows the dash. Rotation likewise splits
+                // by plane: a disk-backed row shows its framing cluster's rotation; a plan-only row shows the
+                // target's own rotation folded (as Sky), so an agreeing pair reads identically.
+                static RowConfig Cfg(ReconciliationCell c, bool withCamera, double? targetRotationDeg) => new(
                     c.Gain, c.Offset, c.BinningX, c.BinningY,
                     withCamera ? c.Camera : null,
-                    withCamera && c.CameraDisagrees);
+                    withCamera && c.CameraDisagrees,
+                    Rotation: withCamera
+                        ? c.DiskRotation
+                        : targetRotationDeg is null ? null : RotationExpression.Sky,
+                    RotationFoldDeg: withCamera
+                        ? c.DiskRotationFoldDeg
+                        : targetRotationDeg is double rot ? FramingCluster.Fold180(rot) : null,
+                    FramingDisagrees: withCamera && c.FramingDisagrees);
 
-                // Row-scoped camera provenance, appended to the target-scope tokens for THIS row only.
+                // Row-scoped camera/framing provenance, appended to the target-scope tokens for THIS row only.
                 static string RowBadge(string targetBadge, ReconciliationCell c, bool withCamera)
                 {
                     if (!withCamera) return targetBadge;
                     List<string> extra = [];
                     if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
                     if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
+                    if (c.FramingDisagrees) extra.Add(Badges.Framing);
                     return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
                 }
 
                 static bool RowFlagged(bool targetFlagged, ReconciliationCell c, bool withCamera) =>
                     targetFlagged
-                    || (withCamera && ((c.Camera is not null && Format.Camera(c.Camera) is null) || c.CameraDisagrees));
+                    || (withCamera && ((c.Camera is not null && Format.Camera(c.Camera) is null)
+                        || c.CameraDisagrees || c.FramingDisagrees));
 
                 ReconciliationRow BothRow(ReconciliationCell c) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Both,
@@ -277,7 +288,7 @@ public static class ReconciliationLoader
                         PlanHours: c.Desired * (double)c.Seconds / 3600.0,
                         DiskHours: c.Disk * (double)c.Seconds / 3600.0),
                     RowBadge(badge, c, true), RowFlagged(flagged, c, true), isDetail: true,
-                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, true));
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, true, tc.TargetRotationDeg));
 
                 ReconciliationRow TsRow(ReconciliationCell c, bool isDetail) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Ts,
@@ -288,7 +299,7 @@ public static class ReconciliationLoader
                         PlanHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null,
                         DiskHours: null),
                     badge, flagged, isDetail: isDetail,
-                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, false));
+                    planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, false, tc.TargetRotationDeg));
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(
                     id, c.Filter, c.Purpose.ToString(), RowPlane.Disk,
@@ -299,7 +310,7 @@ public static class ReconciliationLoader
                         PlanHours: null,
                         DiskHours: c.Disk * (double)c.Seconds / 3600.0),
                     RowBadge(badge, c, true), RowFlagged(flagged, c, true), isDetail: isDetail,
-                    config: Cfg(c, true));
+                    config: Cfg(c, true, tc.TargetRotationDeg));
             }
 
             // A target with no plans and no scanned LIGHT frames would otherwise vanish from the grid. Its one

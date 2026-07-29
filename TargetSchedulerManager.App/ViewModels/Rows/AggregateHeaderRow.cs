@@ -52,10 +52,12 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
         Raise(nameof(GainText));
         Raise(nameof(OffsetText));
         Raise(nameof(BinText));
+        Raise(nameof(RotText));
         Raise(nameof(CameraBackground));
         Raise(nameof(GainBackground));
         Raise(nameof(OffsetBackground));
         Raise(nameof(BinBackground));
+        Raise(nameof(RotBackground));
     }
 
     /// <summary>Summed over the TS children; null when no child has a plan (pure disk-only).</summary>
@@ -73,6 +75,7 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     public string GainText => _sums.Gain;
     public string OffsetText => _sums.Offset;
     public string BinText => _sums.Bin;
+    public string RotText => _sums.Rot;
 
     /// <summary>Caution fill behind a configuration cell whose children disagree — the same pill the Seconds
     /// cell uses for mixed sub lengths, so one idiom covers every "these differ" cell.</summary>
@@ -82,6 +85,7 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     public Brush? GainBackground => MixedFill(_sums.Gain);
     public Brush? OffsetBackground => MixedFill(_sums.Offset);
     public Brush? BinBackground => MixedFill(_sums.Bin);
+    public Brush? RotBackground => MixedFill(_sums.Rot);
 
     /// <summary>Disk hours − desired hours: negative = still needs telescope time; ≥ 0 = the plan's committed
     /// time was met. Null when no row carries hours.</summary>

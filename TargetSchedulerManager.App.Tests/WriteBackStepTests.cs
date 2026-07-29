@@ -167,7 +167,8 @@ public class WriteBackStepTests
         int gain = 100, int offset = 50, int bin = 1, string camera = "Z533") =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
-            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera);
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera,
+            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: 20.0);
 
     private static CatalogBuildReport Report(int plannedOnly = 0, int actualOnly = 0) => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0,

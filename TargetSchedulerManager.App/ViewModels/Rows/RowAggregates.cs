@@ -18,7 +18,8 @@ internal sealed record RowAggregates(
     string Camera,
     string Gain,
     string Offset,
-    string Bin)
+    string Bin,
+    string Rot)
 {
     /// <summary>What a rollup cell shows for one capture-configuration column: the shared value when every
     /// child agrees, or the mixed marker when they do not. Never blank on disagreement — silence would read
@@ -71,6 +72,7 @@ internal sealed record RowAggregates(
             Uniform(children, r => r.CameraText),
             Uniform(children, r => r.GainText),
             Uniform(children, r => r.OffsetText),
-            Uniform(children, r => r.BinText));
+            Uniform(children, r => r.BinText),
+            Uniform(children, r => r.RotText));
     }
 }

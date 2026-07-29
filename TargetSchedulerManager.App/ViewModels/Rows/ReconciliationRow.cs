@@ -35,18 +35,25 @@ public sealed record RowNumbers(
     double? PlanHours,
     double? DiskHours);
 
-/// <summary>The capture configuration a row describes (openspec capture-config-keys). Gain/Offset/Bin are
-/// reconciliation keys — a row exists separately from its siblings BECAUSE one of them differs — so they are
-/// present on both planes. <see cref="Camera"/> is disk-side only, because a TS plan cannot name a camera;
-/// it is null on a plan-only row and holds the raw capture directory name otherwise (the alias is applied at
-/// render time, so an unrecognised directory stays visible beside its badge).</summary>
+/// <summary>The capture configuration a row describes (openspec capture-config-keys +
+/// rotation-framing-key). Gain/Offset/Bin are reconciliation keys — a row exists separately from its
+/// siblings BECAUSE one of them differs — so they are present on both planes. <see cref="Camera"/> is
+/// disk-side only, because a TS plan cannot name a camera; it is null on a plan-only row and holds the raw
+/// capture directory name otherwise (the alias is applied at render time, so an unrecognised directory
+/// stays visible beside its badge). <see cref="Rotation"/>/<see cref="RotationFoldDeg"/> carry the row's
+/// framing rotation — the disk cluster's expression + fold-180 angle on disk-backed rows, the target's own
+/// rotation (as Sky) on plan-only rows, null where neither expresses one. <see cref="FramingDisagrees"/>
+/// marks a disk row whose sky rotation fails the plan's — the `framing` badge's source.</summary>
 public sealed record RowConfig(
     int Gain,
     int Offset,
     int BinningX,
     int BinningY,
     string? Camera,
-    bool CameraDisagrees)
+    bool CameraDisagrees,
+    Astronomy.Catalog.Scan.RotationExpression? Rotation = null,
+    double? RotationFoldDeg = null,
+    bool FramingDisagrees = false)
 {
     /// <summary>The configuration of a row with no disk side and no plan template behind it (a bare
     /// no-data row).</summary>
@@ -347,12 +354,17 @@ public sealed class ReconciliationRow(
             ? Config.BinningX.ToString()
             : $"{Config.BinningX}x{Config.BinningY}");
 
+    /// <summary>Rotation cell: the framing's fold-180 angle (sky plain, mechanical marked "°m"), the dash
+    /// where no rotation is expressed; a rollup shows the shared value or the mixed marker.</summary>
+    public string RotText => Cfg(r => r.RotText, Format.Rotation(Config.Rotation, Config.RotationFoldDeg));
+
     private static Brush? MixedFill(string text) => text == Format.Mixed ? ThemeBrushes.Caution : null;
 
     public Brush? CameraBackground => MixedFill(CameraText);
     public Brush? GainBackground => MixedFill(GainText);
     public Brush? OffsetBackground => MixedFill(OffsetText);
     public Brush? BinBackground => MixedFill(BinText);
+    public Brush? RotBackground => MixedFill(RotText);
 
     public string DesiredText => Format.CountOrDash(Desired);
     public string AcquiredText => Format.CountOrDash(Acquired);

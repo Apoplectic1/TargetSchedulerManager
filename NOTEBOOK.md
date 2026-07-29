@@ -6,6 +6,27 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-07-29 — the measured framing landscape (rotation spike, 18,650 frames; fed `rotation-framing-key`).**
+Production-faithful header dump + circular-clustering sweep over the live library, before designing rotation
+as a key. What it settled: **(1)** the tolerance question dissolved — genuinely distinct framings sit ≥ 9°
+apart fold-180 (nearest pairs: Eastern Veil 8.9° mech, Barnard 202 10° sky) while within-framing jitter is
+≤ 0.2° (NINA snaps the rotator; raw values are literally 50.0/60.0/15.0), so tolerances 1–5° give identical
+clusters; the earlier "5° puts M33/M51 exactly on the boundary" note did not reproduce under fold-180
+(measured 0.56°/0.10°) — the only boundary resident in the whole library is Sh2-174 (TS 90° vs disk 94.8°,
+inside the 5° tolerance → pairs). **(2)** Every true flip pair's centroids coincide ≤ 0.12° (M81 0.032°,
+Bear Claw 0.028°, Wizard 0.116°) — fold-180 + centroid guard is correct AND optically right (a rectangle
+rotated 180° about its center covers the identical footprint, so flips never cost integration overlap).
+**(3)** Mech→sky conversion is dead: the zero point is mod-180 stable in 25/30 (unit, camera) groups but
+drifts 19–35° across remounts in exactly the units that matter (Abell 21/78, IC 443). **(4)** The real
+re-framing census: 6 sky-comparable multi-framing targets (Barnard 202 — only 28/479 frames at the planned
+50°; Tulip — the *majority* 199/285 is the old 20° framing; M100 — ONE stray 135° frame among 104, the
+reference-frame-hazard shape; M81 — four framings; Pacman; IC 443 — TS plans a *third* framing neither
+cluster matches), plus ~5 mech-only (M94, M106, Iris, Eastern Veil, Crescent) and one pure translation
+stray (M97 — same 125° angle, one frame 1.45° off-center; only the centroid catches it — the fact that
+welded RA/DEC to rotation as ONE framing concept). "14 targets with different framings" from the
+capture-config pass was inflated by counting flips. Spike artifacts were scratchpad-only (read-only against
+library + local TS db).
+
 **2026-07-24 — one-off test flake, name not captured.** During the presentation-conventions pass, one
 run reported 1/230 failed with the name scrolled out of the tail; four immediate re-runs were fully
 green. Suspects if it recurs: the timing-gated tests (`CommitChainTests`' 50 ms no-overlap window, the

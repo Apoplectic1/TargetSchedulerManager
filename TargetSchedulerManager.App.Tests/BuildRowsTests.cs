@@ -489,6 +489,100 @@ public class BuildRowsTests
         Assert.Equal("IC 1318", rows[1].Target);
     }
 
+    // ---- framing (openspec rotation-framing-key) -----------------------------
+
+    [Fact]
+    public void FramingDisagreement_SeparatesRows_AndBadgesTheStray()
+    {
+        // The Barnard 202 shape: plan @50°, clusters @50° (28) and @60° (451). The agreeing minority pairs;
+        // the majority renders as a Disk row carrying the warning `framing` badge — findable by filter.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Barnard 202", TargetSource.Both, dir: "Barnard 202", rotation: 50.0)],
+                [Plan(t, tpl, desired: 100, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 28, 300.0, framingOrdinal: 1, rotationFold: 50.0),
+                    Inv(t, "H", FilterPurpose.Light, 451, 300.0, framingOrdinal: 0, rotationFold: 60.0),
+                ]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.NotNull(rollup.Detail);
+        ReconciliationRow both = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Both);
+        Assert.Equal(28, both.Disk);
+        Assert.Equal("50°", both.RotText);
+        Assert.DoesNotContain(Badges.Framing, both.Badge);
+
+        ReconciliationRow stray = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk);
+        Assert.Equal(451, stray.Disk);
+        Assert.Equal("60°", stray.RotText);
+        Assert.Contains(Badges.Framing, stray.Badge);
+        Assert.True(stray.IsFlagged);                        // warning severity — the flagged filter shows it
+        Assert.Equal("mixed", rollup.RotText);               // the rollup names the dimension responsible
+    }
+
+    [Fact]
+    public void AgreeingFraming_RendersIdenticallyOnBothPlanes_NoBadge()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Pacman", TargetSource.Both, dir: "NGC 281 - Pacman", rotation: 147.01)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 91, 300.0, rotationFold: 147.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Both, r.Plane);
+        Assert.Equal("147°", r.RotText);
+        Assert.DoesNotContain(Badges.Framing, r.Badge);
+        Assert.False(r.IsFlagged);
+    }
+
+    [Fact]
+    public void MechanicalRotation_IsMarked_NeverBadged_NeverPreventsPairing()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Leo Triplet", TargetSource.Both, dir: "Leo Triplet", rotation: 110.0)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 265, 300.0,
+                    rotation: RotationExpression.Mechanical, rotationFold: 172.3)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Both, r.Plane);
+        Assert.Equal("172.3°m", r.RotText);                  // visibly mechanical — never dressed as sky
+        Assert.DoesNotContain(Badges.Framing, r.Badge);
+    }
+
+    [Fact]
+    public void TsRow_ShowsTheTargetsOwnRotation_Folded()
+    {
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        // Plan rotation 345.43° folds to 165.43° — the TS row reads the same way an agreeing disk row would.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Jellyfish", TargetSource.Planned, rotation: 345.43)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")], []),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Ts, r.Plane);
+        Assert.Equal("165.4°", r.RotText);
+    }
+
+    [Fact]
+    public void UnknownRotation_ShowsTheDash()
+    {
+        Guid t = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "NGC 4449", TargetSource.Actual, dir: "NGC 4449")], [], [],
+                [Inv(t, "H", FilterPurpose.Light, 6, 300.0,
+                    rotation: RotationExpression.Unknown, rotationFold: null)]),
+            Report());
+
+        Assert.Equal(Format.Dash, Assert.Single(rows).RotText);
+    }
+
     // ---- builders (mirroring Astronomy.Catalog.Tests') ----------------------
 
     private static CatalogGraph Graph(
@@ -501,9 +595,10 @@ public class BuildRowsTests
     private static CatalogBuildReport Report(IReadOnlyList<UnanchoredTsTarget>? unanchored = null) =>
         new(0, 0, 0, 0, 0, [], [], [], unanchored ?? [], []);
 
-    private static Target T(Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null) => new(
+    private static Target T(Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null,
+        double? rotation = null) => new(
         id, source, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
-        RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null, CommonName: null,
+        RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null, CommonName: null,
         ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: null, ParentTargetId: parent);
 
     private static ExposureTemplate Tpl(Guid id, string name, string filter) =>
@@ -517,8 +612,12 @@ public class BuildRowsTests
 
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds,
-        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533", bool disagrees = false) =>
+        int gain = 100, int offset = 50, int bin = 1, string camera = "Z533", bool disagrees = false,
+        int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
+        double? rotationFold = 20.0) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
-            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera, CameraDisagrees: disagrees);
+            TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera,
+            FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold,
+            CameraDisagrees: disagrees);
 }

@@ -54,12 +54,18 @@ internal static class Badges
     /// camera, repaired on disk. Row-scoped, like <see cref="UnknownCamera"/>.</summary>
     public const string CameraMismatch = "cam≠";
 
+    /// <summary>A disk row whose framing (sky rotation) disagrees with the plan's — captured history that
+    /// does not serve the planned framing, and a PixInsight reference-frame hazard if blindly stacked with
+    /// the frames that do. Repaired outside TSM: re-frame the plan, or keep the old framing as its own
+    /// composition. Row-scoped, like <see cref="UnknownCamera"/> (openspec rotation-framing-key).</summary>
+    public const string Framing = "framing";
+
     /// <summary>True when the token marks something the user must repair. An unrecognised token reads as
     /// informative: a badge is never worth failing a load over, and the quiet tier is the safe default.</summary>
     public static bool IsWarning(string token) => token switch
     {
         NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
-            or UnknownCamera or CameraMismatch => true,
+            or UnknownCamera or CameraMismatch or Framing => true,
         _ => false,
     };
 

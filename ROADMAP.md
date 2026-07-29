@@ -28,7 +28,9 @@ per-field flyout marks · net-no-op pruning), two-tier badge color, the `UpDownB
 toolbar **Cancel** covering the whole load, and `CONVENTIONS.md` as a fourth reference doc. 2026-07-27 added the
 two reconciliation-fidelity units — **`capture-config-keys`** (gain/offset/binning key the disk plane, camera a
 label, the pairing rule made explicit) and **`skip-comet-targets`** (non-sidereal targets never enter the scan);
-both shipped, verified and archived. The load-split is
+both shipped, verified and archived. 2026-07-29 closed the rotation + RA/DEC deferral as one unit —
+**`rotation-framing-key`** (framing = fold-180 sky rotation + cluster centroid as a reconciliation key, the
+`Rot` column, the `framing` badge; implemented, awaiting in-app verification). The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is
@@ -40,18 +42,20 @@ and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lan
 
 `capture-config-keys` shipped and archived 2026-07-27 (see `CHANGELOG.md`): gain, offset and binning became
 **reconciliation keys** and camera a **disk-side label**, with the pairing rule made explicit — a row is `Both`
-only when the plan and the frames agree on every dimension both planes express. Three further dimensions were
-**deferred deliberately during that change**, each for a stated reason:
+only when the plan and the frames agree on every dimension both planes express. Three dimensions were deferred
+deliberately; two closed 2026-07-29, one remains:
 
-- **Rotation as a key.** Every dimension shipped above is an exact discrete value; rotation is a *measured
-  angle*, needing a circular tolerance (TS stores values like `359.954734820275` for what is really 0°), disk-side
-  clustering the codebase has no precedent for (directories have always done that job), and a meridian-flip rule
-  — `≈180°` apart is the same field, guarded by an RA/DEC centroid so two mosaic panels can't be mistaken for a
-  flip. Real data: 71% of frames carry a sky angle, 28% only a mechanical one (which TS cannot express at all),
-  1.4% neither; 14 targets carry genuinely different framings, M81 spanning 295°. The tolerance is a judgement
-  call best made with the shipped grid in front of you — 5° puts M33 and M51 exactly on the boundary.
-- **RA/DEC refinements** — same lane as rotation.
-- **Telescope as its own UI section.** 100% uniform today (`APM107R@531` on all 18,904 frames), and a second
+- ~~**Rotation as a key** / **RA/DEC refinements**~~ — **closed 2026-07-29 as ONE unit** (openspec
+  `rotation-framing-key`): the two were one concept — a **framing** is a (field-center, sky-rotation) pair —
+  and the 2026-07-29 measurement spike (18,650 frames) dissolved the open questions: real framings sit ≥ 9°
+  apart with ≤ 0.2° jitter (any tolerance in 1–5° yields identical clusters — it stopped being a judgement
+  call; the old "M33/M51 on the 5° boundary" note didn't reproduce under fold-180: they measure 0.56°/0.10°),
+  every true flip's centroids coincide within 0.12° (fold-180 + centroid guard), and mech→sky conversion is
+  unreliable exactly where it would matter (zero point drifts 19–35° across remounts) so it is never
+  attempted. **Explicit follow-up left on the table: the overlap-% column** (footprint intersection of a
+  stray framing vs the plan framing, the number that prices the hazard) — needs image pixel dimensions
+  `XisfHeader` doesn't expose; lands later as a column addition without rework.
+- **Telescope as its own UI section.** 100% uniform today (`APM107R@531` on all frames), and a second
   scope would likely bring a disk directory-layout change, so it should be designed *with* that layout rather
   than guessed at now.
 **Comets — closed the same day, not deferred.** ~~Out of scope~~ **excluded at the scan** (2026-07-27, openspec

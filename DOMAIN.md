@@ -32,8 +32,24 @@ Four standing truths follow, and they settle most arguments about the grid:
   a desired count between cameras, never infer how many frames a given camera still owes. You decide that at the
   telescope, and automating it would hard-code complexity that is trivially resolved in the moment.
 
-(Landed 2026-07-27 with openspec `capture-config-keys`, which made gain/offset/binning reconciliation keys and
-camera a disk-side label. Rotation, RA/DEC and telescope are deferred — see `ROADMAP.md`.)
+- **A 180° pier flip is the same framing.** A rectangle rotated 180° about the same center covers the
+  identical footprint, so flip frames integrate perfectly — flips are routine acquisition events and must
+  never split a row or read as a mismatch. That is why every rotation comparison in TSM is **fold-180**
+  (measured 2026-07-29: every real flip pair's centroids coincide within 0.12°).
+- **Mechanical rotator angle is never converted to a sky angle.** The mech-to-sky zero point shifts when the
+  camera is remounted (measured drifting 19–35° across sessions, precisely on the multi-framing targets), so
+  a conversion would silently mislabel the exact rows the framing key exists to expose. Mechanical rotation
+  is shown marked (`°m`), clusters frames disk-side, and never enters the plan comparison.
+- **TSM detects framing hazards; WBPP enforces; XFM neither.** A low-count off-footprint framing cluster is
+  a PixInsight reference-frame hazard (a good stray reference makes ImageIntegration work a shrunken
+  overlap). TSM's job ends at making it visible (the split row + `framing` badge); any grouping/exclusion
+  rule belongs in the WBPP lane (PJSR reads `OBJCTROT`/`POSANGLE` itself — zero AL coupling), and XFM's
+  grading role gives it no say at all.
+
+(Landed 2026-07-27 with openspec `capture-config-keys` — gain/offset/binning reconciliation keys, camera a
+disk-side label — and 2026-07-29 with openspec `rotation-framing-key` — framing (fold-180 sky rotation +
+cluster centroid) as a key, per the same-day measurement spike over 18,650 frames. Telescope remains
+deferred — see `ROADMAP.md`.)
 
 ## The grid idiom
 
@@ -58,10 +74,11 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 
 ## Columns (current)
 
-`[mark] · [enable] · Source · Target · Project · Camera · Gain · Offset · Bin · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
+`[mark] · [enable] · Source · Target · Project · Camera · Gain · Offset · Bin · Rot · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
 
-- **Camera · Gain · Offset · Bin** = the **capture configuration** (2026-07-27, openspec `capture-config-keys`).
-  Gain/Offset/Bin are **reconciliation keys** — a row stands apart from its siblings *because* one of them
+- **Camera · Gain · Offset · Bin · Rot** = the **capture configuration** (2026-07-27, openspec
+  `capture-config-keys`; Rot 2026-07-29, openspec `rotation-framing-key`).
+  Gain/Offset/Bin/Rot are **reconciliation keys** — a row stands apart from its siblings *because* one of them
   differs — so the value responsible is always legible on the row that separated. **Camera is disk-side only**
   (TS cannot name one), so a TS row's camera cell shows the em dash while its gain/offset/bin come from the
   exposure template. On a rollup each cell shows the shared value, or a **`mixed` caution pill** when the rows
@@ -69,6 +86,12 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   ("Z533"); the numeric cells are not (a bare number would collide with the count columns). The camera alias
   (183→`Z183`, 533→`Z533`, 178→`Q178`, 144→`A144`) is **display only** — it never enters a key — and a capture
   directory matching none of them shows raw beside a `camera` warning badge.
+- **Rot** shows the row's framing rotation **fold-180**: a disk-backed row shows its framing cluster's angle —
+  sky plain (`65.1°`), mechanical marked (`172.3°m`), em dash when frames record neither — and a TS row shows
+  the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
+  the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing). A
+  one-frame framing row is intended, not noise — it is the PixInsight reference-frame hazard, quantified by
+  its own count.
 
 - **Mark** (column 0, 24 px, unlabeled): the sync-direction mark on every row level — `←` = arrived changed
   from BIRDWATCHER (pull diff, sticky for the session) · `→` = unpushed local writes (journal: manual edits
@@ -99,10 +122,11 @@ only separates same-named targets in different projects. Structural keys sit out
 **panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell.
 
 **One deliberate exception** (2026-07-27, openspec `capture-config-keys`): the **capture-configuration columns
-(Camera · Gain · Offset · Bin) sit left of Filter but sort *after* Seconds.** Sorting them in column position
-would group every gain-53 row across *all* filters ahead of every gain-0 row, splitting one filter's rows apart —
-exactly when you have expanded a target to follow that filter's story. Keeping them late leaves each filter's
-rows contiguous, with configuration breaking ties *within* a filter. Full precedence:
+(Camera · Gain · Offset · Bin · Rot) sit left of Filter but sort *after* Seconds.** Sorting them in column
+position would group every gain-53 row across *all* filters ahead of every gain-0 row, splitting one filter's
+rows apart — exactly when you have expanded a target to follow that filter's story. Keeping them late leaves
+each filter's rows contiguous, with configuration breaking ties *within* a filter (Rot, 2026-07-29, follows the
+same rule and sits outside sort precedence entirely). Full precedence:
 `Target → Project → Panel → Filter → Purpose → Seconds → Gain → Offset → Bin → Camera → Plane`. The toolbar
 sort picker's other modes (`remaining` / `disk` / `Δ ↓`) are **number-first** with a natural `Target → Project`
 tiebreak. `NaturalComparer` is pure-managed (no `shlwapi` P/Invoke).
@@ -189,7 +213,10 @@ goal of zero); measured disk-side absence = `0`.
   default": plan `exposure` → template, template `gain`/`offset`/`readoutmode` → camera) render as their meaning
   — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
   disabled, showing the resolved value when known), unchecking arms the box (the override commits only when a
-  number commits).
+  number commits). **Editing `rotation` re-keys rows on the next load** (2026-07-29, openspec
+  `rotation-framing-key`): rotation is a reconciliation key, so after a rotation edit the framing pairing
+  re-evaluates — clusters that matched may separate (old-framing frames stop serving the re-framed plan) and
+  vice versa. The first edit that changes row *identity* rather than a value; designed behavior, not drift.
 - **Mosaics are a special case (user decision 2026-07-06):** a mosaic *parent* row is a grouping node (no TS
   target), so its flyout edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
   to every TS-backed panel; tri-state display when panels disagree; each write individually guarded + audited)
