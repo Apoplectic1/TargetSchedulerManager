@@ -82,7 +82,10 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   differs — so the value responsible is always legible on the row that separated. **Camera is disk-side only**
   (TS cannot name one), so a TS row's camera cell shows the em dash while its gain/offset/bin come from the
   exposure template. On a rollup each cell shows the shared value, or a **`mixed` caution pill** when the rows
-  beneath disagree — so a header names the inconsistent dimension *before* you expand it. Camera is searchable
+  beneath disagree — so a header names the inconsistent dimension *before* you expand it. **A dash never
+  counts as disagreement** (user obs 2026-07-29): the em dash means that plane expresses nothing (a TS row's
+  camera, an unexpressed rotation), so `mixed` appears only when two *expressed* values differ — a rollup over
+  a TS line and Z183 disk lines reads `Z183`, not `mixed`. Camera is searchable
   ("Z533"); the numeric cells are not (a bare number would collide with the count columns). The camera alias
   (183→`Z183`, 533→`Z533`, 178→`Q178`, 144→`A144`) is **display only** — it never enters a key — and a capture
   directory matching none of them shows raw beside a `camera` warning badge.

@@ -23,15 +23,22 @@ internal sealed record RowAggregates(
 {
     /// <summary>What a rollup cell shows for one capture-configuration column: the shared value when every
     /// child agrees, or the mixed marker when they do not. Never blank on disagreement — silence would read
-    /// as "nothing to say" exactly when the fact to convey is "these differ".</summary>
+    /// as "nothing to say" exactly when the fact to convey is "these differ". A child showing the em dash
+    /// expresses nothing for that dimension (a TS row's camera, an unexpressed rotation) and therefore never
+    /// counts as disagreement (user obs 2026-07-29): only two *expressed* values can differ. All-dash
+    /// children roll up to the dash.</summary>
     private static string Uniform(IReadOnlyList<ReconciliationRow> children, Func<ReconciliationRow, string> cell)
     {
         if (children.Count == 0) return string.Empty;
-        string first = cell(children[0]);
+        string expressed = string.Empty;
         foreach (ReconciliationRow r in children)
-            if (!string.Equals(cell(r), first, StringComparison.Ordinal))
-                return Format.Mixed;
-        return first;
+        {
+            string v = cell(r);
+            if (v == Format.Dash) continue;
+            if (expressed.Length == 0) expressed = v;
+            else if (!string.Equals(v, expressed, StringComparison.Ordinal)) return Format.Mixed;
+        }
+        return expressed.Length == 0 ? Format.Dash : expressed;
     }
 
     public static RowAggregates Compute(IReadOnlyList<ReconciliationRow> children)

@@ -571,6 +571,26 @@ public class BuildRowsTests
     }
 
     [Fact]
+    public void RollupDash_NeverCountsAsDisagreement()
+    {
+        // The Barnard 202 B-Light shape (user obs 0d19, 2026-07-29): a TS line and a Disk line under one
+        // rollup. The TS row cannot express a camera (dash), and the dash means "nothing to say" — so the
+        // rollup's camera is the one expressed value (Z533), not `mixed`. Likewise rotation: the plan
+        // carries none here, so the rollup shows the disk framing's angle.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Barnard 202", TargetSource.Both, dir: "Barnard 202")],
+                [Plan(t, tpl, desired: 64, seconds: 300.0)], [Tpl(tpl, "B", "B")],
+                [Inv(t, "B", FilterPurpose.Light, 64, 300.0, gain: 53)]),   // plan gain 100 → planes separate
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows, r => r.Detail is not null);
+        Assert.Equal(Format.Mixed, rollup.GainText);    // two expressed gains genuinely disagree
+        Assert.Equal("Z533", rollup.CameraText);        // dash (TS) + Z533 (Disk) → Z533, never mixed
+        Assert.Equal("20°", rollup.RotText);            // dash (no plan rotation) + 20° (Disk) → 20°
+    }
+
+    [Fact]
     public void UnknownRotation_ShowsTheDash()
     {
         Guid t = Guid.NewGuid();

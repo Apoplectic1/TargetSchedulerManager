@@ -330,15 +330,21 @@ public sealed class ReconciliationRow(
 
     /// <summary>A configuration cell's text: this row's own value, or — on a rollup — the value its source
     /// lines share, or the mixed marker when they disagree. A rollup that reads "mixed" names the dimension
-    /// responsible before it is expanded.</summary>
+    /// responsible before it is expanded. A line showing the em dash expresses nothing for that dimension
+    /// (a TS row's camera, an unexpressed rotation) and never counts as disagreement (user obs 2026-07-29);
+    /// all-dash lines roll up to the dash.</summary>
     private string Cfg(Func<ReconciliationRow, string> cell, string own)
     {
         if (Detail is not { Count: > 0 } lines) return own;
-        string first = cell(lines[0]);
+        string expressed = string.Empty;
         foreach (ReconciliationRow line in lines)
-            if (!string.Equals(cell(line), first, StringComparison.Ordinal))
-                return Format.Mixed;
-        return first;
+        {
+            string v = cell(line);
+            if (v == Format.Dash) continue;
+            if (expressed.Length == 0) expressed = v;
+            else if (!string.Equals(v, expressed, StringComparison.Ordinal)) return Format.Mixed;
+        }
+        return expressed.Length == 0 ? Format.Dash : expressed;
     }
 
     /// <summary>Camera cell: the alias, or the raw directory name when it names no known camera (so the
