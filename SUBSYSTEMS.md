@@ -190,6 +190,12 @@ the mechanism there):
   Same-purpose plans at *different* durations are different cells and auto-resolve; disk buckets no plan
   targets are surfaced as `UnplannedFrames` notes, never written and never manual — **write-back updates
   existing plan rows only** (plan creation/deletion is an M2 concern).
+- **Only serving framings credit** (2026-07-29, openspec `rotation-framing-key`). Within the join's bucket,
+  a frame counts toward `acquired` only when its framing serves the target's rotation
+  (`FramingCluster.ServesPlanRotation` — the same rule the grid pairs and badges by): sky framing must agree
+  fold-180 within tolerance; mechanical/unknown framing and rotation-less targets always credit. A re-framed
+  target therefore stamps its true progress (possibly 0) and TS schedules the full re-shoot. The surgical
+  path surfaces a withheld cell as a `FramingMismatch` note rather than skipping it silently.
 - **Uncertain identity → manual.** ≥2 plans collapsing onto one `(target,filter,purpose,seconds)` (a same-key
   multi-plan or a dup-fold target), **and** any target whose match is flagged (name-mismatch / ambiguous coord),
   are held for manual resolution with full info, never auto-written — a false-positive coordinate match must not

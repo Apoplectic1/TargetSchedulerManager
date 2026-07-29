@@ -82,6 +82,18 @@ value-or-`mixed` pill mechanics unchanged. Disk rows failing the rotation pairin
 warning-severity row-scoped `framing` badge (the `cam≠` mechanics). Excluded from sort, like the rest of
 the capture-config group.
 
+### Write-back credits by the same serving rule (in-flight addition, user decision 2026-07-29)
+Discovered during verification (Tulip: TS `acquired`=32 while zero frames serve the re-framed 160° plan —
+the user read that as a contradiction, and at the telescope it makes TS under-schedule the re-shoot).
+The rotation-participation predicate now lives ONCE as `FramingCluster.ServesPlanRotation` with three
+consumers — the projection's pairing/disagree cue, `WriteBackPlanner`'s disk sum, and
+`SingleTargetPlanner`'s cell routing — so the badge and the stamped counts can never tell different
+stories. Bulk path: non-serving inventory rows simply don't sum (the grid's badged rows explain; the push
+review shows the decrease). Surgical path: a withheld cell emits a `FramingMismatch` note naming frames,
+framing, and the rotation they fail — a count that visibly did not move deserves its stated reason.
+Alternative — leaving write-back coarse and hand-adjusting `desired` on re-framed targets — rejected:
+write-back's purpose is "TS's acquired mirrors disk truth," and disk truth is framing-aware now.
+
 ### Rotation edits interact correctly with the key
 Target `rotation` is already flyout-editable. After an edit, the next load re-pairs: clusters that
 matched may separate and vice versa. This is correct — re-framing the plan means old frames no longer

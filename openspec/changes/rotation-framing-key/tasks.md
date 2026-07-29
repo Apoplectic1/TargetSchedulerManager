@@ -61,3 +61,16 @@
       overlap-% column recorded as the explicit follow-up
 - [x] 4.4 Standing truths (shift-left rule): flip-fold geometry + mech-conversion rejection →
       `DOMAIN.md` "What TSM is for"; the measured framing landscape → `NOTEBOOK.md` (2026-07-29 entry)
+
+## 5. Write-back credits only serving frames (in-flight addition, user decision 2026-07-29)
+
+- [x] 5.1 `FramingCluster.ServesPlanRotation` — the shared rotation-participation rule (pairing cue,
+      bulk crediting, surgical routing all consume it)
+- [x] 5.2 `WriteBackPlanner`: non-serving inventory rows excluded from the disk sum (re-framed plans stamp
+      their true progress, possibly 0); `SingleTargetPlanner`: non-serving cells withheld with a
+      `FramingMismatch` note
+- [x] 5.3 `ReconciliationProjection.FramingDisagrees` refactored onto the shared rule (same semantics)
+- [x] 5.4 Tests: Barnard credit shape (only the 50° cluster sums; all-non-serving stamps 0), mechanical +
+      flip still credit, surgical withhold + note (Catalog 222 green)
+- [x] 5.5 `write-back` delta spec + proposal/design updated; ARCHITECTURE + DOMAIN refreshed for the
+      serving rule

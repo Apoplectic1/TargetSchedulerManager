@@ -100,9 +100,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   them — it rides disk-side cells as a label and never prevents pairing. Scanner aggregates carry the same
   configuration, so gain/offset/binning are *uniform* within an aggregate rather than a mode over mixed frames.
   Offset is read **raw**: the writer stores it already in the scale TS's templates use (its "divided by N"
-  comment is descriptive), so it must never be rescaled per camera. `WriteBackPlanner` is unaffected — its key
-  is the coarser `(target, filter, purpose, seconds)` and it *sums* inventory rows, so finer disk buckets
-  still total the same `acquired`.
+  comment is descriptive), so it must never be rescaled per camera. `WriteBackPlanner` keeps the coarser key
+  `(target, filter, purpose, seconds)` and *sums* inventory rows — but since 2026-07-29 only rows whose
+  **framing serves the target's rotation** join the sum (see the framing invariant below), so a re-framed
+  plan stamps its true progress instead of staying credited with the old framing's frames.
 - **Framing = (field-center, sky-rotation), clustered per unit before the aggregate grouping**
   (2026-07-29, openspec `rotation-framing-key`; formal contract → the `framing-keys` spec).
   `FramingClusterer` partitions a unit's frames by rotation **expression** first — sky (`OBJCTROT`),
@@ -115,9 +116,13 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   cluster's sky fold-angle vs the TS *target's* rotation (target-level — TS cannot express per-plan rotation),
   fold-180 within the same 5°; mechanical/unknown clusters and rotation-less targets skip the term (the camera
   precedent). Mechanical is **never converted** to sky — the zero point drifts 19–35° across remounts.
-  Disk rows whose sky rotation fails the plan carry the warning `framing` badge. Tolerances are constants on
-  `FramingCluster`, not settings (measured: real framings ≥ 9° apart, jitter ≤ 0.2°). Editing a target's
-  `rotation` re-keys pairing on the next load — the first edit that changes row *identity*, by design.
+  Disk rows whose sky rotation fails the plan carry the warning `framing` badge. The participation predicate
+  lives ONCE as `FramingCluster.ServesPlanRotation` with three consumers — pairing/badge cue, bulk write-back
+  crediting, surgical write-back routing — so the badge and the stamped counts can never tell different
+  stories (a non-serving cell on the surgical path surfaces as a `FramingMismatch` note, never a silent
+  skip). Tolerances are constants on `FramingCluster`, not settings (measured: real framings ≥ 9° apart,
+  jitter ≤ 0.2°). Editing a target's `rotation` re-keys pairing AND re-credits write-back on the next load —
+  the first edit that changes row *identity*, by design.
 - **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
   dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
   sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one

@@ -30,6 +30,11 @@ poison a whole PixInsight integration, invisible today. This was deferred delibe
 - The grid shows each row's framing (rotation value or mechanical/unknown marking), with rollup treatment
   consistent with the capture-config columns, and a warning-severity row-scoped `framing` badge on disk
   rows whose framing disagrees with the plan — stray framings become findable via the badge filter.
+- **Write-back credits only serving frames** (added in-flight, user decision 2026-07-29): both planners
+  count a frame toward a plan's `acquired` only when its framing serves the target's rotation — the same
+  shared rule the pairing test uses — so a re-framed target stamps its true progress (possibly 0) and TS
+  schedules the full re-shoot instead of believing the old framing's frames still count. The surgical
+  path surfaces a withheld cell with its reason.
 - Tolerances are constants, not knobs: the spike shows real framings sit ≥ 9° apart with ≤ 0.2°
   within-framing jitter, so any grouping tolerance in 1–5° yields identical clusters on the real library.
 
@@ -55,6 +60,8 @@ poison a whole PixInsight integration, invisible today. This was deferred delibe
 - `image-library-scan`: the scan now reads each frame's rotator sky angle, mechanical position angle, and
   plate-solved coordinates, and publishes per-cluster centroids instead of only one consensus centroid per
   unit.
+- `write-back`: stamped `acquired` counts only frames whose framing serves the target's rotation (the
+  shared serving rule); non-serving cells on the surgical path surface with a stated reason.
 
 ## Impact
 
@@ -65,5 +72,7 @@ poison a whole PixInsight integration, invisible today. This was deferred delibe
 - **TSM app**: pairing predicate, grid row rendering (framing display, rollups, badges), row sort untouched
   (capture-config columns stay excluded from sort; framing follows).
 - **Tests**: library scanner/clustering fixtures (synthetic — flips, strays, mech-only), app pairing tests.
-- **Unaffected**: Hours/Remaining totals (aggregates sum components, as in capture-config); write-back;
+- **Also affected** (in-flight addition): `WriteBackPlanner` + `SingleTargetPlanner` credit by the shared
+  serving rule (`FramingCluster.ServesPlanRotation` — one home for pairing, the badge cue, and crediting).
+- **Unaffected**: Hours/Remaining totals (aggregates sum components, as in capture-config);
   sync model; `Catalog.db` (derived, rebuildable); no migration (rule: none ever).

@@ -40,6 +40,12 @@ Four standing truths follow, and they settle most arguments about the grid:
   camera is remounted (measured drifting 19–35° across sessions, precisely on the multi-framing targets), so
   a conversion would silently mislabel the exact rows the framing key exists to expose. Mechanical rotation
   is shown marked (`°m`), clusters frames disk-side, and never enters the plan comparison.
+- **TS's `acquired` counts only frames that serve the plan's framing** (user decision 2026-07-29, after the
+  Tulip confusion: TS said 32/80 acquired while zero captured frames matched the re-framed 160° plan).
+  Write-back credits by the same serving rule the pairing test uses, so a re-framed target stamps its true
+  progress — possibly 0 — and TS schedules the full re-shoot. The grid's TS column and Actual column can
+  therefore only diverge transiently (until the next load's write-back stamps); a persistent gap means the
+  push hasn't run, not a contradiction.
 - **TSM detects framing hazards; WBPP enforces; XFM neither.** A low-count off-footprint framing cluster is
   a PixInsight reference-frame hazard (a good stray reference makes ImageIntegration work a shrunken
   overlap). TSM's job ends at making it visible (the split row + `framing` badge); any grouping/exclusion
