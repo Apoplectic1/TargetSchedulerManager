@@ -85,7 +85,7 @@
                         <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="9" Background="{x:Bind RotBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
@@ -156,9 +156,10 @@
                     </Border>
                     <!-- Framing rotation (fold-180): the disk cluster's angle on disk-backed rows (sky plain,
                          mechanical marked "°m"), the target's own rotation on plan rows, dash when
-                         unexpressed — so an agreeing pair reads identically. -->
+                         unexpressed — so an agreeing pair reads identically. Centered, not right-aligned:
+                         right-aligned values abut the Filter letters (user obs 2026-07-29). -->
                     <Border Grid.Column="9" Background="{x:Bind RotBackground}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText}"/>
                     </Border>
                     <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -257,7 +258,7 @@
                         <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="9" Background="{x:Bind RotBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
@@ -392,7 +393,9 @@
             <TextBlock Grid.Column="6" Text="Gain" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="7" Text="Offset" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="8" Text="Bin" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="9" Text="Rot" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <!-- Rot is centered (not right-aligned like the numeric config cells): right-aligned values abut
+                 the Filter column's left-aligned letters and the two read as one blob (user obs 2026-07-29). -->
+            <TextBlock Grid.Column="9" Text="Rot" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="10" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="12" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="11" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
