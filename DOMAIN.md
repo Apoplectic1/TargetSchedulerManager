@@ -227,7 +227,10 @@ goal of zero); measured disk-side absence = `0`.
   default": plan `exposure` → template, template `gain`/`offset`/`readoutmode` → camera) render as their meaning
   — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
   disabled, showing the resolved value when known), unchecking arms the box (the override commits only when a
-  number commits). **Editing `rotation` re-keys rows on the next load** (2026-07-29, openspec
+  number commits). The render-as-meaning rule covers **every old→new display** too (2026-07-29, user obs: a
+  push-review line read "exposure −1 → 600" and the −1 read as an ID): push review lines and mark tooltips
+  route through `TsValueText.ForField`, which shows a sentinel as its schema label ("template default",
+  "camera default") — display only; the journal and replay stay on the canonical value. **Editing `rotation` re-keys rows on the next load** (2026-07-29, openspec
   `rotation-framing-key`): rotation is a reconciliation key, so after a rotation edit the framing pairing
   re-evaluates — clusters that matched may separate (old-framing frames stop serving the re-framed plan) and
   vice versa. The first edit that changes row *identity* rather than a value; designed behavior, not drift.

@@ -14,6 +14,19 @@ public class SyncMarksTests
 {
     private static readonly Guid Tid = Guid.NewGuid();
 
+    [Fact]
+    public void ForField_RendersSentinelAsItsMeaning_DisplayOnly()
+    {
+        // A plan exposure of −1 is TS's defer-to-template sentinel — old→new displays must show its
+        // meaning, never a raw −1 that reads as an index or an ID (user obs 2026-07-29). Non-sentinel
+        // values and unknown columns pass through canonical.
+        Assert.Equal("template default", TsValueText.ForField(TsTable.ExposurePlan, "exposure", "-1"));
+        Assert.Equal("camera default", TsValueText.ForField(TsTable.ExposureTemplate, "gain", "-1"));
+        Assert.Equal("600", TsValueText.ForField(TsTable.ExposurePlan, "exposure", "600"));
+        Assert.Equal("-1", TsValueText.ForField(TsTable.ExposurePlan, "desired", "-1"));   // no sentinel there
+        Assert.Null(TsValueText.ForField(TsTable.ExposurePlan, "exposure", null));
+    }
+
     private static TsJournal NewJournal() =>
         new(Path.Combine(SyncTestEnv.NewDir(), "edits.jsonl"));
 

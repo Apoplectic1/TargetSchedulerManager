@@ -63,14 +63,20 @@ internal sealed class SyncMarks
     /// visible child rows carry, and template changes resolve onto no row.</summary>
     public static SyncMarks Build(TsJournal journal, TsInboundStore inbound, CatalogGraph? graph)
     {
+        // Tooltip lines render sentinel-aware (TsValueText.ForField): a −1 sentinel reads as its meaning
+        // ("template default"), matching the flyout's convention — display only, keys/values untouched.
         Dictionary<TsTable, Dictionary<string, List<Line>>> inb = [];
         foreach (TsInboundChange c in inbound.Snapshot())
-            Add(inb, c.Table, c.Key, new Line(c.Column, c.Old, c.New));
+            Add(inb, c.Table, c.Key, new Line(c.Column,
+                TsValueText.ForField(c.Table, c.Column, c.Old),
+                TsValueText.ForField(c.Table, c.Column, c.New)));
 
         // Collapse() already carries the tooltip shape per field: the FIRST write's Old → the LAST value.
         Dictionary<TsTable, Dictionary<string, List<Line>>> outb = [];
         foreach (TsJournalEntry e in journal.Collapse())
-            Add(outb, e.Table, e.Key, new Line(e.Column, e.Old, FormatValue(e.Value)));
+            Add(outb, e.Table, e.Key, new Line(e.Column,
+                TsValueText.ForField(e.Table, e.Column, e.Old),
+                TsValueText.ForField(e.Table, e.Column, FormatValue(e.Value))));
 
         Dictionary<Guid, List<string>> planKeys = [];
         Dictionary<Guid, List<string>> templateKeysByTarget = [];

@@ -376,9 +376,13 @@ internal sealed class TsSync
     public PushReview PreparePush(TsDbStat? probe)
     {
         List<TsJournalEntry> collapsed = Journal.Collapse();
+        // Old/new render sentinel-aware (a plan exposure of −1 reads "template default", never a raw −1
+        // that looks like an ID); the replayed VALUE stays canonical — display only.
         List<PushReviewFieldLine> manual = [.. collapsed
             .Where(e => e.Kind == TsEditKind.Manual)
-            .Select(e => new PushReviewFieldLine(e.Label, e.Column, e.Old, FormatValue(e.Value)))];
+            .Select(e => new PushReviewFieldLine(e.Label, e.Column,
+                TsValueText.ForField(e.Table, e.Column, e.Old),
+                TsValueText.ForField(e.Table, e.Column, FormatValue(e.Value)) ?? "null"))];
 
         List<PushReviewCountLine> writeBack = [];
         foreach (IGrouping<string, TsJournalEntry> plan in collapsed
