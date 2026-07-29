@@ -128,12 +128,14 @@ public sealed class ReconciliationRow(
     /// <see cref="BadgeText"/>.</summary>
     public string Badge { get; } = badge;
 
-    /// <summary>What the Badges cell renders: <see cref="Badge"/>, except an EXPANDED rollup drops the
-    /// `framing` token — the badge belongs at the deepest VISIBLE level (user obs 6b72 + 8be0,
-    /// 2026-07-29). Collapsed, the triggering source line is hidden, so the rollup shows it; expanded,
-    /// that line shows it and repeating it on the rollup between header and line is noise.</summary>
+    /// <summary>What the Badges cell renders: <see cref="Badge"/>, except an EXPANDED rollup drops every
+    /// <b>row-scoped</b> token (<see cref="Badges.IsRowScoped"/> — camera provenance and framing alike) —
+    /// a badge belongs at the deepest VISIBLE level (user rule 2026-07-29). Collapsed, the triggering
+    /// source line is hidden, so the rollup shows the token; expanded, that line shows it and repeating it
+    /// on the rollup between header and line is noise. Target-scope tokens are untouched: their trigger is
+    /// the whole target, so every level is genuinely their subject.</summary>
     public string BadgeText => Detail is not null && _isExpanded
-        ? Badges.Join(Badges.Split(Badge).Select(t => t.Token).Where(t => t != Badges.Framing))
+        ? Badges.Join(Badges.Split(Badge).Select(t => t.Token).Where(t => !Badges.IsRowScoped(t)))
         : Badge;
 
     /// <summary>True when the target needs human attention — duplicate / name-mismatch / ambiguous /

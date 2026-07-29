@@ -581,6 +581,29 @@ public class BuildRowsTests
     }
 
     [Fact]
+    public void RowScopedBadges_AllFollowTheDeepestVisibleLevel()
+    {
+        // The deepest-visible-level rule is general (user 2026-07-29): camera provenance behaves exactly
+        // like framing. A rollup over a cam≠ disk line shows the token collapsed, hands it down expanded;
+        // Badge (the full union) carries it throughout for header aggregation and the flagged filter.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, gain: 53, disagrees: true)]),   // gain splits planes
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows, r => r.Detail is not null);
+        Assert.Contains(Badges.CameraMismatch, rollup.Badge);
+        Assert.Contains(Badges.CameraMismatch, rollup.BadgeText);        // collapsed: line hidden → shown here
+        rollup.IsExpanded = true;
+        Assert.DoesNotContain(Badges.CameraMismatch, rollup.BadgeText);  // expanded: the line shows it
+        Assert.Contains(Badges.CameraMismatch,
+            Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk).Badge);
+        Assert.Contains(Badges.CameraMismatch, RowAggregates.Compute([rollup]).Badge);
+    }
+
+    [Fact]
     public void RollupDash_NeverCountsAsDisagreement()
     {
         // The Barnard 202 B-Light shape (user obs 0d19, 2026-07-29): a TS line and a Disk line under one

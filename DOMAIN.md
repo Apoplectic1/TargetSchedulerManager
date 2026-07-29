@@ -92,10 +92,12 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 - **Rot** shows the row's framing rotation **fold-180**: a disk-backed row shows its framing cluster's angle —
   sky plain (`65.1°`), mechanical marked (`172.3°m`), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
-  the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing). The
-  badge displays at the **deepest visible level** (user obs 2026-07-29): always on the target summary row;
-  on a collapsed rollup (the triggering line is hidden inside it); on the triggering line itself once
-  expanded — the rollup then hands it down rather than repeating it. Flagging is unaffected by expansion. A
+  the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing).
+  **Every row-scoped badge** (`camera` · `cam≠` · `framing` — `Badges.IsRowScoped`) displays at the
+  **deepest visible level** (user rule 2026-07-29): always on the target summary row; on a collapsed rollup
+  (the triggering line is hidden inside it); on the triggering line itself once expanded — the rollup then
+  hands it down rather than repeating it. Flagging and header aggregation use the full union and are
+  unaffected by expansion; target-scope badges are untouched (their trigger IS the whole target). A
   one-frame framing row is intended, not noise — it is the PixInsight reference-frame hazard, quantified by
   its own count.
 

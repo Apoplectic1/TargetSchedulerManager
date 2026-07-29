@@ -102,9 +102,10 @@ row-scoped `framing` badge, so stray framings are findable through the badge fil
 scrolling for split rows. The badge SHALL display at the **deepest visible level**: always on the target
 summary row; on an intermediate rollup while it is collapsed (the triggering line is hidden inside it);
 and on the triggering source line itself once the rollup is expanded — at which point the rollup SHALL NOT
-repeat it. The rollup counts as flagged throughout, so filtering to flagged rows keeps the target
-reachable. The badge marks the hazard; quantifying it (footprint-overlap percentage) is deliberately out
-of scope.
+repeat it. This display rule SHALL apply to **every row-scoped badge the same way** (camera provenance and
+framing alike), not to framing alone. The rollup counts as flagged throughout, so filtering to flagged
+rows keeps the target reachable. The badge marks the hazard; quantifying it (footprint-overlap percentage)
+is deliberately out of scope.
 
 #### Scenario: A separated framing row is readable at a glance
 - **WHEN** a target renders a `Both` row and a Disk row split only by framing

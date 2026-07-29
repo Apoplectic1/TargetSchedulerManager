@@ -10,8 +10,12 @@ namespace TargetSchedulerManager.App.Models;
 /// INFORMATIVE = a fact carrying no call to action. The warning set is deliberately the same set that sets
 /// <c>IsFlagged</c> and drives the flagged-only filter — colour and filter must never disagree.</para>
 /// <para><b>Scope:</b> most tokens describe a whole target and therefore mark every one of its rows. The
-/// camera-provenance tokens describe particular frames, so they mark only the rows drawing on those frames —
-/// and reach the collapsed view through the ordinary header rollup, never by spreading to siblings.</para>
+/// <b>row-scoped</b> tokens (<see cref="IsRowScoped"/> — camera provenance and framing) describe particular
+/// frames, so they mark only the rows drawing on those frames — and they display at the <b>deepest visible
+/// level</b> (user rule 2026-07-29): always on the target summary row; on a collapsed rollup (the
+/// triggering line is hidden inside it); on the triggering line itself once expanded, at which point the
+/// rollup hands the token down instead of repeating it (<c>ReconciliationRow.BadgeText</c>). Flagging and
+/// header aggregation use the full <c>Badge</c> union and are expansion-independent.</para>
 /// </summary>
 internal static class Badges
 {
@@ -68,6 +72,11 @@ internal static class Badges
             or UnknownCamera or CameraMismatch or Framing => true,
         _ => false,
     };
+
+    /// <summary>True when the token describes particular frames rather than a whole target — the set that
+    /// follows the deepest-visible-level display rule (see the Scope paragraph above). A new frame-level
+    /// token joins this list and inherits the rule; everything else displays at its own scope.</summary>
+    public static bool IsRowScoped(string token) => token is UnknownCamera or CameraMismatch or Framing;
 
     /// <summary>Splits a joined badge string into its tokens with each one's severity — the pure core the
     /// renderer walks, so the classification is testable without a XAML runtime. An empty string yields
