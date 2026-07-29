@@ -75,6 +75,14 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   an aligned claim outranks an unaligned one; **disk plate-solved coords win** on merge; the TS guid is
   retained on `Both` as `imported_from_ts_guid` for write-back. Mismatches / ambiguous / duplicates /
   unanchored / coerced rows are **reported in `CatalogBuildReport`, not dropped**.
+- **The capture configuration + framing key the cell** — a reconciliation cell is `(target, filter, purpose,
+  whole-second exposure, gain, offset, binning, framing cluster)`: everything deciding whether frames combine
+  into one integration. A plan and a disk aggregate render as one `Both` row **only when they agree on every
+  dimension both planes express** (rotation compared **fold-180**, and only where both express a *sky* angle —
+  mechanical is never converted to sky); otherwise a TS row plus Disk row(s), and that separation **is** the
+  diagnostic. **Camera is deliberately NOT a key** (a TS profile cannot name one) — a disk-side label only.
+  Write-back keeps the coarser `(target, filter, purpose, seconds)` key but sums only rows whose framing
+  **serves** the target's rotation. Specs: `capture-config-keys` · `framing-keys`.
 - **A mosaic panel is a normal target** with a composite key: one parent row (grouping node, no plans or
   inventory) + one child target per panel (`parent_target_id`); plans and inventory hang off children;
   write-back treats panels like any other target. `GetShotTargets()` is top-level only.

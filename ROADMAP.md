@@ -30,7 +30,8 @@ two reconciliation-fidelity units — **`capture-config-keys`** (gain/offset/bin
 label, the pairing rule made explicit) and **`skip-comet-targets`** (non-sidereal targets never enter the scan);
 both shipped, verified and archived. 2026-07-29 closed the rotation + RA/DEC deferral as one unit —
 **`rotation-framing-key`** (framing = fold-180 sky rotation + cluster centroid as a reconciliation key, the
-`Rot` column, the `framing` badge; implemented, awaiting in-app verification). The load-split is
+`Rot` column, the `framing` badge) — also shipped, verified and archived, adding **`framing-keys`** as a
+14th capability spec. The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is

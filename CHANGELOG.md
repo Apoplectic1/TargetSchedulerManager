@@ -14,6 +14,51 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-29 — framing keys the disk plane, and only a serving framing credits a plan** (openspec
+`rotation-framing-key`; library `9e6d893` + `6057cc7`, app `30bed1b`…`a66e492`). `capture-config-keys` deferred
+rotation and RA/DEC as two separate open questions. They were **one concept**: a **framing** is a
+(field-center, sky-rotation) pair — the thing that decides whether frames share a footprint and can integrate
+together. Until this change the grid folded two framings of a target into one row, so a **re-framed target read
+as already satisfied**: its plan stayed credited with frames pointing somewhere else, and the scheduler
+consuming `acquired` under-scheduled the re-shoot.
+
+A 2026-07-29 measurement spike over the live library (**18,650 frames, 104 units**) dissolved every open
+question the deferral had recorded. Real framings sit **≥ 9° apart** fold-180 while within-framing jitter is
+**≤ 0.2°** (NINA snaps the rotator), so *any* tolerance in 1–5° yields identical clusters — it stopped being a
+judgement call. The old "M33/M51 sit on the 5° boundary" worry **did not reproduce** under fold-180: they
+measure 0.56° and 0.10°. Every true meridian-flip pair's centroids coincide within **0.12°**.
+
+`FramingClusterer` partitions a unit's frames by rotation **expression** first — sky (`OBJCTROT`, 71.9% of
+frames), mechanical-only (`POSANGLE`, 28.1%), unknown (3 frames) — then single-linkage clusters the angle
+**folded mod 180°** and splits each angle group by field center. The fold makes a **pier flip merge** (a
+rectangle rotated 180° about its center covers the identical footprint — a routine acquisition event, not a
+different framing), while the centroid guard keeps 180°-apart fields with genuinely different centers apart,
+and catches translated strays at an unchanged angle. **A single stray frame IS a cluster** — low-count
+off-footprint framings are exactly the PixInsight reference-frame hazard this exists to surface. The cluster
+then joins the aggregate key beside gain/offset/binning, and pairs fold-180 against the TS target's rotation.
+
+**Mechanical rotation is never converted to sky.** The spike found the sky−mech zero point stable mod-180
+within a session block but **drifting 19–35° across remounts** in 5 of 30 (unit, camera) groups — and those
+groups are precisely the multi-framing targets the key exists to expose, so a conversion would mislabel the
+rows that matter most. A mechanical-only cluster is displayed marked as mechanical and, like camera, simply
+does not participate in the pairing test.
+
+Two consequences beyond the key. **Write-back** (`6057cc7`) keeps its coarser `(target, filter, purpose,
+seconds)` key but now sums **only rows whose framing serves the target's rotation**, so a re-framed plan stamps
+its true progress; the surgical single-target path surfaces a withheld cell as a `FramingMismatch` note rather
+than skipping it silently. **The grid** gained a centered `Rot` column (excluded from sorting, like the other
+capture-configuration columns) and a warning-severity row-scoped `framing` badge — which forced the
+generalization that a **row-scoped badge displays at the deepest visible level**: on the target summary always,
+on a collapsed rollup that hides the triggering line, and on the triggering line itself once expanded, never
+both. That rule now governs `camera`/`cam≠` identically rather than being a framing special case, and a
+related pass made **sentinels render as their meaning everywhere**, including inside old→new displays.
+
+Adds **`framing-keys`** as the 14th capability spec; `capture-config-keys`, `image-library-scan` and
+`write-back` took deltas. **Deferred, deliberately:** the **overlap-% column** (footprint intersection of a
+stray framing against the plan framing — the number that *prices* the hazard) needs image pixel dimensions
+`XisfHeader` does not expose; it lands later as a pure column addition. TSM's job ends at making the hazard
+visible — WBPP enforces, XFM neither.
+
 **▶ SHIPPED 2026-07-27 — non-sidereal targets never enter the library scan** (openspec `skip-comet-targets`;
 library `ddada41`, app `6295579`). Comets are captured by hand with their own setup and are **never scheduled in
 TS** — the live database contains no comet target at all — so the four `Comet …` directories produced Disk-only

@@ -6,8 +6,11 @@ Defines what the image-library scan reads — and, decisively, what it never rea
 source of disk-ACTUAL, so anything it admits becomes a fact the grid reports and anything it excludes
 disappears completely; both directions therefore need stating. Covers the capture-tree scope and the two
 standing exclusions: the calibration tree (master frames, not acquired light) and non-sidereal targets
-(no sidereal plan can describe them). Seeded 2026-07-27 by the `skip-comet-targets` change, which added
-the non-sidereal exclusion and gave the long-standing calibration skip its first written contract.
+(no sidereal plan can describe them). Also covers the per-frame facts the scan must carry through
+untouched — including the rotation and plate-solved coordinates the framing dimension is derived from.
+Seeded 2026-07-27 by the `skip-comet-targets` change, which added the non-sidereal exclusion and gave the
+long-standing calibration skip its first written contract; the framing facts arrived 2026-07-29 with
+`rotation-framing-key`.
 
 ## Requirements
 
@@ -53,3 +56,30 @@ The naming convention identifying them SHALL be matched such that a **sidereal**
 #### Scenario: A surgical scan honours the exclusion too
 - **WHEN** a scan is pointed directly at a single non-sidereal target directory
 - **THEN** it returns no target, exactly as the whole-library scan would
+
+### Requirement: The scan reads each frame's framing facts
+The scan SHALL read from each light frame its rotator sky angle, its mechanical rotator position angle,
+and its plate-solved coordinates, so the framing dimension can be derived from the frames themselves. A
+frame missing any of these SHALL still be scanned; the absent fact is carried as absent, never defaulted
+to a value that could pair or cluster as though recorded.
+
+#### Scenario: Rotation facts survive to the scan result
+- **WHEN** a frame records a sky angle, a mechanical angle, or both
+- **THEN** the scan result carries the recorded value(s) for that frame's aggregate, unaltered
+
+#### Scenario: A frame without rotation is not invented one
+- **WHEN** a frame records neither a sky angle nor a mechanical angle
+- **THEN** the frame is counted normally and its framing expression is reported as unknown
+
+### Requirement: The scan publishes a centroid per framing cluster
+The scan SHALL publish a plate-solved centroid for each framing cluster within a unit, in addition to the
+unit's consensus centroid. A unit whose frames span more than one framing thereby reports where each
+framing actually points, rather than one blended position that describes none of them.
+
+#### Scenario: A multi-framing unit reports one centroid per cluster
+- **WHEN** a unit's frames form two framing clusters whose fields genuinely differ
+- **THEN** the scan result carries each cluster's own centroid
+
+#### Scenario: A single-framing unit is unchanged
+- **WHEN** a unit's frames form one framing cluster
+- **THEN** its cluster centroid and unit consensus centroid describe the same field, as before this change

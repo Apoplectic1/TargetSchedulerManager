@@ -36,7 +36,7 @@
 ## 3. Verify against the live library
 
 - [x] 3.1 Build + full test pass (library then app): Catalog 219, Contracts 61, App 311 — all green
-- [ ] 3.2 Run the app and confirm the known cases: Barnard 202 → `Both` @50° (28 frames) + Disk @60°
+- [x] 3.2 Run the app and confirm the known cases: Barnard 202 → `Both` @50° (28 frames) + Disk @60°
       (451, badged); Sh2-101 Tulip → `Both` @160° + Disk @20° (199, badged); M100 → n=1 Disk row @135°
       badged; M81 → four framing rows, 65° pairing; Bear Claw/Wizard/M81 flips do NOT split; IC 443 both
       clusters badged (TS plans a third framing); M97 translation stray splits.
