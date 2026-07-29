@@ -64,9 +64,24 @@ internal static class Badges
     /// composition. Row-scoped, like <see cref="UnknownCamera"/> (openspec rotation-framing-key).</summary>
     public const string Framing = "framing";
 
+    /// <summary>The framing token carrying its overlap price — "framing 57%": how much of the row's frames'
+    /// own footprint lies where the plan (currently) points. RENDER-layer only (openspec
+    /// framing-overlap-column): <c>Badge</c> strings always hold the bare token — search, flagging, header
+    /// aggregation and the rollup union never see a percentage — and <c>ReconciliationRow.BadgeText</c>
+    /// decorates the deepest visible line at display time. <see cref="Canonical"/> maps it back for
+    /// severity/scope classification.</summary>
+    public static string FramingWithOverlap(double fraction) =>
+        $"{Framing} {Math.Round(fraction * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    /// <summary>The vocabulary token behind a rendered one: a decorated framing token ("framing 57%")
+    /// classifies as <see cref="Framing"/>; every other token is itself. Safe on the raw vocabulary — no
+    /// other token begins "framing&#160;".</summary>
+    private static string Canonical(string token) =>
+        token.StartsWith(Framing + ' ', StringComparison.Ordinal) ? Framing : token;
+
     /// <summary>True when the token marks something the user must repair. An unrecognised token reads as
     /// informative: a badge is never worth failing a load over, and the quiet tier is the safe default.</summary>
-    public static bool IsWarning(string token) => token switch
+    public static bool IsWarning(string token) => Canonical(token) switch
     {
         NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
             or UnknownCamera or CameraMismatch or Framing => true,
@@ -76,7 +91,7 @@ internal static class Badges
     /// <summary>True when the token describes particular frames rather than a whole target — the set that
     /// follows the deepest-visible-level display rule (see the Scope paragraph above). A new frame-level
     /// token joins this list and inherits the rule; everything else displays at its own scope.</summary>
-    public static bool IsRowScoped(string token) => token is UnknownCamera or CameraMismatch or Framing;
+    public static bool IsRowScoped(string token) => Canonical(token) is UnknownCamera or CameraMismatch or Framing;
 
     /// <summary>Splits a joined badge string into its tokens with each one's severity — the pure core the
     /// renderer walks, so the classification is testable without a XAML runtime. An empty string yields

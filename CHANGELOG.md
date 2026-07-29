@@ -14,6 +14,33 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-29 — the framing badge prices itself: `framing 57%`** (openspec `framing-overlap-column`;
+library `f7f5f8e`, app with this entry). The `rotation-framing-key` deferral said the overlap-% needed "pixel
+dimensions nothing exposes" — thin: the **mandatory XISF `<Image geometry>` attribute** covers 100.0% of the
+18,650-frame library; `XisfHeaderReader` simply never read it (it harvested only `<FITSKeyword>`). Now it
+does, `XisfHeader` derives the angular field (`206.265 × XPIXSZ / FOCALLEN` — **no binning factor**: `XPIXSZ`
+is already binning-adjusted; a `× XBINNING` would double the field for the 15.8% of the library shot bin 2),
+`Astronomy.Core.FieldFootprint` clips rotated rectangles on a tangent plane (**RA scaled by cos(dec)** — at
+M81's Dec +69° the error would be ~2.8×), and each framing cluster carries its footprint (dominant sensor
+when frames span two, never a blend). The fraction = share of a cluster's **own** footprint landing inside
+the plan's, both rectangles the cluster's own sensor — so no neighbouring framing's camera can move a number.
+It prices **off-footprint for any reason**: a disagreeing cluster always reports (a stray just past tolerance
+still overlaps ~95% — silencing it would blank the badge's row); a serving cluster reports only below
+`OnFootprintFraction` 0.95 (measured: 52/60 serving framings ≥ 99.5%; the 3 genuinely displaced ones —
+Markarian's Chain 86%, FishHead 88%, M51 94% — were invisible before). **Surface decision at
+implementation** (user, after measurement): ~14 populated rows library-wide in a compressed **57–100%**
+range (two centred same-size fields share ~67% even at 90°) is badge-sized, not column-sized — the planned
+58 px column + 1560→1640 widen died; the number rides the badge **on the deepest visible line only**
+(render-layer decoration; `Badge` strings stay bare for search/flagging/headers), no-badge facts go to the
+ambiguity report (off-plan pointings that serve; the mixed-sensor qualifier), and a spec claim died honestly
+(differently-shaped sensors do NOT give identical fractions for identical displacements — the true property
+is each-against-its-own-sensor). **Crediting untouched** — write-back stays boolean `ServesPlanRotation`; a
+partially overlapping frame is not a fractional frame; the boundary is now explicit in `framing-keys`.
+**Bonus (4a):** `ImageLibraryReport.SkippedFiles` was written and never read — an unreadable frame silently
+lowered Actual counts; now the load status line counts them (silent at 0) and the ambiguity report lists
+path + reason as action items ("Fix on disk — unreadable files"), with a missing-geometry frame landing in
+that same corrupt-file category. Tests: Catalog 236 · XISF 51 · Core 472 · NINA 45 · Contracts 61 · App 320.
+
 **▶ SHIPPED 2026-07-29 — framing keys the disk plane, and only a serving framing credits a plan** (openspec
 `rotation-framing-key`; library `9e6d893` + `6057cc7`, app `30bed1b`…`a66e492`). `capture-config-keys` deferred
 rotation and RA/DEC as two separate open questions. They were **one concept**: a **framing** is a

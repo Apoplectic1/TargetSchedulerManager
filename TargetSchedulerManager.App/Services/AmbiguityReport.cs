@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
@@ -28,7 +29,8 @@ internal static class AmbiguityReport
         DateTimeOffset generatedAtLocal,
         string tsDbPath,
         string libraryRoot,
-        double toleranceDegrees)
+        double toleranceDegrees,
+        IReadOnlyDictionary<string, string>? skippedFiles = null)
     {
         Dictionary<Guid, Target> targetById = graph.Targets.ToDictionary(t => t.Id);
         Dictionary<Guid, ExposureTemplate> templateById = graph.Templates.ToDictionary(t => t.Id);
@@ -64,9 +66,11 @@ internal static class AmbiguityReport
         List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees);
         List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, ProjectOf);
         List<string> templates = BuildTemplateSection(graph);
+        List<string> unreadable = BuildUnreadableSection(skippedFiles);
         List<string> info = BuildInfoSection(plan);
+        info.AddRange(BuildFramingInfo(graph, report, ProjectOf));
 
-        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count;
+        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count + unreadable.Count;
 
         StringBuilder sb = new();
         sb.AppendLine($"# TS / disk ambiguity report — {generatedAtLocal.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
@@ -85,6 +89,7 @@ internal static class AmbiguityReport
         Section(sb, "Fix in TS — duplicates & twins", duplicates);
         Section(sb, "Fix in TS — exposure plans", plans);
         Section(sb, "Fix in TS — exposure templates", templates);
+        Section(sb, "Fix on disk — unreadable files", unreadable);
         Section(sb, "Info (no action needed)", info, clean: "✓ nothing to note");
 
         sb.AppendLine();
@@ -206,6 +211,52 @@ internal static class AmbiguityReport
                 $"  → Rename so every template's name is unique (names are how plans read in the TS UI).");
         }
         return templates;
+    }
+
+    /// <summary>Fix-on-disk unreadable files (openspec framing-overlap-column, 4a): every frame the scanner
+    /// skipped as unparseable — missing/garbled XISF header, absent mandatory geometry. Action items,
+    /// because each one silently lowers the Actual counts until repaired: nothing else in the app shows a
+    /// wrong-total cause.</summary>
+    private static List<string> BuildUnreadableSection(IReadOnlyDictionary<string, string>? skippedFiles)
+    {
+        List<string> unreadable = [];
+        if (skippedFiles is null) return unreadable;
+        foreach ((string path, string reason) in skippedFiles.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            unreadable.Add(
+                $"`{path}` — {reason}\n" +
+                $"  → Re-export or remove the file; every count this load excludes it.");
+        }
+        return unreadable;
+    }
+
+    /// <summary>Informational framing notes (openspec framing-overlap-column): the overlap facts that carry
+    /// no grid badge. An off-plan POINTING — a framing at the plan's own angle whose displacement still
+    /// leaves it below the on-footprint threshold — has no badge to decorate (rotation serves), so the
+    /// report is where it speaks. A priced framing spanning two sensors gets its qualifier here for the
+    /// same reason: the number describes the dominant sensor only.</summary>
+    private static List<string> BuildFramingInfo(
+        CatalogGraph graph, CatalogBuildReport report, Func<Guid, string> projectOf)
+    {
+        List<string> lines = [];
+        foreach (TargetCells tc in ReconciliationProjection.Project(graph, report))
+        {
+            foreach (ReconciliationCell c in tc.Cells)
+            {
+                if (c.FramingOverlapFraction is not double f) continue;
+                string pct = Math.Round(f * 100).ToString(CultureInfo.InvariantCulture);
+                if (!c.FramingDisagrees)
+                    lines.Add(
+                        $"Off-plan pointing: **{projectOf(tc.TargetId)}{tc.Name} · {Cell(c.Filter, c.Purpose, c.Seconds)}** — " +
+                        $"framing at the plan's own angle but pointed off its center; {pct}% of its footprint " +
+                        $"lies where the plan points. (rotation serves — the grid shows no badge)");
+                if (c.FramingSpansMultipleSensors)
+                    lines.Add(
+                        $"Mixed-sensor framing: **{projectOf(tc.TargetId)}{tc.Name} · {Cell(c.Filter, c.Purpose, c.Seconds)}** — " +
+                        $"its {pct}% describes the dominant sensor of frames spanning two geometries.");
+            }
+        }
+        return lines;
     }
 
     /// <summary>Informational (no action): unplanned frames grouped per target with one indented row per

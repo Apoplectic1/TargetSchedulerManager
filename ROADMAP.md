@@ -53,9 +53,12 @@ deliberately; two closed 2026-07-29, one remains:
   call; the old "M33/M51 on the 5° boundary" note didn't reproduce under fold-180: they measure 0.56°/0.10°),
   every true flip's centroids coincide within 0.12° (fold-180 + centroid guard), and mech→sky conversion is
   unreliable exactly where it would matter (zero point drifts 19–35° across remounts) so it is never
-  attempted. **Explicit follow-up left on the table: the overlap-% column** (footprint intersection of a
-  stray framing vs the plan framing, the number that prices the hazard) — needs image pixel dimensions
-  `XisfHeader` doesn't expose; lands later as a column addition without rework.
+  attempted. ~~Explicit follow-up left on the table: the overlap-%~~ — **closed 2026-07-29 same-day**
+  (openspec `framing-overlap-column`): the "pixel dimensions nothing exposes" blocker was thin — the
+  mandatory XISF `<Image geometry>` attribute covers 100% of the library; `XisfHeaderReader` just never read
+  it. Shipped as **`framing 57%` inline in the badge**, not the planned column (user decision at
+  implementation: ~14 populated rows library-wide in a compressed 57–100% range is badge-sized, not
+  column-sized), plus ambiguity-report entries for the no-badge facts and the unreadable-frames surfacing.
 - **Telescope as its own UI section.** 100% uniform today (`APM107R@531` on all frames), and a second
   scope would likely bring a disk directory-layout change, so it should be designed *with* that layout rather
   than guessed at now.

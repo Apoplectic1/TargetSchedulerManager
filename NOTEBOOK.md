@@ -6,6 +6,20 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-07-29 — overlap-fraction traps + the 57–100% floor (fed `framing-overlap-column`).** Three findings
+from implementing the overlap price. **(1)** `XPIXSZ` is **already binning-adjusted**: Z183 bin 1 reports
+2.40 µm @ 5496×3672, bin 2 reports 4.80 µm @ 2744×1836 — same field either way (1.423°×0.951° vs
+1.421°×0.951°). The naive `× XBINNING` doubles the field for 2,947 frames (15.8%) and those older bin-2
+frames are exactly the history most likely to hold strays. Binning keywords are NOT footprint inputs, at all.
+**(2)** RA offsets must scale by **cos(dec)** before rectangle intersection — M81 sits at Dec +69.13° where
+cos = 0.355; unscaled RA inflates its east-west offsets ~2.8× into a plausible-looking wrong number. Both
+trapped in tests (bin-2 regression; high-dec case). **(3)** The fraction's practical floor is **~57%, not
+0%**: two same-size rectangles centred together share ~67% at a full 90° rotation, so real values live in
+57–100% and the scale reads compressed — a "bad" framing is ~60%, and only a pointing clear of the field
+approaches 0. Measured distribution: 52/60 serving framings ≥ 99.5% (the other 8: 85.6–97.8% — between-filter
+pointing scatter); the 11 badged strays span 57.5–91.9%. This floor is *why* the number became a badge
+decoration instead of a column — 14 populated rows in a 43-point range.
+
 **2026-07-29 — the measured framing landscape (rotation spike, 18,650 frames; fed `rotation-framing-key`).**
 Production-faithful header dump + circular-clustering sweep over the live library, before designing rotation
 as a key. What it settled: **(1)** the tolerance question dissolved — genuinely distinct framings sit ≥ 9°

@@ -43,7 +43,11 @@ public sealed record RowNumbers(
 /// stays visible beside its badge). <see cref="Rotation"/>/<see cref="RotationFoldDeg"/> carry the row's
 /// framing rotation — the disk cluster's expression + fold-180 angle on disk-backed rows, the target's own
 /// rotation (as Sky) on plan-only rows, null where neither expresses one. <see cref="FramingDisagrees"/>
-/// marks a disk row whose sky rotation fails the plan's — the `framing` badge's source.</summary>
+/// marks a disk row whose sky rotation fails the plan's — the `framing` badge's source.
+/// <see cref="FramingOverlapFraction"/> prices being off the plan's footprint (openspec
+/// framing-overlap-column): present exactly when the library computed one — every badged stray, plus a
+/// serving framing displaced below the on-footprint threshold — and rendered into the badge on the deepest
+/// visible line (<c>BadgeText</c>), never a column of its own.</summary>
 public sealed record RowConfig(
     int Gain,
     int Offset,
@@ -53,7 +57,8 @@ public sealed record RowConfig(
     bool CameraDisagrees,
     Astronomy.Catalog.Scan.RotationExpression? Rotation = null,
     double? RotationFoldDeg = null,
-    bool FramingDisagrees = false)
+    bool FramingDisagrees = false,
+    double? FramingOverlapFraction = null)
 {
     /// <summary>The configuration of a row with no disk side and no plan template behind it (a bare
     /// no-data row).</summary>
@@ -133,10 +138,27 @@ public sealed class ReconciliationRow(
     /// a badge belongs at the deepest VISIBLE level (user rule 2026-07-29). Collapsed, the triggering
     /// source line is hidden, so the rollup shows the token; expanded, that line shows it and repeating it
     /// on the rollup between header and line is noise. Target-scope tokens are untouched: their trigger is
-    /// the whole target, so every level is genuinely their subject.</summary>
-    public string BadgeText => Detail is not null && _isExpanded
-        ? Badges.Join(Badges.Split(Badge).Select(t => t.Token).Where(t => !Badges.IsRowScoped(t)))
-        : Badge;
+    /// the whole target, so every level is genuinely their subject.
+    /// <para>On a leaf — its own deepest level — the framing token carries its overlap price
+    /// ("framing 57%", openspec framing-overlap-column): how much of these frames' footprint lies where the
+    /// plan currently points. Leaf-only for the same reason the badge rule exists: a rollup spans clusters
+    /// with different fractions (M81 holds three), so no single number could sit honestly above the lines.
+    /// <see cref="Badge"/> itself never carries the number — search, flagging and header aggregation reason
+    /// over the bare vocabulary.</para></summary>
+    public string BadgeText
+    {
+        get
+        {
+            if (Detail is not null)
+                return _isExpanded
+                    ? Badges.Join(Badges.Split(Badge).Select(t => t.Token).Where(t => !Badges.IsRowScoped(t)))
+                    : Badge;
+            if (Config.FramingOverlapFraction is not double f)
+                return Badge;
+            return Badges.Join(Badges.Split(Badge).Select(t =>
+                t.Token == Badges.Framing ? Badges.FramingWithOverlap(f) : t.Token));
+        }
+    }
 
     /// <summary>True when the target needs human attention — duplicate / name-mismatch / ambiguous /
     /// multi-plan / accepted≠acquired / no-coords. Exactly the warning-severity badge set

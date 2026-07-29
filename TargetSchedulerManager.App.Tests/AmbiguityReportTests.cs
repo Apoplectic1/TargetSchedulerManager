@@ -23,8 +23,61 @@ public class AmbiguityReportTests
 
         Assert.Equal(0, r.ActionCount);
         Assert.Contains("All checks clean — 0 action items", r.Markdown);
-        Assert.Equal(4, CountOf(r.Markdown, "✓ none"));           // identity, duplicates, plans, templates
+        Assert.Equal(5, CountOf(r.Markdown, "✓ none"));           // identity, duplicates, plans, templates, unreadable
         Assert.Contains("✓ nothing to note", r.Markdown);         // info section's clean marker
+    }
+
+    // ---- unreadable files + framing info (openspec framing-overlap-column) ---------------------------------
+
+    [Fact]
+    public void UnreadableFiles_AreActionItems_WithPathAndReason()
+    {
+        // A skipped frame silently lowers the Actual counts — the report is where the loss becomes a
+        // repairable item, path in hand.
+        AmbiguityReportResult r = Build(Graph(), skippedFiles: new Dictionary<string, string>
+        {
+            [@"X:\library\M 81\H\bad.xisf"] = "XISF header missing the mandatory Image geometry",
+        });
+
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("Fix on disk — unreadable files", r.Markdown);
+        Assert.Contains(@"`X:\library\M 81\H\bad.xisf` — XISF header missing", r.Markdown);
+        Assert.Contains("every count this load excludes it", r.Markdown);
+    }
+
+    [Fact]
+    public void OffPlanPointing_IsInfoNotAction()
+    {
+        // A framing at the plan's own angle, pointed 0.15° off its center: it SERVES (no badge anywhere in
+        // the grid), so the report's info section is the only place the displacement speaks. 84% with the
+        // Z183 field — the same union rule the badge decoration uses, priced by the library.
+        Guid t = Guid.NewGuid();
+        AmbiguityReportResult r = Build(Graph(
+            targets: [Tgt(t, TargetSource.Both, "Markarian's Chain", dir: "Markarian's Chain",
+                ra: 19.5, dec: 10.0, rotation: 0.0)],
+            inventory: [Inv(t, "L", FilterPurpose.Light, 71, 300.0, rotationFold: 0.0,
+                centroidRaHours: 19.5, centroidDecDeg: 10.15,
+                fieldWidthDeg: 1.423, fieldHeightDeg: 0.951)]));
+
+        Assert.Equal(0, r.ActionCount);
+        Assert.Contains("Off-plan pointing: **Markarian's Chain", r.Markdown);
+        Assert.Contains("84% of its footprint", r.Markdown);
+        Assert.Contains("rotation serves — the grid shows no badge", r.Markdown);
+    }
+
+    [Fact]
+    public void OnFootprintFraming_ReportsNothing()
+    {
+        // Same shape, centered on the plan: above the on-footprint threshold, nothing to note.
+        Guid t = Guid.NewGuid();
+        AmbiguityReportResult r = Build(Graph(
+            targets: [Tgt(t, TargetSource.Both, "M 33", dir: "M 33", ra: 19.5, dec: 10.0, rotation: 110.0)],
+            inventory: [Inv(t, "L", FilterPurpose.Light, 430, 300.0, rotationFold: 110.0,
+                centroidRaHours: 19.5, centroidDecDeg: 10.0,
+                fieldWidthDeg: 1.423, fieldHeightDeg: 0.951)]));
+
+        Assert.DoesNotContain("Off-plan pointing", r.Markdown);
+        Assert.DoesNotContain("Mixed-sensor framing", r.Markdown);
     }
 
     [Fact]
@@ -216,16 +269,18 @@ public class AmbiguityReportTests
     // ---- builders --------------------------------------------------------------------------------------------
 
     private static AmbiguityReportResult Build(
-        CatalogGraph graph, CatalogBuildReport? report = null, WriteBackPlan? plan = null) =>
+        CatalogGraph graph, CatalogBuildReport? report = null, WriteBackPlan? plan = null,
+        IReadOnlyDictionary<string, string>? skippedFiles = null) =>
         AmbiguityReport.Build(graph, report ?? Report(), plan ?? EmptyPlan(),
             new DateTimeOffset(2026, 7, 8, 21, 0, 0, TimeSpan.FromHours(-4)),
-            @"X:\ts\schedulerdb.sqlite", @"X:\library", toleranceDegrees: 0.5);
+            @"X:\ts\schedulerdb.sqlite", @"X:\library", toleranceDegrees: 0.5, skippedFiles);
 
     private static CatalogGraph Graph(
         IReadOnlyList<Target>? targets = null,
         IReadOnlyList<ExposurePlan>? plans = null,
-        IReadOnlyList<ExposureTemplate>? templates = null) =>
-        new([], [], templates ?? [], targets ?? [], plans ?? [], []);
+        IReadOnlyList<ExposureTemplate>? templates = null,
+        IReadOnlyList<InventoryFilter>? inventory = null) =>
+        new([], [], templates ?? [], targets ?? [], plans ?? [], inventory ?? []);
 
     private static WriteBackPlan EmptyPlan() => new([], [], [], 0);
 
@@ -235,11 +290,23 @@ public class AmbiguityReportTests
 
     private static Target Tgt(
         Guid id, TargetSource source, string name, string? dir = null, string? tsKey = null,
-        double? ra = 1.0, double? dec = 10.0) =>
+        double? ra = 1.0, double? dec = 10.0, double? rotation = null) =>
         new(id, source, ProjectId: null, name, Enabled: true, RaHours: ra, DecDegreesSigned: dec,
-            Epoch.J2000, RotationDeg: null, RoiPercent: null, Priority: null, DirectoryName: dir,
+            Epoch.J2000, RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir,
             Catalog: null, CommonName: null, ObjectName: null, ScannedAt: null, CreatedAt: 0,
             ImportedFromTsGuid: tsKey);
+
+    private static InventoryFilter Inv(
+        Guid target, string filter, FilterPurpose purpose, int count, double seconds,
+        double? rotationFold = 20.0, double? centroidRaHours = null, double? centroidDecDeg = null,
+        double? fieldWidthDeg = null, double? fieldHeightDeg = null, bool spansSensors = false) =>
+        new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
+            TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1,
+            TypicalBinningY: 1, ExposureSeconds: seconds, Camera: "Z533",
+            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: rotationFold,
+            FramingCentroidRaHours: centroidRaHours, FramingCentroidDecDeg: centroidDecDeg,
+            FramingFieldWidthDeg: fieldWidthDeg, FramingFieldHeightDeg: fieldHeightDeg,
+            FramingSpansMultipleSensors: spansSensors);
 
     private static ExposureTemplate Tpl(
         Guid id, string name, string filter, double defaultSeconds, Guid? profile = null, string? tsKey = "1") =>

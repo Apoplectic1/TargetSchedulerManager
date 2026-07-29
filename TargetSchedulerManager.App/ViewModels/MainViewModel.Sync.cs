@@ -148,7 +148,13 @@ public sealed partial class MainViewModel
                 _lastLoad = result;
                 _allRows = result.Rows;
                 RefreshAmbiguities();
-                StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}{AmbiguitySuffix}" +
+                // Unreadable frames speak only when nonzero (the indication means "something was lost", not
+                // "a scan ran"); the ⚠ glyph is the caution emphasis a single-brush status TextBlock can
+                // carry. The paths live in the ambiguity report (openspec framing-overlap-column, 4a).
+                string unreadable = result.SkippedFiles.Count is int n and > 0
+                    ? $"  ·  ⚠ {n} unreadable file{(n == 1 ? "" : "s")} — see Ambiguities…"
+                    : "";
+                StatusText = $"library {DefaultLibrary}  ·  TS local copy ({syncNote}){writeBack.Describe()}{AmbiguitySuffix}{unreadable}" +
                     $"  ·  loaded in {sw.Elapsed.TotalSeconds:0.0} s";
                 ApplyFilters();
             });

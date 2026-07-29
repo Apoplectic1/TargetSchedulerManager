@@ -82,7 +82,9 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   mechanical is never converted to sky); otherwise a TS row plus Disk row(s), and that separation **is** the
   diagnostic. **Camera is deliberately NOT a key** (a TS profile cannot name one) — a disk-side label only.
   Write-back keeps the coarser `(target, filter, purpose, seconds)` key but sums only rows whose framing
-  **serves** the target's rotation. Specs: `capture-config-keys` · `framing-keys`.
+  **serves** the target's rotation. The `framing` badge **prices itself** on the deepest visible line
+  (`framing 57%` — share of the frames' own footprint landing on the plan's; render-layer decoration,
+  diagnostic only — never scales a credited count). Specs: `capture-config-keys` · `framing-keys`.
 - **A mosaic panel is a normal target** with a composite key: one parent row (grouping node, no plans or
   inventory) + one child target per panel (`parent_target_id`); plans and inventory hang off children;
   write-back treats panels like any other target. `GetShotTargets()` is top-level only.

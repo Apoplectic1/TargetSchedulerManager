@@ -38,7 +38,8 @@ public sealed partial class MainViewModel
                 load.Graph, load.Report,
                 WriteBackPlanner.Plan(load.Graph.Targets, load.Graph.Plans, load.Graph.Templates,
                                       load.Graph.InventoryFilters, load.Report),
-                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees)
+                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
+                load.SkippedFiles)
             : null;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AmbiguityCount)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanShowAmbiguities)));

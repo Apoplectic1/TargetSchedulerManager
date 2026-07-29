@@ -123,6 +123,22 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   skip). Tolerances are constants on `FramingCluster`, not settings (measured: real framings ≥ 9° apart,
   jitter ≤ 0.2°). Editing a target's `rotation` re-keys pairing AND re-credits write-back on the next load —
   the first edit that changes row *identity*, by design.
+- **The badge prices itself: `framing 57%`** (2026-07-29, openspec `framing-overlap-column`) — the share of
+  a cluster's own footprint landing inside the plan's, both rectangles the **cluster's own sensor** (so no
+  neighbouring framing's camera can move the number), centered/rotated per plane on a tangent plane with
+  **RA scaled by cos(dec)** (`Astronomy.Core.FieldFootprint`, exact convex clipping). The footprint derives
+  from the mandatory XISF `<Image geometry>` + `FOCALLEN` + `XPIXSZ` with **no binning factor** — `XPIXSZ`
+  is already binning-adjusted (measured: bin-2 doubles pixel size and halves dimensions; multiplying by
+  binning would double the field for 15.8% of the library). The number means **off-footprint for any
+  reason**: a disagreeing cluster always reports; a serving cluster reports only below
+  `FramingCluster.OnFootprintFraction` (0.95 — measured: 52/60 serving framings ≥ 99.5%, strays span
+  57.5–91.9%); mechanical/unknown and rotation-less plans price nothing (no orientation is invented), and
+  missing geometry reads absent, never 0. Rendered on the **deepest visible line only** (render-layer
+  decoration — `Badge` strings stay bare for search/flagging/headers); the no-badge overlap facts
+  (off-plan pointing that serves, mixed-sensor qualifier) live in the ambiguity report. **Crediting is
+  untouched**: write-back stays the boolean `ServesPlanRotation` — a partially overlapping frame is not a
+  fractional frame. Unreadable frames surface the same load (status-line count + report action items) —
+  a skipped file no longer silently lowers the Actual counts.
 - **Mosaics = target hierarchy:** a panel **is a normal target** whose key is composite. A `Mosaic - <Name>`
   dir nests an extra panel level; the scanner's one walk feeds both the whole-target aggregate and per-panel
   sub-reports; the resolver emits one **parent row** (grouping node — no plans, no inventory) plus one

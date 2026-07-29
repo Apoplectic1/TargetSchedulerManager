@@ -72,7 +72,8 @@ public class MainViewModelTemplateTests
     {
         MainViewModel vm = new(Gate());
         vm.SetLoadForTest(new LoadResult(
-            [], Report(), new CatalogGraph([], [], templates, [], plans, []), TsPlanData.Empty, TimeSpan.Zero));
+            [], Report(), new CatalogGraph([], [], templates, [], plans, []), TsPlanData.Empty, TimeSpan.Zero,
+            new Dictionary<string, string>()));
         return vm;
     }
 

@@ -14,15 +14,19 @@ namespace TargetSchedulerManager.App.Services;
 
 /// <summary>Result of one load: the grid rows, the build report the summary/badges came from, the resolved
 /// <see cref="CatalogGraph"/> retained so app actions (the edit flyout, sync-direction marks, write-back
-/// re-resolve) can pull a target's full disk + TS context, and the
+/// re-resolve) can pull a target's full disk + TS context, the
 /// raw <see cref="TsPlanData"/> snapshot the build read — retained so app actions (e.g. the Visible-tonight
-/// pass) consume the load's single TS read instead of re-opening the db.</summary>
+/// pass) consume the load's single TS read instead of re-opening the db — and the scan's
+/// <see cref="SkippedFiles"/> (path → reason), carried so unreadable frames surface on the status line and
+/// in the ambiguity report instead of silently lowering the Actual counts (openspec framing-overlap-column,
+/// group 4a).</summary>
 public sealed record LoadResult(
     IReadOnlyList<ReconciliationRow> Rows,
     CatalogBuildReport Report,
     CatalogGraph Graph,
     TsPlanData Ts,
-    TimeSpan Elapsed);
+    TimeSpan Elapsed,
+    IReadOnlyDictionary<string, string> SkippedFiles);
 
 /// <summary>
 /// The app's data layer: fresh disk scan + TS snapshot read + <see cref="TargetResolver"/>, all in memory —
@@ -70,7 +74,7 @@ public static class ReconciliationLoader
             $" unanchored={report.UnanchoredTsTargets.Count} mosaics={report.MosaicsResolved}" +
             $" panels={report.PanelsMatched}/{report.PanelsPlannedOnly}/{report.PanelsActualOnly}");
 
-        return new LoadResult(rows, report, graph, ts, sw.Elapsed);
+        return new LoadResult(rows, report, graph, ts, sw.Elapsed, scan.SkippedFiles);
     }, ct);
 
     /// <summary>
@@ -265,7 +269,8 @@ public static class ReconciliationLoader
                     RotationFoldDeg: withCamera
                         ? c.DiskRotationFoldDeg
                         : targetRotationDeg is double rot ? FramingCluster.Fold180(rot) : null,
-                    FramingDisagrees: withCamera && c.FramingDisagrees);
+                    FramingDisagrees: withCamera && c.FramingDisagrees,
+                    FramingOverlapFraction: withCamera ? c.FramingOverlapFraction : null);
 
                 // Row-scoped camera/framing provenance, appended to the target-scope tokens for THIS row only.
                 static string RowBadge(string targetBadge, ReconciliationCell c, bool withCamera)

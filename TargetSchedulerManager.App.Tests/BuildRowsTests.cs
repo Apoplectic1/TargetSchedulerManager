@@ -531,6 +531,67 @@ public class BuildRowsTests
         Assert.Contains(Badges.Framing, RowAggregates.Compute([rollup]).Badge);   // header union unaffected
     }
 
+    // ---- overlap price in the badge (openspec framing-overlap-column) --------
+
+    [Fact]
+    public void FramingBadge_CarriesItsOverlapPrice_AtTheDeepestVisibleLevelOnly()
+    {
+        // Barnard 202 with geometry: the 60° stray sits on the target's coordinates with the Z183 field,
+        // so its price is rotation alone — 92%. The number rides the deepest visible line; the rollup and
+        // the raw Badge union stay bare, so search / flagging / headers never see a percentage.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Barnard 202", TargetSource.Both, dir: "Barnard 202", rotation: 50.0,
+                    raHours: 19.5, decDeg: 10.0)],
+                [Plan(t, tpl, desired: 100, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [
+                    Inv(t, "H", FilterPurpose.Light, 28, 300.0, framingOrdinal: 1, rotationFold: 50.0,
+                        centroidRaHours: 19.5, centroidDecDeg: 10.0,
+                        fieldWidthDeg: 1.423, fieldHeightDeg: 0.951),
+                    Inv(t, "H", FilterPurpose.Light, 451, 300.0, framingOrdinal: 0, rotationFold: 60.0,
+                        centroidRaHours: 19.5, centroidDecDeg: 10.0,
+                        fieldWidthDeg: 1.423, fieldHeightDeg: 0.951),
+                ]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        ReconciliationRow stray = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk);
+
+        Assert.Equal("framing 92%", stray.BadgeText);        // the leaf prices itself
+        Assert.Equal(Badges.Framing, stray.Badge);           // …but the vocabulary stays bare
+        Assert.True(Badges.IsWarning(stray.BadgeText));      // decorated still colours as a warning
+        Assert.True(Badges.IsRowScoped(stray.BadgeText));
+
+        Assert.Contains(Badges.Framing, rollup.BadgeText);           // collapsed rollup: bare token
+        Assert.DoesNotContain("%", rollup.BadgeText);                // never a number above the lines
+        rollup.IsExpanded = true;
+        Assert.DoesNotContain(Badges.Framing, rollup.BadgeText);     // expanded: the leaf carries it
+        Assert.DoesNotContain("%", RowAggregates.Compute([rollup]).Badge);   // header union stays bare
+
+        // The serving line has nothing to price — no decoration, no badge.
+        ReconciliationRow serving = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Both);
+        Assert.DoesNotContain(Badges.Framing, serving.BadgeText);
+        Assert.DoesNotContain("%", serving.BadgeText);
+    }
+
+    [Fact]
+    public void FramingBadge_WithoutGeometry_StaysBare_NeverAFabricatedZero()
+    {
+        // Frames that disagree but carry no footprint: badged, unpriced — "cannot say" is not "0%".
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "Tulip", TargetSource.Both, dir: "Tulip", rotation: 160.0,
+                    raHours: 19.5, decDeg: 10.0)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 199, 300.0, rotationFold: 20.0)]),   // no centroid/field
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        ReconciliationRow stray = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk);
+        Assert.Equal(Badges.Framing, stray.BadgeText);
+        Assert.DoesNotContain("%", stray.BadgeText);
+    }
+
     [Fact]
     public void AgreeingFraming_RendersIdenticallyOnBothPlanes_NoBadge()
     {
@@ -669,8 +730,8 @@ public class BuildRowsTests
         new(0, 0, 0, 0, 0, [], [], [], unanchored ?? [], []);
 
     private static Target T(Guid id, string name, TargetSource source, string? dir = null, Guid? parent = null,
-        double? rotation = null) => new(
-        id, source, ProjectId: null, name, Enabled: true, RaHours: null, DecDegreesSigned: null, Epoch.J2000,
+        double? rotation = null, double? raHours = null, double? decDeg = null) => new(
+        id, source, ProjectId: null, name, Enabled: true, RaHours: raHours, DecDegreesSigned: decDeg, Epoch.J2000,
         RotationDeg: rotation, RoiPercent: null, Priority: null, DirectoryName: dir, Catalog: null, CommonName: null,
         ObjectName: null, ScannedAt: null, CreatedAt: 0, ImportedFromTsGuid: null, ParentTargetId: parent);
 
@@ -687,10 +748,14 @@ public class BuildRowsTests
         Guid target, string filter, FilterPurpose purpose, int count, double seconds,
         int gain = 100, int offset = 50, int bin = 1, string camera = "Z533", bool disagrees = false,
         int framingOrdinal = 0, RotationExpression rotation = RotationExpression.Sky,
-        double? rotationFold = 20.0) =>
+        double? rotationFold = 20.0,
+        double? centroidRaHours = null, double? centroidDecDeg = null,
+        double? fieldWidthDeg = null, double? fieldHeightDeg = null) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: gain, TypicalOffset: offset, TypicalSetTempC: -10.0, TypicalBinningX: bin,
             TypicalBinningY: bin, ExposureSeconds: seconds, Camera: camera,
             FramingOrdinal: framingOrdinal, RotationExpression: rotation, RotationFoldDeg: rotationFold,
-            CameraDisagrees: disagrees);
+            CameraDisagrees: disagrees,
+            FramingCentroidRaHours: centroidRaHours, FramingCentroidDecDeg: centroidDecDeg,
+            FramingFieldWidthDeg: fieldWidthDeg, FramingFieldHeightDeg: fieldHeightDeg);
 }

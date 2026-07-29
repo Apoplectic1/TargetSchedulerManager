@@ -64,7 +64,8 @@ public class MainViewModelAmbiguityTests
     private static MainViewModel Vm(CatalogGraph graph)
     {
         MainViewModel vm = new(Gate());
-        vm.SetLoadForTest(new LoadResult([], Report(), graph, TsPlanData.Empty, TimeSpan.Zero));
+        vm.SetLoadForTest(new LoadResult([], Report(), graph, TsPlanData.Empty, TimeSpan.Zero,
+            new Dictionary<string, string>()));
         return vm;
     }
 

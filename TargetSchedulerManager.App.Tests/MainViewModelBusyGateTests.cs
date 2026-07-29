@@ -181,7 +181,8 @@ public class MainViewModelBusyGateTests
         [], []);
 
     private static LoadResult Load(TsPlanData ts) => new(
-        [], Report(), new CatalogGraph([], [], [], [], [], []), ts, TimeSpan.Zero);
+        [], Report(), new CatalogGraph([], [], [], [], [], []), ts, TimeSpan.Zero,
+        new Dictionary<string, string>());
 
     private static CatalogBuildReport Report() => new(
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,

@@ -51,6 +51,14 @@ Four standing truths follow, and they settle most arguments about the grid:
   overlap). TSM's job ends at making it visible (the split row + `framing` badge); any grouping/exclusion
   rule belongs in the WBPP lane (PJSR reads `OBJCTROT`/`POSANGLE` itself — zero AL coupling), and XFM's
   grading role gives it no say at all.
+- **The hazard is priced, still only detected** (2026-07-29, openspec `framing-overlap-column`). `framing 57%`
+  on a stray line = the share of those frames' own footprint landing where the plan **currently** points —
+  re-frame the target and the next load re-prices everything (nothing is stored). It prices *footprint*, not
+  *stackability*: registration, star commonality, reference choice and mixed-rotation spikes are PixInsight's
+  verdict — the number decides "worth carrying into WBPP to find out", nothing more, and it never scales a
+  credited count. **Read it against its real range: 57–100%, not 0–100%** — two same-size fields centred
+  together still share ~67% at a full 90° turn, so a "bad" framing reads ~60%, not ~5%; only a pointing
+  clear of the field approaches zero.
 
 (Landed 2026-07-27 with openspec `capture-config-keys` — gain/offset/binning reconciliation keys, camera a
 disk-side label — and 2026-07-29 with openspec `rotation-framing-key` — framing (fold-180 sky rotation +
@@ -105,7 +113,11 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   hands it down rather than repeating it. Flagging and header aggregation use the full union and are
   unaffected by expansion; target-scope badges are untouched (their trigger IS the whole target). A
   one-frame framing row is intended, not noise — it is the PixInsight reference-frame hazard, quantified by
-  its own count.
+  its own count. On its deepest visible line the framing badge **prices itself** — `framing 57%`, the share
+  of those frames' footprint the plan asked for (2026-07-29, openspec `framing-overlap-column`); rollups and
+  summaries keep the bare token (one rollup can span several strays), and the percentage is display-only —
+  search, the flagged filter and headers reason over bare `framing`. Overlap facts with no badge (a serving
+  framing pointed off-plan; the mixed-sensor qualifier) live in the ambiguity report's Info section.
 
 - **Mark** (column 0, 24 px, unlabeled): the sync-direction mark on every row level — `←` = arrived changed
   from BIRDWATCHER (pull diff, sticky for the session) · `→` = unpushed local writes (journal: manual edits

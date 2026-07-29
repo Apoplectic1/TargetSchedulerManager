@@ -131,7 +131,7 @@ public class MainViewModelMarkTests
             [],
             [new ExposurePlan(Guid.NewGuid(), Guid.NewGuid(), templateId, ExposureSeconds: null,
                 DesiredCount: 10, AcquiredCount: 0, AcceptedCount: 0, Enabled: true, ImportedFromTsGuid: "ep-1")],
-            []), TsPlanData.Empty, TimeSpan.Zero));
+            []), TsPlanData.Empty, TimeSpan.Zero, new Dictionary<string, string>()));
         sync.Journal.Append(TsEditKind.Manual, TsTable.ExposureTemplate, "5", "moonavoidanceenabled", 1, "0", "H900");
 
         vm.RefreshAllMarks();
