@@ -364,8 +364,8 @@ public sealed class ReconciliationRow(
     /// offending name is readable beside its badge), or the dash on a plan-only row.</summary>
     public string CameraText => Cfg(r => r.CameraText, Format.CameraCell(Config.Camera));
 
-    public string GainText => Cfg(r => r.GainText, Config.Gain.ToString());
-    public string OffsetText => Cfg(r => r.OffsetText, Config.Offset.ToString());
+    public string GainText => Cfg(r => r.GainText, Format.TemplateNumberCell("gain", Config.Gain));
+    public string OffsetText => Cfg(r => r.OffsetText, Format.TemplateNumberCell("offset", Config.Offset));
 
     /// <summary>Binning as the single figure it always is in practice ("1"), or "XxY" if ever asymmetric.</summary>
     public string BinText => Cfg(r => r.BinText,

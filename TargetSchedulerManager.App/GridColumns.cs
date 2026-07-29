@@ -33,8 +33,8 @@ public static class GridColumns
         // deliberately EXCLUDED from sort precedence even though they sit left of Filter — see
         // ReconciliationLoader's sort, which keeps one filter's rows contiguous.
         ("Camera", new GridLength(60)),      //  5
-        ("Gain", new GridLength(50)),        //  6
-        ("Offset", new GridLength(50)),      //  7
+        ("Gain", new GridLength(58)),        //  6 wide enough for the sentinel's "default"
+        ("Offset", new GridLength(58)),      //  7
         ("Bin", new GridLength(40)),         //  8
         ("Rot", new GridLength(58)),         //  9 framing rotation (fold-180)
         ("Filter", new GridLength(60)),      // 10

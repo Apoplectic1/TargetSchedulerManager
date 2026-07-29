@@ -1,4 +1,5 @@
 using Astronomy.Catalog.Scan;
+using Astronomy.Catalog.TargetScheduler;
 
 namespace TargetSchedulerManager.App.Models;
 
@@ -61,6 +62,16 @@ internal static class Format
     /// name is visible beside its badge), or the dash when there is no disk side at all.</summary>
     public static string CameraCell(string? captureDirectory) =>
         string.IsNullOrWhiteSpace(captureDirectory) ? Dash : Camera(captureDirectory) ?? captureDirectory;
+
+    /// <summary>A Gain/Offset config cell: the value, or — when it is the exposure template's sentinel
+    /// (schema-driven, never a hard-coded −1) — the word <c>default</c>. The cell-width form of the
+    /// general render-as-meaning rule (user 2026-07-29): a sentinel never displays raw anywhere; the full
+    /// label ("camera default") lives in the flyout and the old→new displays (<c>TsValueText.ForField</c>).
+    /// Disk-side values are always real numbers, so this only ever fires on plan-side cells.</summary>
+    public static string TemplateNumberCell(string column, int value) =>
+        TsEditableSchema.Find(TsTable.ExposureTemplate, column) is { Sentinel: double s } && value == s
+            ? "default"
+            : value.ToString();
 
     /// <summary>A rotation cell: the fold-180 angle for a sky rotation ("65.1°"), the same visibly marked
     /// mechanical ("172.3°m" — real rotation the plan cannot be compared against), or the dash when no

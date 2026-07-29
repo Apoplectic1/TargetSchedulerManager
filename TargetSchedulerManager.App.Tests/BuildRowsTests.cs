@@ -604,6 +604,26 @@ public class BuildRowsTests
     }
 
     [Fact]
+    public void SentinelGainOffset_RenderAsDefault_NeverRawMinusOne()
+    {
+        // The general render-as-meaning rule (user 2026-07-29): a template deferring gain/offset to the
+        // camera projects as the sentinel, and the grid cell must say "default", never a raw -1 that
+        // reads as an ID. The sentinel stays its own key, so such a plan still never pairs with frames.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Planned)],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)],
+                [new ExposureTemplate(tpl, Guid.NewGuid(), "Ha", "H", Gain: null, OffsetAdu: null,
+                    Binning: 1, ReadoutMode: null, DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null)],
+                []),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal("default", r.GainText);
+        Assert.Equal("default", r.OffsetText);
+    }
+
+    [Fact]
     public void RollupDash_NeverCountsAsDisagreement()
     {
         // The Barnard 202 B-Light shape (user obs 0d19, 2026-07-29): a TS line and a Disk line under one
