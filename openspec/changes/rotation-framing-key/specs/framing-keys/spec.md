@@ -99,8 +99,10 @@ display SHALL NOT participate in row sorting, consistent with the capture-config
 
 A disk row whose framing cluster disagrees with the plan's framing SHALL carry a warning-severity
 row-scoped `framing` badge, so stray framings are findable through the badge filter rather than only by
-scrolling for split rows. The badge marks the hazard; quantifying it (footprint-overlap percentage) is
-deliberately out of scope.
+scrolling for split rows. The badge SHALL display on the **triggering source line** and on the **target
+summary row**, and SHALL NOT be repeated on an intermediate rollup between them — the rollup still counts
+as flagged, so filtering to flagged rows keeps the target reachable. The badge marks the hazard;
+quantifying it (footprint-overlap percentage) is deliberately out of scope.
 
 #### Scenario: A separated framing row is readable at a glance
 - **WHEN** a target renders a `Both` row and a Disk row split only by framing
@@ -119,6 +121,11 @@ deliberately out of scope.
 - **WHEN** a disk row's framing cluster disagrees with the plan's rotation
 - **THEN** the row carries a warning-severity `framing` badge, and filtering by it surfaces every such row
   in the library
+
+#### Scenario: The badge sits at the header and the triggering line, not between
+- **WHEN** the disagreeing disk line sits nested under a rollup within its target
+- **THEN** the `framing` badge shows on the target summary row and on that line, the rollup between them
+  shows no `framing` token, and the rollup still surfaces under a flagged-only filter
 
 #### Scenario: An agreeing framing carries no badge
 - **WHEN** a disk row's framing agrees with the plan, or its target's plan expresses no rotation

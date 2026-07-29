@@ -209,14 +209,19 @@ public static class ReconciliationLoader
                         && ReferenceEquals(planCells[0], diskCells[0]);
                     bool mixed = !matchedSingle;
 
-                    // The rollup's own camera provenance is the union over its disk-side cells, so a bad
-                    // capture directory anywhere beneath it is visible without expanding.
+                    // The rollup's camera provenance is the union over its disk-side cells, so a bad capture
+                    // directory anywhere beneath it is visible without expanding. The `framing` token is the
+                    // deliberate exception (user obs 6b72, 2026-07-29): it displays at the target header and
+                    // on the triggering source line only — repeating it on the intermediate rollup was noise.
+                    // The rollup still FLAGS on framing, though: the flagged-only filter walks these rows
+                    // (detail lines live inside them), so an unflagged rollup would make a framing-only
+                    // target unreachable through the filter.
                     ReconciliationCell configCell = diskCells[0];
                     string rollupBadge = badge;
                     bool rollupFlagged = flagged;
                     foreach (ReconciliationCell c in diskCells)
                     {
-                        rollupBadge = RowBadge(rollupBadge, c, true);
+                        rollupBadge = RollupCameraBadge(rollupBadge, c);
                         rollupFlagged = RowFlagged(rollupFlagged, c, true);
                     }
 
@@ -271,6 +276,16 @@ public static class ReconciliationLoader
                     if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
                     if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
                     if (c.FramingDisagrees) extra.Add(Badges.Framing);
+                    return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
+                }
+
+                // The rollup variant: camera tokens only — `framing` displays at the header + triggering
+                // line, never on the intermediate rollup (see the rollup comment above).
+                static string RollupCameraBadge(string targetBadge, ReconciliationCell c)
+                {
+                    List<string> extra = [];
+                    if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
+                    if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
                     return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
                 }
 

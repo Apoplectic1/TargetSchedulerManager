@@ -516,9 +516,17 @@ public class BuildRowsTests
         ReconciliationRow stray = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Disk);
         Assert.Equal(451, stray.Disk);
         Assert.Equal("60°", stray.RotText);
-        Assert.Contains(Badges.Framing, stray.Badge);
-        Assert.True(stray.IsFlagged);                        // warning severity — the flagged filter shows it
+        Assert.Contains(Badges.Framing, stray.Badge);        // the triggering line carries the badge…
+        Assert.True(stray.IsFlagged);
         Assert.Equal("mixed", rollup.RotText);               // the rollup names the dimension responsible
+
+        // …but the intermediate rollup does NOT repeat it (user obs 6b72): it displays at the target
+        // header + triggering line only. The rollup still FLAGS, so the flagged-only filter reaches it.
+        Assert.DoesNotContain(Badges.Framing, rollup.Badge);
+        Assert.True(rollup.IsFlagged);
+
+        // The target header harvests the token from the nested line the rollup deliberately omits.
+        Assert.Contains(Badges.Framing, RowAggregates.Compute([rollup]).Badge);
     }
 
     [Fact]
