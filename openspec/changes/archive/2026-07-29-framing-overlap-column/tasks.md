@@ -139,14 +139,14 @@ New `reconciliation-grid` delta carries the contract.
 
 - [x] 5.1 Build + full test pass, library then app — Catalog 236 · XISF 51 · Core 472 · NINA 45 ·
       Contracts 61 · App 320
-- [ ] 5.2 Run the app: **Barnard 202** — the 60°/451-frame line reads `framing 92%` expanded; the rollup
+- [x] 5.2 Run the app: **Barnard 202** — the 60°/451-frame line reads `framing 92%` expanded; the rollup
       shows bare `framing` collapsed; the 50° line has no badge
-- [ ] 5.3 **M81** (plan 65.11°): the 115°, 125° and 0° lines each carry their own percentage (73/57/80-ish);
+- [x] 5.3 **M81** (plan 65.11°): the 115°, 125° and 0° lines each carry their own percentage (73/57/80-ish);
       the 65° Z183 line is bare; the summary row shows bare `framing`
-- [ ] 5.4 Status line stays free of any unreadable-frame text (measured library: 0 skipped); the ambiguity
+- [x] 5.4 Status line stays free of any unreadable-frame text (measured library: 0 skipped); the ambiguity
       report's Info section shows the three off-plan pointings (Markarian's Chain ~86%, FishHead ~88%,
       M51 ~94%)
-- [ ] 5.5 Spot-check that no count, total, row separation, sort order, or window geometry changed anywhere
+- [x] 5.5 Spot-check that no count, total, row separation, sort order, or window geometry changed anywhere
       against the pre-change grid
 
 ## 6. Docs (same commit as the code)
