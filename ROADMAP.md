@@ -8,7 +8,7 @@ Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design
 > **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
 > keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
 
-## Status — pick up here (2026-07-27)
+## Status — pick up here (2026-07-29)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -31,13 +31,37 @@ label, the pairing rule made explicit) and **`skip-comet-targets`** (non-siderea
 both shipped, verified and archived. 2026-07-29 closed the rotation + RA/DEC deferral as one unit —
 **`rotation-framing-key`** (framing = fold-180 sky rotation + cluster centroid as a reconciliation key, the
 `Rot` column, the `framing` badge) — also shipped, verified and archived, adding **`framing-keys`** as a
-14th capability spec. The load-split is
+14th capability spec — and then **`framing-overlap-column`** the same day: the framing badge prices itself
+(`framing 57%`, deepest visible line only), unreadable frames stop being silent, and **Hours became a
+progress gauge** (owed time or captured total, never a signed sum). The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is
 strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
+
+### Doc-system open items (2026-07-29 maintain sweep)
+
+Both are **held graduates** — a standing truth found, adjudicated, and deliberately not applied. Full rails
+(standing-claim · target · disposition · evidence) in `docs/2026-07-29-maintain-report.md`.
+
+- **Split `DOMAIN.md` — a two-charter doc at 41.9 KB.** Of 453 body lines, exactly **82** are domain
+  conventions (*What TSM is for* 54 + *TS authoring conventions* 28); the remaining **~371** are UI/display
+  material (grid idiom · columns · sorting · visual language · alignment · editing · chrome · WinUI
+  gotchas · the add-a-UI-element checklist) — ~354 if the *TS sync* display section is read as domain
+  rather than UI. Same *charter, not size* test that produced `SUBSYSTEMS.md`. **8 section-scoped
+  cross-refs in the reference tier must move with the seam** (ARCHITECTURE → Chrome · CONVENTIONS →
+  WinUI gotchas, → Editing · ROADMAP → Editing · SUBSYSTEMS → WinUI gotchas · TS-SCHEMA → TS authoring
+  conventions · VERIFICATION → Chrome ×2), plus 3 in `NOTEBOOK.md`; 4 further mentions name the doc
+  generically and need no change. **Blocks** the held graduate H2 (the deliberate `PlanSeconds == 0`
+  em-dash conflation), which lands in the split home.
+- **Place the `Astronomy.Diagnostics` ≠ `Astronomy.Catalog` boundary rationale (needs your decision).**
+  *Shared observation tooling stays out of Catalog because Catalog is a schema/build contract, not a
+  grab-bag utility library* — true since Diagnostics was created (2026-06-11), written down nowhere. It is a
+  **Library-repo** truth, so no TSM doc's charter can own it and no portfolio `DOMAIN.md` exists to take it.
+  Candidates: Library `CLAUDE.md` · Library `CONSUMERS.md` · a new portfolio `DOMAIN.md`. Recorded rather
+  than improvised, per the maintain convention against cross-repo placement.
 
 ### Deferred — the reconciliation dimensions `capture-config-keys` left on the table
 

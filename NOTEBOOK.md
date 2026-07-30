@@ -6,40 +6,38 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
-**2026-07-29 — overlap-fraction traps + the 57–100% floor (fed `framing-overlap-column`).** Three findings
-from implementing the overlap price. **(1)** `XPIXSZ` is **already binning-adjusted**: Z183 bin 1 reports
+**2026-07-29 — overlap-fraction traps + the 57–100% floor (fed `framing-overlap-column`).** *The rules these
+produced live in `ARCHITECTURE.md` (no-binning + cos(dec) derivation) and `DOMAIN.md` → What TSM is for (the
+compressed range, in the detects-not-enforces bullet); this entry keeps the measurements behind them.* **(1) Binning:** Z183 bin 1 reports
 2.40 µm @ 5496×3672, bin 2 reports 4.80 µm @ 2744×1836 — same field either way (1.423°×0.951° vs
-1.421°×0.951°). The naive `× XBINNING` doubles the field for 2,947 frames (15.8%) and those older bin-2
-frames are exactly the history most likely to hold strays. Binning keywords are NOT footprint inputs, at all.
-**(2)** RA offsets must scale by **cos(dec)** before rectangle intersection — M81 sits at Dec +69.13° where
-cos = 0.355; unscaled RA inflates its east-west offsets ~2.8× into a plausible-looking wrong number. Both
-trapped in tests (bin-2 regression; high-dec case). **(3)** The fraction's practical floor is **~57%, not
-0%**: two same-size rectangles centred together share ~67% at a full 90° rotation, so real values live in
-57–100% and the scale reads compressed — a "bad" framing is ~60%, and only a pointing clear of the field
-approaches 0. Measured distribution: 52/60 serving framings ≥ 99.5% (the other 8: 85.6–97.8% — between-filter
-pointing scatter); the 11 badged strays span 57.5–91.9%. This floor is *why* the number became a badge
-decoration instead of a column — 14 populated rows in a 43-point range.
+1.421°×0.951°), because `XPIXSZ` is already binning-adjusted. A `× XBINNING` would double the field for
+2,947 frames (15.8%), and those older bin-2 frames are exactly the history most likely to hold strays.
+**(2) cos(dec):** M81 sits at Dec +69.13° where cos = 0.355, so unscaled RA inflates its east-west offsets
+~2.8×. Both traps are pinned by tests (bin-2 regression; high-dec case). **(3) Distribution:** 52/60 serving
+framings ≥ 99.5% (the other 8: 85.6–97.8%, between-filter pointing scatter); the 11 badged strays span
+57.5–91.9%. Two same-size rectangles centred together still share ~67% at a full 90° rotation — the floor is
+~57%, not 0. That 43-point range over 14 populated rows is *why* the number became a badge decoration
+rather than a column.
 
 **2026-07-29 — the measured framing landscape (rotation spike, 18,650 frames; fed `rotation-framing-key`).**
 Production-faithful header dump + circular-clustering sweep over the live library, before designing rotation
-as a key. What it settled: **(1)** the tolerance question dissolved — genuinely distinct framings sit ≥ 9°
-apart fold-180 (nearest pairs: Eastern Veil 8.9° mech, Barnard 202 10° sky) while within-framing jitter is
-≤ 0.2° (NINA snaps the rotator; raw values are literally 50.0/60.0/15.0), so tolerances 1–5° give identical
-clusters; the earlier "5° puts M33/M51 exactly on the boundary" note did not reproduce under fold-180
-(measured 0.56°/0.10°) — the only boundary resident in the whole library is Sh2-174 (TS 90° vs disk 94.8°,
-inside the 5° tolerance → pairs). **(2)** Every true flip pair's centroids coincide ≤ 0.12° (M81 0.032°,
-Bear Claw 0.028°, Wizard 0.116°) — fold-180 + centroid guard is correct AND optically right (a rectangle
-rotated 180° about its center covers the identical footprint, so flips never cost integration overlap).
-**(3)** Mech→sky conversion is dead: the zero point is mod-180 stable in 25/30 (unit, camera) groups but
-drifts 19–35° across remounts in exactly the units that matter (Abell 21/78, IC 443). **(4)** The real
-re-framing census: 6 sky-comparable multi-framing targets (Barnard 202 — only 28/479 frames at the planned
-50°; Tulip — the *majority* 199/285 is the old 20° framing; M100 — ONE stray 135° frame among 104, the
-reference-frame-hazard shape; M81 — four framings; Pacman; IC 443 — TS plans a *third* framing neither
-cluster matches), plus ~5 mech-only (M94, M106, Iris, Eastern Veil, Crescent) and one pure translation
-stray (M97 — same 125° angle, one frame 1.45° off-center; only the centroid catches it — the fact that
-welded RA/DEC to rotation as ONE framing concept). "14 targets with different framings" from the
-capture-config pass was inflated by counting flips. Spike artifacts were scratchpad-only (read-only against
-library + local TS db).
+as a key. *The rules it settled are `ARCHITECTURE.md`'s framing fact + the `framing-keys` spec (fold-180
+grouping, the 5°/0.5° constants, mechanical never converted); this entry keeps the numbers that decided
+them.* **(1) Tolerance:** distinct framings sit ≥ 9° apart fold-180 (nearest pairs: Eastern Veil 8.9° mech,
+Barnard 202 10° sky) while within-framing jitter is ≤ 0.2° (NINA snaps the rotator — raw values are literally
+50.0/60.0/15.0), so any tolerance in 1–5° yields identical clusters. The earlier "5° puts M33/M51 exactly on
+the boundary" worry did not reproduce under fold-180 (measured 0.56°/0.10°); the library's only boundary
+resident is Sh2-174 (TS 90° vs disk 94.8° — inside tolerance, pairs). **(2) Flips:** every true flip pair's
+centroids coincide ≤ 0.12° (M81 0.032°, Bear Claw 0.028°, Wizard 0.116°). **(3) Mech drift:** the sky−mech
+zero point is mod-180 stable in 25/30 (unit, camera) groups but drifts 19–35° across remounts in exactly the
+units that matter (Abell 21/78, IC 443) — which is what killed conversion. **(4) Re-framing census:** 6
+sky-comparable multi-framing targets (Barnard 202 — only 28/479 frames at the planned 50°; Tulip — the
+*majority* 199/285 is the old 20° framing; M100 — ONE stray 135° frame among 104, the reference-frame-hazard
+shape; M81 — four framings; Pacman; IC 443 — TS plans a *third* framing neither cluster matches), plus ~5
+mech-only (M94, M106, Iris, Eastern Veil, Crescent) and one pure translation stray (M97 — same 125° angle,
+one frame 1.45° off-center; only the centroid catches it — the fact that welded RA/DEC to rotation as ONE
+framing concept). "14 targets with different framings" from the capture-config pass was inflated by counting
+flips. Spike artifacts were scratchpad-only (read-only against library + local TS db).
 
 **2026-07-24 — one-off test flake, name not captured.** During the presentation-conventions pass, one
 run reported 1/230 failed with the name scrolled out of the tail; four immediate re-runs were fully
