@@ -238,7 +238,8 @@ public static class ReconciliationLoader
                             Disk: diskCells.Sum(c => c.Disk),
                             PlanCount: planCells.Sum(c => c.PlanCount),
                             PlanHours: planCells.Sum(c => c.Desired * (double)c.Seconds) / 3600.0,
-                            DiskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0),
+                            DiskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
+                            RemainingHours: planCells.Sum(CellRemainingHours)),
                         Badges.Join(Badges.Split(rollupBadge).Select(t => t.Token).Distinct()), rollupFlagged,
                         secondsMixed: mixed,
                         detail: mixed ? detail : null,
@@ -272,6 +273,13 @@ public static class ReconciliationLoader
                     FramingDisagrees: withCamera && c.FramingDisagrees,
                     FramingOverlapFraction: withCamera ? c.FramingOverlapFraction : null);
 
+                // The time a cell's plan side still owes — the Hours gauge's debt component (obs 01b7):
+                // clamped per cell so one cell's overshoot never masks another's shortfall, and
+                // acquired-based (write-back stamps acquired from serving frames only) so the gauge reads
+                // what TS actually schedules on, not the raw disk count.
+                static double CellRemainingHours(ReconciliationCell c) =>
+                    Math.Max(0, c.Desired - c.Acquired) * (double)c.Seconds / 3600.0;
+
                 // Row-scoped camera/framing provenance, appended to the target-scope tokens for THIS row only.
                 static string RowBadge(string targetBadge, ReconciliationCell c, bool withCamera)
                 {
@@ -295,7 +303,8 @@ public static class ReconciliationLoader
                         Desired: c.Desired, Acquired: c.Acquired, Accepted: c.Accepted,
                         Disk: c.Disk, PlanCount: c.PlanCount,
                         PlanHours: c.Desired * (double)c.Seconds / 3600.0,
-                        DiskHours: c.Disk * (double)c.Seconds / 3600.0),
+                        DiskHours: c.Disk * (double)c.Seconds / 3600.0,
+                        RemainingHours: CellRemainingHours(c)),
                     RowBadge(badge, c, true), RowFlagged(flagged, c, true), isDetail: true,
                     planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, true, tc.TargetRotationDeg));
 
@@ -306,7 +315,8 @@ public static class ReconciliationLoader
                         Desired: c.Desired, Acquired: c.Acquired, Accepted: c.Accepted,
                         Disk: 0, PlanCount: c.PlanCount,
                         PlanHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null,
-                        DiskHours: null),
+                        DiskHours: null,
+                        RemainingHours: c.Seconds > 0 ? CellRemainingHours(c) : null),
                     badge, flagged, isDetail: isDetail,
                     planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, false, tc.TargetRotationDeg));
 

@@ -173,14 +173,22 @@ goal of zero); measured disk-side absence = `0`.
 
 ## Visual language
 
-- **Signed Hours (additive):** every row's Hours is its signed contribution to its parent's total, so a parent
-  is the literal sum of its children. TS rows show **−(desired×sec)** (deficit), Disk rows **+(frames×sec)**,
-  Both rollups the **disk−desired gap**. Tiny non-zero values render F2 so they never read `0.0`
-  (`Format.Hours`); a positive Both gap is prefixed `+`.
-- **Fills** (`ThemeBrushes`): **caution** = needs telescope time / outstanding commitment · **success** (green)
-  = goal met · **critical** = data that shouldn't exist (e.g. a desired-0 plan). Disk lines stay **plain** —
-  quiet positive facts. Dark-theme fills are intentionally subtle (stronger brushes are a one-line swap in
-  `ThemeBrushes.cs`).
+- **Hours is a progress gauge, not a signed sum** (user decision, obs 01b7 2026-07-29 — replaced the
+  additive parents-are-the-literal-sum model): while any plan beneath a level still owes images, the level
+  shows **−(remaining time)** brown; once nothing is owed — goals met, or no goals at all — it shows the
+  **captured disk total** green. "Owed" is **acquired-based** (desired − TS acquired, clamped per plan
+  cell): write-back stamps acquired from serving frames only, so the gauge is framing-aware — M81-R with a
+  "full" disk of mostly stray frames reads brown, not done. Debt **survives a disable** (Visible-Tonight
+  flips `target.active` nightly; progress must not churn with the sky). Deepest lines state plain facts: a
+  Disk line its total, a TS line its owed time (dash once complete — its frames live on the disk sibling).
+  A parent is deliberately **not** the sum of its children anymore; the `+` surplus prefix died with the
+  gap semantics (a positive value is a total, never a surplus). The "Sort: remaining ↓" key uses the same
+  acquired basis so sort and gauge never disagree. Tiny non-zero values render F2 so they never read `0.0`
+  (`Format.Hours`).
+- **Fills** (`ThemeBrushes`): **caution** = time still owed beneath · **success** (green) = nothing owed —
+  the value is the captured total · **critical** = data that shouldn't exist (e.g. a desired-0 plan). Disk
+  lines stay **plain** — quiet positive facts; green belongs to levels that could owe and don't. Dark-theme
+  fills are intentionally subtle (stronger brushes are a one-line swap in `ThemeBrushes.cs`).
 - **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
   sub-lengths; Hours carries the caution/success fill by sign.
 - **Badges** (rightmost, **two-tier color per token** — 2026-07-26, openspec `badge-severity-color`):

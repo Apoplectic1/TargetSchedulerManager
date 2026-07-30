@@ -187,7 +187,8 @@ public class BuildRowsTests
         Assert.Equal(4, r.Disk);
         Assert.Equal(10 * 300 / 3600.0, r.PlanHours!.Value, precision: 10);
         Assert.Equal(4 * 300 / 3600.0, r.DiskHours!.Value, precision: 10);
-        Assert.Equal(r.DiskHours - r.PlanHours, r.Hours);   // gap, additive convention
+        // The Hours gauge (obs 01b7): 10 desired, 0 acquired → the full 10 subs still owed.
+        Assert.Equal(-(10 * 300 / 3600.0), r.Hours!.Value, precision: 10);
     }
 
     [Fact]

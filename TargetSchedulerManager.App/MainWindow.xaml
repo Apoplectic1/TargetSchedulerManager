@@ -94,7 +94,8 @@
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Center" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
-                    <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
+                    <!-- The Hours gauge (obs 01b7): time still owed beneath (negative, caution) or the
+                         captured total once nothing is owed (green). -->
                     <Border Grid.Column="16" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
@@ -202,7 +203,8 @@
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Center"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
+                    <!-- The Hours gauge (obs 01b7): a Disk line's plain captured total; a TS line's owed
+                         time (dash once complete); a Both line's debt-or-total with caution/green fill. -->
                     <Border Grid.Column="16" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>

@@ -12,7 +12,8 @@ internal sealed record RowAggregates(
     int? Accepted,
     int Disk,
     int Remaining,
-    double? HoursDelta,
+    double? RemainingHours,
+    double? DiskHours,
     string Badge,
     bool IsFlagged,
     string Camera,
@@ -43,9 +44,9 @@ internal sealed record RowAggregates(
 
     public static RowAggregates Compute(IReadOnlyList<ReconciliationRow> children)
     {
-        bool anyPlanned = false, anyHours = false, flagged = false;
+        bool anyPlanned = false, anyRemaining = false, anyDiskHours = false, flagged = false;
         int desired = 0, acquired = 0, accepted = 0, disk = 0, remaining = 0;
-        double diskHours = 0, desiredHours = 0;
+        double remainingHours = 0, diskHours = 0;
         foreach (ReconciliationRow r in children)
         {
             if (r.Desired is int d) { anyPlanned = true; desired += d; }
@@ -53,13 +54,15 @@ internal sealed record RowAggregates(
             accepted += r.Accepted ?? 0;
             disk += r.Disk;
             if (r.IsFlagged) flagged = true;
-            // A Both row carries both components; one-plane rows carry one. Summing the components (not
-            // the displayed Hours, which is a gap on Both rows) keeps the header delta exact.
-            if (r.DiskHours is double dh) { anyHours = true; diskHours += dh; }
-            if (r.PlanHours is double ph) { anyHours = true; desiredHours += ph; }
-            // Both rows pair desired against their own disk; leftover TS rows are wholly unshot; leftover
-            // Disk rows have no goal — per-row shortfalls are already per-cell.
-            remaining += Math.Max(0, (r.Desired ?? 0) - r.Disk);
+            // The gauge's two components (obs 01b7): the debt still owed beneath this header, and the
+            // total captured. Both are additive — each row's RemainingHours is already clamped per plan
+            // cell, so an overshoot in one cell never masks a shortfall in another.
+            if (r.PlanRemainingHours is double rh) { anyRemaining = true; remainingHours += rh; }
+            if (r.DiskHours is double dh) { anyDiskHours = true; diskHours += dh; }
+            // The "Sort: remaining ↓" key — same acquired basis as the Hours gauge, so the sort and the
+            // gauge can never call the same target differently (framing-aware: 132 disk frames with only
+            // 46 serving still sorts as 86 remaining).
+            remaining += Math.Max(0, (r.Desired ?? 0) - (r.Acquired ?? 0));
         }
 
         return new RowAggregates(
@@ -68,7 +71,8 @@ internal sealed record RowAggregates(
             anyPlanned ? accepted : null,
             disk,
             remaining,
-            anyHours ? diskHours - desiredHours : null,
+            anyRemaining ? remainingHours : null,
+            anyDiskHours ? diskHours : null,
             // Distinct over TOKENS, not whole child badge strings: children of one mosaic read "mosaic" and
             // "mosaic · multi-plan" (target-scope vs. filter-scope flags), which deduped as strings would
             // render "mosaic · mosaic · multi-plan". First-appearance order preserved. Unions the FULL

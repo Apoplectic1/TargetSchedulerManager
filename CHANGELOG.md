@@ -14,6 +14,19 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-07-29 — Hours becomes a progress gauge** (user obs 01b7 + in-chat decisions; rides the open
+`framing-overlap-column` change as group 4c, `reconciliation-grid` delta). Replaces the signed-sum model
+(every row a signed contribution, parents the literal sum) with: while any plan beneath a level still owes
+images, show the **remaining time** (negative, caution); once nothing is owed — goals met or no goals at all
+— show the **captured disk total** (green, unsigned; the `+` surplus prefix died — a positive value is a
+total). "Owed" is **acquired-based** (desired − TS acquired, clamped per plan cell), which makes the gauge
+framing-aware: M81-R's "full" disk of 132 frames with only 46 serving reads **−7.2 brown**, where the old
+disk−desired gap read 0.0 green ("met") — the exact blind spot the user spotted. Debt **survives disable**
+(Visible-Tonight flips `target.active` nightly; progress must not churn with the sky). Deepest lines state
+plain facts (Disk = total; TS = owed, dash once complete; desired-0 keeps its critical tripwire). The
+"Sort: remaining ↓" key moved to the same acquired basis so sort and gauge never disagree. Parents are
+deliberately no longer the sum of their children. Tests: App 322.
+
 **▶ SHIPPED 2026-07-29 — the framing badge prices itself: `framing 57%`** (openspec `framing-overlap-column`;
 library `f7f5f8e`, app with this entry). The `rotation-framing-key` deferral said the overlap-% needed "pixel
 dimensions nothing exposes" — thin: the **mandatory XISF `<Image geometry>` attribute** covers 100.0% of the

@@ -40,7 +40,11 @@ internal static class Make
                 PlanSeconds: planSeconds, DiskSeconds: diskSeconds,
                 Desired: desired, Acquired: acquired, Accepted: accepted,
                 Disk: disk, PlanCount: planCount,
-                PlanHours: planHours, DiskHours: diskHours),
+                PlanHours: planHours, DiskHours: diskHours,
+                // The loader's rule: time still owed by the plan side, clamped per cell.
+                RemainingHours: desired is int dd && planSeconds > 0
+                    ? Math.Max(0, dd - (acquired ?? 0)) * (double)planSeconds / 3600.0
+                    : null),
             badge, flagged, mixed, isDetail, detail,
             planTsKey: planTsKey, planEnabled: planEnabled);
 

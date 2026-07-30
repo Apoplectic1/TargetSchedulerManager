@@ -112,6 +112,29 @@ compressed 57–100% range — badge-sized information. Preserved in git history
 - [x] 4b.6 (obs 27ec) Window 1560 → **1710** so `Target` (the one elastic column) never truncates a real
       name — longest today "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px; Target gets ~300
 
+## 4c. App — the Hours gauge (user obs 01b7, decisions in-chat 2026-07-29)
+
+Replaces the signed-sum Hours (every row a signed contribution; parents the literal sum) with a **progress
+gauge**: time still owed beneath (negative, caution) or the captured disk total once nothing is owed
+(green, unsigned — a positive value is a TOTAL, never a surplus; the `+` prefix died). Decisions: remaining
+is **acquired-based** (framing-aware — the recommended default, Q1 returned unanswered), complete shows the
+**total** not the surplus, and **debt survives a disable** (Visible-Tonight flips `target.active` nightly).
+New `reconciliation-grid` delta carries the contract.
+
+- [x] 4c.1 `RowNumbers.RemainingHours` (Σ per-plan-cell max(0, desired − acquired) × sec, clamped per cell);
+      loader computes it at every construction site (`CellRemainingHours`); inline edits recompute it
+- [x] 4c.2 `ReconciliationRow`: gauge `Hours`/`HoursText`/`HoursBackground` — Disk line plain total, TS line
+      owed-or-dash (desired-0 keeps its critical tripwire), Both line debt-or-total
+- [x] 4c.3 `RowAggregates`/`AggregateHeaderRow`: `HoursDelta` → the two gauge components (`RemainingHours` +
+      `DiskHours`); same display rule at every header level
+- [x] 4c.4 The `Remaining` sort key moves to the same acquired basis, so "Sort: remaining ↓" and the gauge
+      can never call one target differently
+- [x] 4c.5 Tests: TS remaining-not-commitment (+complete → dash); Both incomplete shows remaining not the
+      disk gap (the M81-R shape); Both complete shows total not surplus; desired-0 tripwire; ApplyDesired
+      recomputes the debt; aggregate components sum; acquired-based sort key
+- [x] 4c.6 Docs: DOMAIN visual-language bullet rewritten (gauge + fills), XAML cell comments,
+      `reconciliation-grid` spec delta
+
 ## 5. Verify
 
 - [x] 5.1 Build + full test pass, library then app — Catalog 236 · XISF 51 · Core 472 · NINA 45 ·

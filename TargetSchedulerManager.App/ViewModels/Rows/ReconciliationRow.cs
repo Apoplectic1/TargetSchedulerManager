@@ -23,7 +23,11 @@ public sealed record RowIdentity(
 
 /// <summary>One row's plan/disk numbers — the numeric columns, in column order. Construct with NAMED
 /// arguments at every site: the same-typed run is exactly the transposition hazard this record exists to
-/// contain.</summary>
+/// contain. <see cref="RemainingHours"/> is the time the plan side still owes — Σ per-plan-cell
+/// max(0, desired − acquired) × seconds — clamped per cell BEFORE summing so one cell's overshoot never
+/// masks another's shortfall; null when the row has no plan side. Acquired-based (not disk-frame-based)
+/// deliberately: write-back stamps acquired from serving frames only, so this is the framing-aware number
+/// TS actually schedules on (user decision, obs 01b7 2026-07-29).</summary>
 public sealed record RowNumbers(
     int PlanSeconds,
     int DiskSeconds,
@@ -33,7 +37,8 @@ public sealed record RowNumbers(
     int Disk,
     int PlanCount,
     double? PlanHours,
-    double? DiskHours);
+    double? DiskHours,
+    double? RemainingHours = null);
 
 /// <summary>The capture configuration a row describes (openspec capture-config-keys +
 /// rotation-framing-key). Gain/Offset/Bin are reconciliation keys — a row exists separately from its
@@ -170,6 +175,10 @@ public sealed class ReconciliationRow(
     /// side. Recomputed in place when <see cref="ApplyDesired"/> edits the count.</summary>
     public double? PlanHours { get; private set; } = numbers.PlanHours;
 
+    /// <summary>Time the plan side still owes (see <see cref="RowNumbers.RemainingHours"/>); null without a
+    /// plan side. Recomputed in place by the inline edits.</summary>
+    public double? PlanRemainingHours { get; private set; } = numbers.RemainingHours;
+
     /// <summary>Actual integration in decimal hours, summed per sub length by the loader; null without a disk side.</summary>
     public double? DiskHours { get; } = numbers.DiskHours;
 
@@ -255,6 +264,9 @@ public sealed class ReconciliationRow(
         if (Desired == newDesired) return;
         Desired = newDesired;
         PlanHours = PlanSeconds > 0 ? newDesired * (double)PlanSeconds / 3600.0 : null;
+        PlanRemainingHours = PlanSeconds > 0
+            ? Math.Max(0, newDesired - (Acquired ?? 0)) * (double)PlanSeconds / 3600.0
+            : null;
         Raise(nameof(HoursText));
         Raise(nameof(HoursBackground));
     }
@@ -269,6 +281,9 @@ public sealed class ReconciliationRow(
         if (PlanSeconds == newSeconds) return;
         PlanSeconds = newSeconds;
         PlanHours = newSeconds > 0 && Desired is int d ? d * (double)newSeconds / 3600.0 : null;
+        PlanRemainingHours = newSeconds > 0 && Desired is int d2
+            ? Math.Max(0, d2 - (Acquired ?? 0)) * (double)newSeconds / 3600.0
+            : null;
         Raise(nameof(SecondsText));
         Raise(nameof(HoursText));
         Raise(nameof(HoursBackground));
@@ -311,15 +326,20 @@ public sealed class ReconciliationRow(
     }
 
     /// <summary>
-    /// What the Hours column shows — every row's SIGNED contribution to its parent's total, so parents are
-    /// the literal sum of their children: a TS row is the unmet commitment (−desired × seconds), a Disk row
-    /// the captured time (+frames × seconds), a Both rollup their gap (disk − desired hours).
+    /// What the Hours column shows — a PROGRESS GAUGE, not a signed sum (user decision, obs 01b7
+    /// 2026-07-29, replacing the additive parents-are-the-literal-sum model): while the plan side still owes
+    /// images, the time remaining as a negative (brown); once nothing is owed, the total captured disk time
+    /// (green). A Disk row states its plain total; a TS row states what it still owes — and shows the dash
+    /// once complete (nothing owed, and its frames live on the disk sibling). A desired-0 plan keeps its
+    /// 0.0-with-critical-fill tripwire (data that shouldn't exist). Debt survives a disable — Visible-Tonight
+    /// flips <c>target.active</c> nightly, and progress must not churn with the sky.
     /// </summary>
     public double? Hours => Plane switch
     {
-        RowPlane.Ts => PlanHours is double ph ? -ph : null,
+        RowPlane.Ts when Desired == 0 && PlanCount > 0 => 0.0,
+        RowPlane.Ts => PlanRemainingHours is double r && r > 0 ? -r : null,
         RowPlane.Disk => DiskHours,
-        _ => DiskHours is double dh && PlanHours is double ph ? dh - ph : null,
+        _ => PlanRemainingHours is double r && r > 0 ? -r : DiskHours,
     };
 
     /// <summary>Segoe Fluent Icons chevron for expandable rollups; empty otherwise.</summary>
@@ -414,16 +434,18 @@ public sealed class ReconciliationRow(
     // authored plan-side cells, whose absence stays "—" (no plan ≠ a goal of zero).
     public string DiskText => Disk.ToString();
 
+    // No "+" prefix: a positive value is a TOTAL (captured time), not a surplus over a goal — the surplus
+    // reading died with the signed-sum model (obs 01b7).
     public string HoursText => Hours switch
     {
         null => Format.Dash,
-        double h when Plane == RowPlane.Both && h > 0 => $"+{Format.Hours(h)}",
         double h => Format.Hours(h),
     };
 
-    /// <summary>Fill behind the Hours cell: gap rows follow the sign rule (caution = needs time, green =
-    /// goal met); TS rows are always commitments, so caution when outstanding and the error fill for a
-    /// desired-0 plan (data that shouldn't exist). Disk rows stay plain — quiet positive facts.</summary>
+    /// <summary>Fill behind the Hours cell: the gauge's colors — caution (brown) while time is still owed,
+    /// success (green) on a Both row whose debt is cleared (the value is then the captured total), the error
+    /// fill for a desired-0 plan (data that shouldn't exist). Disk rows stay plain — quiet positive facts;
+    /// the green belongs to levels that HAVE a goal and met it.</summary>
     public Brush? HoursBackground => Plane switch
     {
         RowPlane.Both when Hours is double h => h < 0 ? ThemeBrushes.Caution : ThemeBrushes.Success,

@@ -66,7 +66,8 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     public int? Accepted => _sums.Accepted;
     public int Disk => _sums.Disk;
 
-    /// <summary>Sum of per-cell shortfalls max(0, desired − disk) — the "remaining" sort key.</summary>
+    /// <summary>Sum of per-cell shortfalls max(0, desired − acquired) — the "remaining" sort key, on the
+    /// same acquired basis as the Hours gauge so the two never disagree.</summary>
     public int Remaining => _sums.Remaining;
 
     // ---- Capture configuration: the shared value beneath this header, or "mixed" where children disagree.
@@ -87,9 +88,10 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     public Brush? BinBackground => MixedFill(_sums.Bin);
     public Brush? RotBackground => MixedFill(_sums.Rot);
 
-    /// <summary>Disk hours − desired hours: negative = still needs telescope time; ≥ 0 = the plan's committed
-    /// time was met. Null when no row carries hours.</summary>
-    public double? HoursDelta => _sums.HoursDelta;
+    /// <summary>The header's Hours gauge (obs 01b7, same rule every level): the time still owed beneath as
+    /// a negative while any plan is short, else the total captured disk time; null when the subtree carries
+    /// no hours at all.</summary>
+    public double? Hours => _sums.RemainingHours is double r && r > 0 ? -r : _sums.DiskHours;
 
     /// <summary>Union of the children's badges (distinct, first-appearance order).</summary>
     public string Badge => _sums.Badge;
@@ -148,16 +150,17 @@ public abstract class AggregateHeaderRow : INotifyPropertyChanged
     public string AcceptedText => Format.CountOrDash(Accepted);
     public string DiskText => Disk.ToString();
 
-    public string HoursText => HoursDelta switch
+    // No "+" prefix: a positive value is the captured TOTAL, not a surplus over a goal (obs 01b7).
+    public string HoursText => Hours switch
     {
         null => Format.Dash,
-        > 0 => $"+{Format.Hours(HoursDelta.Value)}",
-        _ => Format.Hours(HoursDelta.Value),
+        double h => Format.Hours(h),
     };
 
-    /// <summary>Soft theme fill behind the header's hours: caution when time is still needed, success when the
-    /// plan's committed time is met. Null (no fill) when the header has no hours at all.</summary>
-    public Brush? HoursBackground => HoursDelta switch
+    /// <summary>Soft theme fill behind the header's hours gauge: caution (brown) while time is still owed
+    /// beneath, success (green) once nothing is — the value is then the captured total, whether the goals
+    /// were met or there were never any. Null (no fill) when the header has no hours at all.</summary>
+    public Brush? HoursBackground => Hours switch
     {
         null => null,
         < 0 => ThemeBrushes.Caution,
