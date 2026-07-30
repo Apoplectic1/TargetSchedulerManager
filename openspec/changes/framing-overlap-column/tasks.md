@@ -94,6 +94,15 @@ compressed 57–100% range — badge-sized information. Preserved in git history
 - [x] 4.6 Tests (`AmbiguityReportTests`): off-plan pointing renders as info (0 actions) with the fraction;
       an on-footprint framing reports nothing
 
+## 4b. App — verify-pass formatting feedback (user obs 53c5, 2026-07-29)
+
+- [x] 4b.1 Mechanical marker `°m` → `°(M)` (`Format.Rotation`) — the bare `m` read as a stray character
+- [x] 4b.2 `Rot` column 58 → 76 px so `110.5°(M)` fits without crowding Filter
+- [x] 4b.3 **Every data column centered — header, values, and edit boxes** (config + count columns across
+      all three row templates + the header grid; Seconds margins dropped; Desired NumberBox centered).
+      Source/Target/Project/Badges stay left. Replaces the right-aligned-numerics convention — recorded in
+      DOMAIN.md with the units-digit tradeoff
+
 ## 5. Verify
 
 - [x] 5.1 Build + full test pass, library then app — Catalog 236 · XISF 51 · Core 472 · NINA 45 ·

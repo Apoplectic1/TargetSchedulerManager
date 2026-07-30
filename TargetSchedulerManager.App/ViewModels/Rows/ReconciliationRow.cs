@@ -395,7 +395,7 @@ public sealed class ReconciliationRow(
             ? Config.BinningX.ToString()
             : $"{Config.BinningX}x{Config.BinningY}");
 
-    /// <summary>Rotation cell: the framing's fold-180 angle (sky plain, mechanical marked "°m"), the dash
+    /// <summary>Rotation cell: the framing's fold-180 angle (sky plain, mechanical marked "°(M)"), the dash
     /// where no rotation is expressed; a rollup shows the shared value or the mixed marker.</summary>
     public string RotText => Cfg(r => r.RotText, Format.Rotation(Config.Rotation, Config.RotationFoldDeg));
 

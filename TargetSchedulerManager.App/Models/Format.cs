@@ -74,13 +74,13 @@ internal static class Format
             : value.ToString();
 
     /// <summary>A rotation cell: the fold-180 angle for a sky rotation ("65.1°"), the same visibly marked
-    /// mechanical ("172.3°m" — real rotation the plan cannot be compared against), or the dash when no
+    /// mechanical ("172.3°(M)" — real rotation the plan cannot be compared against), or the dash when no
     /// rotation is expressed (frames recording neither angle, or a plan without one). Never a fabricated
     /// sky value — the mechanical marking is load-bearing (openspec rotation-framing-key).</summary>
     public static string Rotation(RotationExpression? expression, double? foldDeg) => expression switch
     {
         RotationExpression.Sky when foldDeg is double s => $"{s:0.#}°",
-        RotationExpression.Mechanical when foldDeg is double m => $"{m:0.#}°m",
+        RotationExpression.Mechanical when foldDeg is double m => $"{m:0.#}°(M)",
         _ => Dash,
     };
 }

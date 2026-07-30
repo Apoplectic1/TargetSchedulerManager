@@ -622,7 +622,7 @@ public class BuildRowsTests
 
         ReconciliationRow r = Assert.Single(rows);
         Assert.Equal(RowPlane.Both, r.Plane);
-        Assert.Equal("172.3°m", r.RotText);                  // visibly mechanical — never dressed as sky
+        Assert.Equal("172.3°(M)", r.RotText);                // visibly mechanical — never dressed as sky
         Assert.DoesNotContain(Badges.Framing, r.Badge);
     }
 

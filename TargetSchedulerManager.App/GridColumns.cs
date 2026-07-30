@@ -29,14 +29,14 @@ public static class GridColumns
         // Rot are reconciliation keys — rows separate on them — so they must be legible on the row that
         // separated. Camera is disk-side only (a TS plan cannot name one) and never separates a row; it is
         // carried for the second purpose, showing the imaging history. Rot shows the framing's fold-180
-        // rotation (sky plain, mechanical marked "°m", dash when unexpressed). NOTE: these five are
+        // rotation (sky plain, mechanical marked "°(M)", dash when unexpressed). NOTE: these five are
         // deliberately EXCLUDED from sort precedence even though they sit left of Filter — see
         // ReconciliationLoader's sort, which keeps one filter's rows contiguous.
         ("Camera", new GridLength(60)),      //  5
         ("Gain", new GridLength(58)),        //  6 wide enough for the sentinel's "default"
         ("Offset", new GridLength(58)),      //  7
         ("Bin", new GridLength(40)),         //  8
-        ("Rot", new GridLength(58)),         //  9 framing rotation (fold-180)
+        ("Rot", new GridLength(76)),         //  9 framing rotation (fold-180); fits "110.5°(M)" (user obs 53c5)
         ("Filter", new GridLength(60)),      // 10
         ("Purpose", new GridLength(70)),     // 11
         ("Seconds", new GridLength(80)),     // 12

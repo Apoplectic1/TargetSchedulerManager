@@ -39,7 +39,7 @@ Four standing truths follow, and they settle most arguments about the grid:
 - **Mechanical rotator angle is never converted to a sky angle.** The mech-to-sky zero point shifts when the
   camera is remounted (measured drifting 19–35° across sessions, precisely on the multi-framing targets), so
   a conversion would silently mislabel the exact rows the framing key exists to expose. Mechanical rotation
-  is shown marked (`°m`), clusters frames disk-side, and never enters the plan comparison.
+  is shown marked (`°(M)`), clusters frames disk-side, and never enters the plan comparison.
 - **TS's `acquired` counts only frames that serve the plan's framing** (user decision 2026-07-29, after the
   Tulip confusion: TS said 32/80 acquired while zero captured frames matched the re-framed 160° plan).
   Write-back credits by the same serving rule the pairing test uses, so a re-framed target stamps its true
@@ -90,6 +90,11 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 
 `[mark] · [enable] · Source · Target · Project · Camera · Gain · Offset · Bin · Rot · Filter · Purpose · Seconds · Desired · TS · Actual · Hours · Plans · Badges`
 
+- **Alignment rule: every data column is CENTERED — header, values, and edit boxes alike** (user obs 53c5,
+  2026-07-29; replaced the earlier right-aligned-numerics convention). Only the wide text columns
+  (Source · Target · Project · Badges) stay left-aligned. Tradeoff accepted: centered counts don't align by
+  units digit the way right-aligned ones do; reading columns as centered stacks under their headers won.
+
 - **Camera · Gain · Offset · Bin · Rot** = the **capture configuration** (2026-07-27, openspec
   `capture-config-keys`; Rot 2026-07-29, openspec `rotation-framing-key`).
   Gain/Offset/Bin/Rot are **reconciliation keys** — a row stands apart from its siblings *because* one of them
@@ -104,7 +109,8 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   (183→`Z183`, 533→`Z533`, 178→`Q178`, 144→`A144`) is **display only** — it never enters a key — and a capture
   directory matching none of them shows raw beside a `camera` warning badge.
 - **Rot** shows the row's framing rotation **fold-180**: a disk-backed row shows its framing cluster's angle —
-  sky plain (`65.1°`), mechanical marked (`172.3°m`), em dash when frames record neither — and a TS row shows
+  sky plain (`65.1°`), mechanical marked (`172.3°(M)` — user obs 53c5: the bare `m` suffix read as a stray
+  character), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
   the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing).
   **Every row-scoped badge** (`camera` · `cam≠` · `framing` — `Badges.IsRowScoped`) displays at the

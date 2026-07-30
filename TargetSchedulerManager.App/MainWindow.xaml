@@ -69,34 +69,34 @@
                     <!-- Capture configuration rolled up over the subtree: the shared value, or a "mixed"
                          caution pill naming the dimension whose children disagree — readable BEFORE expanding. -->
                     <Border Grid.Column="5" Background="{x:Bind CameraBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind CameraText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="6" Background="{x:Bind GainBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind GainText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="7" Background="{x:Bind OffsetBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind OffsetText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="8" Background="{x:Bind BinBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="9" Background="{x:Bind RotBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Center"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Center" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Center" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                     <!-- Disk hours − desired hours; caution fill = needs telescope time, green = goal met. -->
                     <Border Grid.Column="16" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <!-- Per-token severity colour (warning amber vs. quiet informative) — BadgeRuns fills the
@@ -139,30 +139,30 @@
                          a rollup shows "mixed" where its source lines disagree. Camera is disk-side only — a
                          TS plan cannot name one, so a TS row shows the dash. -->
                     <Border Grid.Column="5" Background="{x:Bind CameraBackground}" CornerRadius="4"
-                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind CameraText}"/>
                     </Border>
                     <Border Grid.Column="6" Background="{x:Bind GainBackground}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind GainText}"/>
                     </Border>
                     <Border Grid.Column="7" Background="{x:Bind OffsetBackground}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind OffsetText}"/>
                     </Border>
                     <Border Grid.Column="8" Background="{x:Bind BinBackground}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind BinText}"/>
                     </Border>
                     <!-- Framing rotation (fold-180): the disk cluster's angle on disk-backed rows (sky plain,
-                         mechanical marked "°m"), the target's own rotation on plan rows, dash when
-                         unexpressed — so an agreeing pair reads identically. Centered, not right-aligned:
-                         right-aligned values abut the Filter letters (user obs 2026-07-29). -->
+                         mechanical marked "°(M)"), the target's own rotation on plan rows, dash when
+                         unexpressed — so an agreeing pair reads identically. -->
                     <Border Grid.Column="9" Background="{x:Bind RotBackground}" CornerRadius="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText}"/>
                     </Border>
-                    <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
                         <TextBlock Text="{x:Bind Filter}" VerticalAlignment="Center"/>
                         <!-- Hover-revealed edit glyph; only on 1:1 TS plan rows (PlanTsKey). Opens the
                              exposure-plan edit flyout. -->
@@ -178,11 +178,12 @@
                          SecondsText is OneWay (x:Bind defaults to OneTime): an in-place exposure mirror
                          (ApplyPlanSeconds) must repaint the cell. -->
                     <Border Grid.Column="12" Background="{x:Bind SecondsBackground}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1" Margin="0,0,8,0">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind SecondsText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="11" Text="{x:Bind Purpose}" Opacity="0.7" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <TextBlock Grid.Column="11" Text="{x:Bind Purpose}" Opacity="0.7" TextAlignment="Center"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Center"
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
                     <!-- 1:1 plan row's desired, editable in place; focus-loss writes to TS. Width ~3 chars +
                          centered in code-behind (NarrowNumberBox_Loaded) per the integer-edit-box rule —
@@ -192,18 +193,18 @@
                                Minimum="0" SmallChange="1" LargeChange="10"
                                SpinButtonPlacementMode="Hidden"
                                MinWidth="0" Margin="0" Padding="2,2" VerticalAlignment="Center"
-                               Width="40" HorizontalAlignment="Right" HorizontalContentAlignment="Stretch"
+                               Width="40" HorizontalAlignment="Center" HorizontalContentAlignment="Stretch"
                                Loaded="NarrowNumberBox_Loaded" LostFocus="Desired_Committed"/>
-                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Center" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Right"
+                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Center"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <!-- One-plane rows: plain hours. Both rows: disk − desired gap, caution/green fill. -->
                     <Border Grid.Column="16" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="17" Text="{x:Bind PlanCountText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="17" Text="{x:Bind PlanCountText}" TextAlignment="Center" Opacity="0.7"
                                VerticalAlignment="Center"/>
                     <!-- BadgeText, OneWay: an expanded rollup hands the framing token down to its visible
                          source line (collapsed it shows it), so the cell re-renders on toggle. -->
@@ -244,33 +245,33 @@
                     </StackPanel>
                     <!-- Panel-level rollup of the capture configuration, same idiom as the target header. -->
                     <Border Grid.Column="5" Background="{x:Bind CameraBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Left" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind CameraText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="6" Background="{x:Bind GainBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind GainText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="7" Background="{x:Bind OffsetBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind OffsetText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="8" Background="{x:Bind BinBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind BinText, Mode=OneWay}"/>
                     </Border>
                     <Border Grid.Column="9" Background="{x:Bind RotBackground, Mode=OneWay}" CornerRadius="4"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind RotText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Right"
+                    <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Center"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Right" Opacity="0.7"
+                    <TextBlock Grid.Column="14" Text="{x:Bind AcquiredText}" TextAlignment="Center" Opacity="0.7"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Right" FontWeight="SemiBold"
+                    <TextBlock Grid.Column="15" Text="{x:Bind DiskText}" TextAlignment="Center" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                     <Border Grid.Column="16" Background="{x:Bind HoursBackground, Mode=OneWay}" CornerRadius="4"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Padding="6,1">
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind HoursText, Mode=OneWay}"/>
                     </Border>
                     <TextBlock Grid.Column="18" controls:BadgeRuns.Tokens="{x:Bind Badge}" Margin="10,0,0,0"
@@ -391,23 +392,24 @@
             <!-- Capture configuration. Gain/Offset/Bin/Rot are reconciliation keys (rows separate on them);
                  Camera is disk-side only. All five are excluded from sort precedence despite sitting here —
                  see ReconciliationLoader's sort comment. -->
-            <TextBlock Grid.Column="5" Text="Camera" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="6" Text="Gain" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="7" Text="Offset" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="8" Text="Bin" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <!-- Rot is centered (not right-aligned like the numeric config cells): right-aligned values abut
-                 the Filter column's left-aligned letters and the two read as one blob (user obs 2026-07-29). -->
+            <TextBlock Grid.Column="5" Text="Camera" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="6" Text="Gain" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="7" Text="Offset" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="8" Text="Bin" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <!-- Every data column (config + counts) is CENTERED — header and cells alike (user obs 53c5,
+                 2026-07-29: "all values and edit boxes should be centered under that column's header").
+                 Only the wide left-aligned text columns (Source/Target/Project/Badges) stay left. -->
             <TextBlock Grid.Column="9" Text="Rot" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="10" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="12" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" Margin="0,0,14,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="11" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="13" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="10" Text="Filter" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="12" Text="Seconds" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="11" Text="Purpose" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="13" Text="Desired" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
             <!-- "TS" = TS's recorded acquired (what it schedules on); "Actual" = on-disk frames. "Acc" (accepted)
                  is not shown — see the count-columns note at the top of this file. -->
-            <TextBlock Grid.Column="14" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="15" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="16" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="17" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="14" Text="TS" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="15" Text="Actual" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="16" Text="Hours" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="17" Text="Plans" Style="{ThemeResource CaptionTextBlockStyle}" TextAlignment="Center" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="18" Text="Badges" Style="{ThemeResource CaptionTextBlockStyle}" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </Grid>
 
