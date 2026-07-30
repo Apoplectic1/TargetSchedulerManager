@@ -102,6 +102,15 @@ compressed 57–100% range — badge-sized information. Preserved in git history
       all three row templates + the header grid; Seconds margins dropped; Desired NumberBox centered).
       Source/Target/Project/Badges stay left. Replaces the right-aligned-numerics convention — recorded in
       DOMAIN.md with the units-digit tradeoff
+- [x] 4b.4 (obs deea) The Filter letter centers ALONE — the hover edit glyph overlays the column's right
+      edge; sharing a centered StackPanel with the invisible-but-laid-out glyph shifted the letter by a
+      per-row-kind amount
+- [x] 4b.5 (obs 27ec) **Uniform column spacing by construction**: every data column Camera→Plans is
+      content-max + one shared `Gutter` constant (24 px) in the ruler — centered cells make each column's
+      slack the visible gap, so one constant makes the gaps equal. Change spacing at the constant, never
+      per column
+- [x] 4b.6 (obs 27ec) Window 1560 → **1710** so `Target` (the one elastic column) never truncates a real
+      name — longest today "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px; Target gets ~300
 
 ## 5. Verify
 

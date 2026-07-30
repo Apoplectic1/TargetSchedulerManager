@@ -26,7 +26,10 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "Target Scheduler Manager — local TS copy · push to BIRDWATCHER";
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1560, 980));
+        // Width funds the grid: the ruler's fixed columns total ~1368 px (see GridColumns), and Target — the
+        // one elastic column — must never truncate a real target name (user obs 27ec; longest today is
+        // "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px with its edit glyph). 1710 leaves Target ~300 px.
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1710, 980));
 
         // The sync dialogs (open-with-dirty, push review) are ContentDialogs and need a live XamlRoot, which
         // only exists once the window content has loaded — so the initial load waits for Loaded instead of
