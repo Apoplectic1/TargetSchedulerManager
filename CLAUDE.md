@@ -11,9 +11,9 @@ journaled local edits + automatic write-back, one reviewed **Push** replaying on
 the disk image library *read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does
 **not** own or write `Catalog.db`.
 
-> **History:** born **TargetCatalogManager (TCM)** with a `tcm` CLI that built `Catalog.db`; the CLI was removed
-> and the project renamed to TSM on 2026-06-11 (catalog-building → future **ISM**, sibling `..\IntervalSchedulerManager`).
-> Pre-rename docs/git say TCM/`tcm`/`tcmui`. Full story: `CHANGELOG.md`.
+> **History:** the repo began dual-head, with a console CLI that built `Catalog.db`; the CLI was removed
+> and the project took its current name on 2026-06-11 (catalog-building → future **ISM**, sibling
+> `..\IntervalSchedulerManager`). Full story: `CHANGELOG.md`.
 
 **Almost all logic lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`).
 When a change is about schema, scanning, reconciliation, or TS interop, you are almost certainly editing files

@@ -207,7 +207,7 @@ the mechanism there):
   no journal entry), one transaction, and read-back verify. No app-side backups — the daily Macrium image is
   the recovery path and both DBs are recreatable. The writer uses a private SQLite cache (so it doesn't inherit
   the build-reader's read-only shared cache); a fresh re-scan each run can't push stale numbers.
-- **Surgical single-target.** The single-target path (was `tcm writeback --target "<dir>"`) scans one directory
+- **Surgical single-target.** The single-target path (was `tsm writeback --target "<dir>"`) scans one directory
   only (no catalog rebuild) and writes just its cells; a **mosaic writes per panel** — each panel dir
   coordinate-anchors to its TS panel *within the same-named isMosaic project*, and each `(filter, purpose,
   binning, seconds)` cell lands on that panel's matching plan (binning guards a 2×2 cell off a 1×1 plan; seconds
@@ -218,7 +218,7 @@ the mechanism there):
   asymmetry:** the surgical path never zeroes plans with no matching cell (a per-cell push tool must not let a
   partial scan silently zero the target's other plans); the bulk path does. Surface: `SingleTargetPlanner`
   (pure) + `ImageLibraryScanner.ScanUnitsAsync` (per-panel scan). **Not app-wired yet** — the surgical path is a
-  tested library capability (it backed the retired `tcm writeback --target`), but no TSM UI invokes it today; the
+  tested library capability (it backed the retired `tsm writeback --target`), but no TSM UI invokes it today; the
   app runs only the bulk automatic pass.
 - **Audited.** The automatic write-back pass logs its outcome to the diagnostics log (`tsm.log` under
   `%APPDATA%\TargetSchedulerManager\Logs\`): one summary line (plans stamped, fields journaled, manual, ignored),

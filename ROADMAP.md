@@ -5,9 +5,6 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-> **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
-> keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
-
 ## Status — pick up here (2026-07-29)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
@@ -116,7 +113,7 @@ target and 254 of 18,904 frames.
   truth (TS's stale `acquired_count` ignored); `ReconcilePolicy.Combined` (default) counts Light + Stars; status
   NotStarted / InProgress / Complete / Unplanned. The host prints the rollup + most-incomplete targets.
 - TS → catalog carries provenance (`imported_from_ts_guid`).
-- **TCM headless host** (`Program.cs`): `tcm [--catalog --library --ts --tolerance]` ran the build + printed the
+- **TSM headless host** (`Program.cs`): `tsm [--catalog --library --ts --tolerance]` ran the build + printed the
   reconciliation report and goal-vs-actual summary (CLI removed 2026-06-11 — app-only since; see Status).
 - Catalog + NINA library suites pass (live counts move with every change — see the suites, not this line).
 
@@ -130,8 +127,8 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
 
 - **DB touched:** the **local TS working copy only** — since 2026-07-06 synced by the pull/push model
   (`TsSync`; see Status): pull at open, journaled edits, reviewed push-as-replay to BIRDWATCHER.
-- **Structure:** new app project (WinUI 3; born **`TargetCatalogManager.App`**, renamed
-  `TargetSchedulerManager.App` 2026-06-11) beside the then-extant `tcm` CLI (removed 2026-06-11). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
+- **Structure:** new app project (WinUI 3; **`TargetSchedulerManager.App`**, carrying its current name
+  since 2026-06-11) beside the then-extant CLI (removed 2026-06-11). Edit layer **`TargetSchedulerEditor`** in `Astronomy.Catalog/TargetScheduler/` next to
   Reader/Writer — tests live in the library; same cleanly-deletable contract; no consumer terminology.
 - **UI shape — grid-first:** home screen is a flat filterable **(target, filter, purpose, seconds)** reconciliation grid —
   plan vs DISK vs Δ; disk columns from a **fresh scan on load** (~2 s, the same self-contained path `writeback`
@@ -172,7 +169,7 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
 `TargetSchedulerWriter` (in `Astronomy.Catalog/TargetScheduler/`, mirroring the Reader) writes disk-derived counts
 back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS reads `Catalog.db` directly —
 minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
-tests). Verb was `tcm writeback [--apply]` (dry-run default; CLI removed 2026-06-11 — the engine now runs as
+tests). Verb was `tsm writeback [--apply]` (dry-run default; CLI removed 2026-06-11 — the engine now runs as
 the app's automatic write-back + push replay, see `SUBSYSTEMS.md` → TS write-back).
 
 The full write-back contract — cached-columns-only writes (`acquired`=`accepted`=disk, `desired` ratchets up

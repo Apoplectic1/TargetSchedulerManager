@@ -9,11 +9,11 @@ TSM is a .NET 10 WinUI 3 app that **manages the N.I.N.A. Target Scheduler databa
 local working copy (pull from BIRDWATCHER at open, reviewed push-as-replay back — `SUBSYSTEMS.md` → *TS sync model*),
 with disk-ACTUAL beside every number from a fresh read-only in-memory scan each load.
 
-> **History (2026-06-11):** this project was **TargetCatalogManager (TCM)** — a dual-head repo whose console host
-> (`tcm`) built and owned `Catalog.db`. The CLI was removed (catalog-building moves to the planned
-> **IntervalSchedulerManager**, sibling dir `..\IntervalSchedulerManager`) and the project was renamed to match its real
-> role. The build/reconcile engine described below lives in `Astronomy.Catalog` and is untouched; TSM runs it
-> in memory (no `Catalog.db` write). Pre-rename docs and git history say TCM / `tcm` / `tcmui`.
+> **History (2026-06-11):** the repo began dual-head — a console host that built and owned `Catalog.db`
+> beside the app. The CLI was removed (catalog-building moves to the planned
+> **IntervalSchedulerManager**, sibling dir `..\IntervalSchedulerManager`) and the project took its current
+> name to match its real role. The build/reconcile engine described below lives in `Astronomy.Catalog` and is
+> untouched; TSM runs it in memory (no `Catalog.db` write).
 
 ## Source-of-truth model
 

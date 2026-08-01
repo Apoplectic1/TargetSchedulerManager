@@ -1,7 +1,7 @@
-# TCM Code Review — 2026-06-10
+# TSM Code Review — 2026-06-10
 
 > **ARCHIVED 2026-07-26 — executed, and largely about code that no longer exists.** The entire CLI half
-> (§1.2, §2.2, §2.3, §3.1, §7.1) concerns the `tcm` console head **removed 2026-06-11**. R1 shipped
+> (§1.2, §2.2, §2.3, §3.1, §7.1) concerns the `tsm` console head **removed 2026-06-11**. R1 shipped
 > 2026-06-11 (last leak closed 2026-06-26); §5.4's 13-column XAML duplication was solved by `GridColumns.cs`;
 > §7.5 `ExpansionState` shipped; §8's migration audit is single-sourced in `ARCHITECTURE.md`. The §9
 > sequencing table's one `⏳ deferred` row is **closed or superseded** — `TsEditSession` became `TsEditGate`
@@ -18,16 +18,16 @@
 > |---|---|---|
 > | R1-prep | ✅ effective-seconds rule single-sourced as `EffectiveExposure` (library); both planners + `BuildRows` consume it | Library `c381a2e` |
 > | R2 | ✅ `CatalogBuildReport.IssuesFor/IsIdentityFlagged/AliasMemberCount/IsUnanchoredName` (+`TargetMatchIssues` enum — renamed from `…Flags` for CA1711); planner + loader consume | Library `c381a2e`, `8bf1aef` |
-> | R3 | ✅ `Reconciler.MergeFamilies`; `PrintReconciliation` consumes it | Library `c381a2e`, TCM `b3d8b5d` |
-> | C1 + §7.1 | ✅ `Program.cs` → `Cli\{CliOptions, BuildCommand, WriteBackCommand, ConsoleRenderer, WriteBackAuditLog, CliLog}` + shared `ExecutePlan` tail; unknown-option/stray-arg warnings | TCM `b3d8b5d` |
-> | V1 | ✅ row types → `ViewModels\Rows\` (incl. `RowAggregates` — it consumes `ReconciliationRow`, so leaving it in `Models\` would invert the layering); UI-free `RowSource`/`RowPlane` stay in `Models\RowEnums.cs` with `Format` | TCM `651abb6` |
-> | V2 | ✅ `Shared\DevDefaults.cs` linked source file (option 1); VM tolerance from `ResolveOptions.Default` | TCM `b3d8b5d`, `651abb6` |
-> | §6 tests | ✅ two test projects (user chose split: Cli tests retire with the transitional CLI): `TargetCatalogManager.Cli.Tests` (11 — CliOptions) + `TargetCatalogManager.App.Tests` (34 — `BuildRows` pinned pre-R1, VM pipeline, row/aggregate/format rules; plain test host, brush getters excluded; `SetRowsForTest` internal seam) | TCM `2f74a9f` |
+> | R3 | ✅ `Reconciler.MergeFamilies`; `PrintReconciliation` consumes it | Library `c381a2e`, TSM `b3d8b5d` |
+> | C1 + §7.1 | ✅ `Program.cs` → `Cli\{CliOptions, BuildCommand, WriteBackCommand, ConsoleRenderer, WriteBackAuditLog, CliLog}` + shared `ExecutePlan` tail; unknown-option/stray-arg warnings | TSM `b3d8b5d` |
+> | V1 | ✅ row types → `ViewModels\Rows\` (incl. `RowAggregates` — it consumes `ReconciliationRow`, so leaving it in `Models\` would invert the layering); UI-free `RowSource`/`RowPlane` stay in `Models\RowEnums.cs` with `Format` | TSM `651abb6` |
+> | V2 | ✅ `Shared\DevDefaults.cs` linked source file (option 1); VM tolerance from `ResolveOptions.Default` | TSM `b3d8b5d`, `651abb6` |
+> | §6 tests | ✅ two test projects (user chose split: Cli tests retire with the transitional CLI): `TargetSchedulerManager.Cli.Tests` (11 — CliOptions) + `TargetSchedulerManager.App.Tests` (34 — `BuildRows` pinned pre-R1, VM pipeline, row/aggregate/format rules; plain test host, brush getters excluded; `SetRowsForTest` internal seam) | TSM `2f74a9f` |
 > | R1 (full cell projection), TsEditSession + loader interface, §7.2/§7.5 | ⏳ deferred — agreed as M2's opening move |
 >
-> Verified after each slice: library tests 108 → 121; `tcm` build/writeback output number-identical; app launch DIAG identical (786 rows / 102 groups / panels 28/10/7).
+> Verified after each slice: library tests 108 → 121; `tsm` build/writeback output number-identical; app launch DIAG identical (786 rows / 102 groups / panels 28/10/7).
 
-Scope: the **TargetCatalogManager repo only** (console host `tcm` + `TargetCatalogManager.App` WinUI 3, M1).
+Scope: the **TargetSchedulerManager repo only** (console host `tsm` + `TargetSchedulerManager.App` WinUI 3, M1).
 The sibling `Astronomy.Catalog` library was not directly inspected (separate repo, not mounted this session);
 where a recommendation depends on the library's current surface, that's flagged with **[verify vs library]**.
 
@@ -35,7 +35,7 @@ Review emphases requested: separation of concerns, code reuse, straight-line exe
 opportunities, method-to-class assignment, MVVM consistency, library-relocation candidates, and confirmation
 that no schema-migration code exists.
 
-Files reviewed: `Program.cs`, `CliLog.cs`, both `.csproj`, and under `TargetCatalogManager.App\`:
+Files reviewed: `Program.cs`, `CliLog.cs`, both `.csproj`, and under `TargetSchedulerManager.App\`:
 `App.xaml.cs`, `MainWindow.xaml(.cs)`, `RowTemplateSelector.cs`, `ViewModels\MainViewModel.cs`,
 `Services\ReconciliationLoader.cs`, `Models\*` (ReconciliationRow, TargetGroupRow, PanelGroupRow,
 RowAggregates, Format, ThemeBrushes), `Support\Log.cs`, `Support\ObservationWindow.cs`.
@@ -212,7 +212,7 @@ Why this is the right relocation:
 - **It re-implements contract rules.** Line 145: `seconds = round(plan.ExposureSeconds ?? template default)`
   — that is write-back's load-bearing "the plan's whole-second exposure is its spec" rule
   (ARCHITECTURE.md Phase 4), implemented a second time, by hand, in an app. If the rounding or the
-  fallback ever changes in `WriteBackPlanner`, the grid silently disagrees with what `tcm writeback` does.
+  fallback ever changes in `WriteBackPlanner`, the grid silently disagrees with what `tsm writeback` does.
   **[verify vs library]** — if the library doesn't already expose this as a helper, extract one:
   `EffectiveExposure.Seconds(ExposurePlan, ExposureTemplate)`, used by both planners and the projection.
 - **M2 needs the same cells.** The roadmap's edit grid is keyed (target, filter, purpose, seconds) —
@@ -237,7 +237,7 @@ each consumer re-indexes. Con: widens the report's surface slightly — but it's
 
 ### 4.3 R3: mosaic family rollup (§1.3) — into the library beside `Reconciler.Merge`.
 
-### 4.4 Items that should **stay** in TCM
+### 4.4 Items that should **stay** in TSM
 
 - `Format.Hours`, `ThemeBrushes`, `RowAggregates`, the group-row types — display policy.
 - `CliLog` / `Support.Log` — see §4.6.
@@ -255,12 +255,12 @@ each consumer re-indexes. Con: widens the report's surface slightly — but it's
 in the VM). Two copies of machine-specific config drift silently — and the failure mode is nasty
 (CLI and app quietly scanning different trees).
 
-Structural cause: there is no TCM-shared assembly between the two apps, and these constants must not go
+Structural cause: there is no TSM-shared assembly between the two apps, and these constants must not go
 in the library. Cheapest fixes, in order of preference:
 
 1. A shared **linked source file** (`<Compile Include="..\Shared\DevDefaults.cs" Link="..."/>` in the App
    csproj) — zero new projects, one definition.
-2. A `tcm.settings.json` beside the exe both apps read — also the natural seed for the App's future
+2. A `tsm.settings.json` beside the exe both apps read — also the natural seed for the App's future
    settings page.
 3. Accept duplication but add a cross-reference comment in both files (currently only the VM has one).
 
@@ -270,7 +270,7 @@ For the tolerance specifically: drop the VM's `DefaultToleranceDegrees` and use
 ### 4.6 The two loggers
 
 `CliLog` and `Support.Log` share the same skeleton (static path under
-`%APPDATA%\TargetCatalogManager\Logs`, lock, append, swallow). The divergence is *policy* (append-only
+`%APPDATA%\TargetSchedulerManager\Logs`, lock, append, swallow). The divergence is *policy* (append-only
 audit vs session-rotated diagnostics with categories and USER_OBS markers), and both are small and
 correct. Recommendation: **leave them** — unifying ~30 shared lines behind an abstraction would couple
 two deliberately different lifecycles for negligible savings. Revisit only under the
@@ -348,7 +348,7 @@ real logic with zero coverage, exercised only by eyeballing the grid.
 R1 resolves the largest piece by moving it where the tests live. For what remains app-side:
 `RowAggregates` and `Format` are already UI-free and trivially testable; the VM becomes testable once
 the loader is behind an interface (§3.2); the row types become testable under §5.1 option 2. A minimal
-`TargetCatalogManager.App.Tests` project covering aggregates + filter/group/flatten would catch the
+`TargetSchedulerManager.App.Tests` project covering aggregates + filter/group/flatten would catch the
 regressions M2 editing is most likely to introduce. Suggested sequencing: fold this into the M2
 milestone rather than retrofitting now.
 
@@ -383,7 +383,7 @@ milestone rather than retrofitting now.
 
 Searched the repo (excluding `bin`/`obj`) for `migrat*`, `user_version`, `schema_version`, `PRAGMA`:
 
-- **No migration framework, no version-gated upgrade paths, no legacy-format shims anywhere in TCM.**
+- **No migration framework, no version-gated upgrade paths, no legacy-format shims anywhere in TSM.**
   The only matches are documentation *stating* the no-migration rule (ARCHITECTURE.md, ROADMAP.md,
   CLAUDE.md).
 - `Program.cs` lines 151/216 print TS's `user_version` **for information only**; compatibility is gated

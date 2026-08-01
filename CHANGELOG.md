@@ -9,9 +9,6 @@ forward plan + current status and points here; git remains the commit-level back
 > work — and explicit **Closed** notes are added only where the resolution isn't recorded by a later entry
 > (sweep 2026-07-24, resolving docs-audit flags #7/18/20/21).
 
-> **Naming:** this project was **TargetCatalogManager (TCM)** until 2026-06-11. Dated entries below the rename
-> keep the names they shipped under (TCM, `tcm`, `tcmui`, `tcm.log`, `TCM_DIAG`) — they match the git history.
-
 ---
 
 **▶ SHIPPED 2026-07-29 — Hours becomes a progress gauge** (user obs 01b7 + in-chat decisions; rides the open
@@ -973,30 +970,30 @@ Caveat for that button: NINA's TS plugin can ignore external db writes mid-sessi
 across the header + 3 row templates; `BuildRows` adds the badge + flag; 49 App.Tests (+2), 0 errors. **Pending:
 user's visual grid pass.**
 
-**▶ SHIPPED 2026-06-11 — project renamed TargetCatalogManager → TargetSchedulerManager (TSM).** The "Catalog"
+**▶ SHIPPED 2026-06-11 — project renamed to TargetSchedulerManager (TSM).** The "Catalog"
 name was legacy (the catalog builder left with the CLI; `Catalog.db` goes to the planned ISM) — the app manages
 the N.I.N.A. **Target Scheduler** db, so it is now named for what it does. Deep rename: solution
 `TargetSchedulerManager.slnx`, projects/namespaces `TargetSchedulerManager.App[.Tests]`, assembly **`tsmui`**,
 log identity **`tsm.log` / `TSM_DIAG` / `%APPDATA%\TargetSchedulerManager\Logs\`** (old notes stay in the old
 folder; no migration by design), window title, app.manifest, docs (CLAUDE / ARCHITECTURE re-framed to app-only
-reality; dated history kept verbatim). Top source dir renamed `…\Astronomy\TargetCatalogManager` →
+reality). Top source dir renamed to
 `…\Astronomy\TargetSchedulerManager` (user-performed). Same day, earlier: the Ctrl+N window was renamed
 **Observation → Diagnostics** (`ca97d89`; helper label dropped; TP mirrored in `a48f7f2` incl. its verify-ui
 literals) — the shared `USER_OBS_*` log protocol keeps its name in `Astronomy.Diagnostics`. Library doc-comments
-that named TCM were degenericized to consumer-neutral wording per shared-lib discipline (separate Library
+that named TSM were degenericized to consumer-neutral wording per shared-lib discipline (separate Library
 commit). 47 tests green, 0 warnings.
 
-**▶ SHIPPED 2026-06-11 — logging extracted to shared `Astronomy.Diagnostics`; TCM + TP adopt it.** The
-hand-ported `Support/Log.cs` (TCM had copied it from TP, and they'd drifted) became a new pure-managed library
+**▶ SHIPPED 2026-06-11 — logging extracted to shared `Astronomy.Diagnostics`; TSM + TP adopt it.** The
+hand-ported `Support/Log.cs` (TSM had copied it from TP, and they'd drifted) became a new pure-managed library
 **`Astronomy.Diagnostics`** in the `Library` repo (lib `f0b0fda`) — *convention-as-code*: `Log` (two verbosity
 axes — always-on Info/Warn/Error + gated Diag channels, default all-in-Debug / off-in-Release via the app's env
 var; session rotation; `%APPDATA%\<app>\Logs\` structure; USER_OBS protocol — all driven by `AppLogIdentity`) +
-`ScreenCapture.ToPng`. **TCM** (`7e908f1`) deleted its `Support/Log.cs` and calls `Log.Init("TargetCatalogManager",
-"tcm.log", "TCM_DIAG", …)` at startup (the Debug/Release diag default is passed by the app — a shared lib can't read
+`ScreenCapture.ToPng`. **TSM** (`7e908f1`) deleted its `Support/Log.cs` and calls `Log.Init("TargetSchedulerManager",
+"tsm.log", "TSM_DIAG", …)` at startup (the Debug/Release diag default is passed by the app — a shared lib can't read
 the consumer's `#if DEBUG`); `System.Drawing.Common` moved to the library. **TP** (WinForms, `2a60d65`) adopts the
 *same* lib — **proving the contract is consumer-agnostic (one engine, two UI frameworks)**; a `global using` kept
-its ~140 call sites. TCM's Ctrl+N observation window also gained a **repeatable Capture button** (mid-session
-screenshots + a status readout) and **local-time** filenames (`8491e3b`). 47 TCM + 187 TP + 148 library tests, 0
+its ~140 call sites. TSM's Ctrl+N observation window also gained a **repeatable Capture button** (mid-session
+screenshots + a status readout) and **local-time** filenames (`8491e3b`). 47 TSM + 187 TP + 148 library tests, 0
 warnings. The per-app dialog stays per-app (WinForms `Form` vs WinUI `Window`); an `ObservationSession` to share the
 START/CAP/END/CANCEL orchestration is deferred.
 
@@ -1018,7 +1015,7 @@ re-aggregate via INPC — instead of reloading, so **scroll position and a half-
 edits aren't torn down**; `SqliteConnection.ClearAllPools()` after each write fixes a stale read over SMB (a pooled
 reader was serving cached pages, `tsRead=0.00s`, showing a verified write as if it hadn't taken). Library
 `ReconciliationCell` now carries `PlanTsKey`/`TemplateTsKey` (single-plan) + `TargetCells.ProjectTsKey` as the
-write-back addresses. Library 148 tests, TCM 46, 0 warnings. Commits: library `563836d`, TCM `d4dc39d`
+write-back addresses. Library 148 tests, TSM 46, 0 warnings. Commits: library `563836d`, TSM `d4dc39d`
 (on `70bace1` panel-removal).
 
 **Two UI decisions this session — recorded so they're not re-litigated.** (1) The **docked dossier panel was
@@ -1030,38 +1027,38 @@ spreadsheet ever emerges). **NEXT (same lane, ~one field each):** `priority` (ta
 per-filter `enabled` (cadence-**breaking** — adds the `FilterCadenceItem` clear, lifting TS's `ToggleExposurePlan`)
 → the **load-split** (Reload re-reads TS-only against the cached disk scan, ~0.3 s vs ~2 s).
 
-**▶ SHIPPED 2026-06-11 — CLI removed; TCM is app-only.** The transitional `tcm` console host (`Program.cs`,
+**▶ SHIPPED 2026-06-11 — CLI removed; TSM is app-only.** The transitional `tsm` console host (`Program.cs`,
 `Cli\`, the root csproj, `Cli.Tests`) was deleted — it had become a dual-head maintenance tax (every feature done
-twice). TCM is now purely the WinUI **TS-database manager**. `DevDefaults` + `TsDatabaseResolver` moved into the
+twice). TSM is now purely the WinUI **TS-database manager**. `DevDefaults` + `TsDatabaseResolver` moved into the
 App (`App\Shared\`); the resolver tests moved to `App.Tests` (43 green, 0 warnings). **Nothing lost:** the
 catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `tsDb: null`) and the write-back
 engine stays in AL. Catalog-build moves to a planned **IntervalSchedulerManager (ISM)** (sibling dir
-`..\IntervalSchedulerManager`, ROADMAP template there); write-back resurfaces later as a TCM app action. `Catalog.db`
-is currently unbuilt — unconsumed, so fine. Reframe: TS = disposable (TCM manages it), `Catalog.db`/IS = permanent
+`..\IntervalSchedulerManager`, ROADMAP template there); write-back resurfaces later as a TSM app action. `Catalog.db`
+is currently unbuilt — unconsumed, so fine. Reframe: TS = disposable (TSM manages it), `Catalog.db`/IS = permanent
 (ISM owns it); the two no longer tangle. Phases 1–4 below describe the **library's** catalog/write-back engine,
-which is unchanged and still consumed by TCM (in-memory) + the future ISM.
+which is unchanged and still consumed by TSM (in-memory) + the future ISM.
 
-**▶ SHIPPED 2026-06-11 — live BIRDWATCHER TS db (read + write), local fallback.** TCM no longer edits only a
+**▶ SHIPPED 2026-06-11 — live BIRDWATCHER TS db (read + write), local fallback.** TSM no longer edits only a
 local copy. `TsDatabaseResolver` (`Shared\`, both heads) probes `\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`
 under a ~1.5 s timeout (so a down host can't hang startup on SMB) → **LIVE when reachable, else the local working
 copy**. The CLI `--ts` default + the app's load both flow through it (an explicit `--ts` still wins); the CLI
 banner + a caution-colored app toolbar badge say which, and writeback's audit logs `live=`. This **reverses the
 old "never the live db" invariant** — risk accepted + mitigated: daily Macrium image of BIRDWATCHER (corruption →
 restore), night-image/day-edit rhythm (rig idle when editing), plus the existing open-sidecar / read-only refusals
-+ read-back verify. Verified: `tcm` reads the live db over SMB (banner LIVE, 102 TS / 44·25·33, 2.0 s); resolver
-tests (reachable→live, missing/bad-path→local); 56 TCM tests, 0 warnings. **Pending user's pass:** app badge reads
++ read-back verify. Verified: `tsm` reads the live db over SMB (banner LIVE, 102 TS / 44·25·33, 2.0 s); resolver
+tests (reachable→live, missing/bad-path→local); 56 TSM tests, 0 warnings. **Pending user's pass:** app badge reads
 LIVE, a target-enable toggle lands on the live db (`py`+sqlite3 on the UNC), BIRDWATCHER-off shows LOCAL.
 
 **▶ SHIPPED 2026-06-11 — M2 editing slice 1: target-enable checkbox (immediate write).** First TS edit. A compact
 checkbox is the grid's new **leftmost column**, on the **target group-header only** (hidden on disk-only +
 mosaic-parent rows — no TS target behind them). Toggling writes `target.active` to the **local TS working copy
-immediately** — read-back verified + audited to `tcm.log` (`EDIT target.active …`), off the UI thread, **no grid
+immediately** — read-back verified + audited to `tsm.log` (`EDIT target.active …`), off the UI thread, **no grid
 reload** (active changes no counts/hours); a failed/unverified write reverts the box. `target.active` is the
 **one T1 edit that doesn't touch filter cadence**, so it's a plain `UPDATE` — the safest first edit. New library
 `TargetSchedulerEditor` (`SetTargetActive`, resolves by-guid-or-Id + verify; mirrors the Writer's hardening —
 private cache, column guards); `TargetCells` now carries `Enabled` + TS provenance (the provenance R1 deferred).
 A VM override keeps a flip consistent across filter/sort rebuilds (cleared on Reload). Real data: 102 TS targets
-all guid-keyed, 59 active. Library 134 tests (+5), TCM 53, 0 warnings. **Pending: user's click-test** (toggle a
+all guid-keyed, 59 active. Library 134 tests (+5), TSM 53, 0 warnings. **Pending: user's click-test** (toggle a
 target, confirm via `py`+`sqlite3` that `target.active` flipped). Next T1 edits (`desired`, `priority`, per-filter
 `enabled`) reuse this editor; `enabled` adds the filtercadence-clear.
 
@@ -1072,23 +1069,23 @@ to the library as `Reconcile/ReconciliationProjection.Project` → `IReadOnlyLis
 reusable by IS); the app's `BuildRows` shrank to **shaping only** (planes / rollups / signed hours / fills /
 panels / sort over the cells) with its signature unchanged, so the 7 `BuildRowsTests` pin behaviour. **ExpansionState:**
 the three expansion `HashSet`s left `MainViewModel` for a tested `ExpansionState` value object. Library 129 tests
-(+8 projection); TCM 53 (+6 ExpansionState); 0 warnings; grid output unchanged. **Next — the editing slice:** a
+(+8 projection); TSM 53 (+6 ExpansionState); 0 warnings; grid output unchanged. **Next — the editing slice:** a
 **dialog-based** TS editor (select target → `desired`/`enabled` per filter + `active`/`priority` → Save in one
 txn via a new library `TargetSchedulerEditor`, clearing the target's `filtercadence` iff `enabled` toggled,
 audited; reader gains the `enabled` column). Structural add/remove of projects + filter-plans stays M3.
 **Pending: user's visual grid pass** (confirm 786 rows / 102 groups / 44·25·33 unchanged).
 
-**▶ Phase 4 — `TargetSchedulerWriter` — DONE (built 2026-06-08).** `tcm writeback [--apply]` fresh-rebuilds the
+**▶ Phase 4 — `TargetSchedulerWriter` — DONE (built 2026-06-08).** `tsm writeback [--apply]` fresh-rebuilds the
 catalog, then pushes disk-derived counts into a **local** TS copy (dry-run by default). Validated on real data:
 **182 plans written / 13 held for manual / 92 ignored-missing**, the motivating case `Sh2-142 Wizard H 0 → 140` is
-fixed, re-apply idempotent. **`tcm writeback --target "<dir>"`** adds a surgical single-target write — no catalog
+fixed, re-apply idempotent. **`tsm writeback --target "<dir>"`** adds a surgical single-target write — no catalog
 rebuild, and for a **mosaic it writes each panel's** counts to that panel's own TS plan (`Mosaic - Cygnus Loop` →
 16 panels, 96 cells matched / 80 writes, apply-verify OK, idempotent). Details in Phase 4 below.
 
-**Shipped 2026-06-08 (this session):** `tcm writeback --target` (surgical single-target; per-panel for mosaics) —
+**Shipped 2026-06-08 (this session):** `tsm writeback --target` (surgical single-target; per-panel for mosaics) —
 **verified live on BIRDWATCHER with NINA/TS running**. CLI hardened so the verb is dash-tolerant (`--writeback`
 routes) and `--target` without the verb prints a hint instead of silently running a full build. All committed
-(library + TCM, branch `dev`).
+(library + TSM, branch `dev`).
 
 **▶ SHIPPED 2026-06-10 — M27/Dumbell = alias, option B** (treat aliases as one object). An **alias** = every
 colliding TS name **exactly** matches a disk identity facet (directory / catalog / common / object; normalized, no
@@ -1100,12 +1097,12 @@ real data: duplicates 1→0, aliases 1, the 6 held cells became 12 writes (both 
 ratchet 129→169), manual bucket M27-free, dry-run idempotent. 78 library tests (+3).
 
 **▶ Phase 3 planned (grill-me session 2026-06-10) — TS Editor (WinUI 3).** TS stays the daily scheduler until IS
-exists; TCM bridges: view + edit the **local TS working copy** with disk-ACTUAL beside every number. Full spec in
+exists; TSM bridges: view + edit the **local TS working copy** with disk-ACTUAL beside every number. Full spec in
 Phase 3 below. Build order: **(1) alias rule (above — ✅ shipped) → (2) M1 read-only grid (✅ built 2026-06-10) →
 (3) M2 edits → (4) M3 resolution + structural.**
 
-**▶ M1 BUILT 2026-06-10 — `TargetCatalogManager.App`** (WinUI 3, WindowsAppSDK 2.2.0, unpackaged, x64, exe
-`tcmui`): read-only reconciliation grid — flat (target, filter, purpose, seconds) per-plane rows, plan vs DISK from a fresh
+**▶ M1 BUILT 2026-06-10 — `TargetSchedulerManager.App`** (WinUI 3, WindowsAppSDK 2.2.0, unpackaged, x64, exe
+`tsmui`): read-only reconciliation grid — flat (target, filter, purpose, seconds) per-plane rows, plan vs DISK from a fresh
 in-memory scan+resolve (no Catalog.db), search / source filter / flagged-only / sort, match-state badges, mosaic
 rollup rows. Self-verified: launches and matches the console exactly (Both 44 / TS-only 25 / Disk-only 33, alias 1,
 mosaics 6/38 panels). **Pending: user's hands-on UI pass** (filters, scroll perf, badge readability). Gotcha
@@ -1161,15 +1158,15 @@ fixes `b67ddfa` + library `7ce569d`). Independent re-review verified every slice
 (library mounted; all round-1 caveats resolved; no regressions). Fixed its findings: **B1** `--apply <value>`
 now warns + stays dry-run (was: any value armed apply on a db-writing verb), **B2** unknown options warn AND
 are ignored (key + value pair), **B3** thread-safety doc line on the report's lazy indexes, **B4**
-console-capture caveat comment. Cli tests 11 → 13 (48 TCM total). M2 backlog confirmed: R1 opening move,
+console-capture caveat comment. Cli tests 11 → 13 (48 TSM total). M2 backlog confirmed: R1 opening move,
 §7.2 cancellation threading, TsEditSession + loader seam, §7.5 ExpansionState.
 
-**▶ SHIPPED 2026-06-10 — TCM test projects** (`2f74a9f`): the repo's "no tests, thin host" rationale retired.
-`TargetCatalogManager.Cli.Tests` (11 — `CliOptions` parsing/warnings; dies with the transitional CLI head) +
-`TargetCatalogManager.App.Tests` (34 — `BuildRows` cell projection pinned ahead of R1, `MainViewModel`
+**▶ SHIPPED 2026-06-10 — TSM test projects** (`2f74a9f`): the repo's "no tests, thin host" rationale retired.
+`TargetSchedulerManager.Cli.Tests` (11 — `CliOptions` parsing/warnings; dies with the transitional CLI head) +
+`TargetSchedulerManager.App.Tests` (34 — `BuildRows` cell projection pinned ahead of R1, `MainViewModel`
 filter/toggle/expansion pipeline via the internal `SetRowsForTest` seam, Hours sign convention, `RowAggregates`
 additivity, `Format.Hours`). The WinUI head tests run in a **plain test host** — no XAML runtime; only the two
-`Brush` getters are out of bounds. `dotnet test TargetCatalogManager.slnx` runs everything. Also this date:
+`Brush` getters are out of bounds. `dotnet test TargetSchedulerManager.slnx` runs everything. Also this date:
 no-migration rule confirmed portfolio-wide (none present; TS guards are refusal-only), doc dates corrected to
 user-local (machine clock runs ahead in the evening), logs switched to local-time stamps (`603f3a9`).
 
@@ -1181,7 +1178,7 @@ single-sourced into the library — `EffectiveExposure` (THE effective sub-lengt
 `Cli\{CliOptions, BuildCommand, WriteBackCommand, ConsoleRenderer, WriteBackAuditLog}` with one shared
 writeback `ExecutePlan` tail and unknown-option warnings; app row VMs → `ViewModels\Rows\` (V1) and dev
 defaults single-sourced via linked `Shared\DevDefaults.cs` + `ResolveOptions.Default` (V2). 121 library
-tests (+13); tcm output + app DIAG verified number-identical. **R1 (full cell projection → library) +
+tests (+13); tsm output + app DIAG verified number-identical. **R1 (full cell projection → library) +
 M2-prep (TsEditSession, loader interface, app tests) deferred as M2's opening move.**
 
 **▶ SHIPPED 2026-06-10 — mosaic panels are first-class targets** (library `b296d58`→`f11bee5`, host
@@ -1208,20 +1205,20 @@ plans at different durations auto-resolve (no longer manual); disk buckets no pl
 **`UnplannedFrames` notes**, never written, never manual (plan creation is M2's). Surgical `--target` matches
 (filter, purpose, bin, seconds) and deliberately never zeroes plans with no matching cell (bulk does — see
 ARCHITECTURE). Output: per-row `@900s`, `--target` lists no-ops explicitly, new `unplanned` section + summary
-count. **New `tcm-cli.log`** (append-only, `%APPDATA%\TargetCatalogManager\Logs\`) audits every run's full
+count. **New `tsm-cli.log`** (append-only, `%APPDATA%\TargetSchedulerManager\Logs\`) audits every run's full
 decision trail. 91 library tests (+9). Live dry-run verified: Medusa H/S/O @900 → 0, R → 0, B → 2; M17 H
 stays MultiPlan (its two plans share 900 s); bulk totals 105 decreases / 154 no-ops / 38 manual (mosaics) /
 140 unplanned. **`--apply` not yet run — user's call** (working copy restorable from `schedulerdb - Copy.sqlite`).
 **Superseded:** the `--apply` era ended — CLI removed 2026-06-11; write-back is an automatic in-app step
 since 2026-07-06 (reviewed at push instead of gated at apply).
 
-**Logging (slice 1, built 2026-06-10, ported from TP):** `tcm.log` under `%APPDATA%\TargetCatalogManager\Logs\`
-(session rotation, WARN/ERROR, `TCM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
+**Logging (slice 1, built 2026-06-10, ported from TP):** `tsm.log` under `%APPDATA%\TargetSchedulerManager\Logs\`
+(session rotation, WARN/ERROR, `TSM_DIAG` channels) + **Ctrl+N observation window** — modeless always-on-top,
 USER_OBS START/END markers, notes + VM ctx snapshot + main-window screenshot into the log stream. Use it during
 the M1 pass to annotate findings in place. Slice 1 **verified interactively** (checkpoint / note / cancel /
 rotation / clean screenshot). **Slice 2 built + log-verified 2026-06-10:** `DIAG/Load` (per-stage timings — scan
 1.77 s of 1.83 s total, the XISF walk is the whole load cost — + report counts) and `DIAG/UI` (filter trail with
-row counts), `TCM_DIAG`-gated. Standing M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS reads `Catalog.db` directly — but the Phase-3 **UI
+row counts), `TSM_DIAG`-gated. Standing M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**

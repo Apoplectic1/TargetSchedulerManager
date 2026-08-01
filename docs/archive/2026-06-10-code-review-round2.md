@@ -1,4 +1,4 @@
-# TCM Code Review — Round 2 (2026-06-10)
+# TSM Code Review — Round 2 (2026-06-10)
 
 > **ARCHIVED 2026-07-26 — a closed verification pass over work that no longer exists.** B1/B2 fixed CLI
 > option parsing in code deleted 2026-06-11; B3's doc line landed in the **Library** repo; B4's comment was
@@ -11,7 +11,7 @@
 > that still ignores the token), carried to `ROADMAP.md` → *Carried forward*.
 
 > **Executed status (2026-06-10):** B1 ✅ (`--apply <value>` warns + stays dry-run; '=' form was already
-> safe as an unknown key; Cli tests 11 → 13) and B2 ✅ (unknown key + its value warned AND ignored) in TCM
+> safe as an unknown key; Cli tests 11 → 13) and B2 ✅ (unknown key + its value warned AND ignored) in TSM
 > `b67ddfa`; B3 ✅ (single-thread/equality doc line on the report's lazy indexes) in Library `7ce569d`;
 > B4 ✅ (console-capture comment) in `b67ddfa`. B5/B6 accepted as written. **Deferred with the M2 work, as
 > agreed: §7.2 cancellation threading, R1, TsEditSession + loader seam, §7.5 ExpansionState.**
@@ -23,7 +23,7 @@ fresh pass with the new emphasis: **maintainability and ease of reasoning**.
 Differences from round 1: the Library repo (`..\Library`) was mounted and inspected directly this time,
 so every round-1 **[verify vs library]** caveat is now resolved. What could not be done: executing the
 test suites (no .NET SDK in this review environment) — test *code* was reviewed line-by-line; the
-run results (45 TCM / 121 library, green) rest on the commit-message records of local runs.
+run results (45 TSM / 121 library, green) rest on the commit-message records of local runs.
 
 ---
 
@@ -60,7 +60,7 @@ because they are exactly the habits that keep a codebase reasonable:
 2. **Behavior preservation was treated as a verification obligation**, not an assumption — renderer
    strings kept identical, writeback output "number-identical", app DIAG line compared against the known
    786 rows / 102 groups / 28-10-7 panels baseline.
-3. **Small acts of care:** `TestEnv`'s `[ModuleInitializer]` blanks `TCM_DIAG` so VM tests can't append
+3. **Small acts of care:** `TestEnv`'s `[ModuleInitializer]` blanks `TSM_DIAG` so VM tests can't append
    to the user's real session log; the `CliLog`/`Log` UTC→local-with-offset fix addresses a real
    reasoning bug (evening sessions logged under tomorrow's date); `TargetMatchFlags`→`TargetMatchIssues`
    for CA1711 shows the analyzers are being heard.
@@ -142,7 +142,7 @@ and trust what they read?*
 
 Slice 1 measurably improved both review axes. Concretely: the three cross-cutting drift hazards
 (effective-seconds, flag derivation, dev defaults) are now zero; `Program.cs` went from 465 lines / 4
-responsibilities to 46 / 1; TCM-side logic went from 0 tests to 45 (with the library at 121); and the
+responsibilities to 46 / 1; TSM-side logic went from 0 tests to 45 (with the library at 121); and the
 one dishonest folder name (`Models\`) now tells the truth. The codebase's reasoning story is currently
 limited by exactly one file — `BuildRows` — and that has a funded plan (R1 at M2) plus a safety net.
 No regressions were found; the two real (if small) findings are B1 and the §7.2 token.
