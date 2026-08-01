@@ -94,6 +94,13 @@ dotnet test Astronomy.Catalog.Tests/Astronomy.Catalog.Tests.csproj              
 dotnet test Astronomy.Catalog.Tests/Astronomy.Catalog.Tests.csproj --filter "FullyQualifiedName~TargetResolver"
 ```
 
+## Warnings are build breaks
+Both projects build with `<TreatWarningsAsErrors>` (2026-08-01, portfolio-wide ratchet after 45 xUnit
+analyzer warnings accumulated silently in AL's test bench). Fix the warning, or — rarely, with a comment —
+suppress it deliberately; never turn the ratchet off. It also applies transitively: AL's projects carry it
+too, so an AL-side warning fails a TSM build — read which project the error message names before hunting in
+TSM code. In test code, pass `TestContext.Current.CancellationToken` to ct-accepting calls (xUnit1051).
+
 ## Trap — xUnit v3 (build-breaking)
 `App.Tests` is xUnit v3 (`OutputType=Exe`; v3 generates the entry point). **Never let `xunit.v3`
 land on `TargetSchedulerManager.App`** (or any non-test project) — a "Manage NuGet for Solution →

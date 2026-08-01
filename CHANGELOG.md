@@ -11,6 +11,14 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-01 — zero-warning ratchet: `TreatWarningsAsErrors` on both projects.** Portfolio-wide
+follow-on to AL's same-day sweep (45 xUnit1051s had accumulated silently in its test bench precisely because
+warnings break nothing). Both TSM projects were already clean — verified by forced non-incremental rebuilds
+in **Debug and Release** before the switch went on — so this locks in the existing state; the next compiler
+or analyzer warning is a build break. Note the ratchet also arrives transitively: AL's projects carry it too,
+so an AL warning now fails TSM's build (it will *look* like a TSM build error — check which project the
+message names). 322/322 App.Tests green under enforcement.
+
 **▶ SHIPPED 2026-07-29 — Hours becomes a progress gauge** (user obs 01b7 + in-chat decisions; rides the open
 `framing-overlap-column` change as group 4c, `reconciliation-grid` delta). Replaces the signed-sum model
 (every row a signed contribution, parents the literal sum) with: while any plan beneath a level still owes

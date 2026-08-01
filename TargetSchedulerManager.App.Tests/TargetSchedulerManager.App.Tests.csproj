@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Zero-warning ratchet (2026-08-01, portfolio-wide): a new warning is a build break. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Must match the App head's TFM/RID to reference it. Tests run in a plain test host (no XAML
          runtime): the row view-models resolve theme brushes lazily, so tests exercise everything except
          the two Brush getters (those need Application.Current and stay app-verified). -->

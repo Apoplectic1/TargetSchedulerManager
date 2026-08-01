@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Zero-warning ratchet (2026-08-01, portfolio-wide): a new warning is a build break. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <OutputType>WinExe</OutputType>
     <!-- WinUI needs a real Windows TargetPlatformVersion (unlike net10.0-windows = 7.0 in the library);
          19041 is the lowest TPV with the full WinUI 3 surface; min 17763 matches Windows App SDK support. -->
