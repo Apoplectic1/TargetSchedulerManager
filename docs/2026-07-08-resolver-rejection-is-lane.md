@@ -1,6 +1,6 @@
 # 2026-07-08 — Resolver rejected; TS hygiene by hand; the IS lane opens
 
-*(Glossary updated 2026-08-01: originally written with ISP = the future scheduler plugin and LCM = the intent-store manager; tokens rewritten to IS / ISM when the portfolio renamed, and the file renamed from `…-isp-lane.md`.)*
+*(Glossary updated 2026-08-01: originally written with ISP = the future scheduler plugin; tokens rewritten to IS / ISM when the portfolio renamed, and the file renamed from `…-isp-lane.md`.)*
 
 Decision record from a long explore session that started as "describe the write-back app action" and ended
 somewhere much better. Captures the **why** — the decisions live in ROADMAP/DOMAIN/TS-SCHEMA; this is the
