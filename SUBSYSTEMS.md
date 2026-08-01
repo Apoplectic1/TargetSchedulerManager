@@ -172,7 +172,7 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
 app it runs **automatically after every load** (`Services/WriteBackStep`): plan from the fresh scan + local TS
 read, stamp every non-no-op change into the **local** db, journal each changed column with the write-back kind
 — so an unchanged system journals nothing and the session stays clean. BIRDWATCHER sees write-back only through
-the reviewed push (decreases first). It is a **stop-gap** until IS/ISP consumes `Catalog.db` directly, so it
+the reviewed push (decreases first). It is a **stop-gap** until IS consumes `Catalog.db` directly, so it
 stays minimal and cleanly deletable. Load-bearing invariants (the formal contract is
 `openspec/specs/write-back/`; `ROADMAP.md` Phase 4 is the *plan* entry and points here, so don't re-document
 the mechanism there):

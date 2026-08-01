@@ -360,7 +360,7 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
   slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges)
   but has no structural edit verbs (resolver rejected 2026-07-08; see
-  `docs/2026-07-08-resolver-rejection-isp-lane.md` for why). `desired` is likewise user-owned planning
+  `docs/2026-07-08-resolver-rejection-is-lane.md` for why). `desired` is likewise user-owned planning
   intent — never derived from disk (TSM's grid does edit the value; see Editing).
 - TS's `acquiredimage`/`imagedata`/`flathistory` are disposable noise (grading lives in PixInsight; disk is the
   graded truth); TSM never reads or writes them.

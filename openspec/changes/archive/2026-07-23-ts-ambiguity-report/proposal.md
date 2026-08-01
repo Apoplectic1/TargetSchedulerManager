@@ -2,7 +2,7 @@
 
 ## Why
 
-The 2026-07-08 resolver rejection (docs/2026-07-08-resolver-rejection-isp-lane.md, decision 3) settled the
+The 2026-07-08 resolver rejection (docs/2026-07-08-resolver-rejection-is-lane.md, decision 3) settled the
 workflow for TS/disk ambiguities: TSM **detects**, the user **fixes by hand in NINA's TS UI on BIRDWATCHER**.
 But the detections are currently scattered and half-invisible — grid badges name the *what* but not the *fix*,
 write-back's held cells appear only as a `tsm.log` WARN line, and several TS-internal problems (same-key

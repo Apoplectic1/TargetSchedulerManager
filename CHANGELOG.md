@@ -477,13 +477,13 @@ captures both clean); the TSM-side ghost check remains covered by the 450 ms set
 
 
 **▶ DECIDED 2026-07-24 — disk-matcher design lane CANCELLED.** The lane (a phrase from the 2026-07-08
-resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ ISP's `Catalog.db`; under
-the corrected model TSM manages TS, period — ISP is its own project, and merging TS's targets into it is a
+resolver-rejection entry, never defined further) assumed TSM would bridge TS ↔ IS's `Catalog.db`; under
+the corrected model TSM manages TS, period — IS is its own project, and merging TS's targets into it is a
 future, separate effort. No live deficiency exists (matching is validated, ambiguity report zero), the join's
 semantics already live in the shared `Astronomy.Catalog` (available to any future consumer with that effort's
 real requirements in hand — the "don't design for IS until IS has real needs" guardrail), and the orphaned
-sub-items were never TSM's: disk-dir promotion + the TS→store lift belong to the future LCM/ISP efforts
-(recorded in `docs/2026-07-08-resolver-rejection-isp-lane.md`, decisions 5 + 7); the rig key remains
+sub-items were never TSM's: disk-dir promotion + the TS→store lift belong to the future ISM/IS efforts
+(recorded in `docs/2026-07-08-resolver-rejection-is-lane.md`, decisions 5 + 7); the rig key remains
 extend-when-it-lands. Commit `78ced80`.
 
 ---
@@ -788,8 +788,8 @@ token — the author adjudicates. **Closed 2026-07-23:** hand-fix pass done (Swa
 earlier), re-run fully clean (0 action items), ARCHIVED (`archive/2026-07-23-ts-ambiguity-report`; main spec
 seeded — in the post-alias-removal form: no info-tier alias requirement).
 
-**▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; ISP lane opens** (full why:
-`docs/2026-07-08-resolver-rejection-isp-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).
+**▶ DECIDED 2026-07-08 — resolver rejected; hygiene by hand; IS lane opens** (full why:
+`docs/2026-07-08-resolver-rejection-is-lane.md`; conventions → `DOMAIN.md`; TS contract → new `TS-SCHEMA.md`).
 The explored two-stage TS/disk **resolver edit-surface is REJECTED** — real caseload was 7 held cells = 2
 hand-fixes (rename `FishHead`→`IC 1795`; delete Swan's stray H900 plan 1040), repairs self-persist, NINA's TS
 UI is the schema-correct editor upstream maintains, and TS is in its retirement lane. TSM keeps the matcher +
@@ -799,9 +799,9 @@ tray provably empty; a non-zero tray = a slipped convention. **Next TSM change: 
 report** — every TS + disk ambiguity, what + why, printable to walk to BIRDWATCHER (detection already computed:
 report issues + manual tray + notes; add TS-internal checks the grid can't badge — same-key plans, planned-only
 twins, duplicate template names). No adjudication store unless a permanent exception someday exists.
-**Strategic lane (ISP):** intent inverts — an **authored** plan store (working name `Catalog.db`; plan-db vs
+**Strategic lane (IS):** intent inverts — an **authored** plan store (working name `Catalog.db`; plan-db vs
 union fork open, leaning plan-db + fresh-scan join) becomes permanent truth; TS becomes a disposable projection;
-**LCM = "TSM but for ISP"**. Named requirement: **TS ⇄ ISP migration** — lift (read-only) + back-projection =
+**ISM = "TSM but for IS"**. Named requirement: **TS ⇄ IS migration** — lift (read-only) + back-projection =
 bulk-regenerate a fresh `scheduler.db` ("just in case" insurance), invariant `lift(project(store)) == store`.
 Parked roadmap item: **"Tonight"** — the sophisticated enable (TSM computes tonight's visible set via
 `Astronomy.Core` + `.hrz` horizon, sweeps `target.active`; rejected shape: a populated Tonight project =
@@ -974,7 +974,7 @@ across the header + 3 row templates; `BuildRows` adds the badge + flag; 49 App.T
 user's visual grid pass.**
 
 **▶ SHIPPED 2026-06-11 — project renamed TargetCatalogManager → TargetSchedulerManager (TSM).** The "Catalog"
-name was legacy (the catalog builder left with the CLI; `Catalog.db` goes to the planned LCM) — the app manages
+name was legacy (the catalog builder left with the CLI; `Catalog.db` goes to the planned ISM) — the app manages
 the N.I.N.A. **Target Scheduler** db, so it is now named for what it does. Deep rename: solution
 `TargetSchedulerManager.slnx`, projects/namespaces `TargetSchedulerManager.App[.Tests]`, assembly **`tsmui`**,
 log identity **`tsm.log` / `TSM_DIAG` / `%APPDATA%\TargetSchedulerManager\Logs\`** (old notes stay in the old
@@ -1035,11 +1035,11 @@ per-filter `enabled` (cadence-**breaking** — adds the `FilterCadenceItem` clea
 twice). TCM is now purely the WinUI **TS-database manager**. `DevDefaults` + `TsDatabaseResolver` moved into the
 App (`App\Shared\`); the resolver tests moved to `App.Tests` (43 green, 0 warnings). **Nothing lost:** the
 catalog-build engine is one AL call (`CatalogBuilder.BuildAsync`, disk-only via `tsDb: null`) and the write-back
-engine stays in AL. Catalog-build moves to a planned **LibraryCatalogManager (LCM)** (sibling dir
-`..\LibraryCatalogManager`, ROADMAP template there); write-back resurfaces later as a TCM app action. `Catalog.db`
+engine stays in AL. Catalog-build moves to a planned **IntervalSchedulerManager (ISM)** (sibling dir
+`..\IntervalSchedulerManager`, ROADMAP template there); write-back resurfaces later as a TCM app action. `Catalog.db`
 is currently unbuilt — unconsumed, so fine. Reframe: TS = disposable (TCM manages it), `Catalog.db`/IS = permanent
-(LCM owns it); the two no longer tangle. Phases 1–4 below describe the **library's** catalog/write-back engine,
-which is unchanged and still consumed by TCM (in-memory) + the future LCM.
+(ISM owns it); the two no longer tangle. Phases 1–4 below describe the **library's** catalog/write-back engine,
+which is unchanged and still consumed by TCM (in-memory) + the future ISM.
 
 **▶ SHIPPED 2026-06-11 — live BIRDWATCHER TS db (read + write), local fallback.** TCM no longer edits only a
 local copy. `TsDatabaseResolver` (`Shared\`, both heads) probes `\\BIRDWATCHER\SchedulerPlugin\schedulerdb.sqlite`
@@ -1221,7 +1221,7 @@ USER_OBS START/END markers, notes + VM ctx snapshot + main-window screenshot int
 the M1 pass to annotate findings in place. Slice 1 **verified interactively** (checkpoint / note / cancel /
 rotation / clean screenshot). **Slice 2 built + log-verified 2026-06-10:** `DIAG/Load` (per-stage timings — scan
 1.77 s of 1.83 s total, the XISF walk is the whole load cost — + report counts) and `DIAG/UI` (filter trail with
-row counts), `TCM_DIAG`-gated. Standing M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS/ISP reads `Catalog.db` directly — but the Phase-3 **UI
+row counts), `TCM_DIAG`-gated. Standing M2 rule — the writer logs every TS write. TS read+write remains a **stop-gap** until IS reads `Catalog.db` directly — but the Phase-3 **UI
 shell is permanent** (retargets Catalog.db when IS arrives); only the TS data layer is disposable.
 
 Write-back's **manual bucket** (never auto-written — presented with full info to resolve): **dup-folds**

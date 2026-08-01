@@ -12,7 +12,7 @@ the disk image library *read-only* (a fresh in-memory scan each load) purely to 
 **not** own or write `Catalog.db`.
 
 > **History:** born **TargetCatalogManager (TCM)** with a `tcm` CLI that built `Catalog.db`; the CLI was removed
-> and the project renamed to TSM on 2026-06-11 (catalog-building → future **LCM**, sibling `..\LibraryCatalogManager`).
+> and the project renamed to TSM on 2026-06-11 (catalog-building → future **ISM**, sibling `..\IntervalSchedulerManager`).
 > Pre-rename docs/git say TCM/`tcm`/`tcmui`. Full story: `CHANGELOG.md`.
 
 **Almost all logic lives in the sibling shared library `Astronomy.Catalog`** (a different git repo at `..\Library`).
@@ -96,7 +96,7 @@ Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both*
   the rebuild.
 - **Single writer + WAL** — one writer per db: TSM's in-app editor owns the **local** TS copy (BIRDWATCHER's db
   is written only inside the reviewed push replay — `TsSync`, see `SUBSYSTEMS.md` → *TS sync model*),
-  `Catalog.db`'s builder (future LCM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
+  `Catalog.db`'s builder (future ISM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
   over network shares (relevant if a consumer runs on another PC).
 - **Busy exclusion** — bulk operations (load, pull, push, visible-tonight) are mutually exclusive via
   `TryBeginBusy()`/`EndBusy()` (the only writers of `IsLoading`); row edits are refused in the VM funnel while

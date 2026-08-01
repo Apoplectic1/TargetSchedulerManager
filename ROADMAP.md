@@ -37,7 +37,7 @@ progress gauge** (owed time or captured total, never a signed sum). The load-spl
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is
-strategic — the **ISP transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
+strategic — the **IS transition** (intent store + lift/regenerate), which is *not* TSM work. Shipped history
 and the 2026-07-24 decision records (docs-audit flags resolved; disk-matcher lane cancelled) live in
 **`CHANGELOG.md`**.
 
@@ -120,7 +120,7 @@ target and 254 of 18,904 frames.
   reconciliation report and goal-vs-actual summary (CLI removed 2026-06-11 — app-only since; see Status).
 - Catalog + NINA library suites pass (live counts move with every change — see the suites, not this line).
 
-## Phase 3 — TSM app: TS Editor (WinUI 3)  ✅ DONE (M1 view ✅ 2026-06-10 · M2 edit ✅ 2026-07-06 · M3 resolve retired 2026-07-08; remaining work is the out-of-phase ISP transition)
+## Phase 3 — TSM app: TS Editor (WinUI 3)  ✅ DONE (M1 view ✅ 2026-06-10 · M2 edit ✅ 2026-07-06 · M3 resolve retired 2026-07-08; remaining work is the out-of-phase IS transition)
 
 **Purpose.** TS remains the daily scheduler until IS exists; TSM is the bridge: view + edit TS's database with
 disk-ACTUAL beside every number. A pragmatic editor, **not** a TS Database Manager replacement. The TS *data
@@ -155,12 +155,12 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
   hand fix per row. **No structural resolution verbs** (create / rename / delete / adopt were all rejected with
   the resolver, 2026-07-08 — TSM must not encode planning decisions it doesn't own): every fix is a hand-edit in
   NINA's TS UI on BIRDWATCHER, and `desired` / membership stay user-owned intent. Rationale:
-  `docs/2026-07-08-resolver-rejection-isp-lane.md`.
+  `docs/2026-07-08-resolver-rejection-is-lane.md`.
 - **Milestones:** **M1 view** ✅ (2026-06-10) — read-only grid + badges + filters → **M2 edit** ✅ (2026-07-06) —
   Tier-1 in-grid + the T2–T3 edit flyout + the sync model (pull → edit-local → push-as-replay) + automatic
   write-back → ~~**M3 resolve**~~ **retired** — the structural-resolution milestone was dropped with the resolver
   rejection (2026-07-08); ambiguities are surfaced (report + badges) and hand-fixed in NINA. Remaining forward
-  work is the ISP transition, not more TS-editing surface.
+  work is the IS transition, not more TS-editing surface.
 - **Hazards (resolved):** cadence-breaking edits (filterSwitchFrequency, ditherEvery, plan `enabled`) now clear
   the invalidated `filtercadenceitem` rows in the same transaction as the write (lifted from TS's
   `SchedulerDatabaseContext`; mechanism in `SUBSYSTEMS.md` → *TS write-back* + `DOMAIN.md` → *Editing*). The
@@ -170,7 +170,7 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
 ## Phase 4 — Write back to TS  ✅ DONE (built 2026-06-08)
 
 `TargetSchedulerWriter` (in `Astronomy.Catalog/TargetScheduler/`, mirroring the Reader) writes disk-derived counts
-back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS/ISP reads `Catalog.db` directly —
+back into TS so its planner stops over/under-scheduling. **Stop-gap** until IS reads `Catalog.db` directly —
 minimal surface, cleanly deletable at Phase 5. Built 2026-06-08 (grill-me design + real-data validation, 58 library
 tests). Verb was `tcm writeback [--apply]` (dry-run default; CLI removed 2026-06-11 — the engine now runs as
 the app's automatic write-back + push replay, see `SUBSYSTEMS.md` → TS write-back).
@@ -188,8 +188,8 @@ ignored-missing, the `Sh2-142` fix, the `Mosaic - Cygnus Loop` surgical run) is 
 
 ## Phase 5 — Consumer cutover
 
-Consumer cutover is **not TSM work** — the authored intent store and its consumers belong to **LCM / ISP**
-(parent `CLAUDE.md` → *Data-flow hubs*; rationale in `docs/2026-07-08-resolver-rejection-isp-lane.md`
+Consumer cutover is **not TSM work** — the authored intent store and its consumers belong to **ISM / IS**
+(parent `CLAUDE.md` → *Data-flow hubs*; rationale in `docs/2026-07-08-resolver-rejection-is-lane.md`
 decisions 4–5). The phase's original premise — *`Catalog.db` is the derived hub and IS is its consumer* — was
 **inverted 2026-07-08** (an *authored* store holds intent; TS becomes the disposable projection) and the
 bridging lane was cancelled 2026-07-24. That was the **second** reversal: the phase first read *"IS owns
@@ -198,4 +198,4 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the
-  pre-inversion premise; that reconciliation belongs to LCM/ISP.
+  pre-inversion premise; that reconciliation belongs to ISM/IS.

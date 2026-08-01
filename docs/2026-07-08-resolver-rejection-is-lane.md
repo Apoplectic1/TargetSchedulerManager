@@ -1,4 +1,6 @@
-# 2026-07-08 — Resolver rejected; TS hygiene by hand; the ISP lane opens
+# 2026-07-08 — Resolver rejected; TS hygiene by hand; the IS lane opens
+
+*(Glossary updated 2026-08-01: originally written with ISP = the future scheduler plugin and LCM = the intent-store manager; tokens rewritten to IS / ISM when the portfolio renamed, and the file renamed from `…-isp-lane.md`.)*
 
 Decision record from a long explore session that started as "describe the write-back app action" and ended
 somewhere much better. Captures the **why** — the decisions live in ROADMAP/DOMAIN/TS-SCHEMA; this is the
@@ -11,7 +13,7 @@ reasoning they compress.
 > 2026-07-23 BIRDWATCHER pass. One reversal: the spine's claim that **"M27/Dumbell is NOT held"** was
 > overturned that same night ("explained ≠ approved" — `NOTEBOOK.md`, 2026-07-08 late) and the alias fold it
 > rests on was removed 2026-07-23. The "disk-matcher lane" framing was cancelled 2026-07-24 — under the
-> corrected model **TSM manages TS, period**; the authored intent store belongs to LCM.
+> corrected model **TSM manages TS, period**; the authored intent store belongs to ISM.
 
 ## The empirical spine (what the data said)
 
@@ -41,11 +43,11 @@ spelled the same on disk and in TS — aliases only via the adjudicated alias fo
    binding UI) was explored in depth and killed by its own numbers: caseload ≈ 2 items ever + rare future
    accidents; repairs self-persist so there is nothing to remember; hand-edits in NINA's TS UI outsource
    cascade/cadence/guid correctness to the editor that upstream maintains through every schema change; and TS is
-   in its retirement lane (ISP is the successor) — structural-edit machinery (insert/delete journal vocabulary,
+   in its retirement lane (IS is the successor) — structural-edit machinery (insert/delete journal vocabulary,
    replay Id-remapping, structural push review) would be significant, churn-exposed code serving a system being
    abandoned. *Thinking-and-doing beats describing-a-code-update at this volume.*
 2. **TSM keeps: the matcher, the count write-back, the existing editing surface.** The disk↔TS join is the
-   product (and ISP needs the identical join later); automatic acquired/accepted stamping + reviewed push is
+   product (and IS needs the identical join later); automatic acquired/accepted stamping + reviewed push is
    "genuinely useful" (user); the current field-editing surface is *enough*. `desired` maintenance moves to
    hand-edits on BIRDWATCHER too.
 3. **NEXT TSM change — the printable ambiguity report.** A separate, detailed list of every TS + disk ambiguity
@@ -58,16 +60,16 @@ spelled the same on disk and in TS — aliases only via the adjudicated alias fo
 4. **The inversion (strategic): intent's permanent home is a user-owned store; TS becomes a projection.**
    Today TS holds intent (desired, membership) and Catalog.db was planned as a *derived* reconciliation. The
    vision: an **authored** plan store (working name Catalog.db) holds intent + identity; TS is a disposable
-   execution cache the picker runs against; ISP later reads the store natively (TSM mode-flip; LCM is
-   "TSM but for ISP"). Ambiguity then dies *by construction* — TS can't contain twins unless the projector
+   execution cache the picker runs against; IS later reads the store natively (TSM mode-flip; ISM is
+   "TSM but for IS"). Ambiguity then dies *by construction* — TS can't contain twins unless the projector
    writes them. **The real price: derived → authored.** An authored store is the one file that can't be
    casually deleted (rule-15 delete-and-rebuild stops applying to it); while TS exists intent can be re-lifted
-   after schema churn, post-ISP the store is the sole holder. Open fork, leaning plan-only: **plan-db + fresh
+   after schema churn, post-IS the store is the sole holder. Open fork, leaning plan-only: **plan-db + fresh
    scan join** (mirrors TSM's proven architecture; trivial single-writer; actuals never persisted/stale) vs the
    originally-documented **union db**. The old guardrail "don't design the IS-optimal schema until IS has real
    needs" updates to: *the intent layer's needs have now arrived (from TSM's own transition work); scoring/
-   conditions still wait for ISP.*
-5. **TS ⇄ ISP migration is a named requirement.** **Lift** (TS → store): read-only, the reader already reads
+   conditions still wait for IS.*
+5. **TS ⇄ IS migration is a named requirement.** **Lift** (TS → store): read-only, the reader already reads
    everything intent-shaped; scope = the fields the user actually uses (project names literally encode
    min-altitude policy). **Back-projection** (store → TS, "just in case"): bulk **regeneration of a fresh
    scheduler.db** (carry profile linkage + templates), never in-place surgery — the insurance that imaging can
@@ -77,7 +79,7 @@ spelled the same on disk and in TS — aliases only via the adjudicated alias fo
    duplicate rows — the disease the conventions cure; moving them strips home-project policy). Adopted shape:
    **the sophisticated enable** — TSM computes the visible set (above the user's `.hrz` horizon at min altitude
    for min duration; `Astronomy.Core` + TP's competence entering TSM) and sweeps `target.active`: pure UPDATEs,
-   journaled, one push. This is proto-ISP: our selection logic, TS reduced to executing flags.
+   journaled, one push. This is proto-IS: our selection logic, TS reduced to executing flags.
 7. **Disk-dir promotion (deferred discussion).** ~33 actual-only targets could be *promoted* to TS/store
    targets; the disk plate-solved centroid becomes the authored coordinate at promotion. Membership stays the
    user's planning intent — never auto-created.
@@ -95,7 +97,7 @@ spelled the same on disk and in TS — aliases only via the adjudicated alias fo
   two-name identity system, per-table TSM usage, drift-check recipe. Genesis: the user's from-memory description
   of TS was ~90% right — the doc exists so neither of us works from memory again.
 - **DOMAIN.md**: TS authoring conventions section (the picker charter + the two conventions + hand-edit rule).
-- Parent CLAUDE/ROADMAP + LCM ROADMAP: LCM redefined ("TSM but for ISP"); Catalog.db direction annotated;
+- Parent CLAUDE/ROADMAP + ISM ROADMAP: ISM redefined ("TSM but for IS"); Catalog.db direction annotated;
   portfolio status refreshed (was pre-sync-model stale).
 
 ## Immediate user actions (outside TSM)

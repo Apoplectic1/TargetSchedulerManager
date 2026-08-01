@@ -13,7 +13,7 @@ records and miss 2 finds).
 | Round | Worker | Batch | Result |
 |---|---|---|---|
 | 1 | design-records | the 4 archived `design.md` newer than the last sweep | 4 keep |
-| 1 | notebook-and-live-doc | `NOTEBOOK.md` (all entries) + `docs/2026-07-08-resolver-rejection-isp-lane.md` | 4 archive-candidates, 4 keep |
+| 1 | notebook-and-live-doc | `NOTEBOOK.md` (all entries) + `docs/2026-07-08-resolver-rejection-is-lane.md` | 4 archive-candidates, 4 keep |
 | 1 | changelog-recent | `CHANGELOG.md` 2026-07-27 → 07-29 | 5 keep |
 | 1 | docs-archive | the 5 records in `docs/archive/` | **1 graduate**, 4 keep |
 | 2 | changelog-jul | `CHANGELOG.md` 2026-07-01 → 07-26 (~30 entries) | 7 keep — dry |

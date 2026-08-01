@@ -11,7 +11,7 @@ with disk-ACTUAL beside every number from a fresh read-only in-memory scan each 
 
 > **History (2026-06-11):** this project was **TargetCatalogManager (TCM)** — a dual-head repo whose console host
 > (`tcm`) built and owned `Catalog.db`. The CLI was removed (catalog-building moves to the planned
-> **LibraryCatalogManager**, sibling dir `..\LibraryCatalogManager`) and the project was renamed to match its real
+> **IntervalSchedulerManager**, sibling dir `..\IntervalSchedulerManager`) and the project was renamed to match its real
 > role. The build/reconcile engine described below lives in `Astronomy.Catalog` and is untouched; TSM runs it
 > in memory (no `Catalog.db` write). Pre-rename docs and git history say TCM / `tcm` / `tcmui`.
 
@@ -66,15 +66,15 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   cadence-breaking fields commit directly — the library clears `filtercadenceitem` atomically with the
   write, so no confirm dialog is needed) and commits per field back through the gate — the reference is the
   single source of truth from SQL whitelist to rendered control.
-- **`Catalog.db` and its consumers** — the persistent catalog is the planned **LCM**'s output (was the retired
-  CLI's job). TP / IS / ISP will open it read-only via `SchemaManager.OpenReadOnly` (XFM opted out 2026-07-07 —
+- **`Catalog.db` and its consumers** — the persistent catalog is the planned **ISM**'s output (was the retired
+  CLI's job). TP / IS / IS will open it read-only via `SchemaManager.OpenReadOnly` (XFM opted out 2026-07-07 —
   TS-free, never consumes `Catalog.db`). The actual-only world for actuals-only consumers is
   `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
 
 ## Key facts
 
 - **Catalog DB location (when built):** `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`
-  (co-located with the data it indexes). Currently unbuilt — nothing consumes it yet; LCM will own it.
+  (co-located with the data it indexes). Currently unbuilt — nothing consumes it yet; ISM will own it.
 - **Reconciliation:** coordinate-primary, scope-equal — every disk unit (a top-level dir OR one mosaic panel)
   carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
   none for a mosaic parent, which matches by project name); each TS target derives its scope from its own
@@ -160,7 +160,7 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   can't abort the rebuild.
 - **Concurrency:** one writer per db — TSM is the only writer of the **local** TS copy (its own edits +
   write-back stamps); BIRDWATCHER's db is written only inside an explicit push replay (TS itself writes during
-  imaging; the push's sidecar guard refuses that overlap). The future LCM is `Catalog.db`'s single writer with
+  imaging; the push's sidecar guard refuses that overlap). The future ISM is `Catalog.db`'s single writer with
   WAL on so consumers read without blocking. (WAL is unhappy over network shares — relevant if a consumer runs
   on another PC.) *In-process threading model* (true by construction, 2026-07-24 review): the UI thread
   serializes every command via the busy gate, workers do I/O only, and `TsJournal` + `TsInboundStore` are the
@@ -194,7 +194,7 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
 - **TS interop:** reads via `TargetSchedulerReader` (opened `Mode=ReadOnly` + busy-timeout, explicit column
   lists, schema-version aware); edits via the in-grid editing path (reference-driven `TsEditableSchema`) onto
   the local copy; write-back runs automatically each load (`SUBSYSTEMS.md` → *TS write-back*). All TS interop (read *and* write) is a
-  **stop-gap** until IS/ISP reads `Catalog.db` directly — though a *long* one (TS is the daily scheduler until
+  **stop-gap** until IS reads `Catalog.db` directly — though a *long* one (TS is the daily scheduler until
   IS exists), and the UI shell built on it is permanent; only the TS data layer is disposable. The live TS DB
   lives on the imaging PC (BIRDWATCHER, cross-machine); **TSM never edits it over SMB** — it pulls a copy and
   pushes a reviewed replay (`SUBSYSTEMS.md` → *TS sync model*). This re-reverses the 2026-06-26 live-SMB-writes
