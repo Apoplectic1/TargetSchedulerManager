@@ -27,10 +27,13 @@ No other remotes.
 
 ## Distribution: Velopack installers, built locally (shipped 2026-08-02)
 
-Installers ship as GitHub Releases **packed and uploaded from this machine** — the sibling
-Library repo stays unpublished, so only here do TSM's `ProjectReference`s resolve. No CI builds
-(that alternative was designed and deliberately dropped 2026-08-02: local-build keeps AL off
-GitHub entirely). Spec: `openspec/specs/self-update/`.
+Installers ship as GitHub Releases **packed and uploaded from this machine, by decision** —
+pinned as a requirement in spec `openspec/specs/self-update/` ("Releases build locally, never in
+CI"; the CI alternative was designed and deliberately dropped 2026-08-02, because local-build
+keeps AL off GitHub entirely — it ships only as compiled DLLs inside the installer). Separately,
+AL's absence from GitHub is why CI isn't even an *option*: no checkout could resolve TSM's
+`..\Library` `ProjectReference`s. If AL ever gets a mirror, that constraint goes away but the
+decision stands — local-build remains the contract until the spec is deliberately changed.
 
 One-time setup: `dotnet tool install -g vpk`, and `$env:GITHUB_TOKEN` = a PAT with `public_repo`
 scope (only needed for upload; `-NoUpload` dry-runs without it).
