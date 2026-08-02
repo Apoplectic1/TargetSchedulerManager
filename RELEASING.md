@@ -18,23 +18,35 @@ No other remotes.
   ```bash
   git checkout main && git merge --ff-only dev
   git tag vX.Y.Z
-  git push origin main --follow-tags
+  git push origin main vX.Y.Z
   git checkout dev
   ```
 - Publish at natural completion points (a shipped unit of work, docs riding the same commit) —
   not on a schedule, and never mid-change. The working tree must be clean and tests green at the
   published commit. No tag → no push: the tag is what makes a `main` state a published state.
 
-## What "publishing" is (and is not)
+## Distribution: Velopack installers via GitHub Actions (target state)
 
-- **Source distribution only.** TSM is the author's own management app, run from a local build.
-  No installers and no GitHub Releases; the `vX.Y.Z` tags mark published source states, not
-  installable releases. (If that ever changes, model the release flow on TargetPlanner's
-  `RELEASING.md` — Velopack + MinVer.)
-- **Not buildable from a public clone today.** TSM has three `ProjectReference`s into the sibling
-  `..\Library` repo (`Astronomy.Catalog`, `.Diagnostics`, `.Core`), which has **no public mirror**.
-  Until the Library publishes, the GitHub repo is for reading, not cloning-and-building — the
-  README must say so plainly.
+Installers ship as **GitHub Releases built by CI, never from this machine** — pushing a `vX.Y.Z`
+tag is the release trigger:
+
+- `.github/workflows/release.yml` runs on tag push: check out TSM **and the Library repo
+  side-by-side** (the `..\Library` `ProjectReference`s demand it), `dotnet publish` Release
+  x64 self-contained, `vpk pack`, `vpk upload github --publish`. The Actions-provided
+  `GITHUB_TOKEN` suffices for uploading Releases to this repo; a PAT secret is needed only for
+  checking out the Library if it publishes private.
+- **Versions come from the tag** via MinVer (TP's pattern — `<MinVerTagPrefix>v</MinVerTagPrefix>`);
+  no version files to edit. Untagged commits shape as prereleases and never roll out.
+- **The app self-updates from GitHub Releases** (Velopack `UpdateManager`, checked at startup +
+  on demand) — model on TP's `Updates/UpdateService.cs`.
+- Local dry-run stays possible (`vpk pack` without upload → `Releases\`, already gitignored),
+  but the published artifact is always the CI one.
+
+**Not yet wired (2026-08-02).** TSM has no Velopack integration yet (the `.gitignore` entry is
+aspirational), no workflow file, and the hard prerequisite is unmet: **the Library repo is not on
+GitHub in any form**, so no CI checkout can build TSM. Prerequisite chain: publish Library
+(public or private) → workflow → Velopack app integration + MinVer. Until that lands, a `vX.Y.Z`
+tag publishes **source only**, and the README says the clone doesn't build.
 
 ## README = storefront
 
