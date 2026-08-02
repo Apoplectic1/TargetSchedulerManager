@@ -34,10 +34,10 @@
 
 ## 5. Verify + release
 
-- [ ] 5.1 Dry-run `scripts/release.ps1 -NoUpload`; install `Releases\...Setup.exe` locally;
+- [x] 5.1 Dry-run `scripts/release.ps1 -NoUpload`; install `Releases\...Setup.exe` locally;
       confirm install, shortcut, launch, and that the installed copy's startup check logs
       (user visual pass)
-- [ ] 5.2 Tag `v1.1.0`, publish `main` per RELEASING.md, run `scripts/release.ps1` (real upload);
+- [x] 5.2 Tag `v1.1.0`, publish `main` per RELEASING.md, run `scripts/release.ps1` (real upload);
       verify the GitHub Release artifacts
-- [ ] 5.3 Deferred: the in-app update prompt proves itself on the next release (v1.1.1+) — noted
+- [x] 5.3 Deferred: the in-app update prompt proves itself on the next release (v1.1.1+) — noted
       in CHANGELOG, not blocking archive
