@@ -11,6 +11,15 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ DECIDED 2026-08-02 — GitHub mirror + publish rules (`RELEASING.md`).** The user created
+`github.com/Apoplectic1/TargetSchedulerManager` (public, empty) as TSM's public face — **local repo stays
+ground truth**; GitHub is distribution. `RELEASING.md` (new, router-listed) carries the rules: `dev` =
+working and never pushes, publish = ff `main` → `git push origin main` at natural completion points;
+source-only distribution (no installers/tags); README-as-storefront with a repo-layout paragraph for the
+visible workshop dirs; site coordinates + machine paths in `DevDefaults.cs` deliberately public (TP's
+precedent). Known gap at decision time: no `README.md` yet, and a public clone can't build — the three
+`ProjectReference`s point into the unpublished sibling Library repo (publish-Library fork open).
+
 **▶ SHIPPED 2026-08-02 — sync badge: "synced" now means *last proven in sync*, full-stamp format** (user
 obs 0cf4). The badge's time was the baseline's `RecordedAt` — the last physical pull — so an open whose
 verified skip proved the local copy current still showed a days-old stamp ("synced Wed 21:31" after a

@@ -33,6 +33,8 @@ Reference docs (current truth — update in the same commit as the code):
 - **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions (incl. the TS authoring conventions).
 - **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.
 - **`VERIFICATION.md`** — how to build, run, test, and verify a change.
+- **`RELEASING.md`** — the GitHub publish rules: local repo = ground truth, `origin/main` = the public
+  face (`dev` never pushes); README storefront + deliberately-public content calls.
 
 Journal (dated capture — `glob docs/**/*.md` + grep; not enumerated here): `docs/YYYY-MM-DD-*.md` (decision records, reviews) + `docs/archive/` (spent records — executed plans, closed reviews; each carries a dated status banner) + `NOTEBOOK.md` (running lab notebook of small findings) + `CHANGELOG.md` (shipped-history journal, newest first — the full history behind ROADMAP's current-status summary).
 
