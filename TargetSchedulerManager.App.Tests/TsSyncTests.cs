@@ -47,6 +47,22 @@ public class TsSyncTests
     }
 
     [Fact]
+    public void VerifiedSkip_RefreshesRecordedAt_KeepsRemoteStats()
+    {
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.Pull(sync.ProbeRemote()!);
+        TsBaseline pulled = sync.Baseline!;
+
+        Assert.False(sync.PullIfChanged(sync.ProbeRemote()!));
+        TsBaseline verified = sync.Baseline!;
+        Assert.NotSame(pulled, verified);                          // the skip re-recorded: "last proven in sync"
+        Assert.Equal(pulled.RemoteLength, verified.RemoteLength);  // the comparison key never moves on a skip
+        Assert.Equal(pulled.RemoteLastWriteUtc, verified.RemoteLastWriteUtc);
+        Assert.True(verified.RecordedAt >= pulled.RecordedAt);
+    }
+
+    [Fact]
     public void ChangedRemote_Pulls_AndReRecordsBaseline()
     {
         TsSync sync = SyncTestEnv.NewSync(out _);

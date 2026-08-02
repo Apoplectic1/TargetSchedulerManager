@@ -7,7 +7,8 @@ namespace TargetSchedulerManager.App.Shared;
 /// The remote TS db's identity (main-file size + last-write time, both BIRDWATCHER's own values) at the moment
 /// the local copy last mirrored it — recorded after every successful pull (a push ends in a pull, so it covers
 /// both). The skip rule compares a fresh remote stat against this: equal, with no remote sidecar, proves the
-/// local copy is current and the open can skip the copy.
+/// local copy is current and the open can skip the copy. <see cref="RecordedAt"/> is the last moment local ==
+/// remote was PROVEN (a pull, or a verified skip refreshing it) — the badge's "synced" time.
 /// </summary>
 internal sealed record TsBaseline(long RemoteLength, DateTime RemoteLastWriteUtc, DateTimeOffset RecordedAt);
 

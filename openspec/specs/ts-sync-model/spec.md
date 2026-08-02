@@ -166,7 +166,9 @@ fresh); it SHALL NOT be reported as a push failure and SHALL NOT claim the edits
 - **THEN** the push summary names it, the entry remains journaled, and all other entries applied and cleared
 
 ### Requirement: Unpushed state is guarded and always visible
-TSM SHALL show a persistent sync badge (last-synced time + unpushed count). Opening with a dirty journal and
+TSM SHALL show a persistent sync badge (last-synced time + unpushed count). The last-synced time SHALL be
+the last moment local == remote was proven — a pull records it, and a verified skip refreshes it (the
+baseline's remote size/mtime, the skip rule's comparison key, stay untouched). Opening with a dirty journal and
 BIRDWATCHER reachable SHALL prompt — before any pull — to push or discard; Discard SHALL run the pull
 first and clear the journal only when that pull lands (the swap has physically replaced the discarded
 values). A cancelled or failed discard-pull SHALL leave the journal, baseline, dirty badge, and direction

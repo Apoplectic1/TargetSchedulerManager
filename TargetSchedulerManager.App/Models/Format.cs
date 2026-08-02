@@ -23,9 +23,11 @@ internal static class Format
         : Math.Abs(h) < 0.05 ? h.ToString("F2")
         : h.ToString("F1");
 
-    /// <summary>The badge/status when-format: bare HH:mm today, "ddd HH:mm" otherwise.</summary>
+    /// <summary>The badge/status when-format: "yy/MM/dd hh:mm AM|PM", always the full stamp — a relative
+    /// or day-name form goes stale the moment a session spans midnight or a badge survives a week
+    /// (user-set 2026-08-02, obs 0cf4). Invariant culture pins the separators and AM/PM designators.</summary>
     public static string When(DateTimeOffset at) =>
-        at.LocalDateTime.Date == DateTime.Today ? at.LocalDateTime.ToString("HH:mm") : at.LocalDateTime.ToString("ddd HH:mm");
+        at.LocalDateTime.ToString("yy/MM/dd hh:mm tt", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>"H @900s" (Light) / "B Stars @60s" — the grid/write-back cell naming convention.</summary>
     public static string Cell(string filter, FilterPurpose purpose, int seconds) =>

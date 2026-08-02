@@ -121,6 +121,13 @@ public class FormatTests
     [Fact]
     public void Hours_NegativeZero_NormalizesToPlainZero() =>
         Assert.Equal("0.0", Format.Hours(-0.0));   // a negated empty commitment must not read "-0.0"
+
+    [Fact]
+    public void When_FullStampAlways_LocalTime()
+    {
+        DateTimeOffset at = new(new DateTime(2026, 8, 2, 13, 9, 0, DateTimeKind.Local));
+        Assert.Equal("26/08/02 01:09 PM", Format.When(at));
+    }
 }
 
 /// <summary>The additive rules every header level shares.</summary>

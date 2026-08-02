@@ -11,7 +11,17 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
-**▶ SHIPPED 2026-08-01 — zero-warning ratchet: `TreatWarningsAsErrors` on both projects.** Portfolio-wide
+**▶ SHIPPED 2026-08-02 — sync badge: "synced" now means *last proven in sync*, full-stamp format** (user
+obs 0cf4). The badge's time was the baseline's `RecordedAt` — the last physical pull — so an open whose
+verified skip proved the local copy current still showed a days-old stamp ("synced Wed 21:31" after a
+Sunday open). Since the skip rule proves local == remote exactly as strongly as a pull would, the verified
+skip now re-records the baseline with `RecordedAt = now` (remote size/mtime — the comparison key — stay
+untouched, so a skip can never turn into a false pull or vice versa). `Format.When` becomes the full
+`yy/MM/dd hh:mm AM|PM` stamp always (invariant culture; the bare-HH:mm-today / ddd-otherwise compaction
+died — a day-name is ambiguous past a week). One live caller (the badge), so no collateral. Spec
+`ts-sync-model` pins the proven-in-sync semantics. 324/324 App.Tests (+2: skip-refresh, When format).
+
+ `TreatWarningsAsErrors` on both projects.** Portfolio-wide
 follow-on to AL's same-day sweep (45 xUnit1051s had accumulated silently in its test bench precisely because
 warnings break nothing). Both TSM projects were already clean — verified by forced non-incremental rebuilds
 in **Debug and Release** before the switch went on — so this locks in the existing state; the next compiler

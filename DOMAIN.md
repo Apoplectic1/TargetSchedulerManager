@@ -324,9 +324,10 @@ goal of zero); measured disk-side absence = `0`.
 Design principle: **buttons carry decisions, guards carry facts** — correctness never depends on the user
 remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
 
-- **Sync badge** (toolbar, always visible): `synced HH:mm · N unpushed` — last pull/push time + the collapsed
-  journal count; `BIRDWATCHER offline · …` when the probe failed; `never pulled` before a first pull. State is
-  *displayed*, never recalled.
+- **Sync badge** (toolbar, always visible): `synced yy/MM/dd hh:mm AM|PM · N unpushed` — the last moment
+  local == BIRDWATCHER was *proven* (a pull, or an open whose verified skip proved the copy current —
+  refreshed 2026-08-02, obs 0cf4) + the collapsed journal count; `BIRDWATCHER offline · …` when the probe
+  failed; `never pulled` before a first pull. State is *displayed*, never recalled.
 - **Push…** (caution-colored — this is the moment writes reach the rig): enabled exactly when unpushed edits
   exist; opens the review `ContentDialog` — write-back count stamps first (**decreases first**, caution-colored,
   `▼ target · filter @secs — TS old → new`), then manual edits (`label — column old → new`), with an InfoBar

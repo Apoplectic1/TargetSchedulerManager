@@ -23,7 +23,7 @@ PCL projects aren't in TSM's solution). Path defaults live in
 copy** (`Processing\Catalog\TS Database\schedulerdb.sqlite`) only; `TsSync` pulls it fresh from
 BIRDWATCHER at open (skipped when the persisted baseline says it's unchanged — so rapid test
 relaunches skip the copy) and pushes journaled edits back through the reviewed **Push** button.
-Toolbar: sync badge ("synced HH:mm · N unpushed") · Push… · Pull now · Templates… · Ambiguities… ·
+Toolbar: sync badge ("synced yy/MM/dd hh:mm AM|PM · N unpushed") · Push… · Pull now · Templates… · Ambiguities… ·
 **Visible Tonight:** (Duration + Floor up-downs + Tonight); Reload never pulls. Full toolbar map: `DOMAIN.md` → Chrome.
 
 **The instrument for a visual pass is `Ctrl+N`** — the Diagnostics window: type a note, capture the main

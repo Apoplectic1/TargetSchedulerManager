@@ -170,7 +170,11 @@ internal sealed class TsSync
     {
         if (!ShouldPull(probe))
         {
-            Log.Info($"PULL skipped — baseline matches ({probe.Length:N0} bytes @ {probe.LastWriteUtc:u}, no sidecar)");
+            // The verified skip proves local == remote exactly as strongly as a pull would (that is why it
+            // may skip) — refresh RecordedAt so the badge's "synced" time reads "last proven in sync", not
+            // "last copy". The remote stats are the comparison key; the probe just showed them unchanged.
+            _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, DateTimeOffset.Now));
+            Log.Info($"PULL skipped — baseline matches ({probe.Length:N0} bytes @ {probe.LastWriteUtc:u}, no sidecar); RecordedAt refreshed");
             return false;
         }
         Pull(probe, progress, cancel);
