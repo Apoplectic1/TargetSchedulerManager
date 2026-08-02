@@ -11,9 +11,11 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
-**▶ SHIPPED 2026-08-02 — version in the window title** (user obs 8573): `Target Scheduler Manager 1.1.0 —
-local TS copy · push to BIRDWATCHER` — MinVer's informational version cut at `+sha`; an F5 build keeps its
-`-alpha…` shape, so the title is also the at-a-glance dev-vs-installed disambiguator. Same log read
+**▶ SHIPPED 2026-08-02 — window title is name + version, nothing else** (user obs 8573 + follow-up):
+`Target Scheduler Manager 1.1.0` — MinVer's informational version cut at `+sha`; an F5 build keeps its
+`-alpha…` shape, so the title is also the at-a-glance dev-vs-installed disambiguator. The former
+`— local TS copy · push to BIRDWATCHER` suffix is gone by user call (the sync badge + tooltip already
+carry the sync model). Same log read
 confirmed the whole 2026-08-02 arc live in one session: installed **1.1.0** running, `update check: up to
 date`, `RecordedAt refreshed` on the skipped pull, badge `synced 26/08/02 01:59 PM`.
 

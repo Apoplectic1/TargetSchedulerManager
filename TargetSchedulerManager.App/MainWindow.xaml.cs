@@ -32,7 +32,7 @@ public sealed partial class MainWindow : Window
         string version = (typeof(MainWindow).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ?? "?").Split('+')[0];
-        Title = $"Target Scheduler Manager {version} — local TS copy · push to BIRDWATCHER";
+        Title = $"Target Scheduler Manager {version}";
         // Width funds the grid: the ruler's fixed columns total ~1368 px (see GridColumns), and Target — the
         // one elastic column — must never truncate a real target name (user obs 27ec; longest today is
         // "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px with its edit glyph). 1710 leaves Target ~300 px.
