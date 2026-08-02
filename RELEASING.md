@@ -12,20 +12,25 @@ No other remotes.
 ## Branch policy
 
 - **`dev` = working branch.** All work lands here. **`dev` never pushes.**
-- **`main` = distribution-ready ref.** Publish = fast-forward `main` to the chosen `dev` commit,
-  then `git push origin main`:
+- **`main` = distribution-ready ref, and every push of `main` carries a tag** — `vX.Y.Z`
+  (semver, `v`-prefixed; the same form XFM uses). Publish = fast-forward `main` to the chosen
+  `dev` commit, tag it, push both:
   ```bash
-  git checkout main && git merge --ff-only dev && git push origin main && git checkout dev
+  git checkout main && git merge --ff-only dev
+  git tag vX.Y.Z
+  git push origin main --follow-tags
+  git checkout dev
   ```
 - Publish at natural completion points (a shipped unit of work, docs riding the same commit) —
   not on a schedule, and never mid-change. The working tree must be clean and tests green at the
-  published commit.
+  published commit. No tag → no push: the tag is what makes a `main` state a published state.
 
 ## What "publishing" is (and is not)
 
 - **Source distribution only.** TSM is the author's own management app, run from a local build.
-  No installers, no GitHub Releases, no version tags. (If that ever changes, model the release
-  flow on TargetPlanner's `RELEASING.md` — Velopack + MinVer.)
+  No installers and no GitHub Releases; the `vX.Y.Z` tags mark published source states, not
+  installable releases. (If that ever changes, model the release flow on TargetPlanner's
+  `RELEASING.md` — Velopack + MinVer.)
 - **Not buildable from a public clone today.** TSM has three `ProjectReference`s into the sibling
   `..\Library` repo (`Astronomy.Catalog`, `.Diagnostics`, `.Core`), which has **no public mirror**.
   Until the Library publishes, the GitHub repo is for reading, not cloning-and-building — the

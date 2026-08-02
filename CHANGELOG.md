@@ -11,6 +11,12 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-02 — first publish: README + MIT LICENSE + `v1.0.0` to the GitHub mirror.** The
+storefront README (what/grid screenshot/status/repo-layout/license — user-approved) plus MIT `LICENSE`
+(© Skyhawk Consulting, Inc.), and the tag rule joined `RELEASING.md`: **`main` only pushes with a
+`vX.Y.Z` tag** (XFM's form; no tag → no push — the tag is what makes a `main` state published). Grid
+screenshot committed at `docs/images/main-window.png`. First push: `main` @ `v1.0.0`.
+
 **▶ DECIDED 2026-08-02 — GitHub mirror + publish rules (`RELEASING.md`).** The user created
 `github.com/Apoplectic1/TargetSchedulerManager` (public, empty) as TSM's public face — **local repo stays
 ground truth**; GitHub is distribution. `RELEASING.md` (new, router-listed) carries the rules: `dev` =
