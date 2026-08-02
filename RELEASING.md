@@ -24,6 +24,10 @@ No other remotes.
 - Publish at natural completion points (a shipped unit of work, docs riding the same commit) —
   not on a schedule, and never mid-change. The working tree must be clean and tests green at the
   published commit. No tag → no push: the tag is what makes a `main` state a published state.
+- **Docs-only exception (2026-08-02):** a `main` push may omit the tag when the delta contains
+  only documentation/images — nothing that changes the built app — so the GitHub storefront
+  (README, screenshots) can update without minting a release. Any change to code or build
+  inputs keeps the full no-tag-no-push rule.
 
 ## Distribution: Velopack installers, built locally (shipped 2026-08-02)
 
