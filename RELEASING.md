@@ -25,28 +25,31 @@ No other remotes.
   not on a schedule, and never mid-change. The working tree must be clean and tests green at the
   published commit. No tag → no push: the tag is what makes a `main` state a published state.
 
-## Distribution: Velopack installers via GitHub Actions (target state)
+## Distribution: Velopack installers, built locally (shipped 2026-08-02)
 
-Installers ship as **GitHub Releases built by CI, never from this machine** — pushing a `vX.Y.Z`
-tag is the release trigger:
+Installers ship as GitHub Releases **packed and uploaded from this machine** — the sibling
+Library repo stays unpublished, so only here do TSM's `ProjectReference`s resolve. No CI builds
+(that alternative was designed and deliberately dropped 2026-08-02: local-build keeps AL off
+GitHub entirely). Spec: `openspec/specs/self-update/`.
 
-- `.github/workflows/release.yml` runs on tag push: check out TSM **and the Library repo
-  side-by-side** (the `..\Library` `ProjectReference`s demand it), `dotnet publish` Release
-  x64 self-contained, `vpk pack`, `vpk upload github --publish`. The Actions-provided
-  `GITHUB_TOKEN` suffices for uploading Releases to this repo; a PAT secret is needed only for
-  checking out the Library if it publishes private.
-- **Versions come from the tag** via MinVer (TP's pattern — `<MinVerTagPrefix>v</MinVerTagPrefix>`);
-  no version files to edit. Untagged commits shape as prereleases and never roll out.
-- **The app self-updates from GitHub Releases** (Velopack `UpdateManager`, checked at startup +
-  on demand) — model on TP's `Updates/UpdateService.cs`.
-- Local dry-run stays possible (`vpk pack` without upload → `Releases\`, already gitignored),
-  but the published artifact is always the CI one.
+One-time setup: `dotnet tool install -g vpk`, and `$env:GITHUB_TOKEN` = a PAT with `public_repo`
+scope (only needed for upload; `-NoUpload` dry-runs without it).
 
-**Not yet wired (2026-08-02).** TSM has no Velopack integration yet (the `.gitignore` entry is
-aspirational), no workflow file, and the hard prerequisite is unmet: **the Library repo is not on
-GitHub in any form**, so no CI checkout can build TSM. Prerequisite chain: publish Library
-(public or private) → workflow → Velopack app integration + MinVer. Until that lands, a `vX.Y.Z`
-tag publishes **source only**, and the README says the clone doesn't build.
+Per-release flow:
+```powershell
+# on main, at the published commit (see Branch policy)
+git tag vX.Y.Z
+git push origin main vX.Y.Z
+.\scripts\release.ps1          # publish → vpk pack → upload to GitHub Releases
+```
+- **Versions come from the tag** via MinVer (`<MinVerTagPrefix>v</MinVerTagPrefix>`) — the same
+  tag gates the `main` push, names the GitHub Release, and stamps the assembly. No version files.
+  Untagged builds shape as `-alpha` prereleases the updater never offers.
+- **The installed app self-updates**: startup-only check of this repo's Releases
+  (`Services/UpdateService.cs` — silent on no-update/failure, ContentDialog prompt on a hit);
+  dev/F5 runs never check. No manual check surface (user decision 2026-08-02).
+- **Dry-run:** `.\scripts\release.ps1 -NoUpload` → artifacts in `Releases\` (gitignored);
+  run the Setup.exe there to test an install locally. Verification recipe: `VERIFICATION.md`.
 
 ## README = storefront
 
@@ -60,6 +63,9 @@ simplify them for browsing — the README is the human layer on top.
 
 ## Content rules (what is deliberately public)
 
+- **The shared library ships compiled.** Release packages carry the `Astronomy.*` assemblies as
+  DLLs — AL's *source* stays unpublished, but its binaries are publicly downloadable in every
+  release. A deliberate call (2026-08-02): "AL stays private" means source, not bits.
 - **Site coordinates + local paths ship in `DevDefaults.cs`** — a deliberate solo-consumer
   trade-off, same call TP made (see TP `DOMAIN.md` → personal presets; same site, already the
   author's stated convention). `BIRDWATCHER` is a LAN hostname; `E:\…` paths are this machine's.

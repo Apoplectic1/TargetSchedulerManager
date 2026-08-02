@@ -11,6 +11,22 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-02 — `velopack-self-update`: TSM ships as a self-updating Velopack installer**
+(openspec change, spec `self-update` — 15th capability; plan user-approved with two decisions:
+startup-only check surface, first tag `v1.1.0`). TP's proven model with the two WinUI deltas:
+**owned entry point** (`DISABLE_XAML_GENERATED_MAIN` + `Program.cs` — `VelopackApp.Build().Run()`
+must precede everything, even `Log.Init`, to service Setup.exe/Update.exe hook relaunches; trap
+hit: `Application.Start(_ => …)` binds `_` as the callback *parameter*, so `_ = new App()`
+assigned to it and broke MarkupCompilePass2 — 15 phantom XAML errors from one CS0029) and a
+**ContentDialog prompt** (`Services/UpdateService.cs`: `IsInstalled` guard = dev no-op, silent-
+catch with log trail, `GithubSource` public/no-token/`prerelease:false` + MinVer alpha-shaping =
+dev builds can never roll out). `scripts/release.ps1` packs the **publish** output (unpackaged
+self-contained WinUI needs the runtimes in the payload — TP packs bare build output; TSM can't).
+MinVer stamps from the same `vX.Y.Z` tags that gate `main` pushes. Docs: RELEASING.md distribution
+flips local-build (AL ships as DLLs, source stays unpublished), README Install section,
+VERIFICATION release recipe. Tests 324/324 via slnx. **Pending:** user dry-run install
+(tasks 5.1–5.2) then the real `v1.1.0`; the update *prompt* proves itself on v1.1.1+.
+
 **▶ SHIPPED 2026-08-02 — first publish: README + MIT LICENSE + `v1.0.0` to the GitHub mirror.** The
 storefront README (what/grid screenshot/status/repo-layout/license — user-approved) plus MIT `LICENSE`
 (© Skyhawk Consulting, Inc.), and the tag rule joined `RELEASING.md`: **`main` only pushes with a

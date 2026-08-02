@@ -25,11 +25,24 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Velopack owns the entry point: the generated Main is disabled and Program.cs runs
+         VelopackApp first (install/update hooks must be serviced before any XAML exists). -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- MinVer derives the assembly version from the latest v-prefixed git tag (the same vX.Y.Z
+         tags that gate main pushes — RELEASING.md). Untagged commits shape as alpha prereleases,
+         which the updater's prerelease:false filter never offers to installed copies. -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
+    <PackageReference Include="MinVer" Version="7.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Velopack" Version="0.0.1589-ga2c5a97" />
   </ItemGroup>
 
   <!-- Cross-repo local ProjectReferences (local disk is source of truth): the shared schema/build contract,

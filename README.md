@@ -26,12 +26,20 @@ imaging rig.
   templates speed authoring, and anything the reconciler couldn't place cleanly is reported, never
   silently dropped.
 
+## Install
+
+Download `TargetSchedulerManager-win-Setup.exe` from the
+[latest release](https://github.com/Apoplectic1/TargetSchedulerManager/releases/latest) and run
+it. The app installs per-user, adds Start Menu shortcuts, and checks for updates at startup.
+The installer is not code-signed, so Windows SmartScreen will warn on first run — expected for a
+personal tool.
+
 ## Status
 
 A personal tool, developed and used nightly by its author; published here as its public face.
 The source is offered for reading and reference — **a fresh clone does not build**, because TSM
-references a sibling shared astronomy library that is not yet published. There are no releases or
-installers.
+references a sibling shared astronomy library that is not yet published (its compiled assemblies
+ship inside the installer).
 
 ## Repo layout
 

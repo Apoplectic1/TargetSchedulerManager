@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Astronomy.Diagnostics;
+using TargetSchedulerManager.App.Services;
+using static TargetSchedulerManager.App.Shared.UiTask;   // FireAndLog — the fire-and-forget seam (review N3)
 
 namespace TargetSchedulerManager.App;
 
@@ -29,5 +31,8 @@ public partial class App : Application
         Log.StartNewSession();
         _window = new MainWindow();
         _window.Activate();
+        // Startup-only update check (spec self-update): fire-and-forget so the load pipeline is
+        // never delayed; a dev (non-installed) run makes this a no-op inside the service.
+        FireAndLog(() => UpdateService.CheckOnStartupAsync(_window), "startup update check");
     }
 }

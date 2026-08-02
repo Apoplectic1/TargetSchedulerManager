@@ -108,6 +108,18 @@ all projects" action sprays it silently, and its `mtp-v1` targets then fail the 
 projects must be executable" (hit the whole `.slnx` on 2026-06-21). A non-test project that needs
 xUnit types references `xunit.v3.extensibility.core`. (Also noted in `..\Library\CLAUDE.md`.)
 
+## Release (Velopack) verification
+Distribution rules + per-release flow live in `RELEASING.md`; this is the *verification* recipe:
+```powershell
+.\scripts\release.ps1 -NoUpload     # publish → vpk pack, no GitHub touch
+.\Releases\TargetSchedulerManager-win-Setup.exe
+```
+Confirm: installs per-user with Start Menu shortcut, launches, and `tsm.log` shows the startup
+update check ran (an F5/dev run logs nothing — the check is installed-only). The in-app update
+*prompt* can only be proven across two releases: install vN, publish vN+1, relaunch vN → prompt →
+accept → app restarts as vN+1. The installed copy and the F5 workflow coexist — installing does
+not affect dev builds.
+
 ## Feature-verified vs code-correct
 Build + tests = **code-correct**. A change touching the grid / look-and-feel isn't **done** until
 **visually confirmed** — the author runs + screenshots the app (don't do this unprompted). UI rules
