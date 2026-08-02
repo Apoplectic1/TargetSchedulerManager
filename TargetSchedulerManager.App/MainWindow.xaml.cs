@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;   // RepeatButton — the NumberBox spin buttons
@@ -25,7 +26,13 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = "Target Scheduler Manager — local TS copy · push to BIRDWATCHER";
+        // Version in the title (user obs 8573): MinVer's informational version, cut at the '+sha'
+        // (an installed build reads "1.1.0"; an F5 build keeps its "-alpha…" shape, which is the
+        // at-a-glance dev-vs-installed disambiguator).
+        string version = (typeof(MainWindow).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "?").Split('+')[0];
+        Title = $"Target Scheduler Manager {version} — local TS copy · push to BIRDWATCHER";
         // Width funds the grid: the ruler's fixed columns total ~1368 px (see GridColumns), and Target — the
         // one elastic column — must never truncate a real target name (user obs 27ec; longest today is
         // "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px with its edit glyph). 1710 leaves Target ~300 px.

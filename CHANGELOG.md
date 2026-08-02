@@ -11,6 +11,12 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-02 — version in the window title** (user obs 8573): `Target Scheduler Manager 1.1.0 —
+local TS copy · push to BIRDWATCHER` — MinVer's informational version cut at `+sha`; an F5 build keeps its
+`-alpha…` shape, so the title is also the at-a-glance dev-vs-installed disambiguator. Same log read
+confirmed the whole 2026-08-02 arc live in one session: installed **1.1.0** running, `update check: up to
+date`, `RecordedAt refreshed` on the skipped pull, badge `synced 26/08/02 01:59 PM`.
+
 **▶ SHIPPED 2026-08-02 — `velopack-self-update`: TSM ships as a self-updating Velopack installer**
 (openspec change, spec `self-update` — 15th capability; plan user-approved with two decisions:
 startup-only check surface, first tag `v1.1.0`). TP's proven model with the two WinUI deltas:
