@@ -5,7 +5,7 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-07-29)
+## Status — pick up here (2026-08-02)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -30,7 +30,11 @@ both shipped, verified and archived. 2026-07-29 closed the rotation + RA/DEC def
 `Rot` column, the `framing` badge) — also shipped, verified and archived, adding **`framing-keys`** as a
 14th capability spec — and then **`framing-overlap-column`** the same day: the framing badge prices itself
 (`framing 57%`, deepest visible line only), unreadable frames stop being silent, and **Hours became a
-progress gauge** (owed time or captured total, never a signed sum). The load-split is
+progress gauge** (owed time or captured total, never a signed sum). 2026-08-02 gave TSM its **public face + distribution**: the GitHub mirror
+(github.com/Apoplectic1/TargetSchedulerManager — local stays ground truth, `main` only pushes tagged;
+README storefront + MIT), the sync badge's "last proven in sync" semantics, and **`velopack-self-update`**
+(self-updating Velopack installer on GitHub Releases, local-build only — AL ships compiled, source
+unpublished; 15th spec) — shipped, v1.1.0 released, archived. Rules: `RELEASING.md`. The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is
