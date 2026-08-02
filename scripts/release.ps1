@@ -42,6 +42,13 @@ try {
     $publish = Join-Path $repoRoot 'TargetSchedulerManager.App\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish'
     if (-not (Test-Path (Join-Path $publish 'tsmui.exe'))) { throw "Publish output not found at $publish" }
 
+    # AL coordination gate (see RELEASING.md): the payload embeds the sibling Library working
+    # tree at pack time, unpinned - it must be a published (tagged, clean) AL state.
+    $alDirty = git -C (Join-Path $repoRoot '..\Library') status --porcelain
+    if ($alDirty) { throw "..\Library working tree is dirty - commit and release AL first (Library\RELEASING.md)." }
+    $alVer = (Get-Item (Join-Path $publish 'Astronomy.Core.dll')).VersionInfo.ProductVersion
+    if ($alVer -match '-alpha') { throw "Embedded Astronomy.Core.dll stamps '$alVer' (untagged AL state) - release AL first (Library\RELEASING.md)." }
+
     Write-Host "`n--> vpk pack" -ForegroundColor Cyan
     vpk pack `
         -u TargetSchedulerManager `
