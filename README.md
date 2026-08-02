@@ -37,9 +37,21 @@ personal tool.
 ## Status
 
 A personal tool, developed and used nightly by its author; published here as its public face.
-The source is offered for reading and reference — **a fresh clone does not build**, because TSM
-references a sibling shared astronomy library that is not yet published (its compiled assemblies
-ship inside the installer).
+
+## Build from source
+
+TSM references the shared [Astronomy Library](https://github.com/Apoplectic1/Astronomy-Library)
+via `ProjectReference` and expects it as a **sibling directory named `Library`**:
+
+```powershell
+git clone https://github.com/Apoplectic1/Astronomy-Library Library
+git clone https://github.com/Apoplectic1/TargetSchedulerManager TargetSchedulerManager
+cd TargetSchedulerManager
+dotnet build TargetSchedulerManager.App -c Release -r win-x64
+```
+
+Requires the .NET 10 SDK; TSM consumes only the Library's managed projects, so no native
+toolchain is needed. Its compiled `Astronomy.*` assemblies also ship inside the installer.
 
 ## Repo layout
 
