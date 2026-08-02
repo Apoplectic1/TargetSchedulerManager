@@ -33,11 +33,11 @@ No other remotes.
 
 Installers ship as GitHub Releases **packed and uploaded from this machine, by decision** —
 pinned as a requirement in spec `openspec/specs/self-update/` ("Releases build locally, never in
-CI"; the CI alternative was designed and deliberately dropped 2026-08-02, because local-build
-keeps AL off GitHub entirely — it ships only as compiled DLLs inside the installer). Separately,
-AL's absence from GitHub is why CI isn't even an *option*: no checkout could resolve TSM's
-`..\Library` `ProjectReference`s. If AL ever gets a mirror, that constraint goes away but the
-decision stands — local-build remains the contract until the spec is deliberately changed.
+CI"; the CI alternative was designed and deliberately dropped 2026-08-02). AL has since been
+mirrored publicly (github.com/Apoplectic1/Astronomy-Library, later the same day), so the
+original hard constraint — no checkout could resolve TSM's `..\Library` `ProjectReference`s —
+is gone, but the decision stands on its own merits: local-build remains the contract until the
+spec is deliberately changed.
 
 One-time setup: `dotnet tool install -g vpk`, and `$env:GITHUB_TOKEN` = a PAT with `public_repo`
 scope (only needed for upload; `-NoUpload` dry-runs without it).
@@ -71,8 +71,9 @@ simplify them for browsing — the README is the human layer on top.
 ## Content rules (what is deliberately public)
 
 - **The shared library ships compiled.** Release packages carry the `Astronomy.*` assemblies as
-  DLLs — AL's *source* stays unpublished, but its binaries are publicly downloadable in every
-  release. A deliberate call (2026-08-02): "AL stays private" means source, not bits.
+  DLLs; since 2026-08-02 AL's source is also publicly mirrored at
+  github.com/Apoplectic1/Astronomy-Library (its own RELEASING.md governs that mirror — tagged
+  source snapshots only, no binary releases; installers like TSM's remain AL's binary channel).
 - **Site coordinates + local paths ship in `DevDefaults.cs`** — a deliberate solo-consumer
   trade-off, same call TP made (see TP `DOMAIN.md` → personal presets; same site, already the
   author's stated convention). `BIRDWATCHER` is a LAN hostname; `E:\…` paths are this machine's.
