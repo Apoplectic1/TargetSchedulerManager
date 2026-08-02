@@ -1,7 +1,7 @@
 # TargetSchedulerManager
 
-A Windows desktop manager for the [N.I.N.A.](https://nighttime-imaging.eu/)
-[Target Scheduler](https://tcpalmer.github.io/nina-scheduler/) database — see every scheduler plan
+A Windows desktop manager for the database of [Target Scheduler](https://tcpalmer.github.io/nina-scheduler/),
+Tom Palmer's scheduling plugin for [N.I.N.A.](https://nighttime-imaging.eu/) — see every scheduler plan
 next to what's actually on disk, edit safely on a local copy, and push reviewed changes back to the
 imaging rig.
 
