@@ -32,8 +32,9 @@ dev builds can never roll out). `scripts/release.ps1` packs the **publish** outp
 self-contained WinUI needs the runtimes in the payload — TP packs bare build output; TSM can't).
 MinVer stamps from the same `vX.Y.Z` tags that gate `main` pushes. Docs: RELEASING.md distribution
 flips local-build (AL ships as DLLs, source stays unpublished), README Install section,
-VERIFICATION release recipe. Tests 324/324 via slnx. **Pending:** user dry-run install
-(tasks 5.1–5.2) then the real `v1.1.0`; the update *prompt* proves itself on v1.1.1+.
+VERIFICATION release recipe. Tests 324/324 via slnx. **Closed same day:** dry-run install verified,
+`v1.1.0` then `v1.1.1` released (vpk CLI + library both 1.2.0 for the latter), and the installed
+1.1.0 → prompt → accept → restart-as-1.1.1 hop **user-verified** — every part of the mechanism proven.
 
 **▶ SHIPPED 2026-08-02 — first publish: README + MIT LICENSE + `v1.0.0` to the GitHub mirror.** The
 storefront README (what/grid screenshot/status/repo-layout/license — user-approved) plus MIT `LICENSE`
