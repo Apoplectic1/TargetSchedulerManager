@@ -183,7 +183,9 @@ public sealed class ReconciliationRow(
     public double? DiskHours { get; } = numbers.DiskHours;
 
     /// <summary>True when the rollup's sub lengths aren't all one identical value (2+ distinct times
-    /// across the plan and disk sides) — the Seconds cell reads "mixed" and the row is expandable.</summary>
+    /// across the plan and disk sides) — the Seconds cell reads "mixed" then, and only then (obs 90f0:
+    /// a configuration split at one shared length shows that length; the disagreeing dimension's own
+    /// cell carries its "mixed"). Expandability is <see cref="Detail"/>'s, not this flag's.</summary>
     public bool SecondsMixed { get; } = secondsMixed;
 
     /// <summary>True for a one-plane source line living under a rollup's disclosure (extra indent).</summary>
@@ -238,10 +240,11 @@ public sealed class ReconciliationRow(
     }
 
     /// <summary>True when Desired is directly editable: exactly one TS plan behind this row, with a plan side
-    /// present, at the row showing that plan's own exposure time — a mixed rollup aggregates sub lengths, so
-    /// its box moves down to the plan's detail line (each plan is inline-editable in exactly one place; the
-    /// rollup keeps its flyout gesture via <see cref="PlanTsKey"/>).</summary>
-    public bool CanEditDesired => PlanTsKey is not null && Desired is not null && !SecondsMixed;
+    /// present, on a row with no disclosure — an undisclosed rollup's box moves down to the plan's own
+    /// detail line (each plan is inline-editable in exactly one place; the rollup keeps its flyout gesture
+    /// via <see cref="PlanTsKey"/>). Gates on <see cref="Detail"/>, not <see cref="SecondsMixed"/>: a
+    /// same-length configuration split still discloses, and its box still lives on the detail line.</summary>
+    public bool CanEditDesired => PlanTsKey is not null && Desired is not null && Detail is null;
 
     /// <summary>Desired as a NumberBox value (the real count on editable rows; a 0 stand-in elsewhere).</summary>
     public double DesiredValue => Desired ?? 0;

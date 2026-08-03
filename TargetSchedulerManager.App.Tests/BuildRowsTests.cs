@@ -35,8 +35,11 @@ public class BuildRowsTests
 
         // The filter still has both planes, so its rollup stays "Both" — but it keeps its disclosure, and
         // beneath it the planes are separate. Never one merged line asserting the frames satisfy the plan.
+        // The Seconds cell shows the SHARED 300 (obs 90f0): both sub lengths agree — the disagreeing
+        // configuration dimension carries its own "mixed", Seconds never lies about lengths.
         ReconciliationRow rollup = Assert.Single(rows);
-        Assert.True(rollup.SecondsMixed);
+        Assert.False(rollup.SecondsMixed);
+        Assert.Equal("300", rollup.SecondsText);
         Assert.NotNull(rollup.Detail);
         Assert.DoesNotContain(rollup.Detail!, r => r.Plane == RowPlane.Both);
         ReconciliationRow ts = Assert.Single(rollup.Detail!, r => r.Plane == RowPlane.Ts);

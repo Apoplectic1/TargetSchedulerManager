@@ -212,6 +212,11 @@ public static class ReconciliationLoader
                     bool matchedSingle = planCells.Count == 1 && diskCells.Count == 1
                         && ReferenceEquals(planCells[0], diskCells[0]);
                     bool mixed = !matchedSingle;
+                    // The Seconds cell speaks only about sub lengths (obs 90f0): a configuration split at
+                    // one shared length keeps its disclosure, but the disagreeing dimension's own cell
+                    // (gain "mixed", …) names the reason — Seconds shows the shared value. "mixed" there
+                    // means the lengths themselves differ, nothing else.
+                    bool lengthsMixed = planCells.Concat(diskCells).Select(c => c.Seconds).Distinct().Count() > 1;
 
                     // The rollup's own camera/framing provenance is the union over its disk-side cells, so a
                     // bad capture directory or a stray framing anywhere beneath it is visible without
@@ -241,7 +246,7 @@ public static class ReconciliationLoader
                             DiskHours: diskCells.Sum(c => c.Disk * (double)c.Seconds) / 3600.0,
                             RemainingHours: planCells.Sum(CellRemainingHours)),
                         Badges.Join(Badges.Split(rollupBadge).Select(t => t.Token).Distinct()), rollupFlagged,
-                        secondsMixed: mixed,
+                        secondsMixed: lengthsMixed,
                         detail: mixed ? detail : null,
                         // One plan behind the group ⇒ the rollup keeps its flyout anchor, even when it is
                         // mixed. The INLINE Desired box is gated separately by CanEditDesired (!SecondsMixed),

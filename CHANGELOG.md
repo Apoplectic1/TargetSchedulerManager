@@ -30,7 +30,11 @@ stays as generic sync capability with no app-side producer. Mid-change (obs 3eba
 **all dialogs now open centered** — open-near-the-row anchor seeding retired by user call; translating
 the ContentDialog full-window overlay against an anchor races layout and can land the visible box
 off-screen, an invisible modal that eats every click and reads as a UI hang. Movability by drag stays;
-flyouts spec requirement renamed to "movable centered dialog". Tests: App 362 · Catalog 255.
+flyouts spec requirement renamed to "movable centered dialog". Verify round 3 (obs 90f0): the rollup
+**Seconds cell no longer says `mixed` for a same-length configuration split** — `SecondsMixed` now means
+the sub lengths truly differ (the disagreeing dimension's own cell carries its `mixed`, per the
+reconciliation-grid shared-value principle); disclosure/Desired-gating key off `Detail` instead.
+Tests: App 362 · Catalog 255.
 
 **▶ SHIPPED 2026-08-03 — `adopt-disk-rows`: right-click adoption of disk-only cells into TS** (openspec
 archived `2026-08-03-adopt-disk-rows`; **`disk-row-adoption` = 16th capability spec**; Library gained the
