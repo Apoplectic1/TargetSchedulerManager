@@ -54,6 +54,8 @@ internal sealed class DiagnosticsWindow : Window
             });
 
         Title = $"Diagnostics (id={_session.Id})";
+        // Same title-bar icon as MainWindow (SetIcon resolves relative paths against the CWD, hence absolute).
+        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"));
         AppWindow.Resize(new SizeInt32(660, 360));   // wide enough for the button row + "captured N (delayed) · hh:mm:ss"
         CenterOverOwner(owner);         // TP's StartPosition.CenterParent — default placement can land on another monitor
         if (AppWindow.Presenter is OverlappedPresenter p)
