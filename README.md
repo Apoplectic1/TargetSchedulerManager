@@ -19,6 +19,10 @@ imaging rig.
 - **Safe editing via pull → journal → push.** The app never edits the rig's live database directly.
   It pulls a local working copy at open (skipped when provably unchanged), journals every edit, and
   pushes them back only through a reviewed confirmation that replays exactly the edited fields.
+- **Adopt history into the plan.** A disk-only cell — captured frames with no corresponding TS
+  plan — becomes one right-click: pick the project and an existing exposure template, and TSM
+  creates the target and plan born complete (desired = acquired = the frames on disk), journaled
+  and pushable like any other edit.
 - **Visible tonight.** One click enables exactly the targets that clear a configurable altitude
   floor for a configurable duration tonight, and disables the rest — batch-applied, journaled, and
   pushable like any other edit.
