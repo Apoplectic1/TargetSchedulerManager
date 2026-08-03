@@ -65,6 +65,20 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   on all surfaces, the unpushed count, the push review/replay (no no-op writes — which for cadence-clearing
   fields would clear remote cadence for nothing), and the dirty-open prompt. Inbound facts are a separate
   store, so a field's pre-edit `←` survives the round-trip.
+- **Row creation is a journal citizen (2026-08-03, openspec `adopt-disk-rows`).** The "Add to TS" adoption
+  inserts `target`/`exposureplan` rows into the **local** copy through a guarded library primitive (same
+  guard order as `TrySetField`; a plan insert clears the target's `filtercadenceitem` rows in-transaction
+  and refuses on override-order rows) and journals each created row as an **insert entry** — the full
+  column payload as JSON plus the minted guid (the cross-copy name), keyed in the table's own key space
+  (target guid; plan local integer id). Insert entries have no baseline and never prune; they clear only by
+  push or discard (discard-and-pull is the undo). At push they replay **first**, targets before plans, as
+  remote INSERTs: the remote autoincrement mints its own id, parent references travel as **guids** wherever
+  ids can diverge (a plan's `targetid`, a target's `projectid`) and as the copy-stable integer id for
+  templates (never created locally). Field edits addressing an unpushed insert **fold into the INSERT
+  payload** — the row lands remotely with final values; a replay of them as UPDATEs keyed by the local id
+  would silently miss (the ids diverge). The push review shows a distinct **creates** section. After the
+  closing pull the inserted rows come back renumbered under the remote's ids (guid unchanged, journal
+  already clear) — see the marks section for why that never echoes as a phantom `←`.
 - **Push = journal replay, never a file copy.** A file push is a time machine — it would revert everything
   BIRDWATCHER accrued since the pull (NINA's nightly counts, `acquiredimage` history, XFM's grades). Instead
   the collapsed journal (last write per field, first write's old for review) replays: **write-back entries**
@@ -136,6 +150,14 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
   **absent from either snapshot is silently skipped** — a deliberate carve-out from the house fail-fast posture,
   because the differ is *observation, not contract*: a TS-side rename simply stops diffing that column instead
   of aborting the pull (`openspec/changes/archive/2026-07-08-edit-direction-marks/design.md` D2).
+- **Inserted rows mark `→` with no new machinery (2026-08-03):** an insert journal entry carries the row's
+  own (table, key), so the existing matching lights the row and rolls into headers; its tooltip line reads
+  "new row (created here)" — never the payload. The **renumbering echo** is killed inside the differ: the
+  snapshot also captures `guid` on id-keyed tables, and a row new-by-key **correlates to its before-row by
+  guid** — same guid under a different id = the same row renumbered by a pushed insert's round-trip
+  (field-diff under the new key, usually empty), different guid at the same id = a genuinely different row
+  (new-row entry, never a cross-row field diff). Stateless, so it survives a failed closing pull + restart —
+  the reason it replaced the push-time mask the design first chose (`adopt-disk-rows` design D3).
 - **The actuals mask:** when write-back stamps a plan's `acquired`/`accepted`, `RecordWriteBack` drops those
   columns from the plan's inbound entries — disk supersedes the rig's totals, so the row reads `→` (never
   `⇄`) and goes clean after push, not stale-`←`. `desired` is deliberately not masked: a rig-side goal change
@@ -190,7 +212,9 @@ the mechanism there):
   exactly that bucket — **0 when none match** (a flagged decrease; 600 s frames never satisfy a 900 s plan).
   Same-purpose plans at *different* durations are different cells and auto-resolve; disk buckets no plan
   targets are surfaced as `UnplannedFrames` notes, never written and never manual — **write-back updates
-  existing plan rows only** (plan creation/deletion is an M2 concern).
+  existing plan rows only**. Plan *creation* exists since 2026-08-03 but is a separate, user-initiated act
+  (the right-click adoption, openspec `disk-row-adoption`), never something this automatic pass performs;
+  an adopted plan is just an ordinary existing plan on the next pass.
 - **Only serving framings credit** (2026-07-29, openspec `rotation-framing-key`). Within the join's bucket,
   a frame counts toward `acquired` only when its framing serves the target's rotation
   (`FramingCluster.ServesPlanRotation` — the same rule the grid pairs and badges by): sky framing must agree

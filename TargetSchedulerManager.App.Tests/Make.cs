@@ -32,9 +32,11 @@ internal static class Make
         RowSource? panelSource = null,
         string? planTsKey = null, bool? planEnabled = null,
         string? tsTargetKey = null,
-        bool enabled = true) =>
+        bool enabled = true,
+        Guid targetId = default,
+        RowConfig? config = null) =>
         new(new RowIdentity(target, "proj", source, panelKey, panelLabel, panelSource,
-                enabled, tsTargetKey, TargetId: default, ProjectTsKey: null),
+                enabled, tsTargetKey, TargetId: targetId, ProjectTsKey: null),
             filter, purpose, plane,
             new RowNumbers(
                 PlanSeconds: planSeconds, DiskSeconds: diskSeconds,
@@ -46,7 +48,7 @@ internal static class Make
                     ? Math.Max(0, dd - (acquired ?? 0)) * (double)planSeconds / 3600.0
                     : null),
             badge, flagged, mixed, isDetail, detail,
-            planTsKey: planTsKey, planEnabled: planEnabled);
+            planTsKey: planTsKey, planEnabled: planEnabled, config: config);
 
     /// <summary>A one-plane TS leaf: commitment only (no disk side).</summary>
     public static ReconciliationRow Ts(string target = "T", string filter = "H", int desired = 10,

@@ -188,6 +188,63 @@ public sealed partial class MainViewModel
         return true;
     }
 
+    // ---- disk-row adoption (openspec disk-row-adoption) -------------------------------------------------
+
+    /// <summary>Menu gating for "Add TS plan… / Add to TS…": a disk-only cell with no TS plan at its
+    /// (filter, purpose, seconds) — split rows and disk-only mosaic panels excluded (planner rule). False
+    /// before a load (no snapshot to decide against).</summary>
+    public bool IsRowAdoptable(ReconciliationRow row) =>
+        _lastLoad is { Ts: { } ts } && AdoptionPlanner.IsEligible(row, ts);
+
+    /// <summary>The project-picker list for a target-creating adoption (existing non-mosaic projects only).</summary>
+    public IReadOnlyList<TsProject> AdoptableProjects() =>
+        _lastLoad is { Ts: { } ts } ? AdoptionPlanner.PickableProjects(ts) : [];
+
+    /// <summary>The confirm-dialog seeds for a target-creating adoption (name, centroid, seeded rotation);
+    /// null when unavailable — the caller falls through to <see cref="AdoptRowAsync"/>, whose refusal names
+    /// why.</summary>
+    public (string Name, double RaHours, double DecDegrees, double? SeededRotationDeg)? GetAdoptionTargetFacts(
+        ReconciliationRow row) =>
+        _lastLoad is { Graph: { } graph } ? AdoptionPlanner.TargetFacts(row, graph) : null;
+
+    /// <summary>
+    /// The "Add to TS" action: plans the adoption (template auto-match, born-complete counts, target payload
+    /// when <paramref name="project"/> names the new target's home), applies it atomically through the
+    /// gate's insert path (journals, marks), and reloads without a pull so the cell re-reconciles to Both.
+    /// A planner hold (no/ambiguous template, missing centroid) or a gate refusal lands on the status line;
+    /// nothing was written then.
+    /// </summary>
+    public async Task<bool> AdoptRowAsync(ReconciliationRow row, TsProject? project)
+    {
+        string label = Format.Label(row.Target, row.Filter);
+        if (RefuseIfBusy($"Add to TS for {label}"))
+            return false;
+        if (_lastLoad is not LoadResult load)
+        {
+            StatusText = "no load yet — nothing to adopt against";
+            return false;
+        }
+
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project);
+        if (plan is null)
+        {
+            StatusText = refusal ?? $"can't add {label} to TS";
+            Log.Warn($"ADOPT held: {refusal}");
+            return false;
+        }
+
+        EditOutcome outcome = await WithEditInFlightAsync(() => _gate.ApplyInsertAsync(plan.Rows, plan.Label));
+        if (!ApplyOutcome(outcome, plan.Label))
+            return false;
+
+        StatusText = plan.CreatesTarget
+            ? $"added TS target + plan for {plan.Label} (template '{plan.Template.Name}', desired {row.Disk}) — unpushed"
+            : $"added TS plan for {plan.Label} (template '{plan.Template.Name}', desired {row.Disk}) — unpushed";
+        Log.Info($"ADOPT applied: {StatusText}");
+        await LoadAsync(PullPolicy.Never);   // the created rows re-reconcile the cell to Both, marks ride the reload
+        return true;
+    }
+
     // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has
     // one) — O(1) via the owner map ApplyFilters maintains (review N6; was a groups × children scan per
     // committed edit). A row not in the map (a rollup's detail line) is the same no-op the scan produced.

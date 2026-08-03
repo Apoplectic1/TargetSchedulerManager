@@ -306,5 +306,8 @@ internal sealed class TsEditGateTests_Stub : TargetSchedulerManager.App.Shared.I
     public bool IsFieldAvailable(Astronomy.Catalog.TargetScheduler.TsTable table, string column) => true;
     public (bool Found, double? Value) EffectiveExposure = (false, null);
     public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => EffectiveExposure;
+    public (Astronomy.Catalog.TargetScheduler.InsertOutcome? Outcome, Astronomy.Catalog.TargetScheduler.RefusalReason Refusal) TryInsertRows(
+        IReadOnlyList<Astronomy.Catalog.TargetScheduler.TsRowInsert> rows) =>
+        (null, Astronomy.Catalog.TargetScheduler.RefusalReason.SchemaIncompatible);   // no test drives inserts through this stub
     public void Dispose() { }
 }

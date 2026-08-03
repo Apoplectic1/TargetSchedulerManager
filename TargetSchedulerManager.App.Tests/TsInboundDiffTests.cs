@@ -219,9 +219,67 @@ public class TsInboundDiffTests
 
     /// <summary>A real db carrying the four diffed TS tables (empty). The template table is a representative
     /// subset of the editable columns — absent ones exercise the drift-skip path.</summary>
+    // ---- renumbered-row correlation (adopt-disk-rows: pushed inserts come back with the remote's id) ------
+
+    [Fact]
+    public void PullDiff_RenumberedPlanSameGuid_NoPhantomNewRow()
+    {
+        // A locally created plan (local id 900) replays at push as a remote INSERT; the closing pull brings
+        // it back under the remote's minted id. Same guid + same values = the same row — never a "new row".
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetPlan(sync.RemotePath, id: 900, desired: 42, guid: "ep-g");
+        sync.Pull(sync.ProbeRemote()!);                       // local now holds the row as id 900
+
+        Exec(sync.RemotePath, "DELETE FROM exposureplan WHERE Id = 900;");
+        SetPlan(sync.RemotePath, id: 712, desired: 42, guid: "ep-g");
+        sync.Pull(sync.ProbeRemote()!);
+
+        Assert.True(sync.Inbound.IsEmpty);                    // correlated by guid — no phantom ← entry
+    }
+
+    [Fact]
+    public void PullDiff_RenumberedPlanWithRemoteFieldChange_DiffsUnderTheNewKey()
+    {
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetPlan(sync.RemotePath, id: 900, desired: 42, guid: "ep-g");
+        sync.Pull(sync.ProbeRemote()!);
+
+        Exec(sync.RemotePath, "DELETE FROM exposureplan WHERE Id = 900;");
+        SetPlan(sync.RemotePath, id: 712, desired: 50, guid: "ep-g");   // renumbered AND changed
+        sync.Pull(sync.ProbeRemote()!);
+
+        TsInboundChange change = Assert.Single(sync.Inbound.Snapshot());
+        Assert.Equal("712", change.Key);                      // the key the reloaded grid resolves
+        Assert.Equal("desired", change.Column);
+        Assert.Equal("42", change.Old);
+        Assert.Equal("50", change.New);
+    }
+
+    [Fact]
+    public void PullDiff_IdCollisionDifferentGuid_IsANewRow_NeverACrossRowDiff()
+    {
+        // The remote minted the SAME integer id for a DIFFERENT row (NINA added a plan while our local
+        // insert held that id). Guid disagreement means these are not the same row: report the remote one as
+        // new; never field-diff two unrelated rows against each other.
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        CreateTsDb(sync.RemotePath);
+        SetPlan(sync.RemotePath, id: 900, desired: 42, guid: "ep-mine");
+        sync.Pull(sync.ProbeRemote()!);
+
+        Exec(sync.RemotePath, "DELETE FROM exposureplan WHERE Id = 900;");
+        SetPlan(sync.RemotePath, id: 900, desired: 7, guid: "ep-theirs");
+        sync.Pull(sync.ProbeRemote()!);
+
+        TsInboundChange change = Assert.Single(sync.Inbound.Snapshot());
+        Assert.Equal(TsInboundDiff.NewRowColumn, change.Column);   // a new row — not "desired 42 → 7"
+        Assert.Equal("900", change.Key);
+    }
+
     private static void CreateTsDb(string path) => Exec(path,
         "CREATE TABLE IF NOT EXISTS target (Id INTEGER PRIMARY KEY, name TEXT, active INTEGER, ra REAL, dec REAL, rotation REAL, priority INTEGER, guid TEXT);"
-        + "CREATE TABLE IF NOT EXISTS exposureplan (Id INTEGER PRIMARY KEY, exposure REAL, desired INTEGER, acquired INTEGER, accepted INTEGER, exposureTemplateId INTEGER, enabled INTEGER);"
+        + "CREATE TABLE IF NOT EXISTS exposureplan (Id INTEGER PRIMARY KEY, exposure REAL, desired INTEGER, acquired INTEGER, accepted INTEGER, exposureTemplateId INTEGER, enabled INTEGER, guid TEXT);"
         + "CREATE TABLE IF NOT EXISTS project (Id INTEGER PRIMARY KEY, state INTEGER, priority INTEGER, minimumtime INTEGER, minimumaltitude REAL, maximumaltitude REAL,"
         + " usecustomhorizon INTEGER, horizonoffset REAL, meridianwindow INTEGER, ditherevery INTEGER, enablegrader INTEGER, smartexposureorder INTEGER,"
         + " flatshandling INTEGER, filterswitchfrequency INTEGER, guid TEXT);"
@@ -233,9 +291,9 @@ public class TsInboundDiffTests
         + $" VALUES ({id}, '{name}', 'H', 111, 10, 1, 900.0, {moonAvoidance}, 60.0)"
         + $" ON CONFLICT(Id) DO UPDATE SET moonavoidanceenabled = {moonAvoidance};");
 
-    private static void SetPlan(string path, long id, int desired) => Exec(path,
-        $"INSERT INTO exposureplan (Id, exposure, desired, acquired, accepted, exposureTemplateId, enabled)"
-        + $" VALUES ({id}, 300.0, {desired}, 0, 0, 1, 1)"
+    private static void SetPlan(string path, long id, int desired, string? guid = null) => Exec(path,
+        $"INSERT INTO exposureplan (Id, exposure, desired, acquired, accepted, exposureTemplateId, enabled, guid)"
+        + $" VALUES ({id}, 300.0, {desired}, 0, 0, 1, 1, {(guid is null ? "NULL" : $"'{guid}'")})"
         + $" ON CONFLICT(Id) DO UPDATE SET desired = {desired};");
 
     private static void SetProject(string path, long id, string guid, int minimumAltitude) => Exec(path,

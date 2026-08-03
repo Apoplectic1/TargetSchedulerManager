@@ -85,6 +85,41 @@ internal sealed class RecordingEditor : ITsEditor
     public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) => (false, null);
     public bool IsFieldAvailable(TsTable table, string column) => true;
     public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => (false, null);
+
+    /// <summary>Recorded insert batches (the push insert leg / the gate's local insert). Parent guid values
+    /// listed in <see cref="UnresolvedParentGuids"/> report an unresolved-parent rollback;
+    /// <see cref="FailInsertVerify"/> reports a landed-but-unverified row. Minted row ids count up from 700.</summary>
+    public List<TsRowInsert> Inserts { get; } = [];
+    public HashSet<string> UnresolvedParentGuids { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public bool FailInsertVerify { get; set; }
+    private long _nextRowId = 700;
+
+    public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows)
+    {
+        if (RefuseAll != RefusalReason.None)
+            return (null, RefuseAll);
+        string[] parents = ["targetid", "exposureTemplateId", "projectid"];
+        RowInsertResult[] results = new RowInsertResult[rows.Count];
+        for (int i = 0; i < rows.Count; i++)
+        {
+            string? unresolved = rows[i].Payload
+                .Where(kv => parents.Contains(kv.Key, StringComparer.OrdinalIgnoreCase)
+                    && kv.Value is string guid && UnresolvedParentGuids.Contains(guid))
+                .Select(kv => kv.Key)
+                .FirstOrDefault();
+            if (unresolved is not null)
+            {
+                for (int n = 0; n < rows.Count; n++)
+                    results[n] ??= new RowInsertResult(RowId: 0, Verified: false);
+                results[i] = new RowInsertResult(RowId: 0, Verified: false, UnresolvedParentColumn: unresolved);
+                return (new InsertOutcome(Applied: false, results), RefusalReason.None);
+            }
+            results[i] = new RowInsertResult(_nextRowId++, Verified: !FailInsertVerify);
+        }
+        Inserts.AddRange(rows);
+        return (new InsertOutcome(Applied: true, results), RefusalReason.None);
+    }
+
     public void Dispose() { }
 }
 

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 
@@ -11,6 +13,7 @@ internal interface ITsEditor : IDisposable
     (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column);
     bool IsFieldAvailable(TsTable table, string column);
     (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey);
+    (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows);
 }
 
 /// <summary>Production adapter: opens a real <see cref="TargetSchedulerEditor"/> on the given path.</summary>
@@ -26,6 +29,8 @@ internal sealed class TsEditorAdapter : ITsEditor
         _editor.IsFieldAvailable(table, column);
     public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) =>
         _editor.ReadPlanEffectiveExposure(tsPlanKey);
+    public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows) =>
+        _editor.TryInsertRows(rows);
     public void Dispose() => _editor.Dispose();
 }
 
@@ -154,6 +159,53 @@ internal sealed class TsEditGate(TsSync sync, Func<string, ITsEditor> editorFact
                     outcomes.Add(new EditOutcome.Failed(Found: false, Verified: false));
             }
             return outcomes;
+        });
+
+    /// <summary>
+    /// Guard-checks and applies one row-creation batch (a plan, or a target plus its first plan) to the
+    /// local TS db <b>atomically</b> — all rows or none — off the UI thread; each landed row journals an
+    /// insert entry so the creation replays at push. Journal keys follow each table's own key space (target
+    /// guid; plan local integer id, known only after the insert mints it), so marks and later field edits on
+    /// the created rows resolve with no special cases.
+    /// </summary>
+    public Task<EditOutcome> ApplyInsertAsync(IReadOnlyList<TsRowInsert> rows, string label) =>
+        Task.Run<EditOutcome>(() =>
+        {
+            try
+            {
+                using ITsEditor editor = _editorFactory(_sync.LocalPath);
+                (InsertOutcome? outcome, RefusalReason refusal) = editor.TryInsertRows(rows);
+                if (refusal != RefusalReason.None)
+                {
+                    Log.Warn($"insert refused for \"{label}\": {refusal}");
+                    return new EditOutcome.Refused(refusal);
+                }
+                if (outcome is not { Applied: true } || outcome.Rows.Any(r => !r.Succeeded))
+                {
+                    string detail = outcome is { Applied: false }
+                        ? $"parent not found ({outcome.Rows.FirstOrDefault(r => r.UnresolvedParentColumn is not null)?.UnresolvedParentColumn})"
+                        : "read-back did not verify";
+                    Log.Error($"insert failed for \"{label}\": {detail}");
+                    return new EditOutcome.Failed(Found: outcome?.Applied ?? false, Verified: false);
+                }
+
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    TsRowInsert row = rows[i];
+                    string guid = (string)row.Payload.First(kv => kv.Key.Equals("guid", StringComparison.OrdinalIgnoreCase)).Value!;
+                    string key = row.Table == TsTable.Target
+                        ? guid
+                        : outcome.Rows[i].RowId.ToString(CultureInfo.InvariantCulture);
+                    _sync.RecordInsert(row.Table, key, JsonSerializer.Serialize(row.Payload), guid, label);
+                    Log.Info($"INSERT {row.Table} \"{label}\" (local id {outcome.Rows[i].RowId}, guid {guid}) on local {_sync.LocalPath} (journaled)");
+                }
+                return new EditOutcome.Applied(Old: null, New: null);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"insert threw for \"{label}\"", ex);
+                return new EditOutcome.Failed(Found: false, Verified: false);
+            }
         });
 
     // The per-edit contract, shared by the single and batch paths.

@@ -137,6 +137,14 @@ internal static class TsInboundDiff
             string[] cols = [.. columns.Where(present.Contains)];
             if (cols.Length == 0)
                 continue;
+            // Id-keyed tables also capture guid (never diffs — a row's guid is immutable): it lets Diff
+            // correlate rows whose integer id changed between snapshots — a locally created row comes back
+            // from its push renumbered by the remote's autoincrement, and a local-minted id can even collide
+            // with a remote-minted id for a DIFFERENT row. Correlating by the cross-copy name prevents both
+            // a phantom "new row" and a cross-row field diff.
+            if (!keyColumn.Equals("guid", StringComparison.OrdinalIgnoreCase)
+                && present.Contains("guid") && !cols.Contains("guid", StringComparer.OrdinalIgnoreCase))
+                cols = [.. cols, "guid"];
 
             Dictionary<string, Dictionary<string, string?>> rows = new(StringComparer.OrdinalIgnoreCase);
             using SqliteCommand cmd = connection.CreateCommand();
@@ -170,9 +178,27 @@ internal static class TsInboundDiff
         foreach ((TsTable table, Dictionary<string, Dictionary<string, string?>> afterRows) in after)
         {
             before.TryGetValue(table, out Dictionary<string, Dictionary<string, string?>>? beforeRows);
+            Dictionary<string, Dictionary<string, string?>>? beforeByGuid = null;   // built on first need
             foreach ((string key, Dictionary<string, string?> afterColumns) in afterRows)
             {
-                if (beforeRows is null || !beforeRows.TryGetValue(key, out Dictionary<string, string?>? beforeColumns))
+                // Correlate guid-first: a key match only counts when the guids agree (or either side has no
+                // guid data — then the key is all there is). A guid found under a DIFFERENT key is the same
+                // row renumbered (a pushed local creation coming back with the remote's minted id) — diff its
+                // fields under the new key instead of reporting a phantom new row.
+                string? afterGuid = afterColumns.GetValueOrDefault("guid");
+                Dictionary<string, string?>? beforeColumns = null;
+                if (beforeRows is not null && beforeRows.TryGetValue(key, out Dictionary<string, string?>? byKey)
+                    && (afterGuid is null || byKey.GetValueOrDefault("guid") is not string beforeGuid
+                        || string.Equals(beforeGuid, afterGuid, StringComparison.OrdinalIgnoreCase)))
+                {
+                    beforeColumns = byKey;
+                }
+                else if (afterGuid is not null && beforeRows is not null)
+                {
+                    beforeByGuid ??= IndexByGuid(beforeRows);
+                    beforeColumns = beforeByGuid.GetValueOrDefault(afterGuid);
+                }
+                if (beforeColumns is null)
                 {
                     changes.Add(new TsInboundChange(table, key, NewRowColumn, null, "row"));
                     continue;
@@ -187,6 +213,18 @@ internal static class TsInboundDiff
             }
         }
         return changes;
+    }
+
+    // The before-rows re-keyed by guid, for the renumbered-row correlation (rows without a guid value can
+    // never correlate this way and are skipped).
+    private static Dictionary<string, Dictionary<string, string?>> IndexByGuid(
+        Dictionary<string, Dictionary<string, string?>> rows)
+    {
+        Dictionary<string, Dictionary<string, string?>> byGuid = new(StringComparer.OrdinalIgnoreCase);
+        foreach (Dictionary<string, string?> columns in rows.Values)
+            if (columns.GetValueOrDefault("guid") is string guid)
+                byGuid[guid] = columns;
+        return byGuid;
     }
 
     private static HashSet<string> TableColumns(SqliteConnection connection, string tableName)

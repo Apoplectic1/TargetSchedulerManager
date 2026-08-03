@@ -22,6 +22,8 @@ public class MainViewModelMarkTests
         public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) => (false, null);
         public bool IsFieldAvailable(TsTable table, string column) => true;
         public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => (false, null);
+        public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows) =>
+            (null, RefusalReason.SchemaIncompatible);   // no test drives inserts through this stub
         public void Dispose() { }
     }
 

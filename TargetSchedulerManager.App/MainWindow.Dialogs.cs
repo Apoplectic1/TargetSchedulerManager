@@ -1,8 +1,12 @@
+using System.Globalization;
+using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels;
+using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App;
 
@@ -50,8 +54,10 @@ public sealed partial class MainWindow
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
-    // Shared review body: staleness/busy facts up top, then the write-back count stamps (decreases first,
-    // caution-colored — a 0 from a scan miss is the dangerous half), then the manual field edits.
+    // Shared review body: staleness/busy facts up top, then the rows the push will CREATE (adoptions — a row
+    // coming into existence on BIRDWATCHER outranks a field change in review weight), then the write-back
+    // count stamps (decreases first, caution-colored — a 0 from a scan miss is the dangerous half), then the
+    // manual field edits.
     private static UIElement BuildReviewContent(PushReview review)
     {
         StackPanel panel = new() { Spacing = 10, MinWidth = 420 };
@@ -77,6 +83,23 @@ public sealed partial class MainWindow
                 IsOpen = true,
                 IsClosable = false,
             });
+        }
+
+        if (review.Creates.Count > 0)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"Creates — new TS rows ({review.Creates.Count})",
+                Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
+            });
+            foreach (PushReviewCreateLine line in review.Creates)
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = $"＋ {line.Label}  —  new {line.Entity}: {line.Summary}",
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            }
         }
 
         Brush? caution = ThemeBrushes.CautionText;
@@ -128,5 +151,62 @@ public sealed partial class MainWindow
             MaxHeight = 480,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
+    }
+
+    // The target-creating adoption's project-picker/confirm dialog (openspec disk-row-adoption): the disk
+    // target's facts (name, plate-solved centroid in TS units, the rotation a sky framing seeds) plus a
+    // picker over the existing non-mosaic projects — projects are never created here. Returns the picked
+    // project, or null on cancel (nothing is written then; the caller only acts on a pick).
+    private async Task<TsProject?> ShowAdoptTargetDialogAsync(ReconciliationRow row)
+    {
+        IReadOnlyList<TsProject> projects = ViewModel.AdoptableProjects();
+        if (projects.Count == 0)
+        {
+            ViewModel.NoteStatus("no TS projects to adopt into — create one in NINA's TS editor first");
+            return null;
+        }
+        if (ViewModel.GetAdoptionTargetFacts(row) is not { } facts)
+        {
+            ViewModel.NoteStatus($"can't add {Format.Label(row.Target, row.Filter)} to TS — no plate-solved centroid on disk");
+            return null;
+        }
+        (string name, double ra, double dec, double? rotation) = facts;
+
+        StackPanel panel = new() { Spacing = 10, MinWidth = 380 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Create TS target \"{name}\" from the disk centroid, plus one born-complete plan for "
+                + $"{Format.Label(row.Filter, $"{row.DiskSeconds}s")} (desired = acquired = {row.Disk}).",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"RA {ra.ToString("0.0000", CultureInfo.InvariantCulture)} h · "
+                + $"Dec {dec.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)}°"
+                + (rotation is double rot
+                    ? $" · rotation {rot.ToString("0.#", CultureInfo.InvariantCulture)}° (from the frames' sky angle)"
+                    : " · no rotation (none expressed on disk)"),
+        });
+        ComboBox picker = new()
+        {
+            Header = "Project",
+            ItemsSource = projects.Select(p => p.Name).ToList(),
+            SelectedIndex = 0,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        panel.Children.Add(picker);
+
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Add to TS",
+            Content = panel,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary && picker.SelectedIndex >= 0
+            ? projects[picker.SelectedIndex]
+            : null;
     }
 }

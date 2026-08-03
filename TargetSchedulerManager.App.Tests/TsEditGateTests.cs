@@ -25,6 +25,8 @@ public class TsEditGateTests
         public (bool Found, double? Value) EffectiveExposure = (false, null);
         public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) =>
             Throw ? throw new InvalidOperationException("boom") : EffectiveExposure;
+        public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows) =>
+            (null, RefusalReason.SchemaIncompatible);   // no test drives inserts through this stub
         public void Dispose() { }
     }
 
@@ -126,6 +128,8 @@ public class TsEditGateTests
         public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) => (false, null);
         public bool IsFieldAvailable(TsTable table, string column) => true;
         public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => (false, null);
+        public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows) =>
+            (null, RefusalReason.SchemaIncompatible);   // no test drives inserts through this stub
         public void Dispose() { }
     }
 

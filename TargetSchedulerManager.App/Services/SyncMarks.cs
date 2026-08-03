@@ -72,11 +72,14 @@ internal sealed class SyncMarks
                 TsValueText.ForField(c.Table, c.Column, c.New)));
 
         // Collapse() already carries the tooltip shape per field: the FIRST write's Old → the LAST value.
+        // An insert entry is a whole created row — its line renders as a creation, never as its payload.
         Dictionary<TsTable, Dictionary<string, List<Line>>> outb = [];
         foreach (TsJournalEntry e in journal.Collapse())
-            Add(outb, e.Table, e.Key, new Line(e.Column,
-                TsValueText.ForField(e.Table, e.Column, e.Old),
-                TsValueText.ForField(e.Table, e.Column, FormatValue(e.Value))));
+            Add(outb, e.Table, e.Key, e.Kind == TsEditKind.Insert
+                ? new Line(TsJournal.InsertColumn, null, null)
+                : new Line(e.Column,
+                    TsValueText.ForField(e.Table, e.Column, e.Old),
+                    TsValueText.ForField(e.Table, e.Column, FormatValue(e.Value))));
 
         Dictionary<Guid, List<string>> planKeys = [];
         Dictionary<Guid, List<string>> templateKeysByTarget = [];
@@ -268,8 +271,9 @@ internal sealed class SyncMarks
         if (source is null)
             return;
         string prefix = attribution is null ? $"{glyph} {origin}" : $"{glyph} {origin} — {attribution}";
-        lines.AddRange(source.Select(l => l.Column == TsInboundDiff.NewRowColumn
-            ? $"{prefix}: new row"
+        lines.AddRange(source.Select(l =>
+            l.Column == TsInboundDiff.NewRowColumn ? $"{prefix}: new row"
+            : l.Column == TsJournal.InsertColumn ? $"{prefix}: new row (created here)"
             : $"{prefix}: {l.Column} {l.Old ?? Format.Dash} → {l.New ?? Format.Dash}"));
     }
 

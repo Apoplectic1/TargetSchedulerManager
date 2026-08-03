@@ -240,7 +240,8 @@ goal of zero); measured disk-side absence = `0`.
 - **Edit flyout** (everything else, 2026-07-06): a **hover-revealed pencil glyph** (Opacity 0→1 via the
   template-root pointer handlers; `x:Name="EditGlyph"`) and a **right-click menu** ("Edit target…" / "Edit
   exposure plan…", built in code — `Row_RightTapped` — so items gate on row data; this menu is the extension
-  point for future row actions). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
+  point for future row actions — first exercised 2026-08-03 by the adoption items "Add TS plan…" / "Add to
+  TS…" on eligible disk-only rows, spec `disk-row-adoption`). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
   directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on

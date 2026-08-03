@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
@@ -18,9 +19,15 @@ internal sealed record PushReviewCountLine(
 /// <summary>One collapsed manual field edit for the push review: original → final value as display text.</summary>
 internal sealed record PushReviewFieldLine(string Label, string Column, string? Old, string New);
 
+/// <summary>One row the push will CREATE on the remote: the entity's identity plus a compact summary of the
+/// human-meaningful payload values — a reviewer sees exactly which rows come into existence before confirming.</summary>
+internal sealed record PushReviewCreateLine(string Label, string Entity, string Summary);
+
 /// <summary>Everything the push (and open-with-dirty) dialog shows: the collapsed journal split into the
-/// write-back summary and the manual edits, plus the staleness/busy facts from the latest remote probe.</summary>
+/// creates, the write-back summary, and the manual edits, plus the staleness/busy facts from the latest
+/// remote probe.</summary>
 internal sealed record PushReview(
+    IReadOnlyList<PushReviewCreateLine> Creates,
     IReadOnlyList<PushReviewCountLine> WriteBack,
     IReadOnlyList<PushReviewFieldLine> Manual,
     bool RemoteChangedSinceBaseline,
@@ -349,6 +356,12 @@ internal sealed class TsSync
     public void RecordEdit(TsTable table, string key, string column, object? value, string? old, string label) =>
         Journal.Append(TsEditKind.Manual, table, key, column, value, old, label);
 
+    /// <summary>Journals one verified row creation (the gate's insert path calls this after the local insert
+    /// landed and verified). <paramref name="key"/> is the row's key in its table's own key space;
+    /// <paramref name="rowGuid"/> is the minted cross-copy name the push replays the insert under.</summary>
+    public void RecordInsert(TsTable table, string key, string payloadJson, string rowGuid, string label) =>
+        Journal.AppendInsert(table, key, payloadJson, rowGuid, label);
+
     /// <summary>Journals one verified write-back column stamp (the post-load write-back step calls this).
     /// An <c>acquired</c>/<c>accepted</c> stamp also masks the plan's inbound actuals: disk supersedes the
     /// rig's totals, so the row's mark reads → (never ⇄, never a stale ← after push). A desired ratchet does
@@ -380,6 +393,13 @@ internal sealed class TsSync
     public PushReview PreparePush(TsDbStat? probe)
     {
         List<TsJournalEntry> collapsed = Journal.Collapse();
+        // The creates section: each insert entry named by its entity identity with the human-meaningful
+        // payload values (guid/profile/parent references are correlation plumbing, not review content).
+        List<PushReviewCreateLine> creates = [.. collapsed
+            .Where(e => e.Kind == TsEditKind.Insert)
+            .Select(e => new PushReviewCreateLine(e.Label,
+                e.Table == TsTable.Target ? "target" : "exposure plan", SummarizeInsert(e)))];
+
         // Old/new render sentinel-aware (a plan exposure of −1 reads "template default", never a raw −1
         // that looks like an ID); the replayed VALUE stays canonical — display only.
         List<PushReviewFieldLine> manual = [.. collapsed
@@ -414,7 +434,7 @@ internal sealed class TsSync
             .ThenBy(l => l.Label, StringComparer.OrdinalIgnoreCase)];
 
         return new PushReview(
-            writeBack, manual,
+            creates, writeBack, manual,
             RemoteChangedSinceBaseline: probe is not null && _state.Baseline is not null && !BaselineMatches(probe),
             RemoteBusy: probe?.HasSidecar == true,
             OldestEditAt: Journal.IsEmpty ? null : Journal.Entries.Min(e => e.At),
@@ -423,10 +443,13 @@ internal sealed class TsSync
 
     /// <summary>
     /// The push: probe (unreachable/busy refuse the whole push before any write), then replay the collapsed
-    /// journal — write-back plans first through the library writer, then manual field edits in seq order
-    /// through the guarded field editor (so an explicit later desired edit outranks the writer's ratchet).
-    /// Per-entry failures (row gone, verify mismatch) are reported loudly and their entries retained; a fully
-    /// applied push clears the journal and ends in a fresh pull that re-records the baseline.
+    /// journal in three legs — inserts first (created rows land remotely by guid, targets before plans, with
+    /// any journaled field edits on a created row FOLDED into its INSERT payload so the row lands with final
+    /// values — a remote UPDATE keyed by the row's local id would miss, the ids diverge), then write-back
+    /// plans through the library writer, then manual field edits in seq order through the guarded field
+    /// editor (so an explicit later desired edit outranks the writer's ratchet). Per-entry failures (row
+    /// gone, parent gone, verify mismatch) are reported loudly and their entries retained; a fully applied
+    /// push clears the journal and ends in a fresh pull that re-records the baseline.
     /// </summary>
     public PushResult Push(IProgress<int>? pullProgress = null, CancellationToken pullCancel = default)
     {
@@ -437,13 +460,32 @@ internal sealed class TsSync
         if (ProbePushPreconditions() is { } refused)
             return refused;
 
+        // Partition around the inserts: field entries addressing a created row fold into its INSERT; the
+        // remaining entries replay through the classic legs untouched.
+        List<TsJournalEntry> inserts = [.. collapsed
+            .Where(e => e.Kind == TsEditKind.Insert)
+            .OrderBy(e => e.Table == TsTable.Target ? 0 : 1)   // a created plan's parent target must exist first
+            .ThenBy(e => e.Seq)];
+        HashSet<string> insertRowKeys = new(inserts.Select(e => RowKey(e.Table, e.Key)), StringComparer.OrdinalIgnoreCase);
+        ILookup<string, TsJournalEntry> folded = collapsed
+            .Where(e => e.Kind != TsEditKind.Insert && insertRowKeys.Contains(RowKey(e.Table, e.Key)))
+            .ToLookup(e => RowKey(e.Table, e.Key), StringComparer.OrdinalIgnoreCase);
+        List<TsJournalEntry> rest = [.. collapsed
+            .Where(e => e.Kind != TsEditKind.Insert && !insertRowKeys.Contains(RowKey(e.Table, e.Key)))];
+
         PushReplayState state = new();
-        if (ReplayWriteBackLeg(collapsed, state) is { } structuralRefusal)
+        (PushResult? insertRefusal, bool insertsApplied) = ReplayInsertLeg(inserts, folded, state);
+        if (insertRefusal is not null)
+            return insertRefusal;
+        if (ReplayWriteBackLeg(rest, state, degradeStructural: insertsApplied) is { } structuralRefusal)
             return structuralRefusal;
-        ReplayFieldLeg(collapsed, state);
+        ReplayFieldLeg(rest, state);
 
         return CommitAndClose(collapsed, state, pullProgress, pullCancel);
     }
+
+    /// <summary>One row's identity across kinds — the fold key tying field entries to their insert.</summary>
+    private static string RowKey(TsTable table, string key) => $"{table}|{key}";
 
     /// <summary>Mutable state of one push replay — which seqs failed and why — passed to each leg so the
     /// orchestrator's flow stays linear and no closure captures accumulate invisibly.</summary>
@@ -482,24 +524,117 @@ internal sealed class TsSync
         return null;
     }
 
+    /// <summary>The insert leg: replays each created row as a remote INSERT through the guarded primitive —
+    /// parent references travel as guids (the journaled payload's form), so the remote resolves them against
+    /// its own integer ids; the remote autoincrement mints the row's id and the guid is the correlation name.
+    /// Folded field entries were already merged into the payload by the caller's partition; they succeed or
+    /// fail with their insert. Non-null result = a whole-db refusal met before anything applied (the push
+    /// stops, nothing written); once a row landed, later trouble degrades to per-entry failures.</summary>
+    private (PushResult? Refusal, bool AnyApplied) ReplayInsertLeg(
+        List<TsJournalEntry> inserts, ILookup<string, TsJournalEntry> folded, PushReplayState state)
+    {
+        if (inserts.Count == 0)
+            return (null, false);
+
+        using ITsEditor editor = _editorFactory(RemotePath);
+        bool anyApplied = false;
+        foreach (TsJournalEntry ins in inserts)
+        {
+            List<TsJournalEntry> group = [ins, .. folded[RowKey(ins.Table, ins.Key)]];
+            Dictionary<string, object?> payload = InsertPayload(ins);
+            foreach (TsJournalEntry f in folded[RowKey(ins.Table, ins.Key)])
+                payload[f.Column] = f.Value;   // the row lands with its final values — no UPDATE follows
+
+            (InsertOutcome? outcome, RefusalReason refusal) = editor.TryInsertRows([new TsRowInsert(ins.Table, payload)]);
+            if (refusal is RefusalReason.SchemaIncompatible or RefusalReason.ReadOnly or RefusalReason.OpenSidecar)
+            {
+                // Session-level guards are open-time facts, so this fires on the FIRST row — nothing applied
+                // yet and the whole push can refuse honestly. Defensively: once a row landed, a whole-db
+                // refusal degrades to not-attempted failures instead of claiming "nothing was written".
+                if (!anyApplied)
+                {
+                    if (refusal == RefusalReason.OpenSidecar)
+                    {
+                        Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
+                        return (new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false), false);
+                    }
+                    return (RefusedStructurally($"remote TS db refused row creation: {refusal}"), false);
+                }
+                state.Fail(group, $"not attempted — push aborted on {refusal}");
+                continue;
+            }
+            if (refusal != RefusalReason.None)
+            {
+                state.Fail(group, $"refused: {refusal}");
+                continue;
+            }
+            if (outcome is { Applied: true } && outcome.Rows[0].Succeeded)
+            {
+                anyApplied = true;
+                continue;
+            }
+            state.Fail(group, outcome is { Applied: false }
+                ? $"parent row not found on BIRDWATCHER by guid ({outcome.Rows[0].UnresolvedParentColumn})"
+                : "read-back did not verify");
+        }
+        return (null, anyApplied);
+    }
+
+    /// <summary>An insert entry's payload, re-hydrated from its journaled JSON to canonical value boxes. A
+    /// malformed payload is our own journal's contract violation — throw (the push escapes with the journal
+    /// intact), never guess.</summary>
+    private static Dictionary<string, object?> InsertPayload(TsJournalEntry entry)
+    {
+        if (entry.Value is not string json || string.IsNullOrWhiteSpace(json))
+            throw new InvalidOperationException($"insert entry for \"{entry.Label}\" has no payload");
+        Dictionary<string, JsonElement> raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)
+            ?? throw new InvalidOperationException($"insert entry for \"{entry.Label}\" has a null payload");
+        Dictionary<string, object?> payload = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((string column, JsonElement value) in raw)
+            payload[column] = TsJournal.CanonicalizeValue(value);
+        return payload;
+    }
+
+    // The creates section's summary: the payload's human-meaningful values, in payload order. Correlation
+    // plumbing (guid, profile, parent references — guids or ids, either way not review content) stays out.
+    private static string SummarizeInsert(TsJournalEntry entry)
+    {
+        string[] plumbing = ["guid", "profileId", "targetid", "exposureTemplateId", "projectid"];
+        return string.Join(", ", InsertPayload(entry)
+            .Where(kv => !plumbing.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
+            .Select(kv => $"{kv.Key} {TsValueText.ForField(entry.Table, kv.Key, FormatValue(kv.Value)) ?? "null"}"));
+    }
+
     /// <summary>The write-back leg: re-executes the write-back contract per journaled plan on the remote.
     /// Non-null = a whole-db structural refusal (nothing was written — the push stops); null = leg
-    /// completed, with any per-plan failures recorded in <paramref name="state"/>.</summary>
-    private PushResult? ReplayWriteBackLeg(List<TsJournalEntry> collapsed, PushReplayState state)
+    /// completed, with any per-plan failures recorded in <paramref name="state"/>. When the insert leg
+    /// already applied rows (<paramref name="degradeStructural"/>), a structural refusal must not claim
+    /// "nothing was written" — it degrades to failing every remaining entry as not-attempted and the push
+    /// commits what landed.</summary>
+    private PushResult? ReplayWriteBackLeg(List<TsJournalEntry> collapsed, PushReplayState state, bool degradeStructural)
     {
         List<TsJournalEntry> writeBack = [.. collapsed.Where(e => e.Kind == TsEditKind.WriteBack)];
         if (writeBack.Count == 0)
             return null;
 
         using ITsWriteBackApplier applier = _applierFactory(RemotePath);
-        if (!applier.HasRequiredColumns)
-            return RefusedStructurally("remote TS db schema incompatible (exposureplan columns missing)");
-        if (applier.IsReadOnly)
-            return RefusedStructurally("remote TS db file is read-only");
-        if (applier.HasOpenSidecar)
+        string? structural =
+            !applier.HasRequiredColumns ? "remote TS db schema incompatible (exposureplan columns missing)" :
+            applier.IsReadOnly ? "remote TS db file is read-only" :
+            applier.HasOpenSidecar ? "remote TS db has an open sidecar (NINA imaging?)" : null;
+        if (structural is not null)
         {
-            Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
-            return new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false);
+            if (degradeStructural)
+            {
+                state.Fail(collapsed.Where(e => !state.FailedSeqs.Contains(e.Seq)), $"not attempted — {structural}");
+                return null;
+            }
+            if (applier.HasOpenSidecar)
+            {
+                Log.Warn("PUSH refused — remote TS db has an open sidecar (NINA imaging?)");
+                return new PushResult(PushOutcome.RefusedBusy, 0, [], PulledFresh: false);
+            }
+            return RefusedStructurally(structural);
         }
 
         List<PlannedWrite> writes = [];

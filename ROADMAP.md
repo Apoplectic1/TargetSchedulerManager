@@ -5,7 +5,7 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-08-02)
+## Status — pick up here (2026-08-03)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), per-(target, filter, purpose, seconds) plane rows,
@@ -34,7 +34,13 @@ progress gauge** (owed time or captured total, never a signed sum). 2026-08-02 g
 (github.com/Apoplectic1/TargetSchedulerManager — local stays ground truth, `main` only pushes tagged;
 README storefront + MIT), the sync badge's "last proven in sync" semantics, and **`velopack-self-update`**
 (self-updating Velopack installer on GitHub Releases, local-build only — AL ships compiled, source
-unpublished; 15th spec) — shipped, v1.1.0 released, archived. Rules: `RELEASING.md`. The load-split is
+unpublished; 15th spec) — shipped, v1.1.0 released, archived. Rules: `RELEASING.md`. 2026-08-03 landed
+**`adopt-disk-rows`** (implemented, awaiting user verify): right-click **"Add TS plan… / Add to TS…"** on
+eligible disk-only cells — born-complete plan (desired = acquired = disk count), template auto-match that
+holds when unclear, project-picker dialog for whole-target adoption, a journal **insert** kind with a
+guid-carried replay leg + push-review creates section, and guid correlation in the inbound differ (no
+phantom `←` after the round-trip); library gained the guarded insert primitive beside `TrySetField`
+(cadence clear + OEO refusal in-transaction). Adds **`disk-row-adoption`** as the 16th capability spec. The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is

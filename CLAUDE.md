@@ -7,7 +7,8 @@
 TargetSchedulerManager (TSM) is a .NET 10 **WinUI 3 app** (assembly `tsmui`) that **manages the N.I.N.A. Target
 Scheduler database** — view + edit TS plans with disk-ACTUAL beside every number. It edits a **local working
 copy** under the sync model (2026-07-06): pull from BIRDWATCHER at open (baseline-skipped when unchanged),
-journaled local edits + automatic write-back, one reviewed **Push** replaying only edited fields back. It scans
+journaled local edits + automatic write-back + right-click adoption of disk-only cells into TS
+(created rows journal as inserts), one reviewed **Push** replaying only the journaled changes back. It scans
 the disk image library *read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does
 **not** own or write `Catalog.db`.
 

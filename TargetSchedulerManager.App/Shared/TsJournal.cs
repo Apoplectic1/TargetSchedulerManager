@@ -6,15 +6,20 @@ using Astronomy.Diagnostics;
 
 namespace TargetSchedulerManager.App.Shared;
 
-/// <summary>Who authored a journaled local write: the user's own field edit, or the automatic disk→TS
-/// write-back stamp. Push replays each through its owning mechanism (field editor vs write-back writer) and
-/// the review dialog lists them in separate sections.</summary>
-internal enum TsEditKind { Manual, WriteBack }
+/// <summary>Who authored a journaled local write: the user's own field edit, the automatic disk→TS
+/// write-back stamp, or a row created locally (adoption). Push replays each through its owning mechanism
+/// (field editor vs write-back writer vs the guarded insert) and the review dialog lists them in separate
+/// sections.</summary>
+internal enum TsEditKind { Manual, WriteBack, Insert }
 
 /// <summary>
 /// One verified local TS write, journaled for replay: the field coordinate (table, guid-or-Id key, column),
 /// the absolute <paramref name="Value"/> written (never a delta — replay is idempotent and order-free after
 /// collapse), the prior value as display text, and a grid-style label ("M 81 · Ha") for review lists.
+/// An <see cref="TsEditKind.Insert"/> entry is a whole created row: <paramref name="Column"/> is the
+/// <see cref="TsJournal.InsertColumn"/> pseudo-column, <paramref name="Value"/> the full column payload as
+/// JSON, <paramref name="Old"/> null (nothing preceded a creation), and <see cref="RowGuid"/> the row's
+/// minted guid — the cross-copy name the replay inserts under.
 /// </summary>
 internal sealed record TsJournalEntry(
     long Seq,
@@ -25,7 +30,11 @@ internal sealed record TsJournalEntry(
     object? Value,
     string? Old,
     string Label,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    /// <summary>The created row's minted guid — non-null exactly on <see cref="TsEditKind.Insert"/> entries.</summary>
+    public string? RowGuid { get; init; }
+}
 
 /// <summary>
 /// The persisted session journal: every verified write to the local TS db appends one JSON line to a sidecar
@@ -116,6 +125,32 @@ internal sealed class TsJournal
             _entries.Add(entry);
             if (_fieldKeys.Add(field))
                 _baselineOld[field] = old;
+            return entry;
+        }
+    }
+
+    /// <summary>Pseudo-column of an <see cref="TsEditKind.Insert"/> entry — a created row is one journal
+    /// "field" (it collapses, counts, and retains like any field) whose value is the whole payload.</summary>
+    public const string InsertColumn = "(insert)";
+
+    /// <summary>Appends one verified row creation (same durability contract as <see cref="Append"/>). Insert
+    /// entries have no baseline and never prune — a creation clears only by push or discard. The payload is
+    /// the full column set the row was created with, as JSON; <paramref name="key"/> is the row's key in its
+    /// table's own key space (target guid; plan local integer id) so marks and later field edits match it.</summary>
+    public TsJournalEntry AppendInsert(TsTable table, string key, string payloadJson, string rowGuid, string label)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(payloadJson);
+        ArgumentException.ThrowIfNullOrWhiteSpace(rowGuid);
+        lock (_lock)
+        {
+            TsJournalEntry entry = new(_nextSeq++, TsEditKind.Insert, table, key, InsertColumn, payloadJson,
+                Old: null, label, DateTimeOffset.Now)
+            { RowGuid = rowGuid };
+            File.AppendAllText(_path, JsonSerializer.Serialize(entry, Options) + Environment.NewLine);
+            _entries.Add(entry);
+            string field = FieldKey(entry);
+            if (_fieldKeys.Add(field))
+                _baselineOld[field] = null;
             return entry;
         }
     }
@@ -253,4 +288,8 @@ internal sealed class TsJournal
 
     private static object WholeOrDouble(double d) =>
         double.IsInteger(d) && d is >= long.MinValue and <= long.MaxValue ? (long)d : d;
+
+    /// <summary>The one canonical-box rule, for consumers re-hydrating values that rode through JSON outside
+    /// an entry — e.g. the columns of an insert entry's payload at replay.</summary>
+    internal static object? CanonicalizeValue(object? value) => Canonicalize(value);
 }
