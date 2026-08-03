@@ -28,32 +28,57 @@ public sealed partial class MainWindow
         // Drag any non-interactive spot to reposition (WinUI can't natively); with an anchor, the same
         // transform SEEDS the position so the dialog opens near the clicked row (the old flyout feel,
         // 2026-08-03) — clamped to the window, best-effort (centered is the graceful fallback).
+        //
+        // Template ground truth (generic.xaml, WinUI 2.3): the ContentDialog element is a FULL-WINDOW
+        // overlay — Container → smoke LayoutRoot → the visible box is the centered template child
+        // "BackgroundElement". Seeding must therefore position the BOX and wait until it has a size:
+        // overlay-based math either no-ops (once the overlay measures full-window the clamp collapses
+        // to 8,8) or — when Opened outruns layout and ActualWidth is still 0 — translates the whole
+        // overlay by the raw anchor offset, throwing the centered box off-screen for a right-side
+        // anchor: an invisible modal that eats all input and reads as a UI hang (obs 3eba; Escape was
+        // the only way out).
         Microsoft.UI.Xaml.Media.TranslateTransform translate = Controls.DragMove.Attach(dialog);
         if (anchor is not null)
         {
             dialog.Opened += (_, _) =>
             {
-                try
+                FrameworkElement box = FindTemplateChild(dialog, "BackgroundElement") ?? (FrameworkElement)dialog;
+                void Seed()
                 {
-                    Windows.Foundation.Point target = anchor.TransformToVisual(null)
-                        .TransformPoint(new Windows.Foundation.Point(0, anchor.ActualHeight + 4));
-                    Windows.Foundation.Point current = dialog.TransformToVisual(null)
-                        .TransformPoint(new Windows.Foundation.Point(0, 0));
-                    Windows.Foundation.Size root = dialog.XamlRoot.Size;
-                    double x = Math.Clamp(target.X, 8, Math.Max(8, root.Width - dialog.ActualWidth - 8));
-                    double y = Math.Clamp(target.Y, 8, Math.Max(8, root.Height - dialog.ActualHeight - 8));
-                    translate.X = x - current.X;
-                    translate.Y = y - current.Y;
+                    try
+                    {
+                        Windows.Foundation.Point target = anchor.TransformToVisual(null)
+                            .TransformPoint(new Windows.Foundation.Point(0, anchor.ActualHeight + 4));
+                        Windows.Foundation.Point boxAt = box.TransformToVisual(null)
+                            .TransformPoint(new Windows.Foundation.Point(0, 0));
+                        Windows.Foundation.Size root = dialog.XamlRoot.Size;
+                        double x = Math.Clamp(target.X, 8, Math.Max(8, root.Width - box.ActualWidth - 8));
+                        double y = Math.Clamp(target.Y, 8, Math.Max(8, root.Height - box.ActualHeight - 8));
+                        translate.X += x - boxAt.X;
+                        translate.Y += y - boxAt.Y;
+                    }
+                    catch (Exception ex)
+                    {
+                        Astronomy.Diagnostics.Log.Warn($"dialog anchor seeding failed (stays centered): {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
+                if (box.ActualWidth > 0)
                 {
-                    Astronomy.Diagnostics.Log.Warn($"dialog anchor seeding failed (stays centered): {ex.Message}");
+                    Seed();
+                    return;
                 }
+                SizeChangedEventHandler? once = null;
+                once = (_, _) =>
+                {
+                    box.SizeChanged -= once;
+                    Seed();
+                };
+                box.SizeChanged += once;
             };
         }
         dialog.PreviewKeyDown += (_, e) =>
         {
-            if (e.Key != Windows.System.VirtualKey.N
+            if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
                 || !Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
                     .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
                 return;
@@ -342,5 +367,22 @@ public sealed partial class MainWindow
             return null;
         AdoptionProjectOption chosen = facts.Projects[projectBox.SelectedIndex];
         return new AdoptionChoice(chosen.Project, chosen.Candidates[templateBox.SelectedIndex].Template);
+    }
+
+    // Named-template-part lookup (read-only visual-tree walk — no template mutation): the anchor seeding
+    // needs ContentDialog's "BackgroundElement" (the visible box; the control element itself is the
+    // full-window overlay). Returns null when the part isn't inflated yet or the template changed shape.
+    private static FrameworkElement? FindTemplateChild(DependencyObject root, string name)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is FrameworkElement fe && fe.Name == name)
+                return fe;
+            if (FindTemplateChild(child, name) is { } nested)
+                return nested;
+        }
+        return null;
     }
 }

@@ -423,6 +423,15 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   same transform **seeds the open position near the clicked row** (`ShowDialogAsync(dialog, anchor)`,
   clamped, centered fallback). Consequence: every form-hosting surface is a dialog; `MenuFlyout`s
   (context menus, pickers) stay flyouts — transient, movability meaningless.
+- **The `ContentDialog` element is a full-window overlay; the visible box is the centered template child
+  `BackgroundElement`** (generic.xaml: `Container` → smoke `LayoutRoot` → box). Anchor seeding must
+  position the **box** and only after it has a size: overlay-based math either no-ops (the clamp
+  collapses to 8,8 once the overlay measures full-window) or — when `Opened` outruns layout and
+  `ActualWidth` is still 0 — throws the box **off-screen**, leaving an invisible modal that eats all
+  input and reads as a UI hang (obs 3eba, 2026-08-03: the B-filter pencil, the first far-*right*
+  anchor; left-side anchors survived the same race by luck). `ShowDialogAsync` finds `BackgroundElement`
+  by visual-tree walk, defers to its first `SizeChanged` when unmeasured, and clamps the box to the
+  window.
 - **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
   (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml
