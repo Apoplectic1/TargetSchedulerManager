@@ -38,22 +38,22 @@ public sealed partial class MainWindow
         if (sender is not FrameworkElement el || el.DataContext is not TargetGroupRow group)
             return;
         if (group.IsMosaic)
-            FireAndLog(() => ShowMosaicFlyoutAsync(el, group), "mosaic flyout");
+            FireAndLog(() => ShowMosaicDialogAsync(el, group), "mosaic editor");
         else if (group.TsTargetKey is string key)
-            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, group.Target, group, null), "target flyout");
+            FireAndLog(() => ShowEditDialogAsync(el, TsTable.Target, key, group.Target, group, null), "target editor");
     }
 
     // A mosaic panel is a normal TS target — the standard target flyout, keyed by the panel's own row.
     private void EditPanelTarget_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is PanelGroupRow { TsTargetKey: string key } panel)
-            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.Target, key, Format.Label(panel.Target, panel.Label), null, null), "panel flyout");
+            FireAndLog(() => ShowEditDialogAsync(el, TsTable.Target, key, Format.Label(panel.Target, panel.Label), null, null), "panel editor");
     }
 
     private void EditPlan_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement el && el.DataContext is ReconciliationRow { PlanTsKey: string key } row)
-            FireAndLog(() => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, key, Format.Label(row.Target, row.Filter), null, row), "plan flyout");
+            FireAndLog(() => ShowEditDialogAsync(el, TsTable.ExposurePlan, key, Format.Label(row.Target, row.Filter), null, row), "plan editor");
     }
 
     // Right-click anywhere on a TS-backed row: a context menu whose items are gated by the row's data — the
@@ -71,29 +71,29 @@ public sealed partial class MainWindow
         switch (el.DataContext)
         {
             case TargetGroupRow { IsMosaic: true, ProjectTsKey: not null } mosaic:
-                menu.Items.Add(EditMenuItem("Edit mosaic project…", () => ShowMosaicFlyoutAsync(el, mosaic)));
+                menu.Items.Add(EditMenuItem("Edit mosaic project…", () => ShowMosaicDialogAsync(el, mosaic)));
                 break;
             case TargetGroupRow group:
                 if (group is { CanEnable: true, TsTargetKey: string targetKey })
                     menu.Items.Add(EditMenuItem("Edit target…",
-                        () => ShowEditFlyoutAsync(el, TsTable.Target, targetKey, group.Target, group, null)));
+                        () => ShowEditDialogAsync(el, TsTable.Target, targetKey, group.Target, group, null)));
                 (projectKey, projectName) = (group.ProjectTsKey, group.Project);
                 break;
             case PanelGroupRow panel:
                 if (panel.TsTargetKey is string panelKey)
                     menu.Items.Add(EditMenuItem("Edit panel target…",
-                        () => ShowEditFlyoutAsync(el, TsTable.Target, panelKey, Format.Label(panel.Target, panel.Label), null, null)));
+                        () => ShowEditDialogAsync(el, TsTable.Target, panelKey, Format.Label(panel.Target, panel.Label), null, null)));
                 (projectKey, projectName) = (panel.Children[0].ProjectTsKey, panel.Children[0].Project);
                 break;
             case ReconciliationRow row:
                 if (row.PlanTsKey is string planKey)
                 {
                     menu.Items.Add(EditMenuItem("Edit exposure plan…",
-                        () => ShowEditFlyoutAsync(el, TsTable.ExposurePlan, planKey, Format.Label(row.Target, row.Filter), null, row)));
+                        () => ShowEditDialogAsync(el, TsTable.ExposurePlan, planKey, Format.Label(row.Target, row.Filter), null, row)));
                     // The template BEHIND this plan — shared config, so the flyout title carries the blast radius.
                     if (ViewModel.TryGetTemplateForPlan(planKey) is { } template)
                         menu.Items.Add(EditMenuItem("Edit template…",
-                            () => ShowEditFlyoutAsync(el, TsTable.ExposureTemplate, template.TsKey, TemplateTitle(template), null, null)));
+                            () => ShowEditDialogAsync(el, TsTable.ExposureTemplate, template.TsKey, TemplateTitle(template), null, null)));
                 }
                 // Adoption (openspec disk-row-adoption): an eligible disk-only cell offers "Add TS plan…"
                 // (existing TS target) or "Add to TS…" (whole target, via the project-picker dialog).
@@ -106,7 +106,7 @@ public sealed partial class MainWindow
         }
         if (projectKey is string prjKey)
             menu.Items.Add(EditMenuItem("Edit project…",
-                () => ShowEditFlyoutAsync(el, TsTable.Project, prjKey, $"{projectName} — project", null, null)));
+                () => ShowEditDialogAsync(el, TsTable.Project, prjKey, $"{projectName} — project", null, null)));
 
         if (menu.Items.Count == 0)
             return;   // disk-only rows, rollups: no menu
@@ -120,7 +120,7 @@ public sealed partial class MainWindow
     // enable (fan-out target.active to every panel; tri-state display when panels disagree) and the TS
     // project's priority (TS-native cascade — every panel left at Default (-1) inherits it in scoring;
     // per-panel overrides survive). Panels themselves keep the standard target flyout.
-    private async Task ShowMosaicFlyoutAsync(FrameworkElement anchor, TargetGroupRow group)
+    private async Task ShowMosaicDialogAsync(FrameworkElement anchor, TargetGroupRow group)
     {
         if (group.ProjectTsKey is not string projectKey)
             return;
@@ -230,9 +230,16 @@ public sealed partial class MainWindow
         }
 
         RefreshMosaicMarks();
-        Controls.DragMove.Attach(form);   // drag a blank spot/label to reposition off the covered rows
-        Flyout flyout = new() { Content = form, Placement = FlyoutPlacementMode.Bottom };
-        flyout.ShowAt(anchor);
+        // A movable dialog seeded near the row (2026-08-03 — was an anchored Flyout; a flyout's own popup
+        // window can't be repositioned, so form-hosting surfaces are dialogs now; menus stay flyouts).
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Content = form,
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        await ShowDialogAsync(dialog, anchor);
     }
 
     private static TextBlock MosaicMark() => new()
@@ -297,7 +304,7 @@ public sealed partial class MainWindow
             (string glyph, string? tooltip) = marks.ForTemplate(template.TsKey);
             string prefix = glyph.Length > 0 ? $"{glyph} " : "";
             MenuFlyoutItem item = EditMenuItem($"{prefix}{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
-                () => ShowEditFlyoutAsync((FrameworkElement)sender, TsTable.ExposureTemplate, template.TsKey,
+                () => ShowEditDialogAsync((FrameworkElement)sender, TsTable.ExposureTemplate, template.TsKey,
                     TemplateTitle(template), null, null));
             if (tooltip is not null)
                 ToolTipService.SetToolTip(item, tooltip);
@@ -323,7 +330,7 @@ public sealed partial class MainWindow
     // at the gesture's row. Every field commits itself through the guarded gate; fields with dedicated in-grid
     // controls route through their specific setters so their cells refresh in place. Per-field commit means
     // light-dismiss can never lose work — no confirmation needed on close.
-    private async Task ShowEditFlyoutAsync(
+    private async Task ShowEditDialogAsync(
         FrameworkElement anchor, TsTable table, string key, string title,
         TargetGroupRow? group, ReconciliationRow? row)
     {
@@ -397,9 +404,17 @@ public sealed partial class MainWindow
             }
         }
 
-        Controls.DragMove.Attach(content);   // drag a blank spot/label to reposition off the covered rows
-        Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
-        flyout.ShowAt(anchor);
+        // A movable dialog seeded near the row (2026-08-03 — was an anchored Flyout; a flyout's own popup
+        // window can't be repositioned, so form-hosting surfaces are dialogs now; menus stay flyouts).
+        // ContentDialog's template scrolls the content, so tall forms (the 18-field template) stay usable.
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Content = content,
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        await ShowDialogAsync(dialog, anchor);
 
         void RefreshPairWarn()
         {

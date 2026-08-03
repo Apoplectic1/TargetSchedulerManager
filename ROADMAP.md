@@ -43,7 +43,10 @@ dialog for whole-target adoption, a journal **insert** kind with a guid-carried 
 targets → plans) + push-review creates section, and guid correlation in the inbound differ (no phantom `←`
 after the round-trip); library gained the guarded insert primitive beside `TrySetField` (cadence clear +
 OEO refusal in-transaction; templates insertable). Adds **`disk-row-adoption`** as the 16th capability
-spec. The load-split is
+spec. The verify rounds also converted **all form-hosting flyouts to movable dialogs** seeded near the
+clicked row (flyouts render in framework-owned popup windows that nothing can reposition — three
+mechanisms field-failed; menus stay flyouts) and fixed Ctrl+N inside dialogs (`PreviewKeyDown` — a
+`KeyboardAccelerator` on a ContentDialog is ignored entirely). The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is

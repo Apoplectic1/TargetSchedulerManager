@@ -23,9 +23,34 @@ public sealed partial class MainWindow
     // variant shipped and did nothing). PreviewKeyDown is the reliable route: it tunnels through the
     // dialog before its children see the key, independent of the accelerator plumbing. Every dialog
     // shows through here.
-    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
+    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog, FrameworkElement? anchor = null)
     {
-        Controls.DragMove.Attach(dialog);   // drag any non-interactive spot to reposition (WinUI can't natively)
+        // Drag any non-interactive spot to reposition (WinUI can't natively); with an anchor, the same
+        // transform SEEDS the position so the dialog opens near the clicked row (the old flyout feel,
+        // 2026-08-03) — clamped to the window, best-effort (centered is the graceful fallback).
+        Microsoft.UI.Xaml.Media.TranslateTransform translate = Controls.DragMove.Attach(dialog);
+        if (anchor is not null)
+        {
+            dialog.Opened += (_, _) =>
+            {
+                try
+                {
+                    Windows.Foundation.Point target = anchor.TransformToVisual(null)
+                        .TransformPoint(new Windows.Foundation.Point(0, anchor.ActualHeight + 4));
+                    Windows.Foundation.Point current = dialog.TransformToVisual(null)
+                        .TransformPoint(new Windows.Foundation.Point(0, 0));
+                    Windows.Foundation.Size root = dialog.XamlRoot.Size;
+                    double x = Math.Clamp(target.X, 8, Math.Max(8, root.Width - dialog.ActualWidth - 8));
+                    double y = Math.Clamp(target.Y, 8, Math.Max(8, root.Height - dialog.ActualHeight - 8));
+                    translate.X = x - current.X;
+                    translate.Y = y - current.Y;
+                }
+                catch (Exception ex)
+                {
+                    Astronomy.Diagnostics.Log.Warn($"dialog anchor seeding failed (stays centered): {ex.Message}");
+                }
+            };
+        }
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N

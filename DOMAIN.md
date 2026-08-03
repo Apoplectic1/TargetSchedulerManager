@@ -237,11 +237,14 @@ goal of zero); measured disk-side absence = `0`.
   read-only on headers, disk rows, and mixed rollups — **each plan is inline-editable in exactly one place**, the
   row showing its own exposure time, so a mixed rollup's box moves down to the plan's detail line (TS or nested
   Both); the rollup keeps its flyout/pencil as the deliberate secondary gesture, 2026-07-23).
-- **Edit flyout** (everything else, 2026-07-06): a **hover-revealed pencil glyph** (Opacity 0→1 via the
-  template-root pointer handlers; `x:Name="EditGlyph"`) and a **right-click menu** ("Edit target…" / "Edit
-  exposure plan…", built in code — `Row_RightTapped` — so items gate on row data; this menu is the extension
-  point for future row actions — first exercised 2026-08-03 by the adoption items "Add TS plan…" / "Add to
-  TS…" on eligible disk-only rows, spec `disk-row-adoption`). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
+- **Edit dialog** (everything else, 2026-07-06; flyout → movable dialog 2026-08-03): a **hover-revealed
+  pencil glyph** (Opacity 0→1 via the template-root pointer handlers; `x:Name="EditGlyph"`) and a
+  **right-click menu** ("Edit target…" / "Edit exposure plan…", built in code — `Row_RightTapped` — so
+  items gate on row data; this menu is the extension point for future row actions — first exercised
+  2026-08-03 by the adoption items "Add TS plan…" / "Add to TS…" on eligible disk-only rows, spec
+  `disk-row-adoption`). The form opens in a **ContentDialog seeded near the clicked row** and draggable by
+  any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
+  move, so form-hosting surfaces are dialogs and menus stay flyouts). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
   directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
@@ -403,17 +406,17 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 - **Implicit `TextBlock` styles apply unevenly inside a `ListView` `DataTemplate`** and leak into control
   internals — so vertical centering is set **explicitly per cell**, not via a window-wide implicit style. (Tried
   the implicit route 2026-06-20; it produced uneven columns and was reverted.)
-- **Dialogs and flyouts can't be repositioned natively** — `ContentDialog` centers in the XamlRoot and
-  `Flyout` sticks to its anchor, and either can cover exactly the rows being compared against. Workaround
-  (2026-08-03, `Controls/DragMove.Attach`, drag by any **non-interactive** spot — buttons/inputs swallow
-  `PointerPressed` first): the mechanism differs per surface because the hosting differs. A **flyout
-  renders in its own top-level popup window**, so no XAML transform can move it on screen (content
-  translate slid inside a stationary frame; presenter translate pinned against its own window's bounds —
-  both field-verified failures); the owning `Popup`'s `Horizontal/VerticalOffset` move the popup window
-  itself (resolve via `GetOpenPopupsForXamlRoot`, match the presenter as `popup.Child`), and pointer
-  coords live in the popup's *moving* frame — never update the grab point (the reading returns to it as
-  the frame catches up). A **dialog is its own chrome in the main tree**: `TranslateTransform` +
-  static-frame incremental tracking. Wired in `ShowDialogAsync` (every dialog) and both flyout builders.
+- **Flyouts can't be repositioned — at all. Host forms in dialogs instead** (settled 2026-08-03 after
+  three field-verified failures): a flyout renders in its own top-level popup window whose placement the
+  `Flyout` owns — translating the content slid it inside a stationary frame, translating the
+  `FlyoutPresenter` pinned it against its own window's bounds, and writing the owning `Popup`'s
+  `Horizontal/VerticalOffset` didn't stick either (the flyout's positioning logic owns them). A
+  **`ContentDialog` is its own chrome in the main tree**, where `Controls/DragMove.Attach`'s
+  `TranslateTransform` works: drag by any **non-interactive** spot (buttons/inputs swallow
+  `PointerPressed` first), deltas read in *window* space (element-relative coords self-feed), and the
+  same transform **seeds the open position near the clicked row** (`ShowDialogAsync(dialog, anchor)`,
+  clamped, centered fallback). Consequence: every form-hosting surface is a dialog; `MenuFlyout`s
+  (context menus, pickers) stay flyouts — transient, movability meaningless.
 - **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
   (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml
