@@ -11,6 +11,28 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-03 — `adopt-disk-rows`: right-click adoption of disk-only cells into TS** (openspec
+archived `2026-08-03-adopt-disk-rows`; **`disk-row-adoption` = 16th capability spec**; Library gained the
+guarded insert primitive `TryInsertRows`; field-verified end-to-end on "Abell 6 & HFG 1" — target + plan
+created from disk, Both 44→45, obs 579d "appears to work correctly"). "Add TS plan…" on an unplanned
+disk-only cell / "Add to TS…" (project-picker dialog, disk-centroid coords, sky-framing rotation seed) on
+a disk-only target: born-complete plan (desired = acquired = accepted = disk count, enabled — record
+history, schedule nothing), template auto-matched by the merge rule (gain/offset/bin expressed-and-equal;
+a `-1` camera-default sentinel never pairs; near-miss + donor suggestions bin-scoped), and a **zero-match
+hold opens the template creation form** — full schema-generated form, donor policy fields + disk facts,
+name box doubles as a donor picker (typing an existing name refills the draft), Desired raisable,
+pairing caution warn-never-block, Create/Cancel atomic. Sync model grew a third journal kind: **inserts**
+(payload JSON + minted guid) replay first (templates → targets → plans), parents resolve **by guid**
+wherever ids diverge, field edits on unpushed inserts **fold into the INSERT**, the push review gained a
+creates section, and the inbound differ correlates id-keyed rows by guid (no phantom `←` after the
+renumbering round-trip; id collisions never cross-diff). Split rows (same-key plan exists) and disk-only
+mosaic panels are ineligible by construction. The verify rounds also converted **all form-hosting flyouts
+to movable ContentDialogs** seeded near the clicked row (three reposition mechanisms field-failed —
+flyout popup windows are framework-owned; menus stay flyouts), gave the **plan editor a write-through
+template section** (gain/offset/bin, blast-radius header), fixed **Ctrl+N inside dialogs**
+(`PreviewKeyDown` — accelerators on a ContentDialog are ignored, ms-ui-xaml #2408), and added
+drag-to-reposition (`Controls/DragMove`). Tests: App 359 · Catalog 255 · Contracts 61.
+
 **▶ SHIPPED 2026-08-02 — window title is name + version, nothing else** (user obs 8573 + follow-up):
 `Target Scheduler Manager 1.1.0` — MinVer's informational version cut at `+sha`; an F5 build keeps its
 `-alpha…` shape, so the title is also the at-a-glance dev-vs-installed disambiguator. The former
