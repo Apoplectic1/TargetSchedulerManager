@@ -47,8 +47,6 @@ context menus and pickers stay flyouts, where movability is meaningless.)*
 - **THEN** dragging a non-interactive spot (title, label, blank space) repositions it; buttons and inputs
   keep their own gestures
 
-## ADDED Requirements
-
 
 ### Requirement: Mosaic parents edit whole-mosaic knobs; panels edit as normal targets
 A mosaic parent row (a grouping node with no TS target) SHALL offer the edit triggers when its TS project key

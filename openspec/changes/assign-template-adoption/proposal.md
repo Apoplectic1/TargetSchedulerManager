@@ -29,6 +29,9 @@ plan editor — per-plan overrides beyond exposure seconds cannot exist anyway (
   creation-form dialog, the hold dialog, and their VM hooks. Template inserts stop originating from
   adoption (the journal/replay template leg remains as generic sync capability).
 - After accept, the UI just refreshes (re-reconcile, marks, dirty badge) — no auto-opened editor.
+- **All dialogs open centered** (added mid-change, user call after obs 3eba): open-near-the-row anchor
+  seeding is retired — it raced ContentDialog layout and could land the dialog off-screen as an
+  invisible input-eating modal. Movability by drag stays.
 
 ## Capabilities
 

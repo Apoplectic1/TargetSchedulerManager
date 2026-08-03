@@ -47,8 +47,10 @@ per-plan overrides) is the only TS-expressible model besides template authoring,
    (disabled + preselected when locked), template ComboBox (display: name + gain/offset/bin/default-exposure),
    read-only facts panel (disk values beside selected template values, refreshed on selection change),
    caution TextBlock bound to the selection's `WouldPair`, empty-scope message + Accept disabled
-   (`IsPrimaryButtonEnabled = false`). Movable + seeded near the row via the existing `ShowDialogAsync`
-   helper; Ctrl+N PreviewKeyDown ride-along comes free. `ShowAdoptTargetDialogAsync` and
+   (`IsPrimaryButtonEnabled = false`). Movable + **centered** via the existing `ShowDialogAsync` helper
+   (anchor seeding retired mid-change, user call after obs 3eba — seeding the ContentDialog full-window
+   overlay races layout and can land the visible box off-screen, an invisible modal reading as a UI
+   hang); Ctrl+N PreviewKeyDown ride-along comes free. `ShowAdoptTargetDialogAsync` and
    `ShowAdoptTemplateFormAsync` deleted; `ShowAdoptHoldDialogAsync` deleted (no holds remain — busy/refusal
    paths keep their existing surfaces).
 4. **Caution predicate colocation** — the `WouldPair` computation lives in `AdoptionPlanner` beside the

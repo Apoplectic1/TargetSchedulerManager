@@ -16,6 +16,7 @@
 - [x] 3.1 Implement `ShowAdoptDialogAsync(facts, anchor)`: project ComboBox (disabled+preselected when locked), template ComboBox with capture-value display, disk-vs-template facts panel refreshed on selection, non-pairing caution TextBlock, empty-scope message with Accept disabled; movable + seeded near the row via `ShowDialogAsync`
 - [x] 3.2 Delete `ShowAdoptTemplateFormAsync`, `ShowAdoptTargetDialogAsync`, `ShowAdoptHoldDialogAsync`; rewire the context-menu path and window hook to `AdoptPrompt`
 - [x] 3.3 Build clean (0 errors)
+- [x] 3.4 All dialogs open centered — anchor seeding retired (user call 2026-08-03 after obs 3eba: seeding the ContentDialog overlay races layout and can land the box off-screen — an invisible modal reading as a UI hang); `ShowDialogAsync` loses its anchor parameter, `ShowEditDialogAsync`/`ShowMosaicDialogAsync` lose theirs, flyouts spec requirement renamed/modified (delta added)
 
 ## 4. Tests
 

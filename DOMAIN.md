@@ -245,9 +245,10 @@ goal of zero); measured disk-side absence = `0`.
   `disk-row-adoption`: each opens the one **assignment dialog** — project dropdown (locked when the TS
   target exists) + existing-template dropdown (same filter + bin, best match preselected, non-pairing
   caution), no editable plan fields — the plan is born complete and adjusted afterward in this editor).
-  The form opens in a **ContentDialog seeded near the clicked row** and draggable by
+  The form opens in a **centered ContentDialog** draggable by
   any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
-  move, so form-hosting surfaces are dialogs and menus stay flyouts). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
+  move, so form-hosting surfaces are dialogs and menus stay flyouts; open-near-the-row seeding retired
+  2026-08-03, user call). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
   directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
@@ -419,19 +420,16 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   `Horizontal/VerticalOffset` didn't stick either (the flyout's positioning logic owns them). A
   **`ContentDialog` is its own chrome in the main tree**, where `Controls/DragMove.Attach`'s
   `TranslateTransform` works: drag by any **non-interactive** spot (buttons/inputs swallow
-  `PointerPressed` first), deltas read in *window* space (element-relative coords self-feed), and the
-  same transform **seeds the open position near the clicked row** (`ShowDialogAsync(dialog, anchor)`,
-  clamped, centered fallback). Consequence: every form-hosting surface is a dialog; `MenuFlyout`s
+  `PointerPressed` first), deltas read in *window* space (element-relative coords self-feed).
+  Consequence: every form-hosting surface is a dialog; `MenuFlyout`s
   (context menus, pickers) stay flyouts — transient, movability meaningless.
-- **The `ContentDialog` element is a full-window overlay; the visible box is the centered template child
-  `BackgroundElement`** (generic.xaml: `Container` → smoke `LayoutRoot` → box). Anchor seeding must
-  position the **box** and only after it has a size: overlay-based math either no-ops (the clamp
-  collapses to 8,8 once the overlay measures full-window) or — when `Opened` outruns layout and
-  `ActualWidth` is still 0 — throws the box **off-screen**, leaving an invisible modal that eats all
-  input and reads as a UI hang (obs 3eba, 2026-08-03: the B-filter pencil, the first far-*right*
-  anchor; left-side anchors survived the same race by luck). `ShowDialogAsync` finds `BackgroundElement`
-  by visual-tree walk, defers to its first `SizeChanged` when unmeasured, and clamps the box to the
-  window.
+- **Dialogs always open centered — never seed the open position from an anchor** (user call 2026-08-03
+  after two field failures, obs 3eba). The `ContentDialog` element is a full-window overlay; the visible
+  box is the centered template child `BackgroundElement` (generic.xaml: `Container` → smoke `LayoutRoot`
+  → box). Translating that overlay against a clicked-row anchor races layout: with the overlay measured
+  the clamp collapses and seeding no-ops, and with `Opened` outrunning layout (`ActualWidth` 0) the box
+  lands **off-screen** — an invisible modal that eats all input and reads as a UI hang; a box-based
+  reseed still opened "almost off screen." Centered + drag is the whole model.
 - **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
   (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml

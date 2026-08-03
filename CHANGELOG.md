@@ -26,7 +26,11 @@ the disk row"), with `WouldPair` computed in the planner beside the payloads so 
 refreshed grid can't disagree; an empty scope disables Accept and names the remedy (create the template in
 TS). Net deletion: `MatchTemplate`/holds/`TemplateCreateOffer`/`PendingTemplate`/creation form/three VM
 hooks → `ListCandidates` + `GetFacts` + one `AdoptPrompt` hook; the journal/replay template-insert leg
-stays as generic sync capability with no app-side producer. Tests: App 362 · Catalog 255.
+stays as generic sync capability with no app-side producer. Mid-change (obs 3eba, twice field-failed):
+**all dialogs now open centered** — open-near-the-row anchor seeding retired by user call; translating
+the ContentDialog full-window overlay against an anchor races layout and can land the visible box
+off-screen, an invisible modal that eats every click and reads as a UI hang. Movability by drag stays;
+flyouts spec requirement renamed to "movable centered dialog". Tests: App 362 · Catalog 255.
 
 **▶ SHIPPED 2026-08-03 — `adopt-disk-rows`: right-click adoption of disk-only cells into TS** (openspec
 archived `2026-08-03-adopt-disk-rows`; **`disk-row-adoption` = 16th capability spec**; Library gained the

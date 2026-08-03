@@ -23,59 +23,14 @@ public sealed partial class MainWindow
     // variant shipped and did nothing). PreviewKeyDown is the reliable route: it tunnels through the
     // dialog before its children see the key, independent of the accelerator plumbing. Every dialog
     // shows through here.
-    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog, FrameworkElement? anchor = null)
+    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
     {
-        // Drag any non-interactive spot to reposition (WinUI can't natively); with an anchor, the same
-        // transform SEEDS the position so the dialog opens near the clicked row (the old flyout feel,
-        // 2026-08-03) — clamped to the window, best-effort (centered is the graceful fallback).
-        //
-        // Template ground truth (generic.xaml, WinUI 2.3): the ContentDialog element is a FULL-WINDOW
-        // overlay — Container → smoke LayoutRoot → the visible box is the centered template child
-        // "BackgroundElement". Seeding must therefore position the BOX and wait until it has a size:
-        // overlay-based math either no-ops (once the overlay measures full-window the clamp collapses
-        // to 8,8) or — when Opened outruns layout and ActualWidth is still 0 — translates the whole
-        // overlay by the raw anchor offset, throwing the centered box off-screen for a right-side
-        // anchor: an invisible modal that eats all input and reads as a UI hang (obs 3eba; Escape was
-        // the only way out).
-        Microsoft.UI.Xaml.Media.TranslateTransform translate = Controls.DragMove.Attach(dialog);
-        if (anchor is not null)
-        {
-            dialog.Opened += (_, _) =>
-            {
-                FrameworkElement box = FindTemplateChild(dialog, "BackgroundElement") ?? (FrameworkElement)dialog;
-                void Seed()
-                {
-                    try
-                    {
-                        Windows.Foundation.Point target = anchor.TransformToVisual(null)
-                            .TransformPoint(new Windows.Foundation.Point(0, anchor.ActualHeight + 4));
-                        Windows.Foundation.Point boxAt = box.TransformToVisual(null)
-                            .TransformPoint(new Windows.Foundation.Point(0, 0));
-                        Windows.Foundation.Size root = dialog.XamlRoot.Size;
-                        double x = Math.Clamp(target.X, 8, Math.Max(8, root.Width - box.ActualWidth - 8));
-                        double y = Math.Clamp(target.Y, 8, Math.Max(8, root.Height - box.ActualHeight - 8));
-                        translate.X += x - boxAt.X;
-                        translate.Y += y - boxAt.Y;
-                    }
-                    catch (Exception ex)
-                    {
-                        Astronomy.Diagnostics.Log.Warn($"dialog anchor seeding failed (stays centered): {ex.Message}");
-                    }
-                }
-                if (box.ActualWidth > 0)
-                {
-                    Seed();
-                    return;
-                }
-                SizeChangedEventHandler? once = null;
-                once = (_, _) =>
-                {
-                    box.SizeChanged -= once;
-                    Seed();
-                };
-                box.SizeChanged += once;
-            };
-        }
+        // Every dialog opens CENTERED (user call 2026-08-03, obs 3eba round 2: "just center any and all
+        // dialogs") and is draggable from any non-interactive spot. Near-the-row open seeding is retired:
+        // the ContentDialog element is a full-window overlay (generic.xaml: Container → smoke LayoutRoot →
+        // the centered "BackgroundElement" box), and translating it against the anchor raced layout —
+        // twice field-failed with the box off-screen, a modal you can't see eating every click.
+        Controls.DragMove.Attach(dialog);
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
@@ -244,11 +199,6 @@ public sealed partial class MainWindow
         await ShowDialogAsync(dialog);
     }
 
-    // The row the adoption menu action was invoked from — seeds the assignment dialog's position (the
-    // AdoptPrompt hook is wired once, but the anchor is per-invocation; AdoptRowFromMenuAsync sets it for
-    // the duration of the call).
-    private FrameworkElement? _adoptAnchor;
-
     // The assignment dialog every adoption goes through (openspec disk-row-adoption, user decision
     // 2026-08-03/obs 3dfe: assign existing templates, never create): project (locked to the owning project
     // when the TS target exists) + exposure template (strict same-filter/same-bin scope, best match
@@ -362,27 +312,10 @@ public sealed partial class MainWindow
         templateBox.SelectionChanged += (_, _) => RefreshCaution();
         RefreshTemplates();
 
-        if (await ShowDialogAsync(dialog, _adoptAnchor) != ContentDialogResult.Primary
+        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary
             || projectBox.SelectedIndex < 0 || templateBox.SelectedIndex < 0)
             return null;
         AdoptionProjectOption chosen = facts.Projects[projectBox.SelectedIndex];
         return new AdoptionChoice(chosen.Project, chosen.Candidates[templateBox.SelectedIndex].Template);
-    }
-
-    // Named-template-part lookup (read-only visual-tree walk — no template mutation): the anchor seeding
-    // needs ContentDialog's "BackgroundElement" (the visible box; the control element itself is the
-    // full-window overlay). Returns null when the part isn't inflated yet or the template changed shape.
-    private static FrameworkElement? FindTemplateChild(DependencyObject root, string name)
-    {
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is FrameworkElement fe && fe.Name == name)
-                return fe;
-            if (FindTemplateChild(child, name) is { } nested)
-                return nested;
-        }
-        return null;
     }
 }
