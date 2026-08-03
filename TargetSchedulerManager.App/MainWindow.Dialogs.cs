@@ -2,6 +2,7 @@ using System.Globalization;
 using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Services;
@@ -15,6 +16,27 @@ namespace TargetSchedulerManager.App;
 // shared review body. Wired to the view-model's UI hooks in the core part's constructor.
 public sealed partial class MainWindow
 {
+    // WinUI scopes keyboard accelerators to the focused popup tree, so an open ContentDialog swallows the
+    // window-level Ctrl+N — precisely when a diagnostics capture matters most (an observation OF the
+    // dialog). Every dialog shows through here: the accelerator is re-declared on the dialog itself, with
+    // the same Hidden placement as the window root (no floating "Ctrl+N" hover chip).
+    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
+    {
+        KeyboardAccelerator ctrlN = new()
+        {
+            Key = Windows.System.VirtualKey.N,
+            Modifiers = Windows.System.VirtualKeyModifiers.Control,
+        };
+        ctrlN.Invoked += (_, e) =>
+        {
+            Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
+            e.Handled = true;
+        };
+        dialog.KeyboardAccelerators.Add(ctrlN);
+        dialog.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+        return await dialog.ShowAsync();
+    }
+
     // The open-with-dirty prompt: unpushed edits exist and BIRDWATCHER is reachable, so the user decides
     // BEFORE any pull can overwrite them. Same review content as the push dialog, plus the Discard choice;
     // Escape/"Not now" keeps working locally with the journal intact (nothing is ever lost silently).
@@ -32,7 +54,7 @@ public sealed partial class MainWindow
             CloseButtonText = "Not now",
             DefaultButton = ContentDialogButton.Primary,
         };
-        return await dialog.ShowAsync() switch
+        return await ShowDialogAsync(dialog) switch
         {
             ContentDialogResult.Primary => OpenDirtyDecision.Push,
             ContentDialogResult.Secondary => OpenDirtyDecision.Discard,
@@ -52,7 +74,7 @@ public sealed partial class MainWindow
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await ShowDialogAsync(dialog) == ContentDialogResult.Primary;
     }
 
     // Shared review body: staleness/busy facts up top, then the rows the push will CREATE (adoptions — a row
@@ -182,7 +204,7 @@ public sealed partial class MainWindow
             CloseButtonText = hold.Offer is null ? "OK" : "Cancel",
             DefaultButton = hold.Offer is null ? ContentDialogButton.Close : ContentDialogButton.Primary,
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary && hold.Offer is not null;
+        return await ShowDialogAsync(dialog) == ContentDialogResult.Primary && hold.Offer is not null;
     }
 
     // The target-creating adoption's project-picker/confirm dialog (openspec disk-row-adoption): the disk
@@ -237,7 +259,7 @@ public sealed partial class MainWindow
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary && picker.SelectedIndex >= 0
+        return await ShowDialogAsync(dialog) == ContentDialogResult.Primary && picker.SelectedIndex >= 0
             ? projects[picker.SelectedIndex]
             : null;
     }
