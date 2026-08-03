@@ -33,8 +33,11 @@ off-screen, an invisible modal that eats every click and reads as a UI hang. Mov
 flyouts spec requirement renamed to "movable centered dialog". Verify round 3 (obs 90f0): the rollup
 **Seconds cell no longer says `mixed` for a same-length configuration split** — `SecondsMixed` now means
 the sub lengths truly differ (the disagreeing dimension's own cell carries its `mixed`, per the
-reconciliation-grid shared-value principle); disclosure/Desired-gating key off `Detail` instead.
-Tests: App 362 · Catalog 255.
+reconciliation-grid shared-value principle); disclosure/Desired-gating key off `Detail` instead. Round 4
+(obs 4798): **cell-keying edits re-reconcile when the editor closes** — plan exposure, template
+gain/offset/bin/default-exposure/filter/name, target rotation re-key cells (merged rows split, splits
+merge), which the in-place mirror can't express; the mirror rule holds while the dialog is open, then a
+no-pull reload lands the true shape (non-keying edits still never reload). Tests: App 362 · Catalog 255.
 
 **▶ SHIPPED 2026-08-03 — `adopt-disk-rows`: right-click adoption of disk-only cells into TS** (openspec
 archived `2026-08-03-adopt-disk-rows`; **`disk-row-adoption` = 16th capability spec**; Library gained the

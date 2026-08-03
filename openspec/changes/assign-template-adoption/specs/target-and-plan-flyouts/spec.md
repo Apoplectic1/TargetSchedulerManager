@@ -30,3 +30,30 @@ raced layout — twice field-failed with the box off-screen, an invisible modal 
 - **WHEN** the open editor covers rows the user wants to compare against
 - **THEN** dragging a non-interactive spot (title, label, blank space) repositions it; buttons and inputs
   keep their own gestures
+
+### Requirement: Committed edits mirror in their grid cells in place
+A committed, verified edit with an in-grid mirror (plan `desired`, plan exposure → the Seconds cell,
+enable toggles) SHALL update the affected row's cells in place — no grid reload, so scroll position,
+expansion state, and any in-progress edit survive — and the owning group/panel header aggregates SHALL
+recompute at once. Change notifications SHALL be raised only for cells whose value actually changed.
+An applied edit to a **cell-keying field** — plan exposure, template gain/offset/bin/default-exposure/
+filter/name, target rotation — re-shapes the reconciliation (merged rows split, splits merge), which no
+in-place mirror can express: when the editor dialog closes after such an edit, the grid SHALL
+re-reconcile without a pull, so a row never keeps asserting a pairing the edit broke (obs 4798). The
+in-place mirror still applies while the editor remains open.
+
+#### Scenario: Desired commit updates the row and its header without a rebuild
+- **WHEN** an inline Desired edit verifies against the local db
+- **THEN** the row's Desired and Hours cells show the new values in place and the owning group header re-aggregates — the grid is not reloaded
+
+#### Scenario: Exposure edit mirrors the Seconds cell at once
+- **WHEN** a flyout exposure edit verifies, including a revert to the template default
+- **THEN** the Seconds cell immediately shows the new effective value (resolved from the db when the caller does not know it), without waiting for the next reload
+
+#### Scenario: A de-pairing exposure edit re-splits when the editor closes
+- **WHEN** the user edits a merged Both row's exposure from 300 to 600 s over 300 s frames and closes the editor
+- **THEN** the grid re-reconciles without a pull and the cell renders as its split — the TS plan and the disk frames on separate lines
+
+#### Scenario: Non-keying edits never trigger the close-time reload
+- **WHEN** an editor session commits only desired, enable, or moon-rule changes
+- **THEN** closing the dialog reloads nothing — the in-place mirrors were the whole story

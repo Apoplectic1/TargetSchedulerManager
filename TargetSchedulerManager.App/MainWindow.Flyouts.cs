@@ -348,16 +348,27 @@ public sealed partial class MainWindow
             MaxWidth = 300,
         };
 
+        // An applied edit to a pairing key re-KEYS the row's reconciliation cell — merged rows split,
+        // splits merge — which the in-place mirror can't express (obs 4798: a 300→600 exposure edit left
+        // one merged Both row asserting a pairing that no longer held). The mirror rule stands while the
+        // editor is open (no rebuild under typing); the session ends with a no-pull re-reconcile instead.
+        bool reshaped = false;
+
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
+            bool applied;
             if (TryCommitMirroredField(group, row, column, value) is { } mirrored)
-                return await mirrored;
-            bool applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
-            if (applied && pairWarn is not null)
+                applied = await mirrored;
+            else
             {
-                current[column] = value;
-                RefreshPairWarn();
+                applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
+                if (applied && pairWarn is not null)
+                {
+                    current[column] = value;
+                    RefreshPairWarn();
+                }
             }
+            reshaped |= applied && IsPairingKey(table, column);
             return applied;
         }, effective, marks: MarkResolverFor(table, key));
 
@@ -386,8 +397,13 @@ public sealed partial class MainWindow
                     TsTable.ExposureTemplate,
                     $"template '{planTemplate.Name}' — used by {planTemplate.UsedByPlans} plan(s)",
                     subset,
-                    (column, value) => ViewModel.SetTsFieldAsync(
-                        TsTable.ExposureTemplate, planTemplate.TsKey, column, value, planTemplate.Name),
+                    async (column, value) =>
+                    {
+                        bool applied = await ViewModel.SetTsFieldAsync(
+                            TsTable.ExposureTemplate, planTemplate.TsKey, column, value, planTemplate.Name);
+                        reshaped |= applied && IsPairingKey(TsTable.ExposureTemplate, column);
+                        return applied;
+                    },
                     marks: MarkResolverFor(TsTable.ExposureTemplate, planTemplate.TsKey));
                 content = new StackPanel { Spacing = 6, Children = { content, templateSection } };
             }
@@ -405,6 +421,12 @@ public sealed partial class MainWindow
         };
         await ShowDialogAsync(dialog);
 
+        // The close-time re-reconcile for pairing-key sessions (obs 4798, option 1): the adoption reload
+        // path — no pull, expansion state survives. If a last commit is still settling, the busy gate
+        // refuses the load (status line says so) and Reload is the manual fallback — rare, never silent.
+        if (reshaped)
+            await ViewModel.LoadAsync(PullPolicy.Never);
+
         void RefreshPairWarn()
         {
             bool never = Shared.ProjectRules.IsNeverSelected(
@@ -414,6 +436,26 @@ public sealed partial class MainWindow
                 ViewModel.NoteStatus($"{title}: Min time > 2 × Meridian window — TS will never select this project");
         }
     }
+
+    // The columns that KEY a reconciliation cell — the capture configuration (gain/offset/bin), the
+    // effective seconds (plan exposure; template defaultexposure behind deferring plans), the cell's
+    // filter, the purpose the template NAME declares ("Stars " prefix), and the target rotation framings
+    // credit against. An applied edit to one re-shapes rows (merged cells split, splits merge), which the
+    // in-place mirror can't express — the editor session ends with a no-pull reload instead (obs 4798).
+    // Every other column keeps the mirror-only model.
+    private static bool IsPairingKey(TsTable table, string column) => table switch
+    {
+        TsTable.ExposurePlan => column.Equals("exposure", StringComparison.OrdinalIgnoreCase),
+        TsTable.ExposureTemplate =>
+            column.Equals("gain", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("offset", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("bin", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("defaultexposure", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("filtername", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("name", StringComparison.OrdinalIgnoreCase),
+        TsTable.Target => column.Equals("rotation", StringComparison.OrdinalIgnoreCase),
+        _ => false,
+    };
 
     // The in-grid-mirror routing table (review M7 — was an inline lambda of stringly special cases):
     // these columns have dedicated setters that refresh their grid cells in place; null = not a mirrored

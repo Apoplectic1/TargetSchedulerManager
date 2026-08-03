@@ -308,7 +308,11 @@ goal of zero); measured disk-side absence = `0`.
   re-aggregation. Row **positions hold** even when the edit changes a sort key (order refreshes on the next
   reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
-  `ReadPlanEffectiveSecondsAsync`), not left stale.
+  `ReadPlanEffectiveSecondsAsync`), not left stale. **Cell-keying edits re-reconcile on editor close**
+  (obs 4798, 2026-08-03): plan exposure, template gain/offset/bin/default-exposure/filter/name, and target
+  rotation re-key reconciliation cells — the mirror holds while the dialog is open, then closing it runs a
+  no-pull reload so a merged row never keeps asserting a pairing the edit broke (`IsPairingKey` in
+  `MainWindow.Flyouts`).
 - **Integer edit boxes are sized to their digit budget.** Real/decimal fields are exempt — they need room
   for the ".". Two cases, two different controls — and the split is **general** (made explicit 2026-08-03,
   user obs 7fc0): **every numeric input inside a dialog or form is a plain editable box with NO spin

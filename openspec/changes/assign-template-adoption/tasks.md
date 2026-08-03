@@ -17,6 +17,7 @@
 - [x] 3.2 Delete `ShowAdoptTemplateFormAsync`, `ShowAdoptTargetDialogAsync`, `ShowAdoptHoldDialogAsync`; rewire the context-menu path and window hook to `AdoptPrompt`
 - [x] 3.3 Build clean (0 errors)
 - [x] 3.4 All dialogs open centered — anchor seeding retired (user call 2026-08-03 after obs 3eba: seeding the ContentDialog overlay races layout and can land the box off-screen — an invisible modal reading as a UI hang); `ShowDialogAsync` loses its anchor parameter, `ShowEditDialogAsync`/`ShowMosaicDialogAsync` lose theirs, flyouts spec requirement renamed/modified (delta added)
+- [x] 3.5 Cell-keying edits re-reconcile on editor close (obs 4798, option 1): `IsPairingKey` (plan exposure; template gain/offset/bin/defaultexposure/filtername/name; target rotation) tracked per editor session, close triggers `LoadAsync(PullPolicy.Never)`; flyouts mirror requirement MODIFIED (delta)
 
 ## 4. Tests
 
