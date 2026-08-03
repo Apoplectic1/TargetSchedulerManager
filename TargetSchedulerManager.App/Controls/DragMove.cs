@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -18,7 +19,24 @@ internal static class DragMove
     public static void Attach(UIElement surface)
     {
         TranslateTransform translate = new();
-        surface.RenderTransform = translate;
+        UIElement? target = null;
+
+        // The element that must move is the visible CHROME, resolved lazily on first drag (the parent
+        // chain exists only after the popup opens): flyout content lives inside a FlyoutPresenter —
+        // translating the content alone slides it around INSIDE the stationary frame (field-verified
+        // 2026-08-03) — so the presenter is the target; a surface with no presenter ancestor
+        // (ContentDialog IS its own chrome) moves itself.
+        UIElement ResolveTarget()
+        {
+            if (target is not null)
+                return target;
+            DependencyObject? node = surface;
+            while (node is not null && node is not FlyoutPresenter)
+                node = VisualTreeHelper.GetParent(node);
+            target = node as UIElement ?? surface;
+            target.RenderTransform = translate;
+            return target;
+        }
 
         bool dragging = false;
         Point last = default;
@@ -29,6 +47,7 @@ internal static class DragMove
             if (e.Pointer.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Mouse
                 && !point.Properties.IsLeftButtonPressed)
                 return;
+            ResolveTarget();
             dragging = surface.CapturePointer(e.Pointer);
             last = point.Position;
         };
