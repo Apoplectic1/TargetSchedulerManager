@@ -3,8 +3,9 @@
 ## Purpose
 
 User-initiated adoption of a disk-only reconciliation row into TS: a right-click action that creates the
-missing TS exposure plan (and, for a fully disk-only target, the TS target via a project picker) so the
-disk history becomes visible to TS's planner and the row reads `Both`. Always per-row, never a sweep.
+missing TS exposure plan (and, for a fully disk-only target, the TS target) through one assignment dialog,
+so the disk history becomes visible to TS's planner — rendering `Both` when the assigned template pairs
+with the cell. Always per-row, never a sweep.
 
 ## Requirements
 
@@ -29,67 +30,49 @@ scope); a disk-only cell under a TS-backed mosaic panel is an ordinary eligible 
 - **WHEN** a target has three unplanned disk cells and the user adopts one
 - **THEN** exactly one plan is created; the other two cells still offer their own adoption actions
 
-### Requirement: The plan's template is auto-matched and held when unclear
-The adopted plan's exposure template SHALL be selected from the existing templates by the pairing rule:
-same filter, same purpose (the `"Stars "` name-prefix convention), and gain/offset/bin **expressed and
-equal** to the cell's. A `-1` use-camera-default sentinel SHALL NOT qualify — per the capture-config merge
-rule, an unspecified value can never be asserted to agree, so a plan from such a template would land
-beside the disk row instead of merging with it. When zero or two-or-more templates qualify, the adoption
-SHALL be refused with a message naming the cell and the candidate situation — including any near-miss
-templates of the **same filter, purpose, and binning** (differing or camera-default gain/offset) so the
-fix is evident; a different-binning template is a different integration and SHALL never be suggested —
-never guessed, and never resolved by silently creating or editing a template. A hold SHALL be presented to
-the user in its own right — an explicit menu action that silently declines reads as "nothing happened" —
-not only on a passive status line. A **zero-match** hold SHALL open the **template creation form**
-(historical cells shot under configurations no current template expresses are the normal case): the full
-schema-generated template form pre-filled with the cell's gain/offset/bin, a default exposure equal to the
-cell's seconds (the plan then defers via the sentinel), a name derived from those values, and every other
-policy field cloned from a same-profile donor template (donor preference: same filter/purpose/binning
-family, then any same-binning template, then any) — plus the plan's **desired** count, prefilled with the
-disk count and raisable (acquired/accepted stay the disk count). Every field SHALL be reviewable and
-editable before anything exists — commits land in a draft, and light-dismiss/Cancel writes nothing (the
-deliberate exception to per-field commit semantics: a creation is atomic). A draft whose gain/offset/bin
-leave the cell's values SHALL warn that the plan would not pair — warn, never block. Create lands template
-+ (target +) plan as one atomic local batch; an empty or profile-duplicate template name refuses. Ambiguity,
-non-square-binning, and missing-centroid holds show a message-only dialog. The plan's exposure override
-SHALL be the `-1` use-template-default sentinel when the effective template default equals the cell's
-whole-second exposure, else the cell's whole seconds explicitly.
+### Requirement: Adoption always presents one assignment dialog
 
-#### Scenario: Unique match is taken silently
-- **WHEN** exactly one template matches the cell's filter, purpose, and expressed capture dimensions
-- **THEN** the plan is created referencing it, with no template picker shown
+The adoption action SHALL always open a single assignment dialog — never a silent write, never a
+refusal-by-hold — presenting exactly two choices: the owning TS **project** and the plan's **exposure
+template**, each a dropdown over existing rows only (nothing is ever created from this dialog), with
+Accept and Cancel. The template dropdown SHALL be strictly scoped to templates of the cell's filter and
+square binning (a different-binning template is a different integration and SHALL NOT be listed). The
+best match SHALL be preselected: a template whose purpose and expressed gain/offset agree with the cell
+outranks a same-purpose near-miss, which outranks the rest. When the strict scope is empty, the dialog
+SHALL state that no template of that filter and binning exists — the remedy (creating one) belongs in TS —
+and Accept SHALL be disabled. A non-square-binning cell has an empty scope by definition. The dialog SHALL
+show the selected template's capture values (gain, offset, bin, default exposure) read-only beside the
+cell's disk values; no plan field is editable here — adjustments happen in the plan editor afterward.
+Accept SHALL write the adoption as one atomic local batch; Cancel SHALL write nothing.
 
-#### Scenario: Gain disagreement disqualifies a template
-- **WHEN** the only same-filter template expresses gain 139 and the disk cell's frames carry gain 100
-- **THEN** the adoption is refused with a message naming the mismatch; no plan and no template are created
+#### Scenario: Matching template is preselected, still reviewed
+- **WHEN** the user adopts a cell whose filter and bin scope contains a template whose purpose and expressed gain/offset agree with the cell
+- **THEN** the dialog opens with that template preselected, and nothing is written until Accept
 
-#### Scenario: Ambiguous templates hold
-- **WHEN** two templates both match the cell
-- **THEN** the adoption is refused naming both candidates; nothing is written
+#### Scenario: Empty scope refuses honestly
+- **WHEN** the cell's filter has no template at the cell's binning
+- **THEN** the dialog states that and Accept is disabled; nothing is written
 
-#### Scenario: A camera-default template never pairs
-- **WHEN** the only same-filter/purpose template carries the `-1` use-camera-default gain/offset sentinel
-- **THEN** the adoption is refused, the message naming the template and its camera-default values — a plan
-  built on it could never merge with the disk row
+#### Scenario: Cancel is a no-op
+- **WHEN** the user cancels or light-dismisses the dialog
+- **THEN** no row is created and no journal entry exists
 
-#### Scenario: A zero-match hold opens the pre-filled creation form
-- **WHEN** a Stars B cell at gain 53 finds no matching template while a 'Stars B' (gain 0, bin 1) template exists
-- **THEN** the creation form opens pre-filled — name "Stars B g53 o10", gain 53, offset 10, bin 1, default
-  60 s, policy fields from 'Stars B', desired = the disk count — every field editable; Create lands the
-  template and the plan referencing it as one atomic local batch; Cancel writes nothing
+### Requirement: A non-pairing assignment cautions, never blocks
 
-#### Scenario: Different-binning templates are never suggested
-- **WHEN** a bin-1 cell holds and the only same-filter/purpose template is a 2×2 variant
-- **THEN** the near-miss listing omits it and the donor preference passes over it (any same-binning
-  template outranks it)
+When the selected template would not merge with the disk cell under the reconciliation pairing rules —
+its purpose or an expressed gain/offset disagrees with the cell, or it carries a use-camera-default
+sentinel (an unspecified value can never be asserted to agree) — the dialog SHALL display an inline
+caution stating that the created plan will appear as a separate TS row beside the disk row rather than
+merging into `Both`. The caution SHALL update with the dropdown selection and SHALL never prevent Accept:
+rendering the split is the informed choice being offered.
 
-#### Scenario: Desired can be raised at creation
-- **WHEN** the user sets Desired to 60 in the form over a 42-frame cell
-- **THEN** the created plan holds desired 60 with acquired = accepted = 42 (history recorded, more requested)
+#### Scenario: Gain disagreement cautions
+- **WHEN** the user selects a gain-0 template over a gain-53 disk cell
+- **THEN** the caution states the plan will render beside the disk row, and Accept remains enabled
 
-#### Scenario: Exposure override only when needed
-- **WHEN** the matched template's default exposure equals the cell's seconds
-- **THEN** the created plan carries the use-template-default sentinel, not a redundant explicit override
+#### Scenario: Agreement clears the caution
+- **WHEN** the user switches the dropdown to a template whose purpose and expressed values agree with the cell
+- **THEN** the caution disappears
 
 ### Requirement: An adopted plan is born complete
 The created plan SHALL record `desired` = `acquired` = `accepted` = the cell's disk file count, and SHALL
@@ -105,21 +88,24 @@ be enabled. TS therefore sees the history as satisfied and schedules nothing unt
 - **THEN** the edit flows through the normal plan-edit path (journal, marks, push) like any plan
 
 ### Requirement: Adopting under a disk-only target creates the target through a project picker
-When the adopted row's target has no TS target, the action SHALL present a dialog before writing anything:
-a picker over the existing TS projects (no project is ever created), the target name prefilled from the
-disk target, and the coordinates shown for confirmation — the disk RA/Dec centroid, RA converted from
-degrees to TS's hours. On confirm, the target row SHALL be created (minted guid) in the chosen project and
-the cell's plan created under it, as one atomic local operation. When the adopted cell's framing cluster
-expresses a sky rotation, the new target's rotation SHALL be seeded from it; a mechanical or unknown
-camera angle SHALL never be converted to sky and seeds nothing. Cancel SHALL write nothing.
+The assignment dialog's project dropdown SHALL be live exactly when the adopted row's target has no TS
+target: a picker over the existing TS projects (no project is ever created), the target name prefilled
+from the disk target, and the coordinates shown for confirmation — the disk RA/Dec centroid, RA converted
+from degrees to TS's hours. On Accept, the target row SHALL be created (minted guid) in the chosen project
+and the cell's plan created under it, as one atomic local operation. When the target already exists in TS
+— including one created by an earlier adoption of another filter of the same target — the project SHALL be
+shown locked to the owning project, not chosen: all of a target's plans live in one project. When the
+adopted cell's framing cluster expresses a sky rotation, the new target's rotation SHALL be seeded from
+it; a mechanical or unknown camera angle SHALL never be converted to sky and seeds nothing. Cancel SHALL
+write nothing.
 
 #### Scenario: Target plus plan in one confirmed step
-- **WHEN** the user adopts a cell under a disk-only target, picks a project, and confirms
+- **WHEN** the user adopts a cell under a disk-only target, picks a project and template, and accepts
 - **THEN** one TS target (disk centroid coords, RA in hours) and one born-complete plan exist locally, both journaled
 
-#### Scenario: Cancel is a no-op
-- **WHEN** the user dismisses the picker without confirming
-- **THEN** no row is created and no journal entry exists
+#### Scenario: Second filter locks to the first adoption's project
+- **WHEN** the user adopts a second filter row of a target whose first adoption created the TS target in project P
+- **THEN** the dialog shows P locked; the new plan lands under the existing target with no second target created
 
 #### Scenario: Sky framing seeds rotation
 - **WHEN** the adopted cell's framing cluster carries a sky rotation
@@ -128,12 +114,20 @@ camera angle SHALL never be converted to sky and seeds nothing. Cancel SHALL wri
 ### Requirement: Adoption is an edit in the sync model
 The adoption SHALL write only the local TS db through the guarded edit funnel: it is refused while a bulk
 operation runs (busy exclusion), it journals its inserts (dirty badge, push review, replay), its rows mark
-outbound (`→`), and after the local write the grid SHALL re-reconcile so the adopted cell reads `Both`
-without a pull. The subsequent write-back passes treat the adopted plan as an ordinary existing plan.
+outbound (`→`), and after the local write the grid SHALL re-reconcile without a pull — the adopted plan
+appearing as one `Both` row when it pairs with the disk cell, or as a TS row beside the disk row when the
+assigned template does not pair (the cautioned outcome). The plan's exposure override SHALL be the `-1`
+use-template-default sentinel when the template's default exposure equals the cell's whole-second
+exposure, else the cell's whole seconds explicitly. The subsequent write-back passes treat the adopted
+plan as an ordinary existing plan.
 
-#### Scenario: Adopted row turns Both immediately
-- **WHEN** an adoption lands locally
+#### Scenario: Pairing adoption turns Both immediately
+- **WHEN** an adoption whose template pairs with the cell lands locally
 - **THEN** the refreshed grid shows the cell as one `Both` row marked `→`, and the unpushed count includes the inserts
+
+#### Scenario: Cautioned adoption renders the split it promised
+- **WHEN** an adoption accepted under the non-pairing caution lands locally
+- **THEN** the refreshed grid shows a new TS plan row marked `→` beside the still-separate disk row
 
 #### Scenario: Busy exclusion refuses adoption
 - **WHEN** the user invokes adoption while a pull is in flight

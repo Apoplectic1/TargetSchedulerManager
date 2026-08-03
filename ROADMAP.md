@@ -42,12 +42,16 @@ push-review creates section, and guid correlation in the inbound differ (no phan
 round-trip); library gained the guarded insert primitive beside `TrySetField` (cadence clear + OEO refusal
 in-transaction; templates insertable). Adds **`disk-row-adoption`** as the 16th capability spec. Same-day
 field use rejected its template auto-match/creation front end (obs 3dfe: templates are curated in TS —
-TSM assigns, never creates), so **`assign-template-adoption`** (implemented, awaiting user verify)
-replaced the four-personality selection flow (silent match, holds, creation form) with **one assignment
-dialog**: project (locked to the owning project whenever the TS target exists — later filters of a
-multi-filter target pin automatically) + existing-template dropdown (strict same-filter/same-bin scope,
-best match preselected, non-pairing caution warn-never-block, empty scope disables Accept with the
-remedy named), no editable plan fields — adjustments happen in the plan editor afterward. The verify rounds also converted **all form-hosting flyouts to movable dialogs** seeded near the
+TSM assigns, never creates), so **`assign-template-adoption`** (shipped, field-verified incl. the full
+push round-trip — remote INSERT landed in the correct project, remote delete pulled back clean — archived
+same day) replaced the four-personality selection flow (silent match, holds, creation form) with **one
+assignment dialog**: project (locked to the owning project whenever the TS target exists — later filters
+of a multi-filter target pin automatically) + existing-template dropdown (strict same-filter/same-bin
+scope, best match preselected, non-pairing caution warn-never-block, empty scope disables Accept with the
+remedy named), no editable plan fields — adjustments happen in the plan editor afterward. Its verify
+rounds also settled: **all dialogs open centered** (anchor seeding fought the ContentDialog overlay
+template, twice field-failed off-screen), the Seconds cell says `mixed` only for truly-differing sub
+lengths, and **cell-keying edits re-reconcile when the editor closes** (mirror rule holds while open). The verify rounds also converted **all form-hosting flyouts to movable dialogs** seeded near the
 clicked row (flyouts render in framework-owned popup windows that nothing can reposition — three
 mechanisms field-failed; menus stay flyouts) and fixed Ctrl+N inside dialogs (`PreviewKeyDown` — a
 `KeyboardAccelerator` on a ContentDialog is ignored entirely). The load-split is

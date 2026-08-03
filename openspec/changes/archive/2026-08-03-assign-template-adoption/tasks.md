@@ -28,4 +28,4 @@
 ## 5. Docs + specs (same commit as code)
 
 - [x] 5.1 Update SUBSYSTEMS.md (adoption bullet → assignment dialog), DOMAIN.md (dialog inventory), ROADMAP.md status, CHANGELOG.md entry
-- [ ] 5.2 At archive/sync time: apply the delta to `openspec/specs/disk-row-adoption/spec.md` and edit its Purpose line directly ("rendering `Both` when the assigned template pairs")
+- [x] 5.2 At archive/sync time: apply the delta to `openspec/specs/disk-row-adoption/spec.md` and edit its Purpose line directly ("rendering `Both` when the assigned template pairs")

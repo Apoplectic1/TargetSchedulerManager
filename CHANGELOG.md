@@ -12,9 +12,11 @@ forward plan + current status and points here; git remains the commit-level back
 ---
 
 **▶ SHIPPED 2026-08-03 — `assign-template-adoption`: adoption assigns existing templates through one
-dialog** (openspec change in flight, awaiting field verify; supersedes the template-selection front end of
-`adopt-disk-rows` below on same-day field feedback — obs 3dfe "we are not creating templates here, we are
-assigning existing templates"). The four-personality flow (silent unique match, ambiguity/zero-match
+dialog** (openspec archived `2026-08-03-assign-template-adoption`; **field-verified end-to-end including
+the full push round-trip**: Abell 78 · H adopted → push replayed the inserts to BIRDWATCHER → target +
+plan appeared in the correct project remotely → remote delete → pull → gone from TSM, no phantom marks.
+Supersedes the template-selection front end of `adopt-disk-rows` below on same-day field feedback — obs
+3dfe "we are not creating templates here, we are assigning existing templates"). The four-personality flow (silent unique match, ambiguity/zero-match
 holds, template creation form) collapsed into **one always-shown assignment dialog**: project dropdown
 (locked to the owning project whenever the TS target exists — which pins every later filter of a
 multi-filter target to the same project) + existing-template dropdown (strict same-filter/same-bin scope

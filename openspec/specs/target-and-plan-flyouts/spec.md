@@ -24,19 +24,21 @@ adoption-eligible disk-only row SHALL offer the right-click adoption action defi
 - **THEN** no glyph appears and no **edit** menu item is offered; the menu contains the adoption action exactly when the row is adoption-eligible, and nothing otherwise
 
 
-### Requirement: Triggers open the editor in a movable dialog seeded near the row
+### Requirement: Triggers open the editor in a movable centered dialog
 Either trigger SHALL open one movable dialog hosting `TsFieldsEditor` for the row's entity
 (`TsTable.Target` + `TsTargetKey`, or `TsTable.ExposurePlan` + `PlanTsKey`), titled with the entity's
-identity (target name; target · filter). The dialog SHALL open near the clicked row (clamped to the
-window; centered as the fallback) and SHALL be repositionable by dragging any non-interactive spot.
-Dismissing SHALL require no confirmation (per-field commit semantics) and SHALL leave grid scroll and
-expansion state untouched. *(2026-08-03: converted from an anchored `Flyout` — a flyout renders in its own
-framework-positioned popup window that no transform or offset write can move, field-verified three ways;
-context menus and pickers stay flyouts, where movability is meaningless.)*
+identity (target name; target · filter). The dialog SHALL open **centered** and SHALL be repositionable by
+dragging any non-interactive spot. Dismissing SHALL require no confirmation (per-field commit semantics)
+and SHALL leave grid scroll and expansion state untouched. *(2026-08-03: converted from an anchored
+`Flyout` — a flyout renders in its own framework-positioned popup window that no transform or offset write
+can move, field-verified three ways; context menus and pickers stay flyouts, where movability is
+meaningless. Open-near-the-row seeding was tried and retired the same day, user call: the ContentDialog
+element is a full-window overlay whose visible box centers inside it, and translating it against an anchor
+raced layout — twice field-failed with the box off-screen, an invisible modal eating every click.)*
 
 #### Scenario: Edit priority from the row
 - **WHEN** the user right-clicks target "M 81", picks "Edit target…", and sets Priority to High
-- **THEN** the dialog opens near the M 81 row, the write applies per the editor capability, and the grid does not reload or lose scroll position
+- **THEN** the dialog opens centered, the write applies per the editor capability, and the grid does not reload or lose scroll position
 
 #### Scenario: Filter-row editor
 - **WHEN** the user clicks the edit glyph on the "M 81 · Ha" filter row
@@ -183,6 +185,11 @@ A committed, verified edit with an in-grid mirror (plan `desired`, plan exposure
 enable toggles) SHALL update the affected row's cells in place — no grid reload, so scroll position,
 expansion state, and any in-progress edit survive — and the owning group/panel header aggregates SHALL
 recompute at once. Change notifications SHALL be raised only for cells whose value actually changed.
+An applied edit to a **cell-keying field** — plan exposure, template gain/offset/bin/default-exposure/
+filter/name, target rotation — re-shapes the reconciliation (merged rows split, splits merge), which no
+in-place mirror can express: when the editor dialog closes after such an edit, the grid SHALL
+re-reconcile without a pull, so a row never keeps asserting a pairing the edit broke (obs 4798). The
+in-place mirror still applies while the editor remains open.
 
 #### Scenario: Desired commit updates the row and its header without a rebuild
 - **WHEN** an inline Desired edit verifies against the local db
@@ -191,6 +198,14 @@ recompute at once. Change notifications SHALL be raised only for cells whose val
 #### Scenario: Exposure edit mirrors the Seconds cell at once
 - **WHEN** a flyout exposure edit verifies, including a revert to the template default
 - **THEN** the Seconds cell immediately shows the new effective value (resolved from the db when the caller does not know it), without waiting for the next reload
+
+#### Scenario: A de-pairing exposure edit re-splits when the editor closes
+- **WHEN** the user edits a merged Both row's exposure from 300 to 600 s over 300 s frames and closes the editor
+- **THEN** the grid re-reconciles without a pull and the cell renders as its split — the TS plan and the disk frames on separate lines
+
+#### Scenario: Non-keying edits never trigger the close-time reload
+- **WHEN** an editor session commits only desired, enable, or moon-rule changes
+- **THEN** closing the dialog reloads nothing — the in-place mirrors were the whole story
 
 ### Requirement: The plan editor completes the capture spec with a write-through template section
 The exposure-plan editor SHALL append an editable section for the capture columns of the template behind
