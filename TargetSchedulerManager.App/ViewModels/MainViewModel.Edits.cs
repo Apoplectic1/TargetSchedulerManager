@@ -286,18 +286,25 @@ public sealed partial class MainViewModel
         TemplateFormResult? form = await AdoptTemplateFormPrompt!(offer, seed, row.Disk, templatesByName);
         if (form is null)
             return null;   // cancelled — nothing written
+
+        // Backstops for the form's own in-dialog name validation (obs 4f34: a refusal after the dialog
+        // closed read as "nothing happened") — if ever reached, decline LOUDLY: log + hold dialog.
+        string? refusal = null;
         if (form.Draft.GetValueOrDefault("name") is not string name || string.IsNullOrWhiteSpace(name))
-        {
-            StatusText = $"can't create the template — a name is required";
-            return null;
-        }
-        if (load.Ts.Templates.Any(t =>
+            refusal = "can't create the template — a name is required";
+        else if (load.Ts.Templates.Any(t =>
             string.Equals(t.ProfileId, offer.ProfileId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(t.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)))
+            refusal = $"can't create template '{name.Trim()}' — that name is already in use in the profile";
+        if (refusal is not null)
         {
-            StatusText = $"can't create template '{name.Trim()}' — that name is already in use in the profile";
+            StatusText = refusal;
+            Log.Warn($"ADOPT create refused: {refusal}");
+            if (AdoptHoldPrompt is not null)
+                await AdoptHoldPrompt(refusal);
             return null;
         }
+        name = ((string)form.Draft["name"]!).Trim();
 
         string guid = Guid.NewGuid().ToString();
         Dictionary<string, object?> payload = new(form.Draft, StringComparer.OrdinalIgnoreCase)

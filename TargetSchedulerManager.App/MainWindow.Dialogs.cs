@@ -309,7 +309,18 @@ public sealed partial class MainWindow
             },
         };
 
-        StackPanel panel = new() { Spacing = 10, Children = { formHost, desiredRow, pairWarn } };
+        // Name validation lives IN the dialog (obs 4f34: a Create refused after the dialog closed read as
+        // "nothing happened" — the f39f lesson again): a bad name cancels the close with the reason
+        // inline, so the user fixes it in place instead of redoing the whole form.
+        TextBlock nameWarn = new()
+        {
+            Foreground = ThemeBrushes.CautionText,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 340,
+            Visibility = Visibility.Collapsed,
+        };
+
+        StackPanel panel = new() { Spacing = 10, Children = { formHost, desiredRow, pairWarn, nameWarn } };
         ContentDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
@@ -324,10 +335,27 @@ public sealed partial class MainWindow
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
         };
+        dialog.PrimaryButtonClick += (_, e) =>
+        {
+            string? warn = draft.GetValueOrDefault("name") is not string name || string.IsNullOrWhiteSpace(name)
+                ? "a template name is required"
+                : templatesByName.ContainsKey(name.Trim())
+                    ? $"'{name.Trim()}' already exists in the profile — rename to create (typing an existing"
+                        + " name only pulls its values in)"
+                    : null;
+            if (warn is null)
+                return;
+            nameWarn.Text = warn;
+            nameWarn.Visibility = Visibility.Visible;
+            e.Cancel = true;   // the dialog stays open with the reason visible
+        };
         RefreshPairWarn();
 
         if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary)
+        {
+            Astronomy.Diagnostics.Log.Info($"ADOPT creation form cancelled ({offer.ProposedName})");
             return null;
+        }
         int desired = double.IsNaN(desiredBox.Value) ? diskCount : Math.Max(0, (int)Math.Round(desiredBox.Value));
         return new TemplateFormResult(draft, desired);
     }
