@@ -405,10 +405,15 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   the implicit route 2026-06-20; it produced uneven columns and was reverted.)
 - **Dialogs and flyouts can't be repositioned natively** — `ContentDialog` centers in the XamlRoot and
   `Flyout` sticks to its anchor, and either can cover exactly the rows being compared against. Workaround
-  (2026-08-03): `Controls/DragMove.Attach` puts a `TranslateTransform` on the surface and drags it by any
-  **non-interactive** spot (title, labels, blank space — buttons/inputs swallow `PointerPressed` first, so
-  their gestures are untouched); wired in `ShowDialogAsync` (every dialog) and both flyout builders. Read
-  drag coordinates in *window* space, never relative to the moving element (self-feeding translation).
+  (2026-08-03, `Controls/DragMove.Attach`, drag by any **non-interactive** spot — buttons/inputs swallow
+  `PointerPressed` first): the mechanism differs per surface because the hosting differs. A **flyout
+  renders in its own top-level popup window**, so no XAML transform can move it on screen (content
+  translate slid inside a stationary frame; presenter translate pinned against its own window's bounds —
+  both field-verified failures); the owning `Popup`'s `Horizontal/VerticalOffset` move the popup window
+  itself (resolve via `GetOpenPopupsForXamlRoot`, match the presenter as `popup.Child`), and pointer
+  coords live in the popup's *moving* frame — never update the grab point (the reading returns to it as
+  the frame catches up). A **dialog is its own chrome in the main tree**: `TranslateTransform` +
+  static-frame incremental tracking. Wired in `ShowDialogAsync` (every dialog) and both flyout builders.
 - **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
   (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml
