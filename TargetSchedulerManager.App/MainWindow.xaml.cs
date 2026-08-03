@@ -33,6 +33,9 @@ public sealed partial class MainWindow : Window
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ?? "?").Split('+')[0];
         Title = $"Target Scheduler Manager {version}";
+        // Title-bar + taskbar icon; <ApplicationIcon> only stamps the exe, a WinUI 3 window needs this
+        // runtime call. Absolute path: SetIcon resolves relative paths against the process CWD, not the exe.
+        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"));
         // Width funds the grid: the ruler's fixed columns total ~1368 px (see GridColumns), and Target — the
         // one elastic column — must never truncate a real target name (user obs 27ec; longest today is
         // "Mosaic - Cygnus Loop · 16 panels" ≈ 250 px with its edit glyph). 1710 leaves Target ~300 px.
