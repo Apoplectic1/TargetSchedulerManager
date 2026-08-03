@@ -11,6 +11,23 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-03 — `assign-template-adoption`: adoption assigns existing templates through one
+dialog** (openspec change in flight, awaiting field verify; supersedes the template-selection front end of
+`adopt-disk-rows` below on same-day field feedback — obs 3dfe "we are not creating templates here, we are
+assigning existing templates"). The four-personality flow (silent unique match, ambiguity/zero-match
+holds, template creation form) collapsed into **one always-shown assignment dialog**: project dropdown
+(locked to the owning project whenever the TS target exists — which pins every later filter of a
+multi-filter target to the same project) + existing-template dropdown (strict same-filter/same-bin scope
+per the binning rule, best match preselected: pairs → same purpose → name order), Accept/Cancel, no
+editable plan fields (born-complete defaults; adjustments in the plan editor afterward — TS's
+`exposureplan` can override nothing but exposure seconds anyway). A non-pairing selection **cautions
+inline, never blocks** ("would not pair (gain 0 vs 53) — the plan will appear as a separate TS row beside
+the disk row"), with `WouldPair` computed in the planner beside the payloads so the caution and the
+refreshed grid can't disagree; an empty scope disables Accept and names the remedy (create the template in
+TS). Net deletion: `MatchTemplate`/holds/`TemplateCreateOffer`/`PendingTemplate`/creation form/three VM
+hooks → `ListCandidates` + `GetFacts` + one `AdoptPrompt` hook; the journal/replay template-insert leg
+stays as generic sync capability with no app-side producer. Tests: App 362 · Catalog 255.
+
 **▶ SHIPPED 2026-08-03 — `adopt-disk-rows`: right-click adoption of disk-only cells into TS** (openspec
 archived `2026-08-03-adopt-disk-rows`; **`disk-row-adoption` = 16th capability spec**; Library gained the
 guarded insert primitive `TryInsertRows`; field-verified end-to-end on "Abell 6 & HFG 1" — target + plan

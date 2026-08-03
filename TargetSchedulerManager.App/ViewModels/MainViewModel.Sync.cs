@@ -21,21 +21,17 @@ public sealed partial class MainViewModel
     /// (tests drive push through <see cref="TsSync"/> directly).</summary>
     internal Func<PushReview, Task<bool>>? ConfirmPushPrompt { get; set; }
 
-    /// <summary>UI hook (set by the window): an offer-less adoption hold (ambiguity, non-square bin,
-    /// missing centroid) — the user explicitly asked and the planner declined, so the answer deserves a
-    /// dialog, not just a status line easily missed after a menu click. Unset (tests) falls back to the
-    /// status line.</summary>
-    internal Func<string, Task>? AdoptHoldPrompt { get; set; }
+    /// <summary>UI hook (set by the window): a structural adoption refusal (stale snapshot, no plate-solved
+    /// centroid, no projects to adopt into) — the user explicitly asked and the planner declined, so the
+    /// answer deserves a dialog, not just a status line easily missed after a menu click. Unset (tests)
+    /// falls back to the status line.</summary>
+    internal Func<string, Task>? AdoptRefusalPrompt { get; set; }
 
-    /// <summary>UI hook (set by the window): the template creation form for a zero-match hold — the full
-    /// template form pre-filled from the donor + the cell's disk facts, plus the plan's Desired (prefilled
-    /// with the disk count), reviewed and editable before anything is written. Inputs: the offer, the
-    /// prepared seed (donor policy fields + disk overrides), the disk count, and the profile's template
-    /// names → keys (typing an existing template's name re-seeds the form from it — the name box doubles
-    /// as a donor picker, obs 242f). Returns the reviewed draft + desired, or null on cancel. Unset
+    /// <summary>UI hook (set by the window): the assignment dialog every adoption goes through — project
+    /// (locked when the TS target exists) + existing exposure template (strict scope, best match
+    /// preselected, non-pairing caution), Accept/Cancel. Returns the choice, or null on cancel. Unset
     /// (tests) cancels.</summary>
-    internal Func<TemplateCreateOffer, IReadOnlyDictionary<string, object?>, int,
-        IReadOnlyDictionary<string, string>, Task<TemplateFormResult?>>? AdoptTemplateFormPrompt { get; set; }
+    internal Func<AdoptionFacts, Task<AdoptionChoice?>>? AdoptPrompt { get; set; }
 
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>

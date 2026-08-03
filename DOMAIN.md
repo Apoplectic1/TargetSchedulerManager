@@ -242,7 +242,10 @@ goal of zero); measured disk-side absence = `0`.
   **right-click menu** ("Edit target…" / "Edit exposure plan…", built in code — `Row_RightTapped` — so
   items gate on row data; this menu is the extension point for future row actions — first exercised
   2026-08-03 by the adoption items "Add TS plan…" / "Add to TS…" on eligible disk-only rows, spec
-  `disk-row-adoption`). The form opens in a **ContentDialog seeded near the clicked row** and draggable by
+  `disk-row-adoption`: each opens the one **assignment dialog** — project dropdown (locked when the TS
+  target exists) + existing-template dropdown (same filter + bin, best match preselected, non-pairing
+  caution), no editable plan fields — the plan is born complete and adjusted afterward in this editor).
+  The form opens in a **ContentDialog seeded near the clicked row** and draggable by
   any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
   move, so form-hosting surfaces are dialogs and menus stay flyouts). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
@@ -308,7 +311,7 @@ goal of zero); measured disk-side absence = `0`.
 - **Integer edit boxes are sized to their digit budget.** Real/decimal fields are exempt — they need room
   for the ".". Two cases, two different controls — and the split is **general** (made explicit 2026-08-03,
   user obs 7fc0): **every numeric input inside a dialog or form is a plain editable box with NO spin
-  buttons** (grid cells, schema-generated forms, one-off dialog fields like the creation form's Desired);
+  buttons** (grid cells, schema-generated forms, one-off dialog fields);
   visible spinners exist **only** on the toolbar's `UpDownBox` knobs:
   - **No spin buttons** (`NumberBox`, `SpinButtonPlacementMode="Hidden"` — the grid's Desired cell):
     **~3 characters, `Width` ~40 px** (fits 999; ≥ 1000 clips in the box but the full value still

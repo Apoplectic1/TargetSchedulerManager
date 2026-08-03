@@ -8,8 +8,9 @@ using Xunit;
 
 namespace TargetSchedulerManager.App.Tests;
 
-// The adoption planner (openspec disk-row-adoption): the eligibility matrix, the template pairing rule with
-// its hold refusals, and payload assembly for both the plan-only and the target-creating cases.
+// The adoption planner (openspec disk-row-adoption, assignment model): the eligibility matrix, the strict
+// template scope with its merge verdicts and preselect ranking, the dialog facts (locked vs choosable
+// project, structural refusals), and payload assembly for the plan-only and target-creating cases.
 public class AdoptionPlannerTests
 {
     // ---- fixture: profile "prof-1", project 101 (p-101), target 7 (t-7) with one H-Light plan @900s ------
@@ -43,6 +44,11 @@ public class AdoptionPlannerTests
             desired: null, acquired: null, accepted: null, disk: frames, planCount: 0,
             tsTargetKey: tsTargetKey, targetId: DiskTargetId, panelKey: panelKey,
             panelLabel: panelKey, config: config);
+
+    private static ReconciliationRow StarsRow(RowConfig? config = null, string? tsTargetKey = "t-7") =>
+        Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
+            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
+            disk: 30, planCount: 0, tsTargetKey: tsTargetKey, targetId: DiskTargetId, config: config);
 
     // ---- eligibility --------------------------------------------------------------------------------------
 
@@ -83,15 +89,216 @@ public class AdoptionPlannerTests
         Assert.Equal("Nebulae", project.Name);
     }
 
-    // ---- template pairing rule ----------------------------------------------------------------------------
+    // ---- strict scope + merge verdicts --------------------------------------------------------------------
 
     [Fact]
-    public void UniqueMatch_BuildsPlanOnExistingTarget()
+    public void Scope_IsSameFilterSameBinOnly()
     {
-        (AdoptionPlan? plan, AdoptionHold? hold) =
-            AdoptionPlanner.Build(DiskRow(seconds: 600), Graph(), Ts(), project: null);
+        // A 2x2 H template is a different integration (binning rule, obs 2278) and another filter is
+        // another cell entirely — neither is ever listed.
+        TsPlanData ts = Ts(
+            new TsExposureTemplate(22, "prof-1", "H 2x2", "H", 0, 0, Bin: 2, 300),
+            new TsExposureTemplate(23, "prof-1", "O600", "O", 0, 0, Bin: 1, 600));
 
-        Assert.Null(hold);
+        (IReadOnlyList<AdoptionCandidate> candidates, _) =
+            AdoptionPlanner.ListCandidates(DiskRow(seconds: 600), ts, "prof-1");
+
+        Assert.Equal("H900", Assert.Single(candidates).Template.Name);
+    }
+
+    [Fact]
+    public void NonSquareBinning_EmptyScope()
+    {
+        RowConfig rect = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 2, Camera: null, CameraDisagrees: false);
+        (IReadOnlyList<AdoptionCandidate> candidates, int preselect) =
+            AdoptionPlanner.ListCandidates(DiskRow(seconds: 600, config: rect), Ts(), "prof-1");
+        Assert.Empty(candidates);
+        Assert.Equal(-1, preselect);
+    }
+
+    [Fact]
+    public void MatchingTemplate_WouldPair()
+    {
+        (IReadOnlyList<AdoptionCandidate> candidates, int preselect) =
+            AdoptionPlanner.ListCandidates(DiskRow(seconds: 600), Ts(), "prof-1");
+
+        AdoptionCandidate h900 = Assert.Single(candidates);
+        Assert.True(h900.WouldPair);
+        Assert.Null(h900.MismatchReason);
+        Assert.Equal(0, preselect);
+    }
+
+    [Fact]
+    public void GainDisagreement_CautionsWithBothValues()
+    {
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: 139, Offset: 10, Bin: 1, 600));
+        RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
+
+        (IReadOnlyList<AdoptionCandidate> candidates, _) =
+            AdoptionPlanner.ListCandidates(DiskRow(filter: "O", seconds: 600, config: gain100), ts, "prof-1");
+
+        AdoptionCandidate o600 = Assert.Single(candidates);
+        Assert.False(o600.WouldPair);
+        Assert.Contains("gain 139 vs 100", o600.MismatchReason);
+    }
+
+    [Fact]
+    public void CameraDefaultSentinel_NeverPairs_NamedAsSuch()
+    {
+        // The projection keys a template's -1 as the value it is, so a sentinel template lands beside an
+        // expressed disk cell — the caution says so in camera-default words.
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: -1, Offset: -1, Bin: 1, 600));
+        RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
+
+        (IReadOnlyList<AdoptionCandidate> candidates, _) =
+            AdoptionPlanner.ListCandidates(DiskRow(filter: "O", seconds: 600, config: gain100), ts, "prof-1");
+
+        AdoptionCandidate o600 = Assert.Single(candidates);
+        Assert.False(o600.WouldPair);
+        Assert.Contains("camera-default gain vs 100", o600.MismatchReason);
+        Assert.Contains("camera-default offset vs 10", o600.MismatchReason);
+    }
+
+    [Fact]
+    public void PurposeDisagreement_Cautions()
+    {
+        // The Abell 78 field case, assignment reading: 'Stars B' (gain 0) over gain-53 Stars frames — same
+        // purpose but the gain disagrees; 'B300' (Light) additionally reads as the wrong purpose.
+        TsPlanData ts = Ts(
+            new TsExposureTemplate(22, "prof-1", "Stars B", "B", Gain: 0, Offset: 10, Bin: 1, 60),
+            new TsExposureTemplate(23, "prof-1", "B300", "B", Gain: 0, Offset: 10, Bin: 1, 300));
+        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
+
+        (IReadOnlyList<AdoptionCandidate> candidates, int preselect) =
+            AdoptionPlanner.ListCandidates(StarsRow(config: gain53), ts, "prof-1");
+
+        Assert.Equal(2, candidates.Count);
+        AdoptionCandidate b300 = candidates.Single(c => c.Template.Name == "B300");
+        Assert.Contains("purpose Light vs Stars", b300.MismatchReason);
+        AdoptionCandidate starsB = candidates.Single(c => c.Template.Name == "Stars B");
+        Assert.Contains("gain 0 vs 53", starsB.MismatchReason);
+        Assert.DoesNotContain("purpose", starsB.MismatchReason);
+        // Nothing pairs → the same-purpose near-miss is the preselect.
+        Assert.Equal("Stars B", candidates[preselect].Template.Name);
+    }
+
+    [Fact]
+    public void Preselect_PairingCandidateOutranksNameOrder()
+    {
+        // "A600" sorts first but disagrees on gain; "H900"... — use an exact-pair candidate later in name
+        // order to prove ranking beats listing order.
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "A pair-breaker H", "H", Gain: 139, Offset: 0, Bin: 1, 600));
+
+        (IReadOnlyList<AdoptionCandidate> candidates, int preselect) =
+            AdoptionPlanner.ListCandidates(DiskRow(seconds: 600), ts, "prof-1");
+
+        Assert.Equal(2, candidates.Count);
+        Assert.Equal("A pair-breaker H", candidates[0].Template.Name);   // name order lists it first
+        Assert.Equal("H900", candidates[preselect].Template.Name);       // the pairing one preselects
+    }
+
+    // ---- dialog facts -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ExistingTarget_LocksTheOwningProject()
+    {
+        (AdoptionFacts? facts, string? refusal) = AdoptionPlanner.GetFacts(DiskRow(seconds: 600), Graph(), Ts());
+
+        Assert.Null(refusal);
+        Assert.True(facts!.ProjectLocked);
+        AdoptionProjectOption option = Assert.Single(facts.Projects);
+        Assert.Equal("Nebulae", option.Project.Name);
+        Assert.Null(facts.TargetName);           // no target creation
+        Assert.Equal("H", facts.Filter);
+        Assert.Equal(42, facts.DiskCount);
+        Assert.Equal(600, facts.Seconds);
+    }
+
+    [Fact]
+    public void DiskOnlyTarget_OffersPickableProjectsAndCreationFacts()
+    {
+        (AdoptionFacts? facts, string? refusal) =
+            AdoptionPlanner.GetFacts(DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: 21.5, dec: 40.25), Ts());
+
+        Assert.Null(refusal);
+        Assert.False(facts!.ProjectLocked);
+        Assert.Equal("Nebulae", Assert.Single(facts.Projects).Project.Name);   // mosaics never offered
+        Assert.Equal("Sh2-119", facts.TargetName);
+        Assert.Equal(21.5, facts.RaHours);
+        Assert.Equal(40.25, facts.DecDegrees);
+        Assert.Null(facts.SeededRotationDeg);
+    }
+
+    [Fact]
+    public void SkyFraming_SeedsTheFactsRotation_MechanicalDoesNot()
+    {
+        RowConfig sky = new(0, 0, 1, 1, null, false,
+            Rotation: Astronomy.Catalog.Scan.RotationExpression.Sky, RotationFoldDeg: 57.3);
+        (AdoptionFacts? withSky, _) = AdoptionPlanner.GetFacts(
+            DiskRow(tsTargetKey: null, seconds: 600, config: sky), Graph(), Ts());
+        Assert.Equal(57.3, withSky!.SeededRotationDeg);
+
+        RowConfig mech = sky with { Rotation = Astronomy.Catalog.Scan.RotationExpression.Mechanical };
+        (AdoptionFacts? withMech, _) = AdoptionPlanner.GetFacts(
+            DiskRow(tsTargetKey: null, seconds: 600, config: mech), Graph(), Ts());
+        Assert.Null(withMech!.SeededRotationDeg);
+    }
+
+    [Fact]
+    public void NoCentroid_Refuses()
+    {
+        (AdoptionFacts? facts, string? refusal) =
+            AdoptionPlanner.GetFacts(DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: null), Ts());
+        Assert.Null(facts);
+        Assert.Contains("centroid", refusal);
+    }
+
+    [Fact]
+    public void NoPickableProjects_Refuses()
+    {
+        TsPlanData mosaicOnly = new(
+            Projects: [new TsProject(102, "prof-1", "CygnusLoop Mosaic", 1, 1, null, IsMosaic: 1, "p-102")],
+            Targets: [], Templates: [], Plans: []);
+        (AdoptionFacts? facts, string? refusal) =
+            AdoptionPlanner.GetFacts(DiskRow(tsTargetKey: null, seconds: 600), Graph(), mosaicOnly);
+        Assert.Null(facts);
+        Assert.Contains("no TS projects", refusal);
+    }
+
+    [Fact]
+    public void StaleOwningProject_Refuses()
+    {
+        TsPlanData orphaned = new(
+            Projects: [new TsProject(101, "prof-1", "Nebulae", 1, 1, null, IsMosaic: 0, "p-101")],
+            Targets: [new TsTarget(7, "NGC 7000", 1, 20.9, 44.5, 2, null, 100, ProjectId: 999, -1, "t-7")],
+            Templates: [], Plans: []);
+        (AdoptionFacts? facts, string? refusal) =
+            AdoptionPlanner.GetFacts(DiskRow(seconds: 600), Graph(), orphaned);
+        Assert.Null(facts);
+        Assert.Contains("project is missing", refusal);
+    }
+
+    [Fact]
+    public void EmptyScopeReason_NamesNonSquareOrMissingTemplate()
+    {
+        RowConfig rect = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 2, Camera: null, CameraDisagrees: false);
+        (AdoptionFacts? nonSquare, _) = AdoptionPlanner.GetFacts(DiskRow(seconds: 600, config: rect), Graph(), Ts());
+        Assert.Contains("non-square", nonSquare!.EmptyScopeReason);
+
+        (AdoptionFacts? square, _) = AdoptionPlanner.GetFacts(DiskRow(seconds: 600), Graph(), Ts());
+        Assert.Contains("no H template at bin 1", square!.EmptyScopeReason);
+    }
+
+    // ---- build --------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void AssignedTemplate_BuildsPlanOnExistingTarget()
+    {
+        TsPlanData ts = Ts();
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(
+            DiskRow(seconds: 600), Graph(), ts, ts.Projects[0], ts.Templates[0]);
+
+        Assert.Null(refusal);
         TsRowInsert insert = Assert.Single(plan!.Rows);
         Assert.False(plan.CreatesTarget);
         Assert.Equal(TsTable.ExposurePlan, insert.Table);
@@ -108,109 +315,39 @@ public class AdoptionPlannerTests
     [Fact]
     public void TemplateDefaultMatchesSeconds_UsesSentinel()
     {
-        // A second H template can't exist for this to stay unique — use a fresh filter instead.
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", 0, 0, 1, 600));
-        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600), Graph(), ts, null);
+        TsExposureTemplate o600 = new(22, "prof-1", "O600", "O", 0, 0, 1, 600);
+        TsPlanData ts = Ts(o600);
+        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(
+            DiskRow(filter: "O", seconds: 600), Graph(), ts, ts.Projects[0], o600);
         Assert.Equal(-1.0, Assert.Single(plan!.Rows).Payload["exposure"]);
     }
 
     [Fact]
-    public void ExpressedGainDisagreement_Holds()
+    public void NonPairingTemplate_StillBuilds()
     {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: 139, Offset: 10, Bin: 1, 600));
+        // Assignment never blocks (the caution is the dialog's): a gain-139 template over gain-100 frames
+        // builds a plan that will render beside the disk row — the informed choice the user accepted.
+        TsExposureTemplate o600 = new(22, "prof-1", "O600", "O", Gain: 139, Offset: 10, Bin: 1, 600);
+        TsPlanData ts = Ts(o600);
         RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        (AdoptionPlan? plan, AdoptionHold? hold) =
-            AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, null);
 
-        Assert.Null(plan);
-        Assert.Contains("no template matches", hold!.Message);
-        Assert.Contains("gain 100", hold.Message);
-    }
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(
+            DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, ts.Projects[0], o600);
 
-    [Fact]
-    public void CameraDefaultTemplate_NeverPairs_HoldsWithHint()
-    {
-        // The merge rule's honest reading (capture-config-keys): a -1 use-camera-default sentinel is an
-        // unspecified value — nothing can be asserted to agree with it, so a plan from such a template
-        // would land BESIDE the disk row, not merge. The hold names the near-miss so the fix is obvious.
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: -1, Offset: -1, Bin: 1, 600));
-        RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        (AdoptionPlan? plan, AdoptionHold? hold) =
-            AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, null);
-
-        Assert.Null(plan);
-        Assert.Contains("no template matches", hold!.Message);
-        Assert.Contains("'O600'", hold.Message);
-        Assert.Contains("camera-default gain", hold.Message);
-    }
-
-    [Fact]
-    public void NearMissTemplate_NamedInTheHold()
-    {
-        // The Abell 78 field case: a same-family template exists but its gain differs from the frames'.
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars B", "B", Gain: 0, Offset: 10, Bin: 1, 60));
-        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        ReconciliationRow stars = Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
-            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
-            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: default, config: gain53);
-
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(stars, Graph(), ts, null);
-        Assert.Null(plan);
-        Assert.Contains("close: 'Stars B' (gain 0, offset 10)", hold!.Message);
-    }
-
-    [Fact]
-    public void TwoCandidates_HoldNamingBoth()
-    {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "H600", "H", 0, 0, 1, 600));
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(DiskRow(seconds: 600), Graph(), ts, null);
-
-        Assert.Null(plan);
-        Assert.Contains("2 templates match", hold!.Message);
-        Assert.Contains("'H900'", hold.Message);
-        Assert.Contains("'H600'", hold.Message);
-    }
-
-    [Fact]
-    public void StarsPurpose_MatchesOnlyStarsTemplates()
-    {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars H", "H", 0, 0, 1, 10));
-        ReconciliationRow stars = Make.Leaf("NGC 7000", RowPlane.Disk, "H", "Stars",
-            planSeconds: 0, diskSeconds: 10, desired: null, acquired: null, accepted: null,
-            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: DiskTargetId);
-
-        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(stars, Graph(), ts, null);
+        Assert.Null(refusal);
         Assert.Equal(22L, Assert.Single(plan!.Rows).Payload["exposureTemplateId"]);
-    }
-
-    [Fact]
-    public void NonSquareBinning_Holds()
-    {
-        RowConfig rect = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 2, Camera: null, CameraDisagrees: false);
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(DiskRow(seconds: 600, config: rect), Graph(), Ts(), null);
-        Assert.Null(plan);
-        Assert.Contains("non-square", hold!.Message);
     }
 
     // ---- target creation ----------------------------------------------------------------------------------
 
     [Fact]
-    public void DiskOnlyTarget_NoProject_Holds()
-    {
-        (AdoptionPlan? plan, AdoptionHold? hold) =
-            AdoptionPlanner.Build(DiskRow(tsTargetKey: null, seconds: 600), Graph(), Ts(), project: null);
-        Assert.Null(plan);
-        Assert.Contains("pick a project", hold!.Message);
-    }
-
-    [Fact]
     public void DiskOnlyTarget_BuildsTargetThenPlan()
     {
         TsPlanData ts = Ts();
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(
-            DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: 21.5, dec: 40.25), ts, ts.Projects[0]);
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(
+            DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: 21.5, dec: 40.25), ts, ts.Projects[0], ts.Templates[0]);
 
-        Assert.Null(hold);
+        Assert.Null(refusal);
         Assert.True(plan!.CreatesTarget);
         Assert.Equal(2, plan.Rows.Count);
         TsRowInsert target = plan.Rows[0];
@@ -224,122 +361,31 @@ public class AdoptionPlannerTests
 
         TsRowInsert planRow = plan.Rows[1];
         Assert.Equal(target.Payload["guid"], planRow.Payload["targetid"]);   // same-batch guid reference
-        Assert.Equal("Sh2-119", plan.TargetName);
-        Assert.Equal(21.5, plan.RaHours);
     }
 
     [Fact]
-    public void SkyFraming_SeedsRotation_MechanicalDoesNot()
+    public void SkyFraming_SeedsRotationPayload_MechanicalDoesNot()
     {
         TsPlanData ts = Ts();
         RowConfig sky = new(0, 0, 1, 1, null, false,
             Rotation: Astronomy.Catalog.Scan.RotationExpression.Sky, RotationFoldDeg: 57.3);
         (AdoptionPlan? withSky, _) = AdoptionPlanner.Build(
-            DiskRow(tsTargetKey: null, seconds: 600, config: sky), Graph(), ts, ts.Projects[0]);
+            DiskRow(tsTargetKey: null, seconds: 600, config: sky), Graph(), ts, ts.Projects[0], ts.Templates[0]);
         Assert.Equal(57.3, withSky!.Rows[0].Payload["rotation"]);
-        Assert.Equal(57.3, withSky.SeededRotationDeg);
 
         RowConfig mech = sky with { Rotation = Astronomy.Catalog.Scan.RotationExpression.Mechanical };
         (AdoptionPlan? withMech, _) = AdoptionPlanner.Build(
-            DiskRow(tsTargetKey: null, seconds: 600, config: mech), Graph(), ts, ts.Projects[0]);
+            DiskRow(tsTargetKey: null, seconds: 600, config: mech), Graph(), ts, ts.Projects[0], ts.Templates[0]);
         Assert.False(withMech!.Rows[0].Payload.ContainsKey("rotation"));
     }
 
     [Fact]
-    public void NoCentroid_Holds()
+    public void NoCentroid_BuildRefusesAsBackstop()
     {
         TsPlanData ts = Ts();
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(
-            DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: null), ts, ts.Projects[0]);
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(
+            DiskRow(tsTargetKey: null, seconds: 600), Graph(ra: null), ts, ts.Projects[0], ts.Templates[0]);
         Assert.Null(plan);
-        Assert.Contains("centroid", hold!.Message);
-        Assert.Null(AdoptionPlanner.TargetFacts(DiskRow(), Graph(ra: null)));
-    }
-
-    // ---- template create offer + pending build ------------------------------------------------------------
-
-    [Fact]
-    public void ZeroMatchHold_CarriesCreateOffer_DonorIsFamilyFirst()
-    {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars B", "B", Gain: 0, Offset: 10, Bin: 1, 60));
-        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        ReconciliationRow stars = Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
-            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
-            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: default, config: gain53);
-
-        (_, AdoptionHold? hold) = AdoptionPlanner.Build(stars, Graph(), ts, null);
-
-        Assert.NotNull(hold!.Offer);
-        Assert.Equal("Stars B g53 o10", hold.Offer!.ProposedName);
-        Assert.Equal("Stars B", hold.Offer.DonorName);      // the family template lends its policy fields
-        Assert.Equal("22", hold.Offer.DonorTsKey);
-        Assert.Equal(53, hold.Offer.Gain);
-        Assert.Equal(60, hold.Offer.Seconds);
-        Assert.Equal("prof-1", hold.Offer.ProfileId);
-    }
-
-    [Fact]
-    public void AmbiguityAndNonSquareHolds_CarryNoOffer()
-    {
-        TsPlanData two = Ts(new TsExposureTemplate(22, "prof-1", "H600", "H", 0, 0, 1, 600));
-        (_, AdoptionHold? ambiguous) = AdoptionPlanner.Build(DiskRow(seconds: 600), Graph(), two, null);
-        Assert.Null(ambiguous!.Offer);
-
-        RowConfig rect = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 2, Camera: null, CameraDisagrees: false);
-        (_, AdoptionHold? nonSquare) = AdoptionPlanner.Build(DiskRow(seconds: 600, config: rect), Graph(), Ts(), null);
-        Assert.Null(nonSquare!.Offer);
-    }
-
-    [Fact]
-    public void DifferentBinTemplates_NeverSuggested_NorPreferredAsDonor()
-    {
-        // Binning rule (obs 2278): a 2x2 template is a different integration — not a near-miss for a
-        // bin-1 cell, and not the donor while any same-bin template exists.
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars B 2x2", "B", 0, 10, 2, 60));
-        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        ReconciliationRow stars = Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
-            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
-            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: default, config: gain53);
-
-        (_, AdoptionHold? hold) = AdoptionPlanner.Build(stars, Graph(), ts, null);
-
-        Assert.DoesNotContain("Stars B 2x2", hold!.Message);       // not a near-miss suggestion
-        Assert.NotNull(hold.Offer);
-        Assert.Equal("H900", hold.Offer!.DonorName);               // same-bin profile template outranks the 2x2
-    }
-
-    [Fact]
-    public void DesiredOverride_RaisesTheGoal_HistoryCountsUntouched()
-    {
-        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(
-            DiskRow(seconds: 600, frames: 42), Graph(), Ts(), null, desiredOverride: 60);
-
-        TsRowInsert insert = Assert.Single(plan!.Rows);
-        Assert.Equal(60, insert.Payload["desired"]);      // the form asked for more
-        Assert.Equal(42, insert.Payload["acquired"]);     // history stays the disk count
-        Assert.Equal(42, insert.Payload["accepted"]);
-    }
-
-    [Fact]
-    public void PendingTemplate_LeadsTheBatch_PlanReferencesItsGuid()
-    {
-        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        Dictionary<string, object?> payload = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["guid"] = "et-new", ["profileId"] = "prof-1", ["name"] = "H g53 o10",
-            ["filtername"] = "H", ["gain"] = 53, ["offset"] = 10, ["bin"] = 1, ["defaultexposure"] = 600.0,
-        };
-        PendingTemplate pending = new(payload, "et-new", "H g53 o10", 600);
-
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(
-            DiskRow(seconds: 600, config: gain53), Graph(), Ts(), null, pending);
-
-        Assert.Null(hold);
-        Assert.Equal(2, plan!.Rows.Count);
-        Assert.Equal(TsTable.ExposureTemplate, plan.Rows[0].Table);
-        TsRowInsert planRow = plan.Rows[1];
-        Assert.Equal("et-new", planRow.Payload["exposureTemplateId"]);   // same-batch guid reference
-        Assert.Equal(-1.0, planRow.Payload["exposure"]);                 // default 600 == cell 600 → sentinel
-        Assert.Equal("H g53 o10", plan.Template.Name);
+        Assert.Contains("centroid", refusal);
     }
 }

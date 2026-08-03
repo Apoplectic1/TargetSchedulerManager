@@ -96,11 +96,11 @@ public sealed partial class MainWindow
                             () => ShowEditDialogAsync(el, TsTable.ExposureTemplate, template.TsKey, TemplateTitle(template), null, null)));
                 }
                 // Adoption (openspec disk-row-adoption): an eligible disk-only cell offers "Add TS plan…"
-                // (existing TS target) or "Add to TS…" (whole target, via the project-picker dialog).
-                // Split rows and disk-only mosaic panels never qualify — the planner's gate decides.
+                // (existing TS target) or "Add to TS…" (whole target) — both through the one assignment
+                // dialog. Split rows and disk-only mosaic panels never qualify — the planner's gate decides.
                 if (ViewModel.IsRowAdoptable(row))
                     menu.Items.Add(AddMenuItem(row.TsTargetKey is null ? "Add to TS…" : "Add TS plan…",
-                        () => AdoptRowFromMenuAsync(row)));
+                        () => AdoptRowFromMenuAsync(row, el)));
                 (projectKey, projectName) = (row.ProjectTsKey, row.Project);
                 break;
         }
@@ -271,19 +271,20 @@ public sealed partial class MainWindow
         return item;
     }
 
-    // The adoption click: an existing TS target adopts silently (template auto-match; holds land on the
-    // status line); a disk-only target routes through the project-picker/confirm dialog first — cancel
-    // writes nothing.
-    private async Task AdoptRowFromMenuAsync(ReconciliationRow row)
+    // The adoption click: every adoption goes through the VM funnel, which shows the one assignment dialog
+    // (project + template) via the AdoptPrompt hook — the anchor field seeds that dialog near the clicked
+    // row for the duration of the call. Cancel writes nothing.
+    private async Task AdoptRowFromMenuAsync(ReconciliationRow row, FrameworkElement anchor)
     {
-        if (row.TsTargetKey is not null)
+        _adoptAnchor = anchor;
+        try
         {
-            await ViewModel.AdoptRowAsync(row, project: null);
-            return;
+            await ViewModel.AdoptRowAsync(row);
         }
-        TsProject? project = await ShowAdoptTargetDialogAsync(row);
-        if (project is not null)
-            await ViewModel.AdoptRowAsync(row, project);
+        finally
+        {
+            _adoptAnchor = null;
+        }
     }
 
     // The Templates… picker: every template from the loaded graph (zero-use ones included — they have no

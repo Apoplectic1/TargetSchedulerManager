@@ -71,9 +71,10 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   and refuses on override-order rows) and journals each created row as an **insert entry** — the full
   column payload as JSON plus the minted guid (the cross-copy name), keyed in the table's own key space
   (target guid; plan local integer id). Insert entries have no baseline and never prune; they clear only by
-  push or discard (discard-and-pull is the undo). A zero-template-match hold can, on the user's confirm,
-  also create the **missing template** in the same batch (the cell's gain/offset/bin + default exposure,
-  policy fields cloned from a same-profile donor). At push the inserts replay **first**, references before
+  push or discard (discard-and-pull is the undo). The adoption **assigns an existing exposure template**
+  through its one always-shown dialog (obs 3dfe, 2026-08-03: TS is the authoring surface for templates —
+  TSM never creates or edits one from adoption; a non-pairing assignment cautions inline and lands the plan
+  beside the disk row, the honest split). At push the inserts replay **first**, references before
   referrers (templates → targets → plans), as remote INSERTs: the remote autoincrement mints its own id,
   parent references travel as **guids** wherever ids can diverge (a plan's `targetid`, a target's
   `projectid`, a same-batch created template) and as the copy-stable integer id for a template that came

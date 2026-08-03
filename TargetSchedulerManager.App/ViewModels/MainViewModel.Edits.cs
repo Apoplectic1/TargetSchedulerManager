@@ -196,27 +196,16 @@ public sealed partial class MainViewModel
     public bool IsRowAdoptable(ReconciliationRow row) =>
         _lastLoad is { Ts: { } ts } && AdoptionPlanner.IsEligible(row, ts);
 
-    /// <summary>The project-picker list for a target-creating adoption (existing non-mosaic projects only).</summary>
-    public IReadOnlyList<TsProject> AdoptableProjects() =>
-        _lastLoad is { Ts: { } ts } ? AdoptionPlanner.PickableProjects(ts) : [];
-
-    /// <summary>The confirm-dialog seeds for a target-creating adoption (name, centroid, seeded rotation);
-    /// null when unavailable — the caller falls through to <see cref="AdoptRowAsync"/>, whose refusal names
-    /// why.</summary>
-    public (string Name, double RaHours, double DecDegrees, double? SeededRotationDeg)? GetAdoptionTargetFacts(
-        ReconciliationRow row) =>
-        _lastLoad is { Graph: { } graph } ? AdoptionPlanner.TargetFacts(row, graph) : null;
-
     /// <summary>
-    /// The "Add to TS" action: plans the adoption (template auto-match, born-complete counts, target payload
-    /// when <paramref name="project"/> names the new target's home), applies it atomically through the
-    /// gate's insert path (journals, marks), and reloads without a pull so the cell re-reconciles to Both.
-    /// A planner hold surfaces through <see cref="AdoptHoldPrompt"/> (dialog); a zero-template-match hold
-    /// carries a create offer there — on confirm the missing template is minted from the cell's numbers
-    /// (policy fields cloned from the donor) and the whole batch (template, target when needed, plan)
-    /// lands atomically. Declined or offer-less holds write nothing.
+    /// The "Add to TS" action: assembles the assignment facts, shows the one dialog every adoption goes
+    /// through (<see cref="AdoptPrompt"/> — project + existing template, Accept/Cancel), builds the accepted
+    /// choice's inserts (born-complete counts, target payload when the TS target doesn't exist), applies
+    /// them atomically through the gate's insert path (journals, marks), and reloads without a pull so the
+    /// cell re-reconciles — `Both` when the assigned template pairs, a TS row beside the disk row when the
+    /// user accepted the caution. Structural refusals (stale snapshot, no centroid, no projects) surface
+    /// through <see cref="AdoptRefusalPrompt"/>; cancel writes nothing.
     /// </summary>
-    public async Task<bool> AdoptRowAsync(ReconciliationRow row, TsProject? project)
+    public async Task<bool> AdoptRowAsync(ReconciliationRow row)
     {
         string label = Format.Label(row.Target, row.Filter);
         if (RefuseIfBusy($"Add to TS for {label}"))
@@ -227,18 +216,21 @@ public sealed partial class MainViewModel
             return false;
         }
 
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project);
-        if (plan is null)
+        (AdoptionFacts? facts, string? refusal) = AdoptionPlanner.GetFacts(row, load.Graph, load.Ts);
+        if (facts is null)
+            return await RefuseAdoptionAsync(refusal!);
+
+        AdoptionChoice? choice = AdoptPrompt is null ? null : await AdoptPrompt(facts);
+        if (choice is null)
         {
-            StatusText = hold?.Message ?? $"can't add {label} to TS";
-            Log.Warn($"ADOPT held: {hold?.Message}");
-            if (hold?.Offer is { } offer && AdoptTemplateFormPrompt is not null)
-                plan = await BuildViaTemplateFormAsync(row, load, project, offer, label);
-            else if (hold is not null && AdoptHoldPrompt is not null)
-                await AdoptHoldPrompt(hold.Message);
-            if (plan is null)
-                return false;
+            Log.Info($"ADOPT cancelled ({label})");
+            return false;
         }
+
+        (AdoptionPlan? plan, string? buildRefusal) = AdoptionPlanner.Build(
+            row, load.Graph, load.Ts, choice.Project, choice.Template);
+        if (plan is null)
+            return await RefuseAdoptionAsync(buildRefusal!);
 
         EditOutcome outcome = await WithEditInFlightAsync(() => _gate.ApplyInsertAsync(plan.Rows, plan.Label));
         if (!ApplyOutcome(outcome, plan.Label))
@@ -248,84 +240,19 @@ public sealed partial class MainViewModel
             ? $"added TS target + plan for {plan.Label} (template '{plan.Template.Name}', desired {row.Disk}) — unpushed"
             : $"added TS plan for {plan.Label} (template '{plan.Template.Name}', desired {row.Disk}) — unpushed";
         Log.Info($"ADOPT applied: {StatusText}");
-        await LoadAsync(PullPolicy.Never);   // the created rows re-reconcile the cell to Both, marks ride the reload
+        await LoadAsync(PullPolicy.Never);   // the created rows re-reconcile the cell, marks ride the reload
         return true;
     }
 
-    // The zero-match path's creation form: seed = the donor template's full editable fields (its policy
-    // columns — moon avoidance, twilight, dither… — become the new template's) overridden with the cell's
-    // identity + capture values; the user reviews and edits ANYTHING in the form (the pairing caution is
-    // the form's, warn-never-block); Create returns the draft + desired and the batch re-plans with the
-    // pending template leading it. Cancel or a bad draft writes nothing.
-    private async Task<AdoptionPlan?> BuildViaTemplateFormAsync(
-        ReconciliationRow row, LoadResult load, TsProject? project, TemplateCreateOffer offer, string label)
+    // An explicit menu action that declines must decline loudly (the f39f lesson): status line + log +
+    // dialog. These are structural refusals — the assignment dialog itself handles the empty-scope case.
+    private async Task<bool> RefuseAdoptionAsync(string reason)
     {
-        IReadOnlyDictionary<string, object?>? donor = await WithEditInFlightAsync(() =>
-            _gate.ReadFieldsAsync(TsTable.ExposureTemplate, offer.DonorTsKey, offer.DonorName));
-        if (donor is null)
-        {
-            StatusText = $"can't clone template '{offer.DonorName}' — read failed, see tsm.log";
-            return null;
-        }
-        Dictionary<string, object?> seed = new(donor, StringComparer.OrdinalIgnoreCase)
-        {
-            ["name"] = offer.ProposedName,
-            ["filtername"] = row.Filter,
-            ["gain"] = offer.Gain,
-            ["offset"] = offer.Offset,
-            ["bin"] = offer.Bin,
-            ["defaultexposure"] = (double)offer.Seconds,   // the plan then defers via the -1 sentinel
-        };
-
-        Dictionary<string, string> templatesByName = new(StringComparer.OrdinalIgnoreCase);
-        foreach (TsExposureTemplate t in load.Ts.Templates)
-            if (string.Equals(t.ProfileId, offer.ProfileId, StringComparison.OrdinalIgnoreCase)
-                && !templatesByName.ContainsKey(t.Name))
-                templatesByName[t.Name] = t.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        TemplateFormResult? form = await AdoptTemplateFormPrompt!(offer, seed, row.Disk, templatesByName);
-        if (form is null)
-            return null;   // cancelled — nothing written
-
-        // Backstops for the form's own in-dialog name validation (obs 4f34: a refusal after the dialog
-        // closed read as "nothing happened") — if ever reached, decline LOUDLY: log + hold dialog.
-        string? refusal = null;
-        if (form.Draft.GetValueOrDefault("name") is not string name || string.IsNullOrWhiteSpace(name))
-            refusal = "can't create the template — a name is required";
-        else if (load.Ts.Templates.Any(t =>
-            string.Equals(t.ProfileId, offer.ProfileId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(t.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)))
-            refusal = $"can't create template '{name.Trim()}' — that name is already in use in the profile";
-        if (refusal is not null)
-        {
-            StatusText = refusal;
-            Log.Warn($"ADOPT create refused: {refusal}");
-            if (AdoptHoldPrompt is not null)
-                await AdoptHoldPrompt(refusal);
-            return null;
-        }
-        name = ((string)form.Draft["name"]!).Trim();
-
-        string guid = Guid.NewGuid().ToString();
-        Dictionary<string, object?> payload = new(form.Draft, StringComparer.OrdinalIgnoreCase)
-        {
-            ["guid"] = guid,
-            ["profileId"] = offer.ProfileId,
-            ["name"] = name.Trim(),
-        };
-        double defaultExposure = Convert.ToDouble(
-            payload.GetValueOrDefault("defaultexposure") ?? (double)offer.Seconds,
-            System.Globalization.CultureInfo.InvariantCulture);
-        PendingTemplate pending = new(payload, guid, name.Trim(), defaultExposure);
-
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(
-            row, load.Graph, load.Ts, project, pending, desiredOverride: form.Desired);
-        if (plan is null)
-        {
-            StatusText = hold?.Message ?? $"can't add {label} to TS";
-            Log.Warn($"ADOPT held after template form: {hold?.Message}");
-        }
-        return plan;
+        StatusText = reason;
+        Log.Warn($"ADOPT refused: {reason}");
+        if (AdoptRefusalPrompt is not null)
+            await AdoptRefusalPrompt(reason);
+        return false;
     }
 
     // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has

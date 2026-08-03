@@ -46,8 +46,8 @@ public sealed partial class MainWindow : Window
         // firing in the constructor.
         ViewModel.OpenWithDirtyPrompt = ShowOpenDirtyDialogAsync;
         ViewModel.ConfirmPushPrompt = ShowPushReviewDialogAsync;
-        ViewModel.AdoptHoldPrompt = ShowAdoptHoldDialogAsync;
-        ViewModel.AdoptTemplateFormPrompt = ShowAdoptTemplateFormAsync;
+        ViewModel.AdoptRefusalPrompt = ShowAdoptRefusalDialogAsync;
+        ViewModel.AdoptPrompt = ShowAdoptDialogAsync;
         ((FrameworkElement)Content).Loaded += (_, _) =>
         {
             if (_initialLoadStarted) return;

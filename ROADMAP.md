@@ -35,15 +35,19 @@ progress gauge** (owed time or captured total, never a signed sum). 2026-08-02 g
 README storefront + MIT), the sync badge's "last proven in sync" semantics, and **`velopack-self-update`**
 (self-updating Velopack installer on GitHub Releases, local-build only — AL ships compiled, source
 unpublished; 15th spec) — shipped, v1.1.0 released, archived. Rules: `RELEASING.md`. 2026-08-03 landed
-**`adopt-disk-rows`** (implemented, awaiting user verify): right-click **"Add TS plan… / Add to TS…"** on
-eligible disk-only cells — born-complete plan (desired = acquired = disk count), template auto-match on
-gain/offset/bin expressed-and-equal with a hold **dialog** whose zero-match case offers creating the
-missing template (donor-cloned policy fields; historical configs are the normal case), project-picker
-dialog for whole-target adoption, a journal **insert** kind with a guid-carried replay leg (templates →
-targets → plans) + push-review creates section, and guid correlation in the inbound differ (no phantom `←`
-after the round-trip); library gained the guarded insert primitive beside `TrySetField` (cadence clear +
-OEO refusal in-transaction; templates insertable). Adds **`disk-row-adoption`** as the 16th capability
-spec. The verify rounds also converted **all form-hosting flyouts to movable dialogs** seeded near the
+**`adopt-disk-rows`** (shipped, field-verified on Abell 6 & HFG 1, archived): right-click
+**"Add TS plan… / Add to TS…"** on eligible disk-only cells — born-complete plan (desired = acquired =
+disk count), a journal **insert** kind with a guid-carried replay leg (templates → targets → plans) +
+push-review creates section, and guid correlation in the inbound differ (no phantom `←` after the
+round-trip); library gained the guarded insert primitive beside `TrySetField` (cadence clear + OEO refusal
+in-transaction; templates insertable). Adds **`disk-row-adoption`** as the 16th capability spec. Same-day
+field use rejected its template auto-match/creation front end (obs 3dfe: templates are curated in TS —
+TSM assigns, never creates), so **`assign-template-adoption`** (implemented, awaiting user verify)
+replaced the four-personality selection flow (silent match, holds, creation form) with **one assignment
+dialog**: project (locked to the owning project whenever the TS target exists — later filters of a
+multi-filter target pin automatically) + existing-template dropdown (strict same-filter/same-bin scope,
+best match preselected, non-pairing caution warn-never-block, empty scope disables Accept with the
+remedy named), no editable plan fields — adjustments happen in the plan editor afterward. The verify rounds also converted **all form-hosting flyouts to movable dialogs** seeded near the
 clicked row (flyouts render in framework-owned popup windows that nothing can reposition — three
 mechanisms field-failed; menus stay flyouts) and fixed Ctrl+N inside dialogs (`PreviewKeyDown` — a
 `KeyboardAccelerator` on a ContentDialog is ignored entirely). The load-split is
