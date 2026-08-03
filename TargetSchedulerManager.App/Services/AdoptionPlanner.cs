@@ -28,7 +28,7 @@ internal sealed record AdoptionPlan(
 /// the user confirms in the hold dialog.</summary>
 internal sealed record TemplateCreateOffer(
     string ProposedName, string ProfileId, string DonorTsKey, string DonorName,
-    int Gain, int Offset, int Bin, int Seconds);
+    int Gain, int Offset, int Bin, int Seconds, string Filter, bool StarsPurpose);
 
 /// <summary>Why an adoption did not proceed, plus the create offer when the hold is a zero-match a new
 /// template would resolve (ambiguity, non-square bin, and missing-centroid holds carry none).</summary>
@@ -266,7 +266,8 @@ internal static class AdoptionPlanner
             return null;   // both names taken by different-valued templates — hand-resolve in TS
 
         return new TemplateCreateOffer(name, profileId, donor.Id.ToString(CultureInfo.InvariantCulture),
-            donor.Name, row.Config.Gain, row.Config.Offset, row.Config.BinningX, row.DiskSeconds);
+            donor.Name, row.Config.Gain, row.Config.Offset, row.Config.BinningX, row.DiskSeconds,
+            row.Filter, purpose == FilterPurpose.Stars);
     }
 
     // A target's TS plans at one (filter, purpose, effective-seconds) cell — the no-plan-at-key predicate.

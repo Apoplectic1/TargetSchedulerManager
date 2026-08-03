@@ -201,13 +201,16 @@ public sealed partial class MainWindow
     // gain/offset/bin leave the cell's values (or hold the camera-default sentinel) would create a plan
     // that lands BESIDE the disk row — visible while deciding, but the decision stays the user's.
     private async Task<TemplateFormResult?> ShowAdoptTemplateFormAsync(
-        TemplateCreateOffer offer, IReadOnlyDictionary<string, object?> seed, int diskCount)
+        TemplateCreateOffer offer, IReadOnlyDictionary<string, object?> seed, int diskCount,
+        IReadOnlyDictionary<string, string> templatesByName)
     {
         Dictionary<string, object?> draft = new(seed, StringComparer.OrdinalIgnoreCase);
+        string purposeWord = offer.StarsPurpose ? "Stars" : "Light";
         TextBlock pairWarn = new()
         {
-            Text = $"gain/offset/bin differ from the disk frames ({offer.Gain}/{offer.Offset}/bin {offer.Bin}) — "
-                + "the new plan would NOT pair with this disk row",
+            Text = $"template values no longer match the disk frames ({offer.Filter}, {purposeWord}, "
+                + $"gain {offer.Gain}, offset {offer.Offset}, bin {offer.Bin}) — the new plan would NOT pair "
+                + "with this disk row",
             Foreground = ThemeBrushes.CautionText,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 340,
@@ -215,23 +218,43 @@ public sealed partial class MainWindow
         };
         void RefreshPairWarn()
         {
+            // The full pairing key as the form can break it: capture values, the filter, and the purpose
+            // the "Stars " name prefix declares (a refill from another filter's template trips these too).
             bool serves =
                 Convert.ToInt64(draft.GetValueOrDefault("gain") ?? -1L) == offer.Gain
                 && Convert.ToInt64(draft.GetValueOrDefault("offset") ?? -1L) == offer.Offset
-                && Convert.ToInt64(draft.GetValueOrDefault("bin") ?? 0L) == offer.Bin;
+                && Convert.ToInt64(draft.GetValueOrDefault("bin") ?? 0L) == offer.Bin
+                && string.Equals(draft.GetValueOrDefault("filtername") as string ?? "", offer.Filter,
+                    StringComparison.OrdinalIgnoreCase)
+                && (draft.GetValueOrDefault("name") as string ?? "")
+                    .StartsWith("Stars ", StringComparison.OrdinalIgnoreCase) == offer.StarsPurpose;
             pairWarn.Visibility = serves ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        UIElement form = Controls.TsFieldsEditor.Create(
+        // The form is rebuilt in place when a name commit re-seeds the draft (obs 242f: typing an existing
+        // template's name pulls its values in — the name box doubles as a donor picker; the typed name
+        // stays, so Create still requires renaming away from the duplicate).
+        ContentPresenter formHost = new();
+        void BuildForm(string settingsFrom) => formHost.Content = Controls.TsFieldsEditor.Create(
             TsTable.ExposureTemplate,
-            $"New template — settings from '{offer.DonorName}'",
-            seed,
-            (column, value) =>
+            $"New template — settings from '{settingsFrom}'",
+            new Dictionary<string, object?>(draft, StringComparer.OrdinalIgnoreCase),
+            async (column, value) =>
             {
                 draft[column] = value;   // deferred: nothing exists until Create
+                if (column.Equals("name", StringComparison.OrdinalIgnoreCase)
+                    && value is string typed && templatesByName.TryGetValue(typed.Trim(), out string? tsKey)
+                    && await ViewModel.ReadTsFieldsAsync(TsTable.ExposureTemplate, tsKey, typed.Trim())
+                        is { } existing)
+                {
+                    draft = new Dictionary<string, object?>(existing, StringComparer.OrdinalIgnoreCase)
+                    { ["name"] = typed };
+                    BuildForm(typed.Trim());
+                }
                 RefreshPairWarn();
-                return Task.FromResult(true);
+                return true;
             });
+        BuildForm(offer.DonorName);
 
         NumberBox desiredBox = new()
         {
@@ -258,7 +281,7 @@ public sealed partial class MainWindow
             },
         };
 
-        StackPanel panel = new() { Spacing = 10, Children = { form, desiredRow, pairWarn } };
+        StackPanel panel = new() { Spacing = 10, Children = { formHost, desiredRow, pairWarn } };
         ContentDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,

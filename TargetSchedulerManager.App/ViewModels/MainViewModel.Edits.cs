@@ -277,7 +277,13 @@ public sealed partial class MainViewModel
             ["defaultexposure"] = (double)offer.Seconds,   // the plan then defers via the -1 sentinel
         };
 
-        TemplateFormResult? form = await AdoptTemplateFormPrompt!(offer, seed, row.Disk);
+        Dictionary<string, string> templatesByName = new(StringComparer.OrdinalIgnoreCase);
+        foreach (TsExposureTemplate t in load.Ts.Templates)
+            if (string.Equals(t.ProfileId, offer.ProfileId, StringComparison.OrdinalIgnoreCase)
+                && !templatesByName.ContainsKey(t.Name))
+                templatesByName[t.Name] = t.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        TemplateFormResult? form = await AdoptTemplateFormPrompt!(offer, seed, row.Disk, templatesByName);
         if (form is null)
             return null;   // cancelled — nothing written
         if (form.Draft.GetValueOrDefault("name") is not string name || string.IsNullOrWhiteSpace(name))

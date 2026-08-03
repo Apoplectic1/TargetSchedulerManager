@@ -30,10 +30,12 @@ public sealed partial class MainViewModel
     /// <summary>UI hook (set by the window): the template creation form for a zero-match hold — the full
     /// template form pre-filled from the donor + the cell's disk facts, plus the plan's Desired (prefilled
     /// with the disk count), reviewed and editable before anything is written. Inputs: the offer, the
-    /// prepared seed (donor policy fields + disk overrides), and the disk count. Returns the reviewed
-    /// draft + desired, or null on cancel. Unset (tests) cancels.</summary>
-    internal Func<TemplateCreateOffer, IReadOnlyDictionary<string, object?>, int, Task<TemplateFormResult?>>?
-        AdoptTemplateFormPrompt { get; set; }
+    /// prepared seed (donor policy fields + disk overrides), the disk count, and the profile's template
+    /// names → keys (typing an existing template's name re-seeds the form from it — the name box doubles
+    /// as a donor picker, obs 242f). Returns the reviewed draft + desired, or null on cancel. Unset
+    /// (tests) cancels.</summary>
+    internal Func<TemplateCreateOffer, IReadOnlyDictionary<string, object?>, int,
+        IReadOnlyDictionary<string, string>, Task<TemplateFormResult?>>? AdoptTemplateFormPrompt { get; set; }
 
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>
