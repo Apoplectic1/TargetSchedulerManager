@@ -286,7 +286,9 @@ public sealed partial class MainWindow
         {
             Value = diskCount,
             SmallChange = 1,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            // No spinners in forms/dialogs — house rule (DOMAIN → integer edit boxes; user obs 7fc0):
+            // plain editable box; visible spinners exist only on the toolbar's UpDownBox knobs.
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
             Width = 110,
             HorizontalAlignment = HorizontalAlignment.Left,
         };

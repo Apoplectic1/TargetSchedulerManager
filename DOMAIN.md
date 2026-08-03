@@ -306,7 +306,10 @@ goal of zero); measured disk-side absence = `0`.
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
   `ReadPlanEffectiveSecondsAsync`), not left stale.
 - **Integer edit boxes are sized to their digit budget.** Real/decimal fields are exempt — they need room
-  for the ".". Two cases, two different controls:
+  for the ".". Two cases, two different controls — and the split is **general** (made explicit 2026-08-03,
+  user obs 7fc0): **every numeric input inside a dialog or form is a plain editable box with NO spin
+  buttons** (grid cells, schema-generated forms, one-off dialog fields like the creation form's Desired);
+  visible spinners exist **only** on the toolbar's `UpDownBox` knobs:
   - **No spin buttons** (`NumberBox`, `SpinButtonPlacementMode="Hidden"` — the grid's Desired cell):
     **~3 characters, `Width` ~40 px** (fits 999; ≥ 1000 clips in the box but the full value still
     commits); text **centered in code-behind** via `NarrowNumberBox_Loaded` (a NumberBox can't center via
