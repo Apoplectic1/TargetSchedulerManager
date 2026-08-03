@@ -71,10 +71,13 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   and refuses on override-order rows) and journals each created row as an **insert entry** — the full
   column payload as JSON plus the minted guid (the cross-copy name), keyed in the table's own key space
   (target guid; plan local integer id). Insert entries have no baseline and never prune; they clear only by
-  push or discard (discard-and-pull is the undo). At push they replay **first**, targets before plans, as
-  remote INSERTs: the remote autoincrement mints its own id, parent references travel as **guids** wherever
-  ids can diverge (a plan's `targetid`, a target's `projectid`) and as the copy-stable integer id for
-  templates (never created locally). Field edits addressing an unpushed insert **fold into the INSERT
+  push or discard (discard-and-pull is the undo). A zero-template-match hold can, on the user's confirm,
+  also create the **missing template** in the same batch (the cell's gain/offset/bin + default exposure,
+  policy fields cloned from a same-profile donor). At push the inserts replay **first**, references before
+  referrers (templates → targets → plans), as remote INSERTs: the remote autoincrement mints its own id,
+  parent references travel as **guids** wherever ids can diverge (a plan's `targetid`, a target's
+  `projectid`, a same-batch created template) and as the copy-stable integer id for a template that came
+  from a pull. Field edits addressing an unpushed insert **fold into the INSERT
   payload** — the row lands remotely with final values; a replay of them as UPDATEs keyed by the local id
   would silently miss (the ids diverge). The push review shows a distinct **creates** section. After the
   closing pull the inserted rows come back renumbered under the remote's ids (guid unchanged, journal

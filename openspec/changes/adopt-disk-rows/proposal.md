@@ -19,8 +19,10 @@ adoption** — never a sweep.
     plus the one plan. One click = one cell; repeat per cell.
 - **Template auto-match, hold if unclear**: the plan's template is chosen by the merge rule — filter +
   `"Stars "` purpose + gain/offset/bin expressed and equal (a `-1` camera-default sentinel never pairs,
-  matching the capture-config rule's honest reading). Zero or ≥2 candidates → refuse with reason (naming
-  near-miss templates), never guess, never auto-create a template.
+  matching the capture-config rule's honest reading). ≥2 candidates → refuse with reason; **zero** → the
+  hold dialog offers creating the missing template from the cell's numbers (policy fields cloned from a
+  same-profile donor) — user-confirmed, never silent (added 2026-08-03 after field feedback: historical
+  cells shot under configs no current template expresses are the normal case).
 - **Born complete (record history)**: `desired` = `acquired` = `accepted` = disk file count for that
   exposure bucket; TS sees the history and schedules nothing until the user raises `desired`.
 - **Split rows are excluded**: a disk row separated from an existing same-`(filter, purpose, seconds)`

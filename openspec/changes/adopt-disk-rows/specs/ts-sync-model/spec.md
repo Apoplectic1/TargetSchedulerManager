@@ -17,13 +17,14 @@ SHALL NOT be pruned by the net-no-op rule; they clear only by push or discard.
 - **THEN** the rows are still present in the local db, still journaled, and still push-eligible
 
 ### Requirement: Push replays inserts by guid, minting remote ids
-The push SHALL replay insert entries as remote INSERTs **before both field legs**, targets before their
-plans. The remote autoincrement mints the remote integer id; the journaled guid travels with the row and
-is the correlation name. A parent reference whose integer id can diverge between copies (a plan's
-`targetid` — its target may itself be a local creation; a target's `projectid` when the project has a
-guid) SHALL be resolved on the remote by parent guid, never by copying a local integer id. The template
-reference MAY travel as the integer id: templates are never created locally, so every local template row
-came from a pull and its id is copy-stable by construction.
+The push SHALL replay insert entries as remote INSERTs **before both field legs**, references before their
+referrers: templates, then targets, then plans. The remote autoincrement mints the remote integer id; the
+journaled guid travels with the row and is the correlation name. A parent reference whose integer id can
+diverge between copies (a plan's `targetid` — its target may itself be a local creation; a target's
+`projectid` when the project has a guid; a plan's template reference when the template is itself a local
+creation) SHALL be resolved on the remote by parent guid, never by copying a local integer id. The
+reference to a template that came from a pull MAY travel as the integer id — such ids are copy-stable by
+construction.
 Field entries addressing a locally inserted row SHALL be folded into that row's INSERT payload (the
 row lands remotely with its final values); they SHALL NOT replay as UPDATEs keyed by the local id. Insert
 failures follow the existing per-entry rules: reported loudly, retained in the journal, and a whole-db

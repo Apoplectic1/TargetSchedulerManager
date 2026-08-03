@@ -211,8 +211,10 @@ public sealed partial class MainViewModel
     /// The "Add to TS" action: plans the adoption (template auto-match, born-complete counts, target payload
     /// when <paramref name="project"/> names the new target's home), applies it atomically through the
     /// gate's insert path (journals, marks), and reloads without a pull so the cell re-reconciles to Both.
-    /// A planner hold (no/ambiguous template, missing centroid) or a gate refusal lands on the status line;
-    /// nothing was written then.
+    /// A planner hold surfaces through <see cref="AdoptHoldPrompt"/> (dialog); a zero-template-match hold
+    /// carries a create offer there — on confirm the missing template is minted from the cell's numbers
+    /// (policy fields cloned from the donor) and the whole batch (template, target when needed, plan)
+    /// lands atomically. Declined or offer-less holds write nothing.
     /// </summary>
     public async Task<bool> AdoptRowAsync(ReconciliationRow row, TsProject? project)
     {
@@ -225,14 +227,16 @@ public sealed partial class MainViewModel
             return false;
         }
 
-        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project);
+        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project);
         if (plan is null)
         {
-            StatusText = refusal ?? $"can't add {label} to TS";
-            Log.Warn($"ADOPT held: {refusal}");
-            if (AdoptHoldPrompt is not null)
-                await AdoptHoldPrompt(refusal ?? $"can't add {label} to TS");
-            return false;
+            StatusText = hold?.Message ?? $"can't add {label} to TS";
+            Log.Warn($"ADOPT held: {hold?.Message}");
+            if (hold is null || AdoptHoldPrompt is null || !await AdoptHoldPrompt(hold) || hold.Offer is null)
+                return false;
+            plan = await BuildWithCreatedTemplateAsync(row, load, project, hold.Offer, label);
+            if (plan is null)
+                return false;
         }
 
         EditOutcome outcome = await WithEditInFlightAsync(() => _gate.ApplyInsertAsync(plan.Rows, plan.Label));
@@ -245,6 +249,43 @@ public sealed partial class MainViewModel
         Log.Info($"ADOPT applied: {StatusText}");
         await LoadAsync(PullPolicy.Never);   // the created rows re-reconcile the cell to Both, marks ride the reload
         return true;
+    }
+
+    // The confirmed create offer: read the donor template's full editable fields from the local db (its
+    // policy columns — moon avoidance, twilight, dither… — become the new template's), override the
+    // identity + capture values with the cell's, and re-plan with the pending template leading the batch.
+    private async Task<AdoptionPlan?> BuildWithCreatedTemplateAsync(
+        ReconciliationRow row, LoadResult load, TsProject? project, TemplateCreateOffer offer, string label)
+    {
+        IReadOnlyDictionary<string, object?>? donor = await WithEditInFlightAsync(() =>
+            _gate.ReadFieldsAsync(TsTable.ExposureTemplate, offer.DonorTsKey, offer.DonorName));
+        if (donor is null)
+        {
+            StatusText = $"can't clone template '{offer.DonorName}' — read failed, see tsm.log";
+            return null;
+        }
+
+        string guid = Guid.NewGuid().ToString();
+        Dictionary<string, object?> payload = new(donor, StringComparer.OrdinalIgnoreCase)
+        {
+            ["guid"] = guid,
+            ["profileId"] = offer.ProfileId,
+            ["name"] = offer.ProposedName,
+            ["filtername"] = row.Filter,
+            ["gain"] = offer.Gain,
+            ["offset"] = offer.Offset,
+            ["bin"] = offer.Bin,
+            ["defaultexposure"] = (double)offer.Seconds,   // the plan then defers via the -1 sentinel
+        };
+        PendingTemplate pending = new(payload, guid, offer.ProposedName, offer.Seconds);
+
+        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project, pending);
+        if (plan is null)
+        {
+            StatusText = hold?.Message ?? $"can't add {label} to TS";
+            Log.Warn($"ADOPT held after template create: {hold?.Message}");
+        }
+        return plan;
     }
 
     // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has

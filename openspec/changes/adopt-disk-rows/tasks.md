@@ -61,3 +61,16 @@
 - [x] 5.2 Full build + all suites green: App 353 · Catalog 253 · Contracts 61; `openspec validate`
       clean. Needs human verification: menu items on real disk-only rows, the Add-to-TS dialog, adopted
       row reading `Both` + `→`, push-review creates section, and a real push round-trip
+
+## 6. Field-feedback round (2026-08-03, the Abell 78 hold)
+
+- [x] 6.1 Sentinel never pairs: template matching is gain/offset/bin expressed-and-equal (merge-rule
+      alignment); zero-match holds name near-miss templates; delta spec/proposal/design amended
+- [x] 6.2 Holds get a dialog (`AdoptHoldPrompt`) — an explicit action that silently declines deserves an
+      explicit answer
+- [x] 6.3 Zero-match hold offers creating the missing template (user-confirmed): primitive accepts
+      `exposuretemplate` rows, replay orders templates → targets → plans, same-batch plan references the
+      created template by guid, donor-cloned policy fields via `ReadFieldsAsync`, review summarizes
+      template creates by identity + capture values only
+- [x] 6.4 Tests: library template-insert batch (15), planner offer/no-offer matrix + pending build,
+      migrated hold shape (App 357 · Catalog 255 · Contracts 61)

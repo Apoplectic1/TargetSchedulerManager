@@ -36,11 +36,14 @@ README storefront + MIT), the sync badge's "last proven in sync" semantics, and 
 (self-updating Velopack installer on GitHub Releases, local-build only — AL ships compiled, source
 unpublished; 15th spec) — shipped, v1.1.0 released, archived. Rules: `RELEASING.md`. 2026-08-03 landed
 **`adopt-disk-rows`** (implemented, awaiting user verify): right-click **"Add TS plan… / Add to TS…"** on
-eligible disk-only cells — born-complete plan (desired = acquired = disk count), template auto-match that
-holds when unclear, project-picker dialog for whole-target adoption, a journal **insert** kind with a
-guid-carried replay leg + push-review creates section, and guid correlation in the inbound differ (no
-phantom `←` after the round-trip); library gained the guarded insert primitive beside `TrySetField`
-(cadence clear + OEO refusal in-transaction). Adds **`disk-row-adoption`** as the 16th capability spec. The load-split is
+eligible disk-only cells — born-complete plan (desired = acquired = disk count), template auto-match on
+gain/offset/bin expressed-and-equal with a hold **dialog** whose zero-match case offers creating the
+missing template (donor-cloned policy fields; historical configs are the normal case), project-picker
+dialog for whole-target adoption, a journal **insert** kind with a guid-carried replay leg (templates →
+targets → plans) + push-review creates section, and guid correlation in the inbound differ (no phantom `←`
+after the round-trip); library gained the guarded insert primitive beside `TrySetField` (cadence clear +
+OEO refusal in-transaction; templates insertable). Adds **`disk-row-adoption`** as the 16th capability
+spec. The load-split is
 **retired** (2026-07-08 — the ~2 s fresh scan is acceptable even at 2× the library, so a cross-load scan cache
 would buy the stale-ACTUAL window for time that isn't felt; every load keeps scanning fresh, so the grid can
 never show stale ACTUAL). The next lane is

@@ -398,7 +398,13 @@ internal sealed class TsSync
         List<PushReviewCreateLine> creates = [.. collapsed
             .Where(e => e.Kind == TsEditKind.Insert)
             .Select(e => new PushReviewCreateLine(e.Label,
-                e.Table == TsTable.Target ? "target" : "exposure plan", SummarizeInsert(e)))];
+                e.Table switch
+                {
+                    TsTable.Target => "target",
+                    TsTable.ExposureTemplate => "template",
+                    _ => "exposure plan",
+                },
+                SummarizeInsert(e)))];
 
         // Old/new render sentinel-aware (a plan exposure of −1 reads "template default", never a raw −1
         // that looks like an ID); the replayed VALUE stays canonical — display only.
@@ -464,7 +470,8 @@ internal sealed class TsSync
         // remaining entries replay through the classic legs untouched.
         List<TsJournalEntry> inserts = [.. collapsed
             .Where(e => e.Kind == TsEditKind.Insert)
-            .OrderBy(e => e.Table == TsTable.Target ? 0 : 1)   // a created plan's parent target must exist first
+            // A created plan's references must exist first: templates, then targets, then plans.
+            .OrderBy(e => e.Table switch { TsTable.ExposureTemplate => 0, TsTable.Target => 1, _ => 2 })
             .ThenBy(e => e.Seq)];
         HashSet<string> insertRowKeys = new(inserts.Select(e => RowKey(e.Table, e.Key)), StringComparer.OrdinalIgnoreCase);
         ILookup<string, TsJournalEntry> folded = collapsed
@@ -596,12 +603,24 @@ internal sealed class TsSync
     }
 
     // The creates section's summary: the payload's human-meaningful values, in payload order. Correlation
-    // plumbing (guid, profile, parent references — guids or ids, either way not review content) stays out.
+    // plumbing (guid, profile, parent references — guids or ids, either way not review content) stays out;
+    // a template's long policy tail (moon avoidance, twilight, dither…) is cloned config, so its summary
+    // keeps only the identity + capture values the creation is FOR.
     private static string SummarizeInsert(TsJournalEntry entry)
     {
-        string[] plumbing = ["guid", "profileId", "targetid", "exposureTemplateId", "projectid"];
-        return string.Join(", ", InsertPayload(entry)
-            .Where(kv => !plumbing.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
+        Dictionary<string, object?> payload = InsertPayload(entry);
+        IEnumerable<KeyValuePair<string, object?>> shown;
+        if (entry.Table == TsTable.ExposureTemplate)
+        {
+            string[] keep = ["name", "filtername", "gain", "offset", "bin", "defaultexposure"];
+            shown = keep.Where(payload.ContainsKey).Select(k => new KeyValuePair<string, object?>(k, payload[k]));
+        }
+        else
+        {
+            string[] plumbing = ["guid", "profileId", "targetid", "exposureTemplateId", "projectid"];
+            shown = payload.Where(kv => !plumbing.Contains(kv.Key, StringComparer.OrdinalIgnoreCase));
+        }
+        return string.Join(", ", shown
             .Select(kv => $"{kv.Key} {TsValueText.ForField(entry.Table, kv.Key, FormatValue(kv.Value)) ?? "null"}"));
     }
 

@@ -35,11 +35,11 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
   copy and BIRDWATCHER for inserted rows) vs `guid` (minted at row creation, travels with the row — the
   **cross-copy stable name**; what TSM keys targets by and must carry through any insert replay).
   Exercised since 2026-08-03 by the adoption's insert replay (openspec `adopt-disk-rows`): locally created
-  `target`/`exposureplan` rows INSERT remotely at push (the remote mints its own `Id`, the guid travels),
-  parent references resolve **by guid** wherever ids can diverge (a plan's `targetid`, a target's
-  `projectid`) and by the copy-stable integer `Id` for templates (TSM never creates templates, so every
-  local template row came from a pull); the closing pull brings the rows back renumbered, correlated in the
-  inbound differ by guid.
+  `exposuretemplate`/`target`/`exposureplan` rows INSERT remotely at push (the remote mints its own `Id`,
+  the guid travels), parent references resolve **by guid** wherever ids can diverge (a plan's `targetid`, a
+  target's `projectid`, a same-batch created template) and by the copy-stable integer `Id` for a template
+  that came from a pull; the closing pull brings the rows back renumbered, correlated in the inbound differ
+  by guid.
   TSM's **journal and mark key spaces** are layered per-table on top of this: `Target` and `Project` = **guid**
   (both come from `TargetResolver.Provenance`, which returns the TS guid and falls back to the `Id`-string only
   when TS supplies none); `ExposurePlan` and `ExposureTemplate` = the TS integer `Id` as a string (manual

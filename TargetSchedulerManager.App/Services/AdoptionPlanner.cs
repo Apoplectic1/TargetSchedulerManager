@@ -21,6 +21,24 @@ internal sealed record AdoptionPlan(
     double? DecDegrees,
     double? SeededRotationDeg);
 
+/// <summary>A zero-template-match hold's escape hatch: the values a created template would carry (the
+/// cell's expressed capture config; default exposure = the cell's seconds so the plan defers via the −1
+/// sentinel) plus the donor whose non-key policy fields (moon avoidance, twilight, dither…) it clones —
+/// always a same-profile template, preferably the same filter/purpose family. Offered, never automatic:
+/// the user confirms in the hold dialog.</summary>
+internal sealed record TemplateCreateOffer(
+    string ProposedName, string ProfileId, string DonorTsKey, string DonorName,
+    int Gain, int Offset, int Bin, int Seconds);
+
+/// <summary>Why an adoption did not proceed, plus the create offer when the hold is a zero-match a new
+/// template would resolve (ambiguity, non-square bin, and missing-centroid holds carry none).</summary>
+internal sealed record AdoptionHold(string Message, TemplateCreateOffer? Offer = null);
+
+/// <summary>A template the caller decided to create (offer confirmed + donor fields read): the full column
+/// payload for the insert, the minted guid the plan references it by, and the display facts.</summary>
+internal sealed record PendingTemplate(
+    IReadOnlyDictionary<string, object?> Payload, string Guid, string Name, double DefaultExposure);
+
 /// <summary>
 /// The pure planning half of "Add to TS" (openspec `disk-row-adoption`): decides which disk-only rows offer
 /// the action, matches the exposure template by the pairing rule, and assembles the insert payloads — all
@@ -68,11 +86,13 @@ internal static class AdoptionPlanner
     /// <summary>
     /// Assembles the adoption for an eligible row: template auto-match (hold when unclear), born-complete
     /// counts, and — when the target is not in TS — the target payload from the disk centroid
-    /// (<paramref name="project"/> is required then, and ignored on a TS-known target). Returns the plan or
-    /// a refusal message; never writes.
+    /// (<paramref name="project"/> is required then, and ignored on a TS-known target). A confirmed
+    /// template-create offer re-enters as <paramref name="pending"/>: matching is skipped, the template's
+    /// insert leads the batch, and the plan references it by guid. Returns the plan or a hold; never writes.
     /// </summary>
-    public static (AdoptionPlan? Plan, string? Refusal) Build(
-        ReconciliationRow row, CatalogGraph graph, TsPlanData ts, TsProject? project)
+    public static (AdoptionPlan? Plan, AdoptionHold? Hold) Build(
+        ReconciliationRow row, CatalogGraph graph, TsPlanData ts, TsProject? project,
+        PendingTemplate? pending = null)
     {
         TsTarget? tsTarget = FindTarget(ts, row.TsTargetKey);
         string label = Format.Label(row.Target, row.Filter);
@@ -82,16 +102,30 @@ internal static class AdoptionPlanner
             ? ts.Projects.FirstOrDefault(p => p.Id == tsTarget.ProjectId)
             : project;
         if (owningProject is null)
-            return (null, tsTarget is not null
+            return (null, new AdoptionHold(tsTarget is not null
                 ? $"{label}: the TS target's project is missing from the snapshot — reload and retry"
-                : $"{label}: pick a project for the new target");
+                : $"{label}: pick a project for the new target"));
 
-        (TsExposureTemplate? template, string? templateRefusal) = MatchTemplate(row, ts, owningProject.ProfileId, label);
-        if (template is null)
-            return (null, templateRefusal);
+        TsExposureTemplate template;
+        if (pending is null)
+        {
+            (TsExposureTemplate? matched, AdoptionHold? hold) = MatchTemplate(row, ts, owningProject.ProfileId, label);
+            if (matched is null)
+                return (null, hold);
+            template = matched;
+        }
+        else
+        {
+            // A display-side stand-in for the not-yet-inserted template (Id 0 — the payload's guid is the
+            // reference the plan uses; the review and status line only need the name/values).
+            template = new TsExposureTemplate(0, owningProject.ProfileId, pending.Name, row.Filter,
+                row.Config.Gain, row.Config.Offset, row.Config.BinningX, pending.DefaultExposure);
+        }
 
         string planGuid = Guid.NewGuid().ToString();
         List<TsRowInsert> rows = [];
+        if (pending is not null)
+            rows.Add(new TsRowInsert(TsTable.ExposureTemplate, pending.Payload));
         string? targetName = null;
         double? raHours = null, decDegrees = null, seededRotation = null;
         object targetReference;
@@ -106,9 +140,9 @@ internal static class AdoptionPlanner
         {
             Astronomy.Catalog.Schema.Target? diskTarget = graph.Targets.FirstOrDefault(t => t.Id == row.TargetId);
             if (diskTarget is null)
-                return (null, $"{label}: the disk target is missing from the retained graph — reload and retry");
+                return (null, new AdoptionHold($"{label}: the disk target is missing from the retained graph — reload and retry"));
             if (diskTarget.RaHours is not double ra || diskTarget.DecDegreesSigned is not double dec)
-                return (null, $"{label}: no plate-solved centroid on disk — TS needs coordinates");
+                return (null, new AdoptionHold($"{label}: no plate-solved centroid on disk — TS needs coordinates"));
 
             targetName = diskTarget.Name;
             raHours = ra;
@@ -138,12 +172,14 @@ internal static class AdoptionPlanner
 
         // Born complete (record history): desired = acquired = accepted = the cell's disk count. The
         // exposure override only when the template default differs (the -1 defer-to-template sentinel).
+        // Template reference: guid for a same-batch creation (its local id doesn't exist yet, and the
+        // remote's never will match); the copy-stable integer id for a template that came from a pull.
         rows.Add(new TsRowInsert(TsTable.ExposurePlan, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["guid"] = planGuid,
             ["profileId"] = owningProject.ProfileId,
             ["targetid"] = targetReference,
-            ["exposureTemplateId"] = template.Id,   // copy-stable: templates are never created locally
+            ["exposureTemplateId"] = pending is not null ? pending.Guid : template.Id,
             ["exposure"] = (int)Math.Round(template.DefaultExposure) == row.DiskSeconds ? -1.0 : (double)row.DiskSeconds,
             ["desired"] = row.Disk,
             ["acquired"] = row.Disk,
@@ -159,37 +195,67 @@ internal static class AdoptionPlanner
     // convention), and gain/offset/bin EXPRESSED AND EQUAL to the cell's. A -1 use-camera-default
     // sentinel never pairs — the merge rule's honest reading (capture-config-keys): nothing can be
     // asserted to agree with an unspecified value, so a plan from such a template would land beside the
-    // disk row, not merge with it. Exactly one candidate proceeds; zero or several hold with a message.
-    // Never creates or edits a template.
-    private static (TsExposureTemplate? Template, string? Refusal) MatchTemplate(
+    // disk row, not merge with it. Exactly one candidate proceeds; zero or several hold with a message —
+    // a zero-match hold carries a create OFFER (a template minted from the cell's numbers, policy fields
+    // cloned from a same-profile donor), decided by the user in the hold dialog, never automatically.
+    private static (TsExposureTemplate? Template, AdoptionHold? Hold) MatchTemplate(
         ReconciliationRow row, TsPlanData ts, string profileId, string label)
     {
         if (row.Config.BinningX != row.Config.BinningY)
-            return (null, $"{label}: {row.Config.BinningX}×{row.Config.BinningY} binning — no TS template can express a non-square bin");
+            return (null, new AdoptionHold(
+                $"{label}: {row.Config.BinningX}×{row.Config.BinningY} binning — no TS template can express a non-square bin"));
 
         FilterPurpose purpose = RowPurpose(row);
-        List<TsExposureTemplate> family = [.. ts.Templates.Where(t =>
-            string.Equals(t.ProfileId, profileId, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(t.FilterName, row.Filter, StringComparison.OrdinalIgnoreCase)
-            && FilterPurposeClassifier.Classify(t.Name) == purpose
-            && t.Bin == row.Config.BinningX)];
+        List<TsExposureTemplate> profileTemplates = [.. ts.Templates.Where(t =>
+            string.Equals(t.ProfileId, profileId, StringComparison.OrdinalIgnoreCase))];
+        List<TsExposureTemplate> family = [.. profileTemplates.Where(t =>
+            string.Equals(t.FilterName, row.Filter, StringComparison.OrdinalIgnoreCase)
+            && FilterPurposeClassifier.Classify(t.Name) == purpose)];
         List<TsExposureTemplate> candidates = [.. family.Where(t =>
-            t.Gain == row.Config.Gain && t.Offset == row.Config.Offset)];
+            t.Bin == row.Config.BinningX && t.Gain == row.Config.Gain && t.Offset == row.Config.Offset)];
 
         if (candidates.Count == 1)
             return (candidates[0], null);
         if (candidates.Count > 1)
-            return (null, $"{label}: {candidates.Count} templates match ({string.Join(", ", candidates.Select(c => $"'{c.Name}'"))}) "
-                + "— ambiguous; adopt after disambiguating in TS");
+            return (null, new AdoptionHold(
+                $"{label}: {candidates.Count} templates match ({string.Join(", ", candidates.Select(c => $"'{c.Name}'"))}) "
+                + "— ambiguous; adopt after disambiguating in TS"));
 
-        // Zero matched — name the nearest misses so the fix is obvious: a same-family template whose
-        // gain/offset differ (edit it or add a variant), including the camera-default sentinel case
-        // (a template leaving gain/offset to the camera can never be asserted to pair).
+        // Zero matched — name the nearest misses so the fix is obvious, and offer to create the missing
+        // template from the cell's numbers (the donor lends its policy fields: moon avoidance, twilight,
+        // dither…). Historical cells shot under a configuration no current template expresses are the
+        // normal case here, not the exception.
         string near = family.Count == 0 ? "" : " — close: " + string.Join(", ", family.Select(t =>
             $"'{t.Name}' ({(t.Gain < 0 ? "camera-default gain" : $"gain {t.Gain}")}, "
             + $"{(t.Offset < 0 ? "camera-default offset" : $"offset {t.Offset}")})"));
-        return (null, $"{label}: no template matches (filter {row.Filter}, {purpose}, gain {row.Config.Gain}, "
-            + $"offset {row.Config.Offset}, bin {row.Config.BinningX}) — create/adjust one in TS first{near}");
+        return (null, new AdoptionHold(
+            $"{label}: no template matches (filter {row.Filter}, {purpose}, gain {row.Config.Gain}, "
+            + $"offset {row.Config.Offset}, bin {row.Config.BinningX}){near}",
+            BuildCreateOffer(row, purpose, profileId, profileTemplates, family)));
+    }
+
+    // The create offer for a zero-match hold: proposed name from the cell's numbers ("Stars B g53 o10",
+    // "H g100 o50 2x2"), donor = a family template when one exists (same filter/purpose — the closest
+    // policy source), else any same-profile template. No donor (empty profile) or an unresolvable name
+    // collision → no offer; the hold stands alone.
+    private static TemplateCreateOffer? BuildCreateOffer(
+        ReconciliationRow row, FilterPurpose purpose, string profileId,
+        List<TsExposureTemplate> profileTemplates, List<TsExposureTemplate> family)
+    {
+        TsExposureTemplate? donor = family.FirstOrDefault() ?? profileTemplates.FirstOrDefault();
+        if (donor is null)
+            return null;
+
+        string baseName = (purpose == FilterPurpose.Stars ? FilterPurposeClassifier.StarsPrefix : "")
+            + $"{row.Filter} g{row.Config.Gain} o{row.Config.Offset}"
+            + (row.Config.BinningX > 1 ? $" {row.Config.BinningX}x{row.Config.BinningX}" : "");
+        bool Taken(string name) => profileTemplates.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
+        string name = !Taken(baseName) ? baseName : $"{baseName} (adopted)";
+        if (Taken(name))
+            return null;   // both names taken by different-valued templates — hand-resolve in TS
+
+        return new TemplateCreateOffer(name, profileId, donor.Id.ToString(CultureInfo.InvariantCulture),
+            donor.Name, row.Config.Gain, row.Config.Offset, row.Config.BinningX, row.DiskSeconds);
     }
 
     // A target's TS plans at one (filter, purpose, effective-seconds) cell — the no-plan-at-key predicate.

@@ -84,6 +84,19 @@ the reconciliation vocabulary so "the plan I create pairs with the row I clicked
 Holds surface in a dialog (`AdoptHoldPrompt`), not only the status line — an explicit menu action that
 silently declines reads as "nothing happened" (the Abell 78 report).
 
+*(Extended same day, user decision):* a **zero-match hold offers to create the missing template** —
+confirm-gated in the hold dialog, never silent. Measured reality forced this: every template in the live
+db is gain 0 or 111 while historical frames span other gains (the Abell 78 Stars-B cell is gain 53), and
+the shared templates back tens of plans each, so hand-editing one to fit a historical cell would re-key
+every other cell it serves. The created template carries the cell's gain/offset/bin + default exposure =
+cell seconds (plan defers via the sentinel), name derived from the values ("Stars B g53 o10"), and clones
+its policy tail (moon avoidance, twilight, dither…) from a donor — the same filter/purpose family template
+when one exists, else any same-profile template (`ReadFieldsAsync` supplies the donor's full editable
+set). Templates thereby became insertable rows: the primitive accepts `exposuretemplate` (no cadence/OEO
+implications), the replay orders templates → targets → plans, and a same-batch plan references the created
+template by guid (a pulled template still goes by its copy-stable integer id). *Auto-create-silently and
+keep-hold were offered and declined — "buttons carry decisions."*
+
 ### D6 — New-target payload details
 - `ra` = disk centroid RA **÷ 15** (degrees → hours), `dec` = centroid degrees.
 - `rotation` seeded from the framing cluster's **sky** angle when expressed (fold-180 normalized);

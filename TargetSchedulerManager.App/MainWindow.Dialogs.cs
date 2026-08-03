@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using TargetSchedulerManager.App.Models;
+using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels;
 using TargetSchedulerManager.App.ViewModels.Rows;
@@ -155,19 +156,33 @@ public sealed partial class MainWindow
 
     // An adoption hold: the user explicitly asked and the planner declined — an explicit action that
     // silently declines deserves an explicit answer, so the reason gets a dialog rather than only the
-    // status line (which a menu click leaves unwatched). The message carries the fix ("close:" template
-    // near-misses, missing centroid, ambiguity).
-    private async Task ShowAdoptHoldDialogAsync(string reason)
+    // status line (which a menu click leaves unwatched). A zero-template-match hold carries a create
+    // offer: the primary button mints the missing template from the cell's numbers (policy fields cloned
+    // from the named donor) and adopts in one atomic batch. Returns true exactly when the offer is taken.
+    private async Task<bool> ShowAdoptHoldDialogAsync(AdoptionHold hold)
     {
+        StackPanel panel = new() { Spacing = 10, MaxWidth = 480 };
+        panel.Children.Add(new TextBlock { Text = hold.Message, TextWrapping = TextWrapping.Wrap });
+        if (hold.Offer is { } offer)
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"TSM can create template \"{offer.ProposedName}\" (gain {offer.Gain}, offset {offer.Offset}, "
+                    + $"bin {offer.Bin}, default {offer.Seconds}s) — other settings cloned from '{offer.DonorName}' — "
+                    + "and add the plan with it.",
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
         ContentDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS — not added",
-            Content = new TextBlock { Text = reason, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
-            CloseButtonText = "OK",
-            DefaultButton = ContentDialogButton.Close,
+            Content = panel,
+            PrimaryButtonText = hold.Offer is null ? null : "Create template + add plan",
+            CloseButtonText = hold.Offer is null ? "OK" : "Cancel",
+            DefaultButton = hold.Offer is null ? ContentDialogButton.Close : ContentDialogButton.Primary,
         };
-        await dialog.ShowAsync();
+        return await dialog.ShowAsync() == ContentDialogResult.Primary && hold.Offer is not null;
     }
 
     // The target-creating adoption's project-picker/confirm dialog (openspec disk-row-adoption): the disk

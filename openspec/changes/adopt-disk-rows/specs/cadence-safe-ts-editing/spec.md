@@ -1,7 +1,8 @@
 ## ADDED Requirements
 
 ### Requirement: Row insertion is a guarded library primitive
-The library editor SHALL expose a guarded insert primitive for `target` and `exposureplan` rows: the
+The library editor SHALL expose a guarded insert primitive for `exposuretemplate`, `target` and
+`exposureplan` rows: the
 caller supplies the full column payload including a minted guid; the primitive applies the existing guard
 order (schema compatibility, read-only, open sidecar, column presence) before writing, executes the
 INSERT in a single transaction, and read-back-verifies the inserted row. Refusals are structured, never
@@ -20,8 +21,9 @@ missing required payload column is a caller bug and refuses loudly.
 Inserting an `exposureplan` row SHALL delete the parent target's `filtercadenceitem` rows in the same
 transaction as the INSERT (both applied or neither) — a new plan changes the target's filter rotation
 exactly like enabling one. A plan insert SHALL be refused with the existing override-order refusal when
-the parent target has `overrideexposureorderitem` rows (no write, no deletion). Target insertion clears
-nothing (a new target has no cadence rows) and is never refused for override-order.
+the parent target has `overrideexposureorderitem` rows (no write, no deletion). Target and template
+insertion clear nothing (a new target has no cadence rows; templates have none) and are never refused for
+override-order.
 
 #### Scenario: Plan insert clears its target's cadence
 - **WHEN** a plan is inserted under a target holding `filtercadenceitem` rows
