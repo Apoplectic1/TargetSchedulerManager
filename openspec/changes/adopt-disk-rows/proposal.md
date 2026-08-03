@@ -18,9 +18,9 @@ adoption** — never a sweep.
     name/coords confirm, then INSERT a `target` (disk RA/Dec centroid, RA converted degrees → hours)
     plus the one plan. One click = one cell; repeat per cell.
 - **Template auto-match, hold if unclear**: the plan's template is chosen by the merge rule — filter +
-  `"Stars "` purpose + agreement on every dimension the template expresses (`-1` sentinel = doesn't
-  express = compatible). Zero or ≥2 candidates → refuse with reason, never guess, never auto-create a
-  template.
+  `"Stars "` purpose + gain/offset/bin expressed and equal (a `-1` camera-default sentinel never pairs,
+  matching the capture-config rule's honest reading). Zero or ≥2 candidates → refuse with reason (naming
+  near-miss templates), never guess, never auto-create a template.
 - **Born complete (record history)**: `desired` = `acquired` = `accepted` = disk file count for that
   exposure bucket; TS sees the history and schedules nothing until the user raises `desired`.
 - **Split rows are excluded**: a disk row separated from an existing same-`(filter, purpose, seconds)`

@@ -153,6 +153,23 @@ public sealed partial class MainWindow
         };
     }
 
+    // An adoption hold: the user explicitly asked and the planner declined — an explicit action that
+    // silently declines deserves an explicit answer, so the reason gets a dialog rather than only the
+    // status line (which a menu click leaves unwatched). The message carries the fix ("close:" template
+    // near-misses, missing centroid, ambiguity).
+    private async Task ShowAdoptHoldDialogAsync(string reason)
+    {
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Add to TS — not added",
+            Content = new TextBlock { Text = reason, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
+            CloseButtonText = "OK",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        await dialog.ShowAsync();
+    }
+
     // The target-creating adoption's project-picker/confirm dialog (openspec disk-row-adoption): the disk
     // target's facts (name, plate-solved centroid in TS units, the rotation a sky framing seeds) plus a
     // picker over the existing non-mosaic projects — projects are never created here. Returns the picked

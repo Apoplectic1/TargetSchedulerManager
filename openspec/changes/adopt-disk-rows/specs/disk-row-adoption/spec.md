@@ -29,12 +29,17 @@ scope); a disk-only cell under a TS-backed mosaic panel is an ordinary eligible 
 
 ### Requirement: The plan's template is auto-matched and held when unclear
 The adopted plan's exposure template SHALL be selected from the existing templates by the pairing rule:
-same filter, same purpose (the `"Stars "` name-prefix convention), and agreement on every dimension the
-template expresses (gain/offset/binning; a `-1` use-camera-default sentinel expresses nothing and is
-compatible). When zero or two-or-more templates qualify, the adoption SHALL be refused with a message
-naming the cell and the candidate situation — never guessed, and never resolved by creating or editing a
-template. The plan's exposure override SHALL be the `-1` use-template-default sentinel when the matched
-template's default equals the cell's whole-second exposure, else the cell's whole seconds explicitly.
+same filter, same purpose (the `"Stars "` name-prefix convention), and gain/offset/bin **expressed and
+equal** to the cell's. A `-1` use-camera-default sentinel SHALL NOT qualify — per the capture-config merge
+rule, an unspecified value can never be asserted to agree, so a plan from such a template would land
+beside the disk row instead of merging with it. When zero or two-or-more templates qualify, the adoption
+SHALL be refused with a message naming the cell and the candidate situation — including any same-family
+near-miss templates (differing or camera-default gain/offset) so the fix is evident — never guessed, and
+never resolved by creating or editing a template. A hold SHALL be presented to the user in its own right
+(a dialog) — an explicit menu action that silently declines reads as "nothing happened" — not only on a
+passive status line. The plan's exposure override SHALL be the `-1` use-template-default sentinel when the
+matched template's default equals the cell's whole-second exposure, else the cell's whole seconds
+explicitly.
 
 #### Scenario: Unique match is taken silently
 - **WHEN** exactly one template matches the cell's filter, purpose, and expressed capture dimensions
@@ -47,6 +52,11 @@ template's default equals the cell's whole-second exposure, else the cell's whol
 #### Scenario: Ambiguous templates hold
 - **WHEN** two templates both match the cell
 - **THEN** the adoption is refused naming both candidates; nothing is written
+
+#### Scenario: A camera-default template never pairs
+- **WHEN** the only same-filter/purpose template carries the `-1` use-camera-default gain/offset sentinel
+- **THEN** the adoption is refused, the message naming the template and its camera-default values — a plan
+  built on it could never merge with the disk row
 
 #### Scenario: Exposure override only when needed
 - **WHEN** the matched template's default exposure equals the cell's seconds

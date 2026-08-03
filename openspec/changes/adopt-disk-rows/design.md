@@ -71,11 +71,18 @@ free. No new state: the menu handler asks an adoption planner service that reads
 graph/report. Fully disk-only mosaic parents short-circuit to ineligible.
 
 ### D5 — Template matching mirrors the merge rule, implemented in the adoption planner
-Same filter + `"Stars "` purpose prefix + agreement on every dimension the template *expresses*
-(`-1` sentinel expresses nothing). Exactly one candidate proceeds; zero or ≥2 refuse with a message
-naming the situation. Exposure override: `-1` sentinel when template default == cell seconds, else
-explicit. This intentionally reuses the reconciliation vocabulary so "the plan I create pairs with the
-row I clicked" is true by construction.
+Same filter + `"Stars "` purpose prefix + gain/offset/bin **expressed and equal** to the cell's.
+*(Corrected 2026-08-03 after field feedback — the Abell 78 hold:* the first cut treated a `-1`
+camera-default sentinel as compatible-with-anything, but the library's merge rule
+(`ReconciliationProjection`, capture-config-keys) deliberately keys a sentinel plan as its own
+never-pairing cell — "nothing can be asserted to agree with an unspecified value." A sentinel-matched
+adoption would therefore create a plan that lands *beside* the disk row, failing the feature's purpose.)*
+Exactly one candidate proceeds; zero or ≥2 refuse with a message naming the situation, including
+same-family near-misses (differing or camera-default gain/offset) so the fix is evident. Exposure
+override: `-1` sentinel when template default == cell seconds, else explicit. This intentionally reuses
+the reconciliation vocabulary so "the plan I create pairs with the row I clicked" is true by construction.
+Holds surface in a dialog (`AdoptHoldPrompt`), not only the status line — an explicit menu action that
+silently declines reads as "nothing happened" (the Abell 78 report).
 
 ### D6 — New-target payload details
 - `ra` = disk centroid RA **÷ 15** (degrees → hours), `dec` = centroid degrees.

@@ -156,9 +156,11 @@ internal static class AdoptionPlanner
     }
 
     // The pairing rule as a template filter: same filter, same purpose (the "Stars " name-prefix
-    // convention), and agreement on every dimension the template EXPRESSES — a -1 use-camera-default
-    // sentinel expresses nothing and is compatible; bin is always expressed. Exactly one candidate
-    // proceeds; zero or several hold with a message. Never creates or edits a template.
+    // convention), and gain/offset/bin EXPRESSED AND EQUAL to the cell's. A -1 use-camera-default
+    // sentinel never pairs — the merge rule's honest reading (capture-config-keys): nothing can be
+    // asserted to agree with an unspecified value, so a plan from such a template would land beside the
+    // disk row, not merge with it. Exactly one candidate proceeds; zero or several hold with a message.
+    // Never creates or edits a template.
     private static (TsExposureTemplate? Template, string? Refusal) MatchTemplate(
         ReconciliationRow row, TsPlanData ts, string profileId, string label)
     {
@@ -166,22 +168,28 @@ internal static class AdoptionPlanner
             return (null, $"{label}: {row.Config.BinningX}×{row.Config.BinningY} binning — no TS template can express a non-square bin");
 
         FilterPurpose purpose = RowPurpose(row);
-        List<TsExposureTemplate> candidates = [.. ts.Templates.Where(t =>
+        List<TsExposureTemplate> family = [.. ts.Templates.Where(t =>
             string.Equals(t.ProfileId, profileId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(t.FilterName, row.Filter, StringComparison.OrdinalIgnoreCase)
             && FilterPurposeClassifier.Classify(t.Name) == purpose
-            && (t.Gain < 0 || t.Gain == row.Config.Gain)
-            && (t.Offset < 0 || t.Offset == row.Config.Offset)
             && t.Bin == row.Config.BinningX)];
+        List<TsExposureTemplate> candidates = [.. family.Where(t =>
+            t.Gain == row.Config.Gain && t.Offset == row.Config.Offset)];
 
-        return candidates switch
-        {
-            [] => (null, $"{label}: no template matches (filter {row.Filter}, {purpose}, gain {row.Config.Gain}, "
-                + $"offset {row.Config.Offset}, bin {row.Config.BinningX}) — create/adjust one in TS first"),
-            [TsExposureTemplate one] => (one, null),
-            _ => (null, $"{label}: {candidates.Count} templates match ({string.Join(", ", candidates.Select(c => $"'{c.Name}'"))}) "
-                + "— ambiguous; adopt after disambiguating in TS"),
-        };
+        if (candidates.Count == 1)
+            return (candidates[0], null);
+        if (candidates.Count > 1)
+            return (null, $"{label}: {candidates.Count} templates match ({string.Join(", ", candidates.Select(c => $"'{c.Name}'"))}) "
+                + "— ambiguous; adopt after disambiguating in TS");
+
+        // Zero matched — name the nearest misses so the fix is obvious: a same-family template whose
+        // gain/offset differ (edit it or add a variant), including the camera-default sentinel case
+        // (a template leaving gain/offset to the camera can never be asserted to pair).
+        string near = family.Count == 0 ? "" : " — close: " + string.Join(", ", family.Select(t =>
+            $"'{t.Name}' ({(t.Gain < 0 ? "camera-default gain" : $"gain {t.Gain}")}, "
+            + $"{(t.Offset < 0 ? "camera-default offset" : $"offset {t.Offset}")})"));
+        return (null, $"{label}: no template matches (filter {row.Filter}, {purpose}, gain {row.Config.Gain}, "
+            + $"offset {row.Config.Offset}, bin {row.Config.BinningX}) — create/adjust one in TS first{near}");
     }
 
     // A target's TS plans at one (filter, purpose, effective-seconds) cell — the no-plan-at-key predicate.

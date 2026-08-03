@@ -21,6 +21,11 @@ public sealed partial class MainViewModel
     /// (tests drive push through <see cref="TsSync"/> directly).</summary>
     internal Func<PushReview, Task<bool>>? ConfirmPushPrompt { get; set; }
 
+    /// <summary>UI hook (set by the window): an adoption hold — the user explicitly asked and the planner
+    /// declined (no/ambiguous template, missing centroid), so the answer deserves a dialog, not just a
+    /// status line easily missed after a menu click. Unset (tests) falls back to the status line.</summary>
+    internal Func<string, Task>? AdoptHoldPrompt { get; set; }
+
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>
     public string SyncBadgeText

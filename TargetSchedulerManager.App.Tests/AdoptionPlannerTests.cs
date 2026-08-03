@@ -25,7 +25,7 @@ public class AdoptionPlannerTests
         Targets: [new TsTarget(7, "NGC 7000", 1, 20.9, 44.5, 2, null, 100, 101, -1, "t-7")],
         Templates:
         [
-            new TsExposureTemplate(21, "prof-1", "H900", "H", Gain: -1, Offset: -1, Bin: 1, DefaultExposure: 900),
+            new TsExposureTemplate(21, "prof-1", "H900", "H", Gain: 0, Offset: 0, Bin: 1, DefaultExposure: 900),
             .. extraTemplates,
         ],
         Plans: [new TsExposurePlan(31, "prof-1", -1, 20, 5, 5, TargetId: 7, ExposureTemplateId: 21)]);
@@ -109,7 +109,7 @@ public class AdoptionPlannerTests
     public void TemplateDefaultMatchesSeconds_UsesSentinel()
     {
         // A second H template can't exist for this to stay unique — use a fresh filter instead.
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", -1, -1, 1, 600));
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", 0, 0, 1, 600));
         (AdoptionPlan? plan, _) = AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600), Graph(), ts, null);
         Assert.Equal(-1.0, Assert.Single(plan!.Rows).Payload["exposure"]);
     }
@@ -117,7 +117,7 @@ public class AdoptionPlannerTests
     [Fact]
     public void ExpressedGainDisagreement_Holds()
     {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: 139, Offset: -1, Bin: 1, 600));
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: 139, Offset: 10, Bin: 1, 600));
         RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
         (AdoptionPlan? plan, string? refusal) =
             AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, null);
@@ -128,17 +128,41 @@ public class AdoptionPlannerTests
     }
 
     [Fact]
-    public void SentinelGain_ExpressesNothing_Matches()
+    public void CameraDefaultTemplate_NeverPairs_HoldsWithHint()
     {
+        // The merge rule's honest reading (capture-config-keys): a -1 use-camera-default sentinel is an
+        // unspecified value — nothing can be asserted to agree with it, so a plan from such a template
+        // would land BESIDE the disk row, not merge. The hold names the near-miss so the fix is obvious.
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: -1, Offset: -1, Bin: 1, 600));
         RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
-        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(DiskRow(seconds: 600, config: gain100), Graph(), Ts(), null);
-        Assert.NotNull(plan);   // H900's gain/offset are -1 sentinels — compatible with any disk values
+        (AdoptionPlan? plan, string? refusal) =
+            AdoptionPlanner.Build(DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, null);
+
+        Assert.Null(plan);
+        Assert.Contains("no template matches", refusal);
+        Assert.Contains("'O600'", refusal);
+        Assert.Contains("camera-default gain", refusal);
+    }
+
+    [Fact]
+    public void NearMissTemplate_NamedInTheHold()
+    {
+        // The Abell 78 field case: a same-family template exists but its gain differs from the frames'.
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars B", "B", Gain: 0, Offset: 10, Bin: 1, 60));
+        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
+        ReconciliationRow stars = Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
+            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
+            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: default, config: gain53);
+
+        (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(stars, Graph(), ts, null);
+        Assert.Null(plan);
+        Assert.Contains("close: 'Stars B' (gain 0, offset 10)", refusal);
     }
 
     [Fact]
     public void TwoCandidates_HoldNamingBoth()
     {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "H600", "H", -1, -1, 1, 600));
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "H600", "H", 0, 0, 1, 600));
         (AdoptionPlan? plan, string? refusal) = AdoptionPlanner.Build(DiskRow(seconds: 600), Graph(), ts, null);
 
         Assert.Null(plan);
@@ -150,7 +174,7 @@ public class AdoptionPlannerTests
     [Fact]
     public void StarsPurpose_MatchesOnlyStarsTemplates()
     {
-        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars H", "H", -1, -1, 1, 10));
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars H", "H", 0, 0, 1, 10));
         ReconciliationRow stars = Make.Leaf("NGC 7000", RowPlane.Disk, "H", "Stars",
             planSeconds: 0, diskSeconds: 10, desired: null, acquired: null, accepted: null,
             disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: DiskTargetId);
@@ -208,7 +232,7 @@ public class AdoptionPlannerTests
     public void SkyFraming_SeedsRotation_MechanicalDoesNot()
     {
         TsPlanData ts = Ts();
-        RowConfig sky = new(100, 10, 1, 1, null, false,
+        RowConfig sky = new(0, 0, 1, 1, null, false,
             Rotation: Astronomy.Catalog.Scan.RotationExpression.Sky, RotationFoldDeg: 57.3);
         (AdoptionPlan? withSky, _) = AdoptionPlanner.Build(
             DiskRow(tsTargetKey: null, seconds: 600, config: sky), Graph(), ts, ts.Projects[0]);

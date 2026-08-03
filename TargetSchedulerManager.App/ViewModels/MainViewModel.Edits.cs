@@ -230,6 +230,8 @@ public sealed partial class MainViewModel
         {
             StatusText = refusal ?? $"can't add {label} to TS";
             Log.Warn($"ADOPT held: {refusal}");
+            if (AdoptHoldPrompt is not null)
+                await AdoptHoldPrompt(refusal ?? $"can't add {label} to TS");
             return false;
         }
 
