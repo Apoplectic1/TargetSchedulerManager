@@ -403,6 +403,14 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 - **Implicit `TextBlock` styles apply unevenly inside a `ListView` `DataTemplate`** and leak into control
   internals — so vertical centering is set **explicitly per cell**, not via a window-wide implicit style. (Tried
   the implicit route 2026-06-20; it produced uneven columns and was reverted.)
+- **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
+  (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
+  (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml
+  [#2408](https://github.com/microsoft/microsoft-ui-xaml/issues/2408) family; field-verified 2026-08-03,
+  the accelerator variant shipped and did nothing). Workaround: `PreviewKeyDown` on the dialog (tunnels
+  before its children), modifier state via `InputKeyboardSource.GetKeyStateForCurrentThread` — every
+  dialog shows through `MainWindow.ShowDialogAsync`, which wires Ctrl+N this way. Flyouts/context menus
+  are popups too and may need the same treatment if a shortcut goes dead there.
 - **A `NumberBox` can't center its text via XAML.** `TextAlignment` doesn't reach its template-internal TextBox
   (microsoft-ui-xaml [#7399](https://github.com/microsoft/microsoft-ui-xaml/issues/7399) /
   [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: one shared `Loaded` handler
