@@ -16,24 +16,24 @@ namespace TargetSchedulerManager.App;
 // shared review body. Wired to the view-model's UI hooks in the core part's constructor.
 public sealed partial class MainWindow
 {
-    // WinUI scopes keyboard accelerators to the focused popup tree, so an open ContentDialog swallows the
-    // window-level Ctrl+N — precisely when a diagnostics capture matters most (an observation OF the
-    // dialog). Every dialog shows through here: the accelerator is re-declared on the dialog itself, with
-    // the same Hidden placement as the window root (no floating "Ctrl+N" hover chip).
+    // An open ContentDialog swallows the window-level Ctrl+N — precisely when a diagnostics capture
+    // matters most (an observation OF the dialog). And a KeyboardAccelerator attached to the dialog is
+    // ignored too: the dialog's inner popup doesn't participate in accelerator collection at all (the
+    // long-standing microsoft-ui-xaml #2408 family; field-verified here 2026-08-03 — the accelerator
+    // variant shipped and did nothing). PreviewKeyDown is the reliable route: it tunnels through the
+    // dialog before its children see the key, independent of the accelerator plumbing. Every dialog
+    // shows through here.
     private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
     {
-        KeyboardAccelerator ctrlN = new()
+        dialog.PreviewKeyDown += (_, e) =>
         {
-            Key = Windows.System.VirtualKey.N,
-            Modifiers = Windows.System.VirtualKeyModifiers.Control,
-        };
-        ctrlN.Invoked += (_, e) =>
-        {
+            if (e.Key != Windows.System.VirtualKey.N
+                || !Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                    .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
+                return;
             Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
             e.Handled = true;
         };
-        dialog.KeyboardAccelerators.Add(ctrlN);
-        dialog.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         return await dialog.ShowAsync();
     }
 
