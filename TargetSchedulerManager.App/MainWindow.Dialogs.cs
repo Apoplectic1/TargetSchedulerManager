@@ -176,35 +176,109 @@ public sealed partial class MainWindow
         };
     }
 
-    // An adoption hold: the user explicitly asked and the planner declined — an explicit action that
-    // silently declines deserves an explicit answer, so the reason gets a dialog rather than only the
-    // status line (which a menu click leaves unwatched). A zero-template-match hold carries a create
-    // offer: the primary button mints the missing template from the cell's numbers (policy fields cloned
-    // from the named donor) and adopts in one atomic batch. Returns true exactly when the offer is taken.
-    private async Task<bool> ShowAdoptHoldDialogAsync(AdoptionHold hold)
+    // An offer-less adoption hold (ambiguity, non-square bin, missing centroid): the user explicitly asked
+    // and the planner declined — an explicit action that silently declines deserves an explicit answer, so
+    // the reason gets a dialog rather than only the status line (which a menu click leaves unwatched).
+    private async Task ShowAdoptHoldDialogAsync(string reason)
     {
-        StackPanel panel = new() { Spacing = 10, MaxWidth = 480 };
-        panel.Children.Add(new TextBlock { Text = hold.Message, TextWrapping = TextWrapping.Wrap });
-        if (hold.Offer is { } offer)
-        {
-            panel.Children.Add(new TextBlock
-            {
-                Text = $"TSM can create template \"{offer.ProposedName}\" (gain {offer.Gain}, offset {offer.Offset}, "
-                    + $"bin {offer.Bin}, default {offer.Seconds}s) — other settings cloned from '{offer.DonorName}' — "
-                    + "and add the plan with it.",
-                TextWrapping = TextWrapping.Wrap,
-            });
-        }
         ContentDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS — not added",
-            Content = panel,
-            PrimaryButtonText = hold.Offer is null ? null : "Create template + add plan",
-            CloseButtonText = hold.Offer is null ? "OK" : "Cancel",
-            DefaultButton = hold.Offer is null ? ContentDialogButton.Close : ContentDialogButton.Primary,
+            Content = new TextBlock { Text = reason, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
+            CloseButtonText = "OK",
+            DefaultButton = ContentDialogButton.Close,
         };
-        return await ShowDialogAsync(dialog) == ContentDialogResult.Primary && hold.Offer is not null;
+        await ShowDialogAsync(dialog);
+    }
+
+    // The zero-match creation form (user decision 2026-08-03, obs 2278 — replaces the one-shot offer
+    // button): the FULL schema-generated template form, pre-filled from the donor's policy fields + the
+    // cell's disk facts, plus the plan's Desired (prefilled with the disk count). Everything is reviewable
+    // and editable before anything exists — so commits land in an in-memory draft (deferred-commit is the
+    // point of a creation; light-dismiss/Cancel discards, unlike row-edit flyouts where each field commits
+    // itself). The pairing caution is warn-never-block (the project pair-warn idiom): a draft whose
+    // gain/offset/bin leave the cell's values (or hold the camera-default sentinel) would create a plan
+    // that lands BESIDE the disk row — visible while deciding, but the decision stays the user's.
+    private async Task<TemplateFormResult?> ShowAdoptTemplateFormAsync(
+        TemplateCreateOffer offer, IReadOnlyDictionary<string, object?> seed, int diskCount)
+    {
+        Dictionary<string, object?> draft = new(seed, StringComparer.OrdinalIgnoreCase);
+        TextBlock pairWarn = new()
+        {
+            Text = $"gain/offset/bin differ from the disk frames ({offer.Gain}/{offer.Offset}/bin {offer.Bin}) — "
+                + "the new plan would NOT pair with this disk row",
+            Foreground = ThemeBrushes.CautionText,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 340,
+            Visibility = Visibility.Collapsed,
+        };
+        void RefreshPairWarn()
+        {
+            bool serves =
+                Convert.ToInt64(draft.GetValueOrDefault("gain") ?? -1L) == offer.Gain
+                && Convert.ToInt64(draft.GetValueOrDefault("offset") ?? -1L) == offer.Offset
+                && Convert.ToInt64(draft.GetValueOrDefault("bin") ?? 0L) == offer.Bin;
+            pairWarn.Visibility = serves ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        UIElement form = Controls.TsFieldsEditor.Create(
+            TsTable.ExposureTemplate,
+            $"New template — settings from '{offer.DonorName}'",
+            seed,
+            (column, value) =>
+            {
+                draft[column] = value;   // deferred: nothing exists until Create
+                RefreshPairWarn();
+                return Task.FromResult(true);
+            });
+
+        NumberBox desiredBox = new()
+        {
+            Value = diskCount,
+            SmallChange = 1,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 110,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        StackPanel desiredRow = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = "Desired", VerticalAlignment = VerticalAlignment.Center },
+                desiredBox,
+                new TextBlock
+                {
+                    Text = $"(disk holds {diskCount} — raise to request more)",
+                    Opacity = 0.7,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            },
+        };
+
+        StackPanel panel = new() { Spacing = 10, Children = { form, desiredRow, pairWarn } };
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Add to TS — new template + plan",
+            Content = new ScrollViewer
+            {
+                Content = panel,
+                MaxHeight = 560,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            },
+            PrimaryButtonText = "Create template + add plan",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        RefreshPairWarn();
+
+        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary)
+            return null;
+        int desired = double.IsNaN(desiredBox.Value) ? diskCount : Math.Max(0, (int)Math.Round(desiredBox.Value));
+        return new TemplateFormResult(draft, desired);
     }
 
     // The target-creating adoption's project-picker/confirm dialog (openspec disk-row-adoption): the disk

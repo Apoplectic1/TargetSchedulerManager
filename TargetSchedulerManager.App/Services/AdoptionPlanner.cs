@@ -34,10 +34,15 @@ internal sealed record TemplateCreateOffer(
 /// template would resolve (ambiguity, non-square bin, and missing-centroid holds carry none).</summary>
 internal sealed record AdoptionHold(string Message, TemplateCreateOffer? Offer = null);
 
-/// <summary>A template the caller decided to create (offer confirmed + donor fields read): the full column
-/// payload for the insert, the minted guid the plan references it by, and the display facts.</summary>
+/// <summary>A template the caller decided to create (creation form confirmed): the full column payload for
+/// the insert, the minted guid the plan references it by, and the display facts.</summary>
 internal sealed record PendingTemplate(
     IReadOnlyDictionary<string, object?> Payload, string Guid, string Name, double DefaultExposure);
+
+/// <summary>What the creation form returns on Create: the reviewed template draft (the editable column
+/// set, donor-seeded and user-edited) and the plan's desired count (prefilled with the disk count; may be
+/// raised — the adoption records history AND can request more).</summary>
+internal sealed record TemplateFormResult(IReadOnlyDictionary<string, object?> Draft, int Desired);
 
 /// <summary>
 /// The pure planning half of "Add to TS" (openspec `disk-row-adoption`): decides which disk-only rows offer
@@ -92,7 +97,7 @@ internal static class AdoptionPlanner
     /// </summary>
     public static (AdoptionPlan? Plan, AdoptionHold? Hold) Build(
         ReconciliationRow row, CatalogGraph graph, TsPlanData ts, TsProject? project,
-        PendingTemplate? pending = null)
+        PendingTemplate? pending = null, int? desiredOverride = null)
     {
         TsTarget? tsTarget = FindTarget(ts, row.TsTargetKey);
         string label = Format.Label(row.Target, row.Filter);
@@ -181,7 +186,7 @@ internal static class AdoptionPlanner
             ["targetid"] = targetReference,
             ["exposureTemplateId"] = pending is not null ? pending.Guid : template.Id,
             ["exposure"] = (int)Math.Round(template.DefaultExposure) == row.DiskSeconds ? -1.0 : (double)row.DiskSeconds,
-            ["desired"] = row.Disk,
+            ["desired"] = desiredOverride ?? row.Disk,   // the creation form may ask for more than history
             ["acquired"] = row.Disk,
             ["accepted"] = row.Disk,
             ["enabled"] = 1,
@@ -208,11 +213,14 @@ internal static class AdoptionPlanner
         FilterPurpose purpose = RowPurpose(row);
         List<TsExposureTemplate> profileTemplates = [.. ts.Templates.Where(t =>
             string.Equals(t.ProfileId, profileId, StringComparison.OrdinalIgnoreCase))];
+        // The family is bin-scoped (user rule 2026-08-03): a different-binning template is a different
+        // integration entirely — never suggested as a near-miss and never the preferred donor.
         List<TsExposureTemplate> family = [.. profileTemplates.Where(t =>
             string.Equals(t.FilterName, row.Filter, StringComparison.OrdinalIgnoreCase)
-            && FilterPurposeClassifier.Classify(t.Name) == purpose)];
+            && FilterPurposeClassifier.Classify(t.Name) == purpose
+            && t.Bin == row.Config.BinningX)];
         List<TsExposureTemplate> candidates = [.. family.Where(t =>
-            t.Bin == row.Config.BinningX && t.Gain == row.Config.Gain && t.Offset == row.Config.Offset)];
+            t.Gain == row.Config.Gain && t.Offset == row.Config.Offset)];
 
         if (candidates.Count == 1)
             return (candidates[0], null);
@@ -235,14 +243,17 @@ internal static class AdoptionPlanner
     }
 
     // The create offer for a zero-match hold: proposed name from the cell's numbers ("Stars B g53 o10",
-    // "H g100 o50 2x2"), donor = a family template when one exists (same filter/purpose — the closest
-    // policy source), else any same-profile template. No donor (empty profile) or an unresolvable name
-    // collision → no offer; the hold stands alone.
+    // "H g100 o50 2x2"), donor ranked same-bin family → same-bin profile template → any profile template
+    // (the binning rule extends to the donor preference; policy fields don't vary by bin, so the last
+    // fallback is a policy source of last resort, and the form shows the donor's name for review). No
+    // donor (empty profile) or an unresolvable name collision → no offer; the hold stands alone.
     private static TemplateCreateOffer? BuildCreateOffer(
         ReconciliationRow row, FilterPurpose purpose, string profileId,
         List<TsExposureTemplate> profileTemplates, List<TsExposureTemplate> family)
     {
-        TsExposureTemplate? donor = family.FirstOrDefault() ?? profileTemplates.FirstOrDefault();
+        TsExposureTemplate? donor = family.FirstOrDefault()
+            ?? profileTemplates.FirstOrDefault(t => t.Bin == row.Config.BinningX)
+            ?? profileTemplates.FirstOrDefault();
         if (donor is null)
             return null;
 

@@ -33,19 +33,25 @@ same filter, same purpose (the `"Stars "` name-prefix convention), and gain/offs
 equal** to the cell's. A `-1` use-camera-default sentinel SHALL NOT qualify — per the capture-config merge
 rule, an unspecified value can never be asserted to agree, so a plan from such a template would land
 beside the disk row instead of merging with it. When zero or two-or-more templates qualify, the adoption
-SHALL be refused with a message naming the cell and the candidate situation — including any same-family
-near-miss templates (differing or camera-default gain/offset) so the fix is evident — never guessed, and
-never resolved by silently creating or editing a template. A hold SHALL be presented to the user in its
-own right (a dialog) — an explicit menu action that silently declines reads as "nothing happened" — not
-only on a passive status line. A **zero-match** hold SHALL offer creating the missing template (historical
-cells shot under configurations no current template expresses are the normal case): the offered template
-carries the cell's gain/offset/bin, a default exposure equal to the cell's seconds (the plan then defers
-via the sentinel), a name derived from those values, and every other policy field cloned from a
-same-profile donor template (same filter/purpose family preferred). Only the user's explicit confirmation
-in the hold dialog creates it, and template + (target +) plan land as one atomic local batch. Ambiguity,
-non-square-binning, and missing-centroid holds offer nothing. The plan's exposure override SHALL be the
-`-1` use-template-default sentinel when the matched template's default equals the cell's whole-second
-exposure, else the cell's whole seconds explicitly.
+SHALL be refused with a message naming the cell and the candidate situation — including any near-miss
+templates of the **same filter, purpose, and binning** (differing or camera-default gain/offset) so the
+fix is evident; a different-binning template is a different integration and SHALL never be suggested —
+never guessed, and never resolved by silently creating or editing a template. A hold SHALL be presented to
+the user in its own right — an explicit menu action that silently declines reads as "nothing happened" —
+not only on a passive status line. A **zero-match** hold SHALL open the **template creation form**
+(historical cells shot under configurations no current template expresses are the normal case): the full
+schema-generated template form pre-filled with the cell's gain/offset/bin, a default exposure equal to the
+cell's seconds (the plan then defers via the sentinel), a name derived from those values, and every other
+policy field cloned from a same-profile donor template (donor preference: same filter/purpose/binning
+family, then any same-binning template, then any) — plus the plan's **desired** count, prefilled with the
+disk count and raisable (acquired/accepted stay the disk count). Every field SHALL be reviewable and
+editable before anything exists — commits land in a draft, and light-dismiss/Cancel writes nothing (the
+deliberate exception to per-field commit semantics: a creation is atomic). A draft whose gain/offset/bin
+leave the cell's values SHALL warn that the plan would not pair — warn, never block. Create lands template
++ (target +) plan as one atomic local batch; an empty or profile-duplicate template name refuses. Ambiguity,
+non-square-binning, and missing-centroid holds show a message-only dialog. The plan's exposure override
+SHALL be the `-1` use-template-default sentinel when the effective template default equals the cell's
+whole-second exposure, else the cell's whole seconds explicitly.
 
 #### Scenario: Unique match is taken silently
 - **WHEN** exactly one template matches the cell's filter, purpose, and expressed capture dimensions
@@ -64,11 +70,20 @@ exposure, else the cell's whole seconds explicitly.
 - **THEN** the adoption is refused, the message naming the template and its camera-default values — a plan
   built on it could never merge with the disk row
 
-#### Scenario: A zero-match hold offers to create the missing template
-- **WHEN** a Stars B cell at gain 53 finds no matching template while a 'Stars B' (gain 0) template exists
-- **THEN** the hold dialog offers creating "Stars B g53 o10" (policy fields cloned from 'Stars B'); on
-  confirm the template, and the plan referencing it, land as one atomic local batch — on cancel nothing is
-  written
+#### Scenario: A zero-match hold opens the pre-filled creation form
+- **WHEN** a Stars B cell at gain 53 finds no matching template while a 'Stars B' (gain 0, bin 1) template exists
+- **THEN** the creation form opens pre-filled — name "Stars B g53 o10", gain 53, offset 10, bin 1, default
+  60 s, policy fields from 'Stars B', desired = the disk count — every field editable; Create lands the
+  template and the plan referencing it as one atomic local batch; Cancel writes nothing
+
+#### Scenario: Different-binning templates are never suggested
+- **WHEN** a bin-1 cell holds and the only same-filter/purpose template is a 2×2 variant
+- **THEN** the near-miss listing omits it and the donor preference passes over it (any same-binning
+  template outranks it)
+
+#### Scenario: Desired can be raised at creation
+- **WHEN** the user sets Desired to 60 in the form over a 42-frame cell
+- **THEN** the created plan holds desired 60 with acquired = accepted = 42 (history recorded, more requested)
 
 #### Scenario: Exposure override only when needed
 - **WHEN** the matched template's default exposure equals the cell's seconds

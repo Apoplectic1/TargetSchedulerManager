@@ -21,12 +21,19 @@ public sealed partial class MainViewModel
     /// (tests drive push through <see cref="TsSync"/> directly).</summary>
     internal Func<PushReview, Task<bool>>? ConfirmPushPrompt { get; set; }
 
-    /// <summary>UI hook (set by the window): an adoption hold — the user explicitly asked and the planner
-    /// declined (no/ambiguous template, missing centroid), so the answer deserves a dialog, not just a
-    /// status line easily missed after a menu click. Returns true to accept the hold's
-    /// <see cref="TemplateCreateOffer"/> (create the missing template and adopt); a hold without an offer
-    /// always returns false. Unset (tests) falls back to the status line and never creates.</summary>
-    internal Func<AdoptionHold, Task<bool>>? AdoptHoldPrompt { get; set; }
+    /// <summary>UI hook (set by the window): an offer-less adoption hold (ambiguity, non-square bin,
+    /// missing centroid) — the user explicitly asked and the planner declined, so the answer deserves a
+    /// dialog, not just a status line easily missed after a menu click. Unset (tests) falls back to the
+    /// status line.</summary>
+    internal Func<string, Task>? AdoptHoldPrompt { get; set; }
+
+    /// <summary>UI hook (set by the window): the template creation form for a zero-match hold — the full
+    /// template form pre-filled from the donor + the cell's disk facts, plus the plan's Desired (prefilled
+    /// with the disk count), reviewed and editable before anything is written. Inputs: the offer, the
+    /// prepared seed (donor policy fields + disk overrides), and the disk count. Returns the reviewed
+    /// draft + desired, or null on cancel. Unset (tests) cancels.</summary>
+    internal Func<TemplateCreateOffer, IReadOnlyDictionary<string, object?>, int, Task<TemplateFormResult?>>?
+        AdoptTemplateFormPrompt { get; set; }
 
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>

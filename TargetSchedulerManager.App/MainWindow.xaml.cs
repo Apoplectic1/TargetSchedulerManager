@@ -47,6 +47,7 @@ public sealed partial class MainWindow : Window
         ViewModel.OpenWithDirtyPrompt = ShowOpenDirtyDialogAsync;
         ViewModel.ConfirmPushPrompt = ShowPushReviewDialogAsync;
         ViewModel.AdoptHoldPrompt = ShowAdoptHoldDialogAsync;
+        ViewModel.AdoptTemplateFormPrompt = ShowAdoptTemplateFormAsync;
         ((FrameworkElement)Content).Loaded += (_, _) =>
         {
             if (_initialLoadStarted) return;

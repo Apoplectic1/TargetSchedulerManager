@@ -90,12 +90,24 @@ db is gain 0 or 111 while historical frames span other gains (the Abell 78 Stars
 the shared templates back tens of plans each, so hand-editing one to fit a historical cell would re-key
 every other cell it serves. The created template carries the cell's gain/offset/bin + default exposure =
 cell seconds (plan defers via the sentinel), name derived from the values ("Stars B g53 o10"), and clones
-its policy tail (moon avoidance, twilight, dither…) from a donor — the same filter/purpose family template
-when one exists, else any same-profile template (`ReadFieldsAsync` supplies the donor's full editable
-set). Templates thereby became insertable rows: the primitive accepts `exposuretemplate` (no cadence/OEO
-implications), the replay orders templates → targets → plans, and a same-batch plan references the created
-template by guid (a pulled template still goes by its copy-stable integer id). *Auto-create-silently and
-keep-hold were offered and declined — "buttons carry decisions."*
+its policy tail (moon avoidance, twilight, dither…) from a donor (`ReadFieldsAsync` supplies the donor's
+full editable set). Templates thereby became insertable rows: the primitive accepts `exposuretemplate`
+(no cadence/OEO implications), the replay orders templates → targets → plans, and a same-batch plan
+references the created template by guid (a pulled template still goes by its copy-stable integer id).
+*Auto-create-silently and keep-hold were offered and declined — "buttons carry decisions."*
+
+*(Extended again same day, obs 2278/ec6d):* the one-shot offer button became the **creation form** — the
+full schema-generated template form (`TsFieldsEditor` with a draft-writing commit delegate; the form
+renders whatever columns the seed carries, so subsetting is free) pre-filled from donor + disk facts,
+plus the plan's **Desired** (prefilled disk count, raisable — acquired/accepted stay history). Deliberate
+deviation from per-field commit: a creation is atomic, so the dialog has Create/Cancel and light-dismiss
+discards. Pairing caution is **warn-never-block** (the project pair-warn idiom) when the draft's
+gain/offset/bin leave the cell's values. **Binning rule** (user directive): near-miss suggestions and the
+donor preference are bin-scoped — a different-binning template is a different integration (donor ranking:
+same-bin family → same-bin profile template → any). And the **plan flyout gained an editable write-through
+template section** (gain/offset/bin — user chose write-through over read-only display): honest-B because a
+write-through edit *is* a template edit — it journals as one, the marks light every plan sharing the
+template, and the section header carries the blast radius ("used by N plan(s)") at the point of edit.
 
 ### D6 — New-target payload details
 - `ra` = disk centroid RA **÷ 15** (degrees → hours), `dec` = centroid degrees.

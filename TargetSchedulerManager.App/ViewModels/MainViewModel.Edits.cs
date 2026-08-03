@@ -232,9 +232,10 @@ public sealed partial class MainViewModel
         {
             StatusText = hold?.Message ?? $"can't add {label} to TS";
             Log.Warn($"ADOPT held: {hold?.Message}");
-            if (hold is null || AdoptHoldPrompt is null || !await AdoptHoldPrompt(hold) || hold.Offer is null)
-                return false;
-            plan = await BuildWithCreatedTemplateAsync(row, load, project, hold.Offer, label);
+            if (hold?.Offer is { } offer && AdoptTemplateFormPrompt is not null)
+                plan = await BuildViaTemplateFormAsync(row, load, project, offer, label);
+            else if (hold is not null && AdoptHoldPrompt is not null)
+                await AdoptHoldPrompt(hold.Message);
             if (plan is null)
                 return false;
         }
@@ -251,10 +252,12 @@ public sealed partial class MainViewModel
         return true;
     }
 
-    // The confirmed create offer: read the donor template's full editable fields from the local db (its
-    // policy columns — moon avoidance, twilight, dither… — become the new template's), override the
-    // identity + capture values with the cell's, and re-plan with the pending template leading the batch.
-    private async Task<AdoptionPlan?> BuildWithCreatedTemplateAsync(
+    // The zero-match path's creation form: seed = the donor template's full editable fields (its policy
+    // columns — moon avoidance, twilight, dither… — become the new template's) overridden with the cell's
+    // identity + capture values; the user reviews and edits ANYTHING in the form (the pairing caution is
+    // the form's, warn-never-block); Create returns the draft + desired and the batch re-plans with the
+    // pending template leading it. Cancel or a bad draft writes nothing.
+    private async Task<AdoptionPlan?> BuildViaTemplateFormAsync(
         ReconciliationRow row, LoadResult load, TsProject? project, TemplateCreateOffer offer, string label)
     {
         IReadOnlyDictionary<string, object?>? donor = await WithEditInFlightAsync(() =>
@@ -264,12 +267,8 @@ public sealed partial class MainViewModel
             StatusText = $"can't clone template '{offer.DonorName}' — read failed, see tsm.log";
             return null;
         }
-
-        string guid = Guid.NewGuid().ToString();
-        Dictionary<string, object?> payload = new(donor, StringComparer.OrdinalIgnoreCase)
+        Dictionary<string, object?> seed = new(donor, StringComparer.OrdinalIgnoreCase)
         {
-            ["guid"] = guid,
-            ["profileId"] = offer.ProfileId,
             ["name"] = offer.ProposedName,
             ["filtername"] = row.Filter,
             ["gain"] = offer.Gain,
@@ -277,13 +276,41 @@ public sealed partial class MainViewModel
             ["bin"] = offer.Bin,
             ["defaultexposure"] = (double)offer.Seconds,   // the plan then defers via the -1 sentinel
         };
-        PendingTemplate pending = new(payload, guid, offer.ProposedName, offer.Seconds);
 
-        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(row, load.Graph, load.Ts, project, pending);
+        TemplateFormResult? form = await AdoptTemplateFormPrompt!(offer, seed, row.Disk);
+        if (form is null)
+            return null;   // cancelled — nothing written
+        if (form.Draft.GetValueOrDefault("name") is not string name || string.IsNullOrWhiteSpace(name))
+        {
+            StatusText = $"can't create the template — a name is required";
+            return null;
+        }
+        if (load.Ts.Templates.Any(t =>
+            string.Equals(t.ProfileId, offer.ProfileId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(t.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusText = $"can't create template '{name.Trim()}' — that name is already in use in the profile";
+            return null;
+        }
+
+        string guid = Guid.NewGuid().ToString();
+        Dictionary<string, object?> payload = new(form.Draft, StringComparer.OrdinalIgnoreCase)
+        {
+            ["guid"] = guid,
+            ["profileId"] = offer.ProfileId,
+            ["name"] = name.Trim(),
+        };
+        double defaultExposure = Convert.ToDouble(
+            payload.GetValueOrDefault("defaultexposure") ?? (double)offer.Seconds,
+            System.Globalization.CultureInfo.InvariantCulture);
+        PendingTemplate pending = new(payload, guid, name.Trim(), defaultExposure);
+
+        (AdoptionPlan? plan, AdoptionHold? hold) = AdoptionPlanner.Build(
+            row, load.Graph, load.Ts, project, pending, desiredOverride: form.Desired);
         if (plan is null)
         {
             StatusText = hold?.Message ?? $"can't add {label} to TS";
-            Log.Warn($"ADOPT held after template create: {hold?.Message}");
+            Log.Warn($"ADOPT held after template form: {hold?.Message}");
         }
         return plan;
     }

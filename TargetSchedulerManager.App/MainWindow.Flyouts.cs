@@ -370,6 +370,32 @@ public sealed partial class MainWindow
             content = new StackPanel { Spacing = 6, Children = { content, pairWarn } };
         }
 
+        // The plan's capture spec, completed (user decision 2026-08-03, obs ec6d): gain/offset/bin live on
+        // the template TS-side, but a plan without them reads incomplete — so the plan flyout carries them
+        // as an editable WRITE-THROUGH section. An edit here IS a template edit: it journals as one, so
+        // marks light every plan sharing the template, and the section header carries the blast radius at
+        // the point of edit. Only the capture columns render — the seed subset drives the generated form.
+        if (table == TsTable.ExposurePlan && ViewModel.TryGetTemplateForPlan(key) is { } planTemplate)
+        {
+            IReadOnlyDictionary<string, object?>? tplSeed =
+                await ViewModel.ReadTsFieldsAsync(TsTable.ExposureTemplate, planTemplate.TsKey, planTemplate.Name);
+            if (tplSeed is not null)
+            {
+                Dictionary<string, object?> subset = new(StringComparer.OrdinalIgnoreCase);
+                foreach (string column in (string[])["gain", "offset", "bin"])
+                    if (tplSeed.TryGetValue(column, out object? seeded))
+                        subset[column] = seeded;
+                UIElement templateSection = Controls.TsFieldsEditor.Create(
+                    TsTable.ExposureTemplate,
+                    $"template '{planTemplate.Name}' — used by {planTemplate.UsedByPlans} plan(s)",
+                    subset,
+                    (column, value) => ViewModel.SetTsFieldAsync(
+                        TsTable.ExposureTemplate, planTemplate.TsKey, column, value, planTemplate.Name),
+                    marks: MarkResolverFor(TsTable.ExposureTemplate, planTemplate.TsKey));
+                content = new StackPanel { Spacing = 6, Children = { content, templateSection } };
+            }
+        }
+
         Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
 

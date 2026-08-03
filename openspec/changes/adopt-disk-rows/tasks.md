@@ -74,3 +74,16 @@
       template creates by identity + capture values only
 - [x] 6.4 Tests: library template-insert batch (15), planner offer/no-offer matrix + pending build,
       migrated hold shape (App 357 · Catalog 255 · Contracts 61)
+
+## 7. Creation form + write-through round (2026-08-03, obs 2278/ec6d)
+
+- [x] 7.1 Binning rule: near-miss listing and donor preference are bin-scoped (same-bin family →
+      same-bin profile template → any); different-binning templates never suggested
+- [x] 7.2 The zero-match offer button became the **creation form**: full `TsFieldsEditor` template form
+      with a draft-commit delegate (subset-by-seed, no editor changes), pre-filled donor + disk facts,
+      Desired prefilled with disk count and raisable (`desiredOverride` — acquired/accepted stay
+      history), pairing caution warn-never-block, Create/Cancel atomic, name empty/duplicate refused
+- [x] 7.3 Plan flyout: editable **write-through** template section (gain/offset/bin; user chose B) —
+      commits through the gate as template edits, blast-radius header, per-field template marks
+- [x] 7.4 Tests: bin-scoped donor/near-miss, desiredOverride (App 359); Ctrl+N works in all dialogs via
+      `ShowDialogAsync`'s PreviewKeyDown (field-verified obs f2db/2278)

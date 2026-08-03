@@ -291,6 +291,36 @@ public class AdoptionPlannerTests
     }
 
     [Fact]
+    public void DifferentBinTemplates_NeverSuggested_NorPreferredAsDonor()
+    {
+        // Binning rule (obs 2278): a 2x2 template is a different integration — not a near-miss for a
+        // bin-1 cell, and not the donor while any same-bin template exists.
+        TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "Stars B 2x2", "B", 0, 10, 2, 60));
+        RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
+        ReconciliationRow stars = Make.Leaf("Abell 78", RowPlane.Disk, "B", "Stars",
+            planSeconds: 0, diskSeconds: 60, desired: null, acquired: null, accepted: null,
+            disk: 30, planCount: 0, tsTargetKey: "t-7", targetId: default, config: gain53);
+
+        (_, AdoptionHold? hold) = AdoptionPlanner.Build(stars, Graph(), ts, null);
+
+        Assert.DoesNotContain("Stars B 2x2", hold!.Message);       // not a near-miss suggestion
+        Assert.NotNull(hold.Offer);
+        Assert.Equal("H900", hold.Offer!.DonorName);               // same-bin profile template outranks the 2x2
+    }
+
+    [Fact]
+    public void DesiredOverride_RaisesTheGoal_HistoryCountsUntouched()
+    {
+        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(
+            DiskRow(seconds: 600, frames: 42), Graph(), Ts(), null, desiredOverride: 60);
+
+        TsRowInsert insert = Assert.Single(plan!.Rows);
+        Assert.Equal(60, insert.Payload["desired"]);      // the form asked for more
+        Assert.Equal(42, insert.Payload["acquired"]);     // history stays the disk count
+        Assert.Equal(42, insert.Payload["accepted"]);
+    }
+
+    [Fact]
     public void PendingTemplate_LeadsTheBatch_PlanReferencesItsGuid()
     {
         RowConfig gain53 = new(Gain: 53, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
