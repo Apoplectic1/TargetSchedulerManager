@@ -25,6 +25,7 @@ public sealed partial class MainWindow
     // shows through here.
     private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
     {
+        Controls.DragMove.Attach(dialog);   // drag any non-interactive spot to reposition (WinUI can't natively)
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N

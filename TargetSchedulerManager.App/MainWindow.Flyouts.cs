@@ -230,6 +230,7 @@ public sealed partial class MainWindow
         }
 
         RefreshMosaicMarks();
+        Controls.DragMove.Attach(form);   // drag a blank spot/label to reposition off the covered rows
         Flyout flyout = new() { Content = form, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
     }
@@ -396,6 +397,7 @@ public sealed partial class MainWindow
             }
         }
 
+        Controls.DragMove.Attach(content);   // drag a blank spot/label to reposition off the covered rows
         Flyout flyout = new() { Content = content, Placement = FlyoutPlacementMode.Bottom };
         flyout.ShowAt(anchor);
 
