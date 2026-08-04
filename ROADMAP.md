@@ -31,18 +31,12 @@ lane is strategic — the **IS transition** (intent store + lift/regenerate), wh
 
 ### Doc-system open items
 
-Both are **held graduates** — a standing truth found, adjudicated, and deliberately not applied. Full rails
-(standing-claim · target · disposition · evidence) in `docs/2026-07-29-maintain-report.md`.
-
-- ~~Split `DOMAIN.md`~~ — **executed 2026-08-03**: `UI.md` carries the UI design language, `DOMAIN.md`
-  keeps the domain conventions; cross-refs retargeted; held graduate H2 (the deliberate
-  `PlanSeconds == 0` em-dash conflation) landed in `UI.md` → *em-dash convention*.
-- **Place the `Astronomy.Diagnostics` ≠ `Astronomy.Catalog` boundary rationale (needs your decision).**
-  *Shared observation tooling stays out of Catalog because Catalog is a schema/build contract, not a
-  grab-bag utility library* — true since Diagnostics was created (2026-06-11), written down nowhere. It is a
-  **Library-repo** truth, so no TSM doc's charter can own it and no portfolio `DOMAIN.md` exists to take it.
-  Candidates: Library `CLAUDE.md` · Library `CONSUMERS.md` · a new portfolio `DOMAIN.md`. Recorded rather
-  than improvised, per the maintain convention against cross-repo placement.
+**All closed 2026-08-03.** Both 2026-07-29 maintain-sweep held graduates landed: the `DOMAIN.md` split
+(→ `UI.md`, carrying held graduate H2 — the deliberate `PlanSeconds == 0` em-dash conflation — in its
+*em-dash convention*), and H1 — the `Astronomy.Diagnostics` ≠ `Astronomy.Catalog` boundary rationale —
+placed by user decision in **Library `ARCHITECTURE.md` → § Astronomy.Diagnostics**. Rails in
+`docs/2026-07-29-maintain-report.md`; the 2026-08-03 audit's one report-only flag is also resolved
+(`docs/2026-08-03-audit-report.md`). Nothing open.
 
 ### Deferred — the reconciliation dimensions `capture-config-keys` left on the table
 

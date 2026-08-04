@@ -22,6 +22,9 @@ display, WinUI gotchas), `DOMAIN.md` keeps the domain conventions (*What TSM is 
 conventions*); the 2026-07-29 maintain sweep's held graduate **H2** (the deliberate `PlanSeconds == 0`
 em-dash conflation, `NOTEBOOK.md` 2026-07-07) landed in `UI.md` → *em-dash convention*; section-scoped
 cross-refs retargeted (ARCHITECTURE · SUBSYSTEMS · CONVENTIONS · ROADMAP · VERIFICATION · NOTEBOOK).
+Held graduate **H1** closed the same session: the Diagnostics ≠ Catalog boundary rationale placed (user
+decision) in **Library `ARCHITECTURE.md` → § Astronomy.Diagnostics** (Library `59228a9`) — the
+doc-system open list is empty.
 
 **▶ SHIPPED 2026-08-03 — `assign-template-adoption`: adoption assigns existing templates through one
 dialog** (openspec archived `2026-08-03-assign-template-adoption`; **field-verified end-to-end including
