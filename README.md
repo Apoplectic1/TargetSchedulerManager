@@ -60,8 +60,8 @@ toolchain is needed. Its compiled `Astronomy.*` assemblies also ship inside the 
 ## Repo layout
 
 The root Markdown files are the project's living documentation (architecture, subsystems,
-conventions, domain, schema, verification, releasing, roadmap — plus the `CHANGELOG.md` shipped-history
-journal and the `NOTEBOOK.md` lab notebook). `docs/` is the dated engineering journal, `openspec/` holds
+conventions, domain, UI design language, schema, verification, releasing, roadmap — plus the
+`CHANGELOG.md` shipped-history journal and the `NOTEBOOK.md` lab notebook). `docs/` is the dated engineering journal, `openspec/` holds
 the formal behavior specs and archived change records, and `.claude/` is agent tooling — workshop
 directories, not user-facing material.
 

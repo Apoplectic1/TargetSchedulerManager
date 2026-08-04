@@ -18,10 +18,10 @@ report-only findings and the coverage note.
   these are sub-second local-file ops — responsiveness-to-test-cancellation noise, not signal"). The doc
   sentence directs an implementer to plumb tokens the project decided against.
 - **Evidence:** `TargetSchedulerManager.App.Tests/TargetSchedulerManager.App.Tests.csproj:19-22`.
-- **Options when revisited:** (a) drop the sentence; (b) restate as the standing decision — "xUnit1051 is
-  NoWarn'd in App.Tests (sub-second local-file ops); don't re-plumb tokens to satisfy it — AL's test bench
-  is where the ratchet bit." Not applied in this pass because the plan/decision conflict is the user's
-  call (R4/R9), not a doc-staleness fix.
+- **Options when revisited:** (a) drop the sentence; (b) restate as the standing decision. Not applied in
+  the audit pass because the plan/decision conflict is the user's call (R4/R9).
+- **RESOLVED same day (user directive):** option (b) applied — VERIFICATION.md now states the NoWarn as the
+  standing decision (don't re-plumb tokens; AL's bench is where the ratchet bit). Flag closed.
 
 ## Coverage note (R23)
 

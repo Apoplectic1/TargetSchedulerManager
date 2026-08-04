@@ -275,7 +275,7 @@ A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, de
 load-summary text, removed same day). One press reconciles the enable state with tonight's sky — no
 confirm dialog (user decision: "this is why it's a button"), push stays optional. The up-downs are
 `Controls/UpDownBox` — an app-local WinForms-style NumericUpDown (a narrow inline `NumberBox` is
-unreachable; `DOMAIN.md` → *WinUI gotchas*) — sized to their digit budgets (Duration 3, Floor 2). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+unreachable; `UI.md` → *WinUI gotchas*) — sized to their digit budgets (Duration 3, Floor 2). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
 collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
 and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 

@@ -23,13 +23,13 @@ PCL projects aren't in TSM's solution). Path defaults live in
 copy** (`Processing\Catalog\TS Database\schedulerdb.sqlite`) only; `TsSync` pulls it fresh from
 BIRDWATCHER at open (skipped when the persisted baseline says it's unchanged — so rapid test
 relaunches skip the copy) and pushes journaled edits back through the reviewed **Push** button.
-Reload rescans and never pulls; full toolbar map: `DOMAIN.md` → *Chrome*.
+Reload rescans and never pulls; full toolbar map: `UI.md` → *Chrome*.
 
 **The instrument for a visual pass is `Ctrl+N`** — the Diagnostics window: type a note, capture the main
 window, and both land in `tsm.log` bracketed by `USER_OBS_START`/`USER_OBS_END`, so an observation carries its
 own context. The window itself is a singleton and always available; `TSM_DIAG` gates the DIAG *context* lines
 that the bracket scopes (`TestEnv` blanks it so VM tests can't write the session log). Capture mechanics and
-the transient-UI trick: `DOMAIN.md` → Chrome.
+the transient-UI trick: `UI.md` → *Chrome*.
 
 ### Sync flows worth exercising after a sync-layer change
 1. **Fresh pull:** delete `schedulerdb.sqlite.tsm-sync.json` beside the local db → open → status says
@@ -103,7 +103,10 @@ Both projects build with `<TreatWarningsAsErrors>` (2026-08-01, portfolio-wide r
 analyzer warnings accumulated silently in AL's test bench). Fix the warning, or — rarely, with a comment —
 suppress it deliberately; never turn the ratchet off. It also applies transitively: AL's projects carry it
 too, so an AL-side warning fails a TSM build — read which project the error message names before hunting in
-TSM code. In test code, pass `TestContext.Current.CancellationToken` to ct-accepting calls (xUnit1051).
+TSM code. One deliberate suppression: **xUnit1051 is NoWarn'd project-wide in App.Tests** (sub-second
+local-file ops — threading test-cancellation tokens through `TsSync.Pull`/`Push` calls is noise, not
+signal; rationale in the csproj) — don't re-plumb tokens to satisfy it. AL's test bench is where that
+analyzer's ratchet actually bit.
 
 ## Trap — xUnit v3 (build-breaking)
 `App.Tests` is xUnit v3 (`OutputType=Exe`; v3 generates the entry point). **Never let `xunit.v3`
@@ -129,4 +132,4 @@ not affect dev builds.
 ## Feature-verified vs code-correct
 Build + tests = **code-correct**. A change touching the grid / look-and-feel isn't **done** until
 **visually confirmed** — the author runs + screenshots the app (don't do this unprompted). UI rules
-the change must respect: `DOMAIN.md`.
+the change must respect: `UI.md`.

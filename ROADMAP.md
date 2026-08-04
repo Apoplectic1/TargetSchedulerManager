@@ -34,20 +34,9 @@ lane is strategic — the **IS transition** (intent store + lift/regenerate), wh
 Both are **held graduates** — a standing truth found, adjudicated, and deliberately not applied. Full rails
 (standing-claim · target · disposition · evidence) in `docs/2026-07-29-maintain-report.md`.
 
-- **Split `DOMAIN.md` — a two-charter doc past the size-warning threshold.** A small domain-conventions
-  core (*What TSM is for* + *TS authoring conventions*) sits inside a much larger UI/display body (grid
-  idiom · columns · sorting · visual language · alignment · editing · chrome · WinUI gotchas · the
-  add-a-UI-element checklist) — exact line splits are one grep away and re-stale on every edit, so they
-  are not pinned here. Same *charter, not size* test that produced `SUBSYSTEMS.md`. **8 section-scoped
-  cross-refs in the reference tier must move with the seam** (ARCHITECTURE → Chrome · CONVENTIONS →
-  WinUI gotchas, → Editing · ROADMAP → Editing · SUBSYSTEMS → WinUI gotchas · TS-SCHEMA → TS authoring
-  conventions · VERIFICATION → Chrome ×2), plus 3 in `NOTEBOOK.md`; 4 further mentions name the doc
-  generically and need no change. **Blocks** the held graduate H2 (the deliberate `PlanSeconds == 0`
-  em-dash conflation), which lands in the split home.
-- **Docs-architecture audit 2026-08-03 — one report-only flag open:** VERIFICATION.md's "pass
-  `TestContext.Current.CancellationToken` (xUnit1051)" sentence contradicts the deliberate project-wide
-  NoWarn in App.Tests — revisit (drop it, or restate the standing decision). Full flag + evidence:
-  `docs/2026-08-03-audit-report.md`.
+- ~~Split `DOMAIN.md`~~ — **executed 2026-08-03**: `UI.md` carries the UI design language, `DOMAIN.md`
+  keeps the domain conventions; cross-refs retargeted; held graduate H2 (the deliberate
+  `PlanSeconds == 0` em-dash conflation) landed in `UI.md` → *em-dash convention*.
 - **Place the `Astronomy.Diagnostics` ≠ `Astronomy.Catalog` boundary rationale (needs your decision).**
   *Shared observation tooling stays out of Catalog because Catalog is a schema/build contract, not a
   grab-bag utility library* — true since Diagnostics was created (2026-06-11), written down nowhere. It is a
@@ -123,7 +112,7 @@ own TS/scheduler surface 2026-07-07 (v1.9.0, TS-free), so there is no tab left t
   work is the IS transition, not more TS-editing surface.
 - **Hazards (resolved):** cadence-breaking edits (filterSwitchFrequency, ditherEvery, plan `enabled`) now clear
   the invalidated `filtercadenceitem` rows in the same transaction as the write (lifted from TS's
-  `SchedulerDatabaseContext`; mechanism in `SUBSYSTEMS.md` → *TS write-back* + `DOMAIN.md` → *Editing*). The
+  `SchedulerDatabaseContext`; mechanism in `SUBSYSTEMS.md` → *TS write-back* + `UI.md` → *Editing*). The
   name-round-trip hazard is moot — `name`/RA/Dec/`epoch` are excluded from the editable surface, so no name edit
   exists to re-validate.
 

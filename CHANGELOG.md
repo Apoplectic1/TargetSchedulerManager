@@ -11,6 +11,18 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ DECIDED 2026-08-03 (late) — docs-architecture audit applied + `DOMAIN.md` split executed.** The
+60-worker audit's 10 adjudicated groups landed (`344233d` — adoption-verb absolutes, acquired-basis
+`remaining`, centered-columns rules, the flyout→dialog terminology sweep, `CLAUDE.md` invariants trimmed to
+names + hooks with `ARCHITECTURE.md` → *Key facts* as single source, ROADMAP Status condensed, R28 count
+de-values; report: `docs/2026-08-03-audit-report.md`). Same session: the audit's one report-only flag
+resolved (VERIFICATION now states the xUnit1051 NoWarn as the standing decision) and the held **`DOMAIN.md`
+split executed** — **`UI.md`** (new) carries the UI design language (grid idiom → checklist, TS sync
+display, WinUI gotchas), `DOMAIN.md` keeps the domain conventions (*What TSM is for* + *TS authoring
+conventions*); the 2026-07-29 maintain sweep's held graduate **H2** (the deliberate `PlanSeconds == 0`
+em-dash conflation, `NOTEBOOK.md` 2026-07-07) landed in `UI.md` → *em-dash convention*; section-scoped
+cross-refs retargeted (ARCHITECTURE · SUBSYSTEMS · CONVENTIONS · ROADMAP · VERIFICATION · NOTEBOOK).
+
 **▶ SHIPPED 2026-08-03 — `assign-template-adoption`: adoption assigns existing templates through one
 dialog** (openspec archived `2026-08-03-assign-template-adoption`; **field-verified end-to-end including
 the full push round-trip**: Abell 78 · H adopted → push replayed the inserts to BIRDWATCHER → target +

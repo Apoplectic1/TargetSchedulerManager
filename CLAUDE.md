@@ -31,7 +31,9 @@ Reference docs (current truth — update in the same commit as the code):
   the-enforcement-point, single-forward-pass flows, the view/VM seam, the `FireAndLog` async rule. Read before
   choosing a file to edit.
 - **`ROADMAP.md`** — phased plan + current status (shipped history → `CHANGELOG.md`).
-- **`DOMAIN.md`** — the human/strategy home: UI design language (grid look-and-feel + the "add a UI element" checklist) + domain conventions (incl. the TS authoring conventions).
+- **`DOMAIN.md`** — the domain-conventions home: what TSM is *for* + the TS authoring conventions.
+- **`UI.md`** — the UI design language: grid look-and-feel, editing surfaces, chrome, WinUI gotchas, the
+  "add a UI element" checklist (carved out of `DOMAIN.md` 2026-08-03).
 - **`TS-SCHEMA.md`** — the TS database external contract: exhaustive tables/columns, hierarchy + vocabulary, Id-vs-guid identity, drift-check recipe for TS upgrades.
 - **`VERIFICATION.md`** — how to build, run, test, and verify a change.
 - **`RELEASING.md`** — the GitHub publish rules: local repo = ground truth, `origin/main` = the public

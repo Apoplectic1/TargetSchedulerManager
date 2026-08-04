@@ -1,7 +1,7 @@
 # CONVENTIONS.md — TargetSchedulerManager
 
 **How code is written here, and where it goes.** The sibling reference docs answer different questions:
-`ARCHITECTURE.md` = how the system works (design + load-bearing invariants) · `DOMAIN.md` = how the UI looks
+`ARCHITECTURE.md` = how the system works (design + load-bearing invariants) · `UI.md` = how the UI looks
 and behaves (design language + the add-a-UI-element checklist) · `TS-SCHEMA.md` = the external TS contract ·
 `VERIFICATION.md` = how to build, run and verify. This file is the one a newcomer needs **before choosing a
 file to edit**.
@@ -63,7 +63,7 @@ than extracted helpers — see *A note on long methods*.)
 
 - **Code-behind handlers are one-line forwards to the view-model.** Never write application state or row
   content from code-behind. The documented exception is a per-instance *visual* repair for a framework
-  template defect — `NarrowNumberBox_Loaded` (`DOMAIN.md` → *WinUI gotchas*), which writes no state.
+  template defect — `NarrowNumberBox_Loaded` (`UI.md` → *WinUI gotchas*), which writes no state.
 - **`MainViewModel` holds zero `Microsoft.UI.*` references** — it is testable in a plain host with no XAML
   runtime, which `VERIFICATION.md` depends on.
 - **`x:Bind` only; classic `{Binding}` is never used.** `OneWay` where state mutates, left at the `OneTime`
@@ -113,7 +113,7 @@ one you have before reaching for the split.
   *that surface's* bookkeeping race, not a resource conflict. Pushing it down into the VM funnel or
   `TsEditGate` would serialize unrelated edits app-wide and change `ApplyAsync`'s contract for every caller;
   a busy-gate-style refuse-and-revert would bounce a second perfectly valid keystroke back at the user. Both
-  were rejected on those grounds, as was disabling the form (`DOMAIN.md` → *Editing*: disabling moves focus
+  were rejected on those grounds, as was disabling the form (`UI.md` → *Editing*: disabling moves focus
   and re-fires the commit). `openspec/changes/archive/2026-07-24-serial-commits/design.md` D3.
 
 ## Naming
@@ -158,4 +158,4 @@ object exists to remove (`openspec/changes/archive/2026-07-24-row-param-objects/
 
 No-migration / no-back-compat, and fail-fast on input-contract violations, are **global** rules that apply to
 every project in this portfolio — they live in `~/.claude/CLAUDE.md` (rules 15 and 16) and are not restated
-here. UI look-and-feel conventions are `DOMAIN.md`'s. Build and test mechanics are `VERIFICATION.md`'s.
+here. UI look-and-feel conventions are `UI.md`'s; domain conventions are `DOMAIN.md`'s. Build and test mechanics are `VERIFICATION.md`'s.

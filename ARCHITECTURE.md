@@ -179,7 +179,7 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   acquires `MainViewModel.TryBeginBusy()` / `EndBusy()` (check-and-set on the UI thread; the only writers of
   `IsLoading`); row edits are **refused in the view-model funnel** while one runs (`RefuseIfBusy` — status note,
   control reverts) and their surfaces disable off `CanEdit` (whole-ListView + busy-sensitive toolbar buttons;
-  Cancel/search/filters/Ambiguities stay live — the button is phase-scoped, `DOMAIN.md` → *Chrome*). The
+  Cancel/search/filters/Ambiguities stay live — the button is phase-scoped, `UI.md` → *Chrome*). The
   reverse direction is closed too: an in-flight funnel
   call (edit *or* read — both hold a db connection) makes `TryBeginBusy` **refuse immediately** (status note,
   "try again in a moment" — it never silently waits for quiescence), so no

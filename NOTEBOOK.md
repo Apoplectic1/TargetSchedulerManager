@@ -95,7 +95,9 @@ it mirrored the *template default*, actively wrong vs the reload). Both flipped 
 (openspec `exposure-zero-literal`). Deeper conflation found and deliberately left: `ReconciliationRow`
 uses `PlanSeconds == 0` as its own no-seconds marker, so the TS-only plane renders 0 as "—" — mirror
 and reload agree on every plane (the real invariant); only plan+disk rows literally display "0".
+*(Graduated 2026-08-03 — the deliberate conflation now lives in `UI.md` → em-dash convention, per the
+2026-07-29 maintain sweep's held graduate H2.)*
 
 _Substantial findings live as dated `docs/` records; spent ones (the 2026-06-10 code reviews, the
 2026-06-26 guarded-TS-write plan, the 2026-07-24 app review + re-check) moved to `docs/archive/` on
-2026-07-26, each with a status banner. The WinUI landmines are captured in `DOMAIN.md` § "WinUI gotchas"._
+2026-07-26, each with a status banner. The WinUI landmines are captured in `UI.md` § "WinUI gotchas" (in `DOMAIN.md` until the 2026-08-03 split)._
