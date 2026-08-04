@@ -35,6 +35,13 @@ internal static class Badges
     /// credit, so it is broken authoring rather than an absence of information.</summary>
     public const string NoCoords = "no-coords";
 
+    /// <summary>A TS-backed target without a rotation — a required parameter of the authoring convention
+    /// (user 2026-08-04, obs 7c5e), typically an adoption from mechanical-only disk framing (which never
+    /// converts to sky and seeds nothing). Distinct from <see cref="Framing"/>: that is a rotation present
+    /// with frames off-tolerance; this is the rotation absent. Repaired in TS/TSM by setting the target's
+    /// rotation (future assist: plate-solve a frame — see ROADMAP, ASTAP).</summary>
+    public const string NoRotation = "no-rotation";
+
     /// <summary>Two TS targets claim the same disk unit.</summary>
     public const string Duplicate = "duplicate";
 
@@ -93,7 +100,7 @@ internal static class Badges
     /// informative: a badge is never worth failing a load over, and the quiet tier is the safe default.</summary>
     public static bool IsWarning(string token) => Canonical(token) switch
     {
-        NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
+        NoCoords or NoRotation or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
             or UnknownCamera or CameraMismatch or Framing or Sentinel => true,
         _ => false,
     };

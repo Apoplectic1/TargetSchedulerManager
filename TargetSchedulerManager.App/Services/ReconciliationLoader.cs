@@ -150,6 +150,10 @@ public static class ReconciliationLoader
             bool isMismatch = tc.Issues.HasFlag(TargetMatchIssues.NameMismatch);
             bool isAmbiguous = tc.Issues.HasFlag(TargetMatchIssues.AmbiguousMatch);
             bool isUnanchored = tc.IsUnanchored;
+            // Rotation is a required parameter of a TS target (user 2026-08-04, obs 7c5e): a TS-backed
+            // target without one — e.g. adopted from mechanical-only disk framing, which never converts to
+            // sky — is badged. Distinct from `framing` (rotation present, frames off-tolerance).
+            bool noRotation = tc.TsTargetKey is not null && tc.TargetRotationDeg is null;
 
             // One rollup per (filter, purpose) that has BOTH a plan side and a disk side, aggregating every
             // sub length. A rollup whose times all agree is a plain merged row; 2+ distinct times reads
@@ -172,6 +176,7 @@ public static class ReconciliationLoader
                 if (isMismatch) badges.Add(Badges.NameMismatch);
                 if (isAmbiguous) badges.Add(Badges.Ambiguous);
                 if (isUnanchored) badges.Add(Badges.NoCoords);
+                if (noRotation) badges.Add(Badges.NoRotation);
                 if (multiPlan) badges.Add(Badges.MultiPlan);
                 if (accNeAcq) badges.Add(Badges.AccNeAcq);
 
@@ -182,7 +187,8 @@ public static class ReconciliationLoader
                 // The flagged set IS the warning-badge set (Badges.IsWarning) — colour and the flagged-only
                 // filter must agree, or an amber row gets hidden by the filter that should surface it. An
                 // unanchored target counts: TS can't schedule it and it can never accrue disk credit.
-                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan || accNeAcq || isUnanchored;
+                bool flagged = isDup || isMismatch || isAmbiguous || multiPlan || accNeAcq || isUnanchored
+                    || noRotation;
 
                 List<ReconciliationCell> planCells = [], diskCells = [];
                 foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))
@@ -349,13 +355,18 @@ public static class ReconciliationLoader
             // badge splits the two cases: no-coords is broken authoring (flagged), "no data" is queued work.
             if (tc.Cells.Count == 0)
             {
+                string placeholderBadge = Badges.Join(
+                [
+                    isUnanchored ? Badges.NoCoords : Badges.NoData,
+                    noRotation ? Badges.NoRotation : "",
+                ]);
                 rows.Add(new ReconciliationRow(
                     id, Format.Dash, Format.Dash, plane: source == RowSource.TsOnly ? RowPlane.Ts : RowPlane.Disk,
                     new RowNumbers(
                         PlanSeconds: 0, DiskSeconds: 0,
                         Desired: null, Acquired: null, Accepted: null,
                         Disk: 0, PlanCount: 0, PlanHours: null, DiskHours: null),
-                    badge: isUnanchored ? Badges.NoCoords : Badges.NoData, isFlagged: isUnanchored));
+                    badge: placeholderBadge, isFlagged: isUnanchored || noRotation));
             }
         }
 

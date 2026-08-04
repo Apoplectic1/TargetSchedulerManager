@@ -32,6 +32,12 @@
 - [x] 4b.3 Consequence wording accurate per field class (obs a5eb follow-through): gain/offset sentinel → "stamps 0"; readout-mode-only → "counts unaffected" (readout mode is not a pairing dimension).
 - [x] 4b.4 Scoped report (field obs a5eb): user-invoked generation scopes to the visible targets when a grid filter is active — every target-attributable section filtered, header names the scope, tripwire count stays global; tests for scoped vs full.
 
+## 4c. App: no-rotation badge (field obs 7c5e, added mid-verify)
+
+- [x] 4c.1 `no-rotation` target-scope warning badge on TS-backed targets with NULL rotation (incl. the no-cells placeholder row); flagged; distinct from `framing`; no adoption-dialog caution (user: the badge is the surface).
+- [x] 4c.2 Tests: NULL-rotation TS target badges + flags; rotation present or disk-only target → nothing; tier/scope/vocabulary pins.
+- [x] 4c.3 ASTAP-assisted sky angle written up in ROADMAP (Deferred); DOMAIN gains the rotation-required convention.
+
 ## 5. Verify, docs, ship
 
 - [x] 5.1 Both repos build; full test suites green (Library Catalog + App).

@@ -43,7 +43,12 @@ offset sentinels are one (affirmative checkbox in TS's UI, pairing dimensions, s
 sentinel is the **designed representation of a correct state**, correct by construction — so readout mode
 LEFT the badge/report set entirely (alongside plan `exposure` −1 and `ditherevery` −1), clearing all 20
 badges with zero hand edits. Sentinel report items are **what + why only** (no using-plans/targets roll —
-the badge already marks the rows; the list cluttered the file). Also from obs
+the badge already marks the rows; the list cluttered the file). Companion badge from the same verify
+round (obs `7c5e`): **`no-rotation`** — target-scope warning on any TS-backed target with NULL rotation
+(rotation is a required TS-target parameter; the mechanical-only adoption case, e.g. M42 — a mechanical
+angle never converts to sky and seeds nothing). Distinct from `framing` (rotation present, frames
+off-tolerance); no adoption-time caution — the badge is the surface. ASTAP-assisted sky-angle recovery
+written up in ROADMAP → Deferred. Also from obs
 `a5eb`: **report generation scopes to the current grid filter** — with search/source/flagged active, the
 written report covers only the visible targets (every target-attributable section; zero-use templates
 excluded under scope), the header names the scope, and the status-line tripwire count stays global.

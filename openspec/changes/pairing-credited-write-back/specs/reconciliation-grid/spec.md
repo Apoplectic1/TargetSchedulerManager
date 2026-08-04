@@ -35,6 +35,29 @@ template `ditherevery` of `-1` (defer to the project setting).
   explicit
 - **THEN** no `sentinel` badge appears — those sentinels are the fields' correct deferral representations
 
+### Requirement: A TS target without a rotation is badged
+A TS-backed target whose rotation is NULL SHALL carry a target-scope warning badge (`no-rotation`) on
+every one of its rows and count as flagged. Rotation is a required parameter of the authoring convention
+(user 2026-08-04, obs 7c5e); the badge is **distinct from `framing`** — `framing` marks frames whose sky
+rotation fails a rotation the target *has*; `no-rotation` marks the rotation being absent. The normal
+producer is adoption from mechanical-only disk framing: a mechanical angle never converts to sky, the
+created target's rotation stays NULL (correct — never a fabricated angle), and this badge is the standing
+reminder to supply one. Disk-only targets (no TS row) have no rotation requirement and never carry it.
+No adoption-time dialog caution exists — the badge is the surface (user decision).
+
+#### Scenario: Mechanical-only adoption yields a badged target
+- **WHEN** a whole-target adoption seeds no rotation (all framings mechanical) and the grid re-reconciles
+- **THEN** every row of the created target carries the warning `no-rotation` badge and the target is
+  flagged, until the user sets a rotation (TSM target editor or TS UI)
+
+#### Scenario: A rotation clears it
+- **WHEN** the user sets the target's rotation and the editor closes
+- **THEN** the re-reconciled grid shows no `no-rotation` badge on that target
+
+#### Scenario: Disk-only targets are not badged
+- **WHEN** a disk-only target's frames carry only mechanical rotation
+- **THEN** no `no-rotation` badge appears — there is no TS target to require one
+
 #### Scenario: The report names the badge's cause
 - **WHEN** the ambiguity report is generated while a `sentinel` badge is showing
 - **THEN** the report carries an action item naming the template, the sentinel field(s), and the plans

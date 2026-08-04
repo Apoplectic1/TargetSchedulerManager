@@ -79,6 +79,11 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
+- **Every TS target carries a rotation (sky angle)** (decided 2026-08-04, obs 7c5e). A TS-backed target
+  with NULL rotation — typically adopted from mechanical-only disk framing, which never converts to sky —
+  is badged `no-rotation` (warning, target scope; distinct from `framing` = rotation present, frames
+  off-tolerance) until the user sets one. No adoption-time caution: the badge is the surface. Future
+  assist: ASTAP plate-solve to recover the angle (`ROADMAP.md` → Deferred).
 - **Never rely on a camera default for gain or offset — that sentinel is an incorrect state** (decided
   2026-08-04, openspec `pairing-credited-write-back`; framing refined same day). A template `gain` or
   `offset` of `-1` ("use the camera's default") is valid TS but marks a state this library's authoring

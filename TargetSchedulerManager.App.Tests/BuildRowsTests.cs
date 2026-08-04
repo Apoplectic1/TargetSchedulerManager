@@ -745,6 +745,45 @@ public class BuildRowsTests
     }
 
     [Fact]
+    public void TsTargetWithoutRotation_GetsNoRotationBadge_AndIsFlagged()
+    {
+        // Rotation is a required parameter of a TS target (user 2026-08-04, obs 7c5e) — the M42 shape: a
+        // target adopted from mechanical-only framing has NULL rotation, correct but incomplete. Distinct
+        // from `framing` (rotation present, frames off-tolerance).
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 42", TargetSource.Both, dir: "M 42") with { ImportedFromTsGuid = "t-42" }],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "L", "L")],
+                [Inv(t, "L", FilterPurpose.Light, 4, 300.0,
+                    rotation: RotationExpression.Mechanical, rotationFold: 97.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Contains(Badges.NoRotation, r.Badge);
+        Assert.True(r.IsFlagged);
+        Assert.DoesNotContain(Badges.Framing, r.Badge);   // absence is not a framing disagreement
+    }
+
+    [Fact]
+    public void TargetWithRotation_OrWithoutTsRow_NoNoRotationBadge()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph(
+                [
+                    T(a, "M 81", TargetSource.Both, dir: "M 81", rotation: 20.0) with { ImportedFromTsGuid = "t-81" },
+                    T(b, "Shot Only", TargetSource.Actual, dir: "Shot Only"),   // no TS row — no requirement
+                ],
+                [Plan(a, tpl, desired: 10, seconds: 300.0)], [Tpl(tpl, "H", "H")],
+                [Inv(a, "H", FilterPurpose.Light, 4, 300.0),
+                 Inv(b, "H", FilterPurpose.Light, 6, 300.0,
+                     rotation: RotationExpression.Mechanical, rotationFold: 97.0)]),
+            Report());
+
+        Assert.All(rows, r => Assert.DoesNotContain(Badges.NoRotation, r.Badge));
+    }
+
+    [Fact]
     public void DeferToTemplateExposure_IsNotASentinel()
     {
         // The exempt sentinel: a plan exposure deferring to the template's default defers to a value the

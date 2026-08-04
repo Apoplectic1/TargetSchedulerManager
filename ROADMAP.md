@@ -48,6 +48,14 @@ in `CHANGELOG.md` and pinned in `ARCHITECTURE.md` → *Key facts*.
 - **Telescope as its own UI section.** 100% uniform today (`APM107R@531` on all frames), and a second
   scope would likely bring a disk directory-layout change, so it should be designed *with* that layout rather
   than guessed at now.
+- **ASTAP-assisted sky angle for mechanical-only targets** (user, obs 7c5e 2026-08-04). A target adopted
+  from mechanical-only disk framing has NULL rotation (a mechanical angle never converts to sky — zero
+  point drifts across remounts) and carries the `no-rotation` badge until the user supplies one. If ASTAP
+  is installed, TSM could plate-solve a representative frame of the serving framing cluster to recover the
+  true sky angle and offer it as the rotation seed — turning a hand measurement into a confirm. Design
+  questions when picked up: detection of an ASTAP install, which frame(s) to solve, offer-vs-auto-seed
+  (convention says offer — TSM surfaces, the user decides), and whether the solve happens at adoption time
+  or as a later per-target action on badged rows.
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 

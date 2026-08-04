@@ -58,6 +58,9 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   character), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
   the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing).
+  A TS-backed target with **no rotation at all** carries the target-scope warning **`no-rotation` badge**
+  on every row (2026-08-04, obs 7c5e — rotation is a required TS-target parameter; the mechanical-only
+  adoption case) until the user sets one; distinct from `framing`, which needs a rotation to disagree with.
   A plan whose template carries a camera-default sentinel on **gain or offset** (`-1`) carries the warning
   **`sentinel` badge** on every row using that template (2026-08-04, openspec `pairing-credited-write-back`):
   there the sentinel marks an incorrect state (`DOMAIN.md` → *TS authoring conventions*), the plan can
