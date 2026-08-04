@@ -321,6 +321,67 @@ public class AmbiguityReportTests
     }
 
     [Fact]
+    public void ReadoutOnlySentinel_SaysCountsUnaffected_GainSentinelSaysStampsZero()
+    {
+        // The consequence must be accurate per field class: readout mode is NOT a pairing dimension, so a
+        // readout-only sentinel badges without touching counts; a gain sentinel really does stamp 0.
+        Guid t = Guid.NewGuid(), readoutTpl = Guid.NewGuid(), gainTpl = Guid.NewGuid();
+        CatalogGraph graph = Graph(
+            targets: [Tgt(t, TargetSource.Planned, "M42 - Orion", tsKey: "7")],
+            templates:
+            [
+                Tpl(readoutTpl, "L300", "L", 300, tsKey: "7", readout: -1),
+                Tpl(gainTpl, "O600", "O", 600, tsKey: "2", gain: null),
+            ],
+            plans: [Plan(t, readoutTpl, "31"), Plan(t, gainTpl, "32")]);
+
+        string md = Build(graph).Markdown;
+        Assert.Contains("readout mode does not join pairing — counts are unaffected", md);
+        Assert.Contains("sentinel on gain; used by 1 plan(s) on [M42 - Orion] — each carries the `sentinel` badge and stamps 0", md);
+    }
+
+    [Fact]
+    public void ScopedReport_LimitsToVisibleTargets_AndSaysSo()
+    {
+        // Field obs a5eb: search isolating one target scopes the generated report to it. Two targets, each
+        // with an unplanned-frames note and a sentinel template only one of them uses — the scoped report
+        // keeps the visible target's items and drops the other's; the header names the scope.
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid(), tplA = Guid.NewGuid(), tplB = Guid.NewGuid();
+        CatalogGraph graph = Graph(
+            targets:
+            [
+                Tgt(a, TargetSource.Both, "M42 - Orion", dir: "M42 - Orion", tsKey: "7"),
+                Tgt(b, TargetSource.Both, "M81 - Bode", dir: "M81 - Bode", tsKey: "8"),
+            ],
+            templates:
+            [
+                Tpl(tplA, "L300", "L", 300, tsKey: "7", readout: -1),
+                Tpl(tplB, "H900", "H", 900, tsKey: "1", readout: -1),
+            ],
+            plans: [Plan(a, tplA, "31"), Plan(b, tplB, "32")]);
+        WriteBackPlan plan = new([], [],
+            [
+                new ReconcileNote(ReconcileNote.UnplannedFramesKind, "M42 - Orion", "L Light 4 frames @300s - no TS plan at 300s"),
+                new ReconcileNote(ReconcileNote.UnplannedFramesKind, "M81 - Bode", "H Light 9 frames @300s - no TS plan at 300s"),
+            ], 0);
+
+        AmbiguityReportResult scoped = Build(graph, plan: plan,
+            scope: new ReportScope([a], ["M42 - Orion"], "search \"ori\""));
+
+        Assert.Contains("Scoped to the current grid filter", scoped.Markdown);
+        Assert.Contains("search \"ori\"", scoped.Markdown);
+        Assert.Contains("L300", scoped.Markdown);              // visible target's sentinel template
+        Assert.DoesNotContain("H900", scoped.Markdown);        // the other target's template dropped
+        Assert.Contains("Unplanned frames: **M42 - Orion**", scoped.Markdown);
+        Assert.DoesNotContain("M81 - Bode", scoped.Markdown);
+        Assert.Equal(1, scoped.ActionCount);                   // only L300's sentinel item
+
+        AmbiguityReportResult full = Build(graph, plan: plan);
+        Assert.DoesNotContain("Scoped to the current grid filter", full.Markdown);
+        Assert.Equal(2, full.ActionCount);
+    }
+
+    [Fact]
     public void SentinelTemplate_ZeroUse_StillAnItem_ExplicitTemplatesClean()
     {
         CatalogGraph sentinel = Graph(templates: [Tpl(Guid.NewGuid(), "O600", "O", 600, offset: null)]);
@@ -336,11 +397,12 @@ public class AmbiguityReportTests
 
     private static AmbiguityReportResult Build(
         CatalogGraph graph, CatalogBuildReport? report = null, WriteBackPlan? plan = null,
-        IReadOnlyDictionary<string, string>? skippedFiles = null, TsPlanData? ts = null) =>
+        IReadOnlyDictionary<string, string>? skippedFiles = null, TsPlanData? ts = null,
+        ReportScope? scope = null) =>
         AmbiguityReport.Build(graph, report ?? Report(), plan ?? EmptyPlan(),
             ts ?? new TsPlanData([], [], [], []),
             new DateTimeOffset(2026, 7, 8, 21, 0, 0, TimeSpan.FromHours(-4)),
-            @"X:\ts\schedulerdb.sqlite", @"X:\library", toleranceDegrees: 0.5, skippedFiles);
+            @"X:\ts\schedulerdb.sqlite", @"X:\library", toleranceDegrees: 0.5, skippedFiles, scope);
 
     private static CatalogGraph Graph(
         IReadOnlyList<Target>? targets = null,

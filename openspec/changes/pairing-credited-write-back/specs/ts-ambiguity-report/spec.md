@@ -7,10 +7,11 @@ The report's exposure-templates section SHALL carry one action item per template
 or `readoutmode` is the use-camera-default sentinel (`-1`), naming the template (name and TS Id), exactly
 which field(s) carry the sentinel, and the plans using it (count plus the owning targets) — so the reader
 of the report alone learns both the cause of every grid `sentinel` badge and where the hand fix goes. The
-item SHALL state the consequence (plans using the template can never pair and stamp 0 while the sentinel
-stands). A zero-use sentinel template is still an item (the error exists in TS regardless of use). The
-exempt defer-to-explicit-value sentinels (plan `exposure` `-1`, template `ditherevery` `-1`) SHALL NOT
-produce items.
+item SHALL state the consequence **accurately per field class**: a gain or offset sentinel means the plans
+can never pair and stamp 0; a readout-mode-only sentinel is an authoring error whose counts are unaffected
+(readout mode is not a pairing dimension — the disk plane does not express it). A zero-use sentinel
+template is still an item (the error exists in TS regardless of use). The exempt defer-to-explicit-value
+sentinels (plan `exposure` `-1`, template `ditherevery` `-1`) SHALL NOT produce items.
 
 #### Scenario: Sentinel template item names field and blast radius
 - **WHEN** the report is built while a template carries gain `-1` and two plans on one target use it
@@ -39,3 +40,27 @@ say where each plan lives.)
 #### Scenario: Same-key plans name their home
 - **WHEN** the same-key check reports two plans sharing one key on a TS target
 - **THEN** both plan rows carry the owning `project › target` path beside the template name and counts
+
+### Requirement: Report generation scopes to the current grid filter
+When the user generates the report while the grid is filtered (search text, source filter, or
+flagged-only), the written report SHALL cover only the currently visible targets: every target-attributable
+item — identity, duplicates, plan cells, sentinel templates (via their using plans; zero-use templates are
+excluded under scope), unreadable files (by directory), and informational notes — is limited to that set,
+the action count reflects the scope, and the report header SHALL state the scope (the active filter and the
+visible-target count) so a scoped report can never be mistaken for the full one. With no filter active the
+full report is written, unchanged. The automatic tripwire count (status line) SHALL remain global — scope
+applies only to the user-invoked report generation. (Field obs a5eb 2026-08-04: search isolating one target
+should yield that target's report.)
+
+#### Scenario: Search-isolated target scopes the report
+- **WHEN** the grid search isolates one target and the user generates the report
+- **THEN** the file contains only items attributable to that target, its header names the search scope, and
+  the action count counts only those items
+
+#### Scenario: No filter writes the full report
+- **WHEN** no search/source/flagged filter is active
+- **THEN** the generated report is the full, unscoped report
+
+#### Scenario: The tripwire stays global
+- **WHEN** a search is active and a load completes
+- **THEN** the status line's ambiguity count still reflects the whole library, not the filtered view

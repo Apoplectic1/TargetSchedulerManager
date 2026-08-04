@@ -5,6 +5,7 @@ using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
+using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App.ViewModels;
 
@@ -46,16 +47,58 @@ public sealed partial class MainViewModel
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanShowAmbiguities)));
     }
 
+    /// <summary>The visible-target scope for a user-invoked report, or null for the full report: non-null
+    /// exactly when a grid filter (search / source / flagged-only) is active, carrying the surviving
+    /// targets and the filter's wording (field obs a5eb: search isolating a target should yield that
+    /// target's report). The automatic tripwire count stays global — only report *generation* scopes.</summary>
+    private ReportScope? CurrentReportScope()
+    {
+        bool filtered = !string.IsNullOrWhiteSpace(_searchText)
+            || _flaggedOnly
+            || _sourceFilterIndex is >= 1 and <= 3;
+        if (!filtered)
+            return null;
+
+        List<string> parts = [];
+        if (!string.IsNullOrWhiteSpace(_searchText)) parts.Add($"search \"{_searchText.Trim()}\"");
+        if (_sourceFilterIndex is >= 1 and <= 3) parts.Add($"source {SourceFilterName()}");
+        if (_flaggedOnly) parts.Add("flagged only");
+
+        HashSet<Guid> ids = [];
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        foreach (TargetGroupRow g in _groups)
+        {
+            names.Add(g.Target);
+            foreach (ReconciliationRow r in g.Children)
+                if (r.TargetId != Guid.Empty)
+                    ids.Add(r.TargetId);
+        }
+        return new ReportScope(ids, names, string.Join(" · ", parts));
+    }
+
     /// <summary>Writes the report as a dated Markdown file (default: the app's local Reports folder) and
-    /// opens it in the default handler. Launch failure is non-fatal — the file stays, the status line says
-    /// where. Returns the path, or null when nothing was written.</summary>
+    /// opens it in the default handler. When a grid filter is active the report is scoped to the visible
+    /// targets (rebuilt for the occasion; the retained global report backs the tripwire count). Launch
+    /// failure is non-fatal — the file stays, the status line says where. Returns the path, or null when
+    /// nothing was written.</summary>
     internal string? WriteAmbiguityReport(string? directory = null, bool open = true)
     {
-        if (_ambiguities is not { } ambig)
+        ReportScope? scope = CurrentReportScope();
+        AmbiguityReportResult? scoped = scope is not null && _lastLoad is { } load
+            ? AmbiguityReport.Build(
+                load.Graph, load.Report,
+                WriteBackPlanner.Plan(load.Graph.Targets, load.Graph.Plans, load.Graph.Templates,
+                                      load.Graph.InventoryFilters, load.Report),
+                load.Ts,
+                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
+                load.SkippedFiles, scope)
+            : null;
+        if ((scoped ?? _ambiguities) is not { } ambig)
         {
             StatusText = "no load yet — nothing to report";
             return null;
         }
+        string scopeNote = scoped is null ? "" : $" (scoped: {scope!.Description})";
         try
         {
             string dir = directory ?? Path.Combine(
@@ -64,7 +107,7 @@ public sealed partial class MainViewModel
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, $"ambiguities-{DateTime.Now:yyyyMMdd-HHmm}.md");
             File.WriteAllText(path, ambig.Markdown);
-            Log.Info($"AMBIGUITY report written: {path} ({ambig.ActionCount} action item(s))");
+            Log.Info($"AMBIGUITY report written: {path} ({ambig.ActionCount} action item(s)){scopeNote}");
 
             if (open)
             {
@@ -79,7 +122,7 @@ public sealed partial class MainViewModel
                     return path;
                 }
             }
-            StatusText = $"ambiguity report — {ambig.ActionCount} action item(s): {path}";
+            StatusText = $"ambiguity report{scopeNote} — {ambig.ActionCount} action item(s): {path}";
             return path;
         }
         catch (Exception ex)

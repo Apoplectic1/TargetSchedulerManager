@@ -34,7 +34,14 @@ auto-corrects a sentinel — the badge says where to hand-fix and clears on the 
 The **ambiguity report names the badge's cause** (field obs `b22d`, added mid-verify): one action item per
 sentinel template in *Fix in TS — exposure templates* — template name + Id, which field(s) are −1, the
 plans using it and their targets, and the fix; zero-use sentinel templates still report (new
-`ts-ambiguity-report` delta).
+`ts-ambiguity-report` delta). Report plan rows carry their containing **`project › target` path** from the
+raw TS snapshot (a fold's plans keep their true, different homes). Field-measured on first run: **all 20
+live templates carry `readoutmode` −1** (never set; TS's default) — so the item wording is accurate per
+field class (obs `a5eb`): gain/offset sentinels "stamp 0", readout-mode-only sentinels badge with **counts
+unaffected** (readout mode is not a pairing dimension — the disk plane doesn't express it). Also from obs
+`a5eb`: **report generation scopes to the current grid filter** — with search/source/flagged active, the
+written report covers only the visible targets (every target-attributable section; zero-use templates
+excluded under scope), the header names the scope, and the status-line tripwire count stays global.
 Plumbing: `TsExposureTemplate` gained `ReadoutMode` (reader now selects `readoutmode`);
 `ReconciliationCell` gained `TemplateSentinel`. **Operational (one-time):** the first load stamps the
 historical backlog (~245 buckets stopped pairing when gain/offset became keys — gain 53→0 era 2024,

@@ -13,6 +13,12 @@ namespace TargetSchedulerManager.App.Services;
 /// Informational entries (unplanned-frames notes) are not in <see cref="ActionCount"/>.</summary>
 internal sealed record AmbiguityReportResult(string Markdown, int ActionCount);
 
+/// <summary>The visible-target scope a filtered grid hands the report (field obs a5eb): the surviving
+/// canonical target ids + group names, and the human wording of the active filter for the header. Null
+/// scope = the full report.</summary>
+internal sealed record ReportScope(
+    IReadOnlyCollection<Guid> TargetIds, IReadOnlyCollection<string> TargetNames, string Description);
+
 /// <summary>
 /// The printable ambiguity roll-up (decision 2026-07-08: TSM detects, the user repairs by hand in NINA's TS
 /// UI — this report is the tripwire's detail). Pure over the already-loaded graph/report/write-back plan: no
@@ -31,9 +37,32 @@ internal static class AmbiguityReport
         string tsDbPath,
         string libraryRoot,
         double toleranceDegrees,
-        IReadOnlyDictionary<string, string>? skippedFiles = null)
+        IReadOnlyDictionary<string, string>? skippedFiles = null,
+        ReportScope? scope = null)
     {
         Dictionary<Guid, Target> targetById = graph.Targets.ToDictionary(t => t.Id);
+
+        // The scope predicates: everything passes with no scope; under one, an item survives only when it
+        // is attributable to a visible target (by canonical id, by name, or by directory — the three ways
+        // the checks address targets). Directories derive from the scoped targets so mosaic panel paths
+        // ("Mosaic - X/Panel …") match by prefix.
+        HashSet<Guid>? scopeIds = scope is null ? null : [.. scope.TargetIds];
+        HashSet<string>? scopeNames = scope is null ? null : new(scope.TargetNames, StringComparer.OrdinalIgnoreCase);
+        HashSet<string>? scopeDirs = null;
+        if (scope is not null)
+        {
+            scopeDirs = new(StringComparer.OrdinalIgnoreCase);
+            foreach (Target t in graph.Targets)
+                if ((scopeIds!.Contains(t.Id) || scopeNames!.Contains(t.Name)) && t.DirectoryName is string d)
+                    scopeDirs.Add(d);
+        }
+        bool IdInScope(Guid id) => scopeIds is null || scopeIds.Contains(id);
+        bool NameInScope(string? name) => scopeNames is null || (name is not null && scopeNames.Contains(name));
+        bool DirInScope(string? dir) => scopeDirs is null
+            || (dir is not null && (scopeDirs.Contains(dir)
+                || scopeDirs.Any(s => dir.StartsWith(s + "/", StringComparison.OrdinalIgnoreCase))));
+        bool PathInScope(string path) => scopeDirs is null
+            || scopeDirs.Any(d => path.Contains(d, StringComparison.OrdinalIgnoreCase));
         Dictionary<Guid, ExposureTemplate> templateById = graph.Templates.ToDictionary(t => t.Id);
         Dictionary<Guid, string> projectNameById = graph.Projects.ToDictionary(p => p.Id, p => p.Name);
 
@@ -79,13 +108,13 @@ internal static class AmbiguityReport
         }
 
         // One builder per section (review N9) — Build reads as the report's table of contents.
-        List<string> identity = BuildIdentitySection(report, heldCellsByDirectory);
-        List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees);
-        List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, PlanLocation, ProjectOf);
-        List<string> templates = BuildTemplateSection(graph, targetById);
-        List<string> unreadable = BuildUnreadableSection(skippedFiles);
-        List<string> info = BuildInfoSection(plan);
-        info.AddRange(BuildFramingInfo(graph, report, ProjectOf));
+        List<string> identity = BuildIdentitySection(report, heldCellsByDirectory, NameInScope, DirInScope);
+        List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees, NameInScope, DirInScope);
+        List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, PlanLocation, ProjectOf, IdInScope);
+        List<string> templates = BuildTemplateSection(graph, targetById, IdInScope, scoped: scope is not null);
+        List<string> unreadable = BuildUnreadableSection(skippedFiles, PathInScope);
+        List<string> info = BuildInfoSection(plan, NameInScope);
+        info.AddRange(BuildFramingInfo(graph, report, ProjectOf, IdInScope));
 
         int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count + unreadable.Count;
 
@@ -94,6 +123,13 @@ internal static class AmbiguityReport
         sb.AppendLine();
         sb.AppendLine($"TS db: `{tsDbPath}`  ·  library: `{libraryRoot}`  ·  match tolerance {toleranceDegrees.ToString("0.0#", CultureInfo.InvariantCulture)}°");
         sb.AppendLine();
+        if (scope is not null)
+        {
+            // A scoped report must never be mistaken for the full one — the scope leads.
+            sb.AppendLine($"**Scoped to the current grid filter** ({scope.Description}) — " +
+                          $"{scope.TargetNames.Count} visible target(s). Clear the filter for the full report.");
+            sb.AppendLine();
+        }
         sb.AppendLine("Conventions (DOMAIN.md): **one name per sky position**, spelled the same in TS and as the disk");
         sb.AppendLine("directory's catalog token; **one exposure plan per (filter, purpose, whole-second exposure) per");
         sb.AppendLine("target**. Every action item below is a slipped convention — fix by hand in NINA's TS UI.");
@@ -120,11 +156,13 @@ internal static class AmbiguityReport
     /// <summary>Fix-in-TS identity items: name mismatches (with held-cell notes and the panel-claim
     /// variant), ambiguous coordinate matches, unanchored and invalid TS targets.</summary>
     private static List<string> BuildIdentitySection(
-        CatalogBuildReport report, Dictionary<string, int> heldCellsByDirectory)
+        CatalogBuildReport report, Dictionary<string, int> heldCellsByDirectory,
+        Func<string?, bool> nameInScope, Func<string?, bool> dirInScope)
     {
         List<string> identity = [];
         foreach (NameMismatch m in report.NameMismatches)
         {
+            if (!nameInScope(m.TsName) && !dirInScope(m.DiskDirectory)) continue;
             int held = heldCellsByDirectory.GetValueOrDefault(m.DiskDirectory);
             string heldNote = held > 0 ? $" {held} filter-cell(s) held un-stamped until fixed." : "";
             // A composite "mosaicDir/panelDir" path is a panel claim: the catalog-token rename is meaningless
@@ -142,6 +180,7 @@ internal static class AmbiguityReport
         }
         foreach (AmbiguousMatch a in report.AmbiguousMatches)
         {
+            if (!nameInScope(a.TsName) && !a.CandidateDirectories.Any(dirInScope)) continue;
             identity.Add(
                 $"**{a.TsName}** — {a.CandidateDirectories.Count} disk directories within tolerance " +
                 $"[{string.Join(" | ", a.CandidateDirectories)}], nearest {a.NearestSeparationDegrees.ToString("0.000", CultureInfo.InvariantCulture)}°.\n" +
@@ -149,12 +188,14 @@ internal static class AmbiguityReport
         }
         foreach (UnanchoredTsTarget u in report.UnanchoredTsTargets)
         {
+            if (!nameInScope(u.TsName)) continue;
             identity.Add(
                 $"**{u.TsName}** — no usable coordinates; cannot anchor to disk (planned-only this load).\n" +
                 $"  → Set the target's RA/Dec in TS.");
         }
         foreach (InvalidTsTarget i in report.InvalidTsTargets)
         {
+            if (!nameInScope(i.TsName)) continue;
             identity.Add(
                 $"**{i.TsName}** — {i.Reason} (values coerced this load; the db row is unchanged).\n" +
                 $"  → Correct the RA/Dec/epoch in TS.");
@@ -165,17 +206,19 @@ internal static class AmbiguityReport
     /// <summary>Fix-in-TS duplicates: disk-claimed duplicate folds, then the planned-only twins the grid
     /// can't badge.</summary>
     private static List<string> BuildDuplicateSection(
-        CatalogBuildReport report, CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees)
+        CatalogBuildReport report, CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees,
+        Func<string?, bool> nameInScope, Func<string?, bool> dirInScope)
     {
         List<string> duplicates = [];
         foreach (DuplicateTsTarget d in report.DuplicateTsTargets)
         {
+            if (!dirInScope(d.DiskDirectory) && !d.TsTargetNames.Any(nameInScope)) continue;
             duplicates.Add(
                 $"disk `{d.DiskDirectory}` ← TS targets [{string.Join(" | ", d.TsTargetNames)}] — a duplicate fold.\n" +
                 $"  → Consolidate in TS: keep one target, delete the rest. Check `desired` on each first (intent " +
                 $"doesn't self-heal; acquired/accepted restamp from disk on the next load).");
         }
-        duplicates.AddRange(PlannedOnlyTwins(graph, projectOf, toleranceDegrees));
+        duplicates.AddRange(PlannedOnlyTwins(graph, projectOf, toleranceDegrees, nameInScope));
         return duplicates;
     }
 
@@ -185,13 +228,15 @@ internal static class AmbiguityReport
     private static List<string> BuildPlanSection(
         WriteBackPlan plan, CatalogGraph graph,
         Dictionary<Guid, Target> targetById, Dictionary<Guid, ExposureTemplate> templateById,
-        Func<long, string> planLabel, Func<long, string?> planLocation, Func<Guid, string> projectOf)
+        Func<long, string> planLabel, Func<long, string?> planLocation, Func<Guid, string> projectOf,
+        Func<Guid, bool> idInScope)
     {
         List<string> plans = [];
         HashSet<(Guid, string, FilterPurpose, int)> manualKeys = [];
         foreach (ManualGroup g in plan.Manual.Where(g => g.Reason is ManualReason.MultiPlan or ManualReason.DuplicateFold or ManualReason.NoMatchingPlan))
         {
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
+            if (!idInScope(g.TargetId)) continue;   // key still recorded — the same-key check de-dupes on it
             // One indented row per plan — the shape the TS UI shows under a target, each with its
             // containing project › target (a fold's plans live under DIFFERENT TS targets).
             string detail = string.Concat(g.Plans.Select(p =>
@@ -212,7 +257,7 @@ internal static class AmbiguityReport
                 $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped)." +
                 $"{detail}\n  {fix}");
         }
-        plans.AddRange(SameKeyPlans(graph, targetById, templateById, projectOf, planLocation, manualKeys));
+        plans.AddRange(SameKeyPlans(graph, targetById, templateById, projectOf, planLocation, manualKeys, idInScope));
         return plans;
     }
 
@@ -220,13 +265,18 @@ internal static class AmbiguityReport
     /// TS UI), then camera-default sentinels — the cause behind every grid `sentinel` badge (field obs
     /// b22d): the template, exactly which field(s) defer to the camera, and the plans riding on it. The
     /// exempt defer-to-explicit-value sentinels (plan exposure −1, ditherevery −1) never appear here.</summary>
-    private static List<string> BuildTemplateSection(CatalogGraph graph, Dictionary<Guid, Target> targetById)
+    private static List<string> BuildTemplateSection(
+        CatalogGraph graph, Dictionary<Guid, Target> targetById, Func<Guid, bool> idInScope, bool scoped)
     {
         List<string> templates = [];
+        bool TemplateInScope(IEnumerable<ExposureTemplate> group) =>
+            !scoped || graph.Plans.Any(p => group.Any(t => t.Id == p.ExposureTemplateId) && idInScope(p.TargetId));
+
         foreach (var g in graph.Templates
                      .GroupBy(t => (t.ProfileId, Name: t.Name.Trim().ToUpperInvariant()))
                      .Where(g => g.Count() > 1))
         {
+            if (!TemplateInScope(g)) continue;
             templates.Add(
                 $"**{g.First().Name.Trim()}** — {g.Count()} templates share this name in one profile " +
                 $"[{string.Join(" | ", g.Select(t => $"Id {t.ImportedFromTsGuid ?? "?"} ({t.FilterName})"))}].\n" +
@@ -240,6 +290,7 @@ internal static class AmbiguityReport
             if (CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel) fields.Add("offset");
             if (t.ReadoutMode == CaptureConfigPairing.Sentinel) fields.Add("readout mode");
             if (fields.Count == 0) continue;
+            if (!TemplateInScope([t])) continue;   // scoped: only templates a visible target's plan uses
 
             List<ExposurePlan> plansUsing = [.. graph.Plans.Where(p => p.ExposureTemplateId == t.Id)];
             string[] targets = [.. plansUsing
@@ -247,14 +298,25 @@ internal static class AmbiguityReport
                 .Where(n => n is not null)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)!];
+            // The consequence must be accurate per field class: gain/offset join pairing (plans stamp 0);
+            // readout mode is NOT a pairing dimension (the disk plane does not express it) — an authoring
+            // error whose counts are unaffected.
+            bool zeroes = CaptureConfigPairing.PlanGain(t) == CaptureConfigPairing.Sentinel
+                || CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel;
+            string consequence = zeroes
+                ? "each carries the `sentinel` badge and stamps 0"
+                : "each carries the `sentinel` badge (readout mode does not join pairing — counts are unaffected)";
             string use = plansUsing.Count == 0
                 ? "no plans use it yet"
-                : $"used by {plansUsing.Count} plan(s) on [{string.Join(" | ", targets)}] — each carries the `sentinel` badge and stamps 0";
+                : $"used by {plansUsing.Count} plan(s) on [{string.Join(" | ", targets)}] — {consequence}";
+            string why = zeroes
+                ? "an unspecified value can never pair or credit"
+                : "the capture configuration must be explicit — never a camera default";
             templates.Add(
                 $"**{t.Name}** (Id {t.ImportedFromTsGuid ?? "?"}, {t.FilterName}) — camera-default sentinel on " +
                 $"{string.Join(" + ", fields)}; {use}.\n" +
                 $"  → Set an explicit {string.Join(" and ", fields)} on the template (TSM's template editor or " +
-                $"NINA's TS UI); an unspecified value can never pair or credit.");
+                $"NINA's TS UI); {why}.");
         }
         return templates;
     }
@@ -263,12 +325,14 @@ internal static class AmbiguityReport
     /// skipped as unparseable — missing/garbled XISF header, absent mandatory geometry. Action items,
     /// because each one silently lowers the Actual counts until repaired: nothing else in the app shows a
     /// wrong-total cause.</summary>
-    private static List<string> BuildUnreadableSection(IReadOnlyDictionary<string, string>? skippedFiles)
+    private static List<string> BuildUnreadableSection(
+        IReadOnlyDictionary<string, string>? skippedFiles, Func<string, bool> pathInScope)
     {
         List<string> unreadable = [];
         if (skippedFiles is null) return unreadable;
         foreach ((string path, string reason) in skippedFiles.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
+            if (!pathInScope(path)) continue;
             unreadable.Add(
                 $"`{path}` — {reason}\n" +
                 $"  → Re-export or remove the file; every count this load excludes it.");
@@ -282,11 +346,12 @@ internal static class AmbiguityReport
     /// report is where it speaks. A priced framing spanning two sensors gets its qualifier here for the
     /// same reason: the number describes the dominant sensor only.</summary>
     private static List<string> BuildFramingInfo(
-        CatalogGraph graph, CatalogBuildReport report, Func<Guid, string> projectOf)
+        CatalogGraph graph, CatalogBuildReport report, Func<Guid, string> projectOf, Func<Guid, bool> idInScope)
     {
         List<string> lines = [];
         foreach (TargetCells tc in ReconciliationProjection.Project(graph, report))
         {
+            if (!idInScope(tc.TargetId)) continue;
             foreach (ReconciliationCell c in tc.Cells)
             {
                 if (c.FramingOverlapFraction is not double f) continue;
@@ -308,7 +373,7 @@ internal static class AmbiguityReport
     /// <summary>Informational (no action): unplanned frames grouped per target with one indented row per
     /// bucket — the TS-UI target→plans shape (frames at durations no plan targets; write-back never creates
     /// plans, so they're pure notes).</summary>
-    private static List<string> BuildInfoSection(WriteBackPlan plan)
+    private static List<string> BuildInfoSection(WriteBackPlan plan, Func<string?, bool> nameInScope)
     {
         List<string> info = [];
         foreach (var g in plan.NeedsReconciliation
@@ -316,6 +381,7 @@ internal static class AmbiguityReport
                      .GroupBy(n => n.TargetName)
                      .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
+            if (!nameInScope(g.Key)) continue;
             IEnumerable<string> buckets = g.Select(n =>
             {
                 int cut = n.Detail.IndexOf(" - no TS plan", StringComparison.Ordinal);
@@ -340,7 +406,8 @@ internal static class AmbiguityReport
         Dictionary<Guid, ExposureTemplate> templateById,
         Func<Guid, string> projectOf,
         Func<long, string?> planLocation,
-        HashSet<(Guid, string, FilterPurpose, int)> manualKeys)
+        HashSet<(Guid, string, FilterPurpose, int)> manualKeys,
+        Func<Guid, bool> idInScope)
     {
         var groups = graph.Plans
             .Select(p => (Plan: p, Template: templateById.GetValueOrDefault(p.ExposureTemplateId)))
@@ -350,7 +417,7 @@ internal static class AmbiguityReport
                 Filter: x.Template!.FilterName.ToUpperInvariant(),
                 Purpose: FilterPurposeClassifier.Classify(x.Template.Name),
                 Seconds: EffectiveExposure.Seconds(x.Plan, x.Template)))
-            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key));
+            .Where(g => g.Count() > 1 && !manualKeys.Contains(g.Key) && idInScope(g.Key.TargetId));
 
         foreach (var g in groups.OrderBy(g => targetById.GetValueOrDefault(g.Key.TargetId)?.Name, StringComparer.OrdinalIgnoreCase))
         {
@@ -372,13 +439,15 @@ internal static class AmbiguityReport
     /// Invisible in the grid today — duplicate detection only fires when a disk unit is claimed twice.
     /// Twins are told apart by their project (how the TS UI navigates), never by raw ids.</summary>
     private static IEnumerable<string> PlannedOnlyTwins(
-        CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees)
+        CatalogGraph graph, Func<Guid, string> projectOf, double toleranceDegrees,
+        Func<string?, bool> nameInScope)
     {
         List<Target> planned = [.. graph.Targets.Where(t => t.Source == TargetSource.Planned && t.ParentTargetId is null)];
 
         HashSet<Guid> nameTwinned = [];
         foreach (var g in planned.GroupBy(t => Normalize(t.Name)).Where(g => g.Count() > 1))
         {
+            if (!g.Any(t => nameInScope(t.Name))) { foreach (Target t in g) nameTwinned.Add(t.Id); continue; }
             foreach (Target t in g) nameTwinned.Add(t.Id);
             yield return
                 $"**{g.First().Name}** — {g.Count()} planned-only TS targets share this name " +
@@ -392,6 +461,7 @@ internal static class AmbiguityReport
             {
                 Target a = planned[i], b = planned[j];
                 if (nameTwinned.Contains(a.Id) && nameTwinned.Contains(b.Id)) continue;   // already reported by name
+                if (!nameInScope(a.Name) && !nameInScope(b.Name)) continue;
                 if (a.RaHours is not double ra1 || a.DecDegreesSigned is not double d1
                     || b.RaHours is not double ra2 || b.DecDegreesSigned is not double d2) continue;
                 double sep = SeparationDegrees(ra1, d1, ra2, d2);

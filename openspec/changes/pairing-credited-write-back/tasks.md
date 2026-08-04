@@ -29,6 +29,8 @@
 
 - [x] 4b.1 `AmbiguityReport.BuildTemplateSection`: one action item per sentinel template — name + TS Id, which of gain/offset/readoutmode is −1, plan count + owning targets, fix text; counts toward the action total.
 - [x] 4b.2 Tests: sentinel template yields the item (fields + blast radius named); explicit templates yield none; exempt sentinels yield none.
+- [x] 4b.3 Consequence wording accurate per field class (obs a5eb follow-through): gain/offset sentinel → "stamps 0"; readout-mode-only → "counts unaffected" (readout mode is not a pairing dimension).
+- [x] 4b.4 Scoped report (field obs a5eb): user-invoked generation scopes to the visible targets when a grid filter is active — every target-attributable section filtered, header names the scope, tripwire count stays global; tests for scoped vs full.
 
 ## 5. Verify, docs, ship
 
