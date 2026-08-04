@@ -25,6 +25,11 @@
 - [x] 4.2 Exemptions honored: plan `exposure` −1 and template `ditherevery` −1 raise nothing.
 - [x] 4.3 Tests: sentinel template badges exactly its using rows + rollups (not siblings); explicit-value template raises nothing; exempt sentinels raise nothing; badge disappears after the template value is edited (re-reconcile path); badge text searchable/canonical like other tokens.
 
+## 4b. App: sentinel cause in the ambiguity report (field obs b22d, added mid-verify)
+
+- [x] 4b.1 `AmbiguityReport.BuildTemplateSection`: one action item per sentinel template — name + TS Id, which of gain/offset/readoutmode is −1, plan count + owning targets, fix text; counts toward the action total.
+- [x] 4b.2 Tests: sentinel template yields the item (fields + blast radius named); explicit templates yield none; exempt sentinels yield none.
+
 ## 5. Verify, docs, ship
 
 - [x] 5.1 Both repos build; full test suites green (Library Catalog + App).

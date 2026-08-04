@@ -31,6 +31,10 @@ dialog. **(C)** New row-scoped warning badge **`sentinel`** on every plan row wh
 camera-default sentinel (`gain`/`offset`/`readoutmode` = −1 — user convention: never rely on a camera
 default; plan `exposure` −1 and `ditherevery` −1 are exempt defer-to-explicit-value idiom). TSM never
 auto-corrects a sentinel — the badge says where to hand-fix and clears on the next reconciliation after.
+The **ambiguity report names the badge's cause** (field obs `b22d`, added mid-verify): one action item per
+sentinel template in *Fix in TS — exposure templates* — template name + Id, which field(s) are −1, the
+plans using it and their targets, and the fix; zero-use sentinel templates still report (new
+`ts-ambiguity-report` delta).
 Plumbing: `TsExposureTemplate` gained `ReadoutMode` (reader now selects `readoutmode`);
 `ReconciliationCell` gained `TemplateSentinel`. **Operational (one-time):** the first load stamps the
 historical backlog (~245 buckets stopped pairing when gain/offset became keys — gain 53→0 era 2024,

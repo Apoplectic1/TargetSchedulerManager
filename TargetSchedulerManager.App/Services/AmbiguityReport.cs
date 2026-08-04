@@ -65,7 +65,7 @@ internal static class AmbiguityReport
         List<string> identity = BuildIdentitySection(report, heldCellsByDirectory);
         List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees);
         List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, ProjectOf);
-        List<string> templates = BuildTemplateSection(graph);
+        List<string> templates = BuildTemplateSection(graph, targetById);
         List<string> unreadable = BuildUnreadableSection(skippedFiles);
         List<string> info = BuildInfoSection(plan);
         info.AddRange(BuildFramingInfo(graph, report, ProjectOf));
@@ -197,8 +197,11 @@ internal static class AmbiguityReport
         return plans;
     }
 
-    /// <summary>Fix-in-TS templates: duplicate names within one profile (names are how plans read in the TS UI).</summary>
-    private static List<string> BuildTemplateSection(CatalogGraph graph)
+    /// <summary>Fix-in-TS templates: duplicate names within one profile (names are how plans read in the
+    /// TS UI), then camera-default sentinels — the cause behind every grid `sentinel` badge (field obs
+    /// b22d): the template, exactly which field(s) defer to the camera, and the plans riding on it. The
+    /// exempt defer-to-explicit-value sentinels (plan exposure −1, ditherevery −1) never appear here.</summary>
+    private static List<string> BuildTemplateSection(CatalogGraph graph, Dictionary<Guid, Target> targetById)
     {
         List<string> templates = [];
         foreach (var g in graph.Templates
@@ -209,6 +212,30 @@ internal static class AmbiguityReport
                 $"**{g.First().Name.Trim()}** — {g.Count()} templates share this name in one profile " +
                 $"[{string.Join(" | ", g.Select(t => $"Id {t.ImportedFromTsGuid ?? "?"} ({t.FilterName})"))}].\n" +
                 $"  → Rename so every template's name is unique (names are how plans read in the TS UI).");
+        }
+
+        foreach (ExposureTemplate t in graph.Templates.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            List<string> fields = [];
+            if (CaptureConfigPairing.PlanGain(t) == CaptureConfigPairing.Sentinel) fields.Add("gain");
+            if (CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel) fields.Add("offset");
+            if (t.ReadoutMode == CaptureConfigPairing.Sentinel) fields.Add("readout mode");
+            if (fields.Count == 0) continue;
+
+            List<ExposurePlan> plansUsing = [.. graph.Plans.Where(p => p.ExposureTemplateId == t.Id)];
+            string[] targets = [.. plansUsing
+                .Select(p => targetById.GetValueOrDefault(p.TargetId)?.Name)
+                .Where(n => n is not null)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Order(StringComparer.OrdinalIgnoreCase)!];
+            string use = plansUsing.Count == 0
+                ? "no plans use it yet"
+                : $"used by {plansUsing.Count} plan(s) on [{string.Join(" | ", targets)}] — each carries the `sentinel` badge and stamps 0";
+            templates.Add(
+                $"**{t.Name}** (Id {t.ImportedFromTsGuid ?? "?"}, {t.FilterName}) — camera-default sentinel on " +
+                $"{string.Join(" + ", fields)}; {use}.\n" +
+                $"  → Set an explicit {string.Join(" and ", fields)} on the template (TSM's template editor or " +
+                $"NINA's TS UI); an unspecified value can never pair or credit.");
         }
         return templates;
     }

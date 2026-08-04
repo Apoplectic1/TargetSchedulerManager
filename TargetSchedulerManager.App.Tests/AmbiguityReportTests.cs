@@ -266,6 +266,36 @@ public class AmbiguityReportTests
         Assert.Equal(0, Build(clean).ActionCount);
     }
 
+    [Fact]
+    public void SentinelTemplate_IsAnActionItem_NamingFieldsAndBlastRadius()
+    {
+        // Field obs b22d: the report must say what CAUSED a `sentinel` badge — the template, exactly which
+        // field(s) defer to the camera, and the plans riding on it.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        CatalogGraph graph = Graph(
+            targets: [Tgt(t, TargetSource.Planned, "Abell 78", tsKey: "7")],
+            templates: [Tpl(tpl, "Stars B", "B", 30, tsKey: "21", gain: null, readout: -1)],
+            plans: [Plan(t, tpl, "31"), Plan(t, tpl, "32", exposure: 60.0)]);   // different seconds — no same-key item
+
+        AmbiguityReportResult r = Build(graph);
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("camera-default sentinel on gain + readout mode", r.Markdown);
+        Assert.Contains("used by 2 plan(s) on [Abell 78]", r.Markdown);
+        Assert.Contains("Set an explicit gain and readout mode", r.Markdown);
+    }
+
+    [Fact]
+    public void SentinelTemplate_ZeroUse_StillAnItem_ExplicitTemplatesClean()
+    {
+        CatalogGraph sentinel = Graph(templates: [Tpl(Guid.NewGuid(), "O600", "O", 600, offset: null)]);
+        AmbiguityReportResult r = Build(sentinel);
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("no plans use it yet", r.Markdown);
+
+        CatalogGraph clean = Graph(templates: [Tpl(Guid.NewGuid(), "O600", "O", 600)]);
+        Assert.Equal(0, Build(clean).ActionCount);
+    }
+
     // ---- builders --------------------------------------------------------------------------------------------
 
     private static AmbiguityReportResult Build(
@@ -308,10 +338,13 @@ public class AmbiguityReportTests
             FramingFieldWidthDeg: fieldWidthDeg, FramingFieldHeightDeg: fieldHeightDeg,
             FramingSpansMultipleSensors: spansSensors);
 
+    // Explicit config by default — a null gain/offset is the camera-default sentinel and would put a
+    // sentinel action item into every test's report; pass nulls deliberately to test that item.
     private static ExposureTemplate Tpl(
-        Guid id, string name, string filter, double defaultSeconds, Guid? profile = null, string? tsKey = "1") =>
-        new(id, profile ?? Guid.Empty, name, filter, Gain: null, OffsetAdu: null, Binning: null,
-            ReadoutMode: null, DefaultExposureSeconds: defaultSeconds, ImportedFromTsGuid: tsKey);
+        Guid id, string name, string filter, double defaultSeconds, Guid? profile = null, string? tsKey = "1",
+        int? gain = 100, int? offset = 50, int? readout = 0) =>
+        new(id, profile ?? Guid.Empty, name, filter, Gain: gain, OffsetAdu: offset, Binning: 1,
+            ReadoutMode: readout, DefaultExposureSeconds: defaultSeconds, ImportedFromTsGuid: tsKey);
 
     private static ExposurePlan Plan(
         Guid target, Guid template, string tsKey, int desired = 10, double? exposure = null) =>

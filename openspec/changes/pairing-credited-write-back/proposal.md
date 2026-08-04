@@ -52,6 +52,9 @@ assigned template would not pair with the source disk cell, and template camera-
   assignment seeds 0/0/0 (per-cell in both the single-cell and bulk dialogs).
 - `reconciliation-grid`: new row-scoped `sentinel` warning badge for template camera-default sentinels
   (gain/offset/readoutmode = −1); exempt sentinels enumerated.
+- `ts-ambiguity-report`: sentinel templates become report action items naming the cause — template, the
+  sentinel field(s), and the plans using it (added mid-verify from field obs b22d 2026-08-04: the report
+  must indicate what caused a `sentinel` badge).
 
 ## Impact
 

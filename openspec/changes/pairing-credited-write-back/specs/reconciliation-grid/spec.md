@@ -29,3 +29,9 @@ camera default: a plan `exposure` of `-1` (use the template's default exposure) 
 - **WHEN** a plan's exposure override is `-1` (template default) and its template's ditherevery is `-1`
   (project default) but its gain/offset/readoutmode are explicit
 - **THEN** no `sentinel` badge appears
+
+#### Scenario: The report names the badge's cause
+- **WHEN** the ambiguity report is generated while a `sentinel` badge is showing
+- **THEN** the report carries an action item naming the template, the sentinel field(s), and the plans
+  using it (the cause and the fix location — field obs b22d 2026-08-04; the report-side requirement lives
+  in the `ts-ambiguity-report` delta)
