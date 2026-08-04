@@ -79,14 +79,18 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
-- **Never rely on a camera default — a template sentinel is an error** (decided 2026-08-04, openspec
-  `pairing-credited-write-back`). A template `gain`/`offset`/`readoutmode` of `-1` ("use the camera's
-  default") is valid TS but violates this library's authoring convention: an unspecified value can never
-  pair and never credits, so such a plan's counts stamp 0 until fixed. TSM never auto-corrects a sentinel;
-  it badges every row using the template (`sentinel`, warning tier) and the fix is a hand edit (TSM's
-  template editor or NINA's TS UI). The defer-to-explicit-value sentinels are exempt and normal idiom:
-  plan `exposure` `-1` (use the template's default exposure) and template `ditherevery` `-1` (defer to the
-  project) defer to values the user authored.
+- **Never rely on a camera default for gain or offset — that sentinel is an incorrect state** (decided
+  2026-08-04, openspec `pairing-credited-write-back`; framing refined same day). A template `gain` or
+  `offset` of `-1` ("use the camera's default") is valid TS but marks a state this library's authoring
+  convention forbids: those are fields the user decides explicitly (their sentinel is an affirmative act
+  in TS's UI — a checkbox), they are pairing dimensions, and an unspecified value can never pair or
+  credit, so such a plan's counts stamp 0 until fixed. TSM never auto-corrects a sentinel; it badges every
+  row using the template (`sentinel`, warning tier) and the fix is a hand edit (TSM's template editor or
+  NINA's TS UI). Sentinels that are a field's **designed representation of a correct state** are correct
+  by construction — never badged, nothing to fix: template `readoutmode` `-1` (TS's blank "camera
+  decides" box — never an authoring act, not a pairing dimension; measured: all 20 live templates carry
+  it), plan `exposure` `-1` (use the template's default exposure), template `ditherevery` `-1` (defer to
+  the project).
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
   slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges);
   its one structural verb is the explicit per-row adoption (spec `disk-row-adoption`; the broader resolver

@@ -36,9 +36,14 @@ sentinel template in *Fix in TS — exposure templates* — template name + Id, 
 plans using it and their targets, and the fix; zero-use sentinel templates still report (new
 `ts-ambiguity-report` delta). Report plan rows carry their containing **`project › target` path** from the
 raw TS snapshot (a fold's plans keep their true, different homes). Field-measured on first run: **all 20
-live templates carry `readoutmode` −1** (never set; TS's default) — so the item wording is accurate per
-field class (obs `a5eb`): gain/offset sentinels "stamp 0", readout-mode-only sentinels badge with **counts
-unaffected** (readout mode is not a pairing dimension — the disk plane doesn't express it). Also from obs
+live templates carry `readoutmode` −1** — and TS source inspection showed why: TS's template editor
+renders Readout Mode as a *blank box* ("leave blank for camera default") that stores −1, never an
+authoring act. User framing followed (obs `a5eb` + chat): **a badge marks an incorrect state** — gain and
+offset sentinels are one (affirmative checkbox in TS's UI, pairing dimensions, stamp 0); a readout-mode
+sentinel is the **designed representation of a correct state**, correct by construction — so readout mode
+LEFT the badge/report set entirely (alongside plan `exposure` −1 and `ditherevery` −1), clearing all 20
+badges with zero hand edits. Sentinel report items are **what + why only** (no using-plans/targets roll —
+the badge already marks the rows; the list cluttered the file). Also from obs
 `a5eb`: **report generation scopes to the current grid filter** — with search/source/flagged active, the
 written report covers only the visible targets (every target-attributable section; zero-use templates
 excluded under scope), the header names the scope, and the status-line tripwire count stays global.

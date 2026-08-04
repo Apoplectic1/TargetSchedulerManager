@@ -64,11 +64,14 @@ internal static class Badges
     /// composition. Row-scoped, like <see cref="UnknownCamera"/> (openspec rotation-framing-key).</summary>
     public const string Framing = "framing";
 
-    /// <summary>A plan whose template carries a use-camera-default sentinel (gain, offset or readout mode
-    /// −1) — a user-defined authoring error (the convention: never rely on a camera default), and a plan
-    /// that can never pair or credit while it stands. Repaired in the template (TSM's editor or NINA's TS
-    /// UI); never auto-corrected. Row-scoped: only the rows using that template carry it
-    /// (openspec pairing-credited-write-back).</summary>
+    /// <summary>A plan whose template carries a use-camera-default sentinel on <b>gain or offset</b> — the
+    /// fields the authoring convention decides explicitly, so there the sentinel is the designed
+    /// representation of an INCORRECT state (relying on a camera default), and pairing compares them: the
+    /// plan can never pair or credit while it stands. Sentinels that are a field's designed representation
+    /// of a correct state (template readout mode's blank "camera decides", plan defer-to-template
+    /// exposure, ditherevery) are correct by construction and never badge. Repaired in the template (TSM's
+    /// editor or NINA's TS UI); never auto-corrected. Row-scoped: only the rows using that template carry
+    /// it (openspec pairing-credited-write-back).</summary>
     public const string Sentinel = "sentinel";
 
     /// <summary>The framing token carrying its overlap price — "framing 57%": how much of the row's frames'

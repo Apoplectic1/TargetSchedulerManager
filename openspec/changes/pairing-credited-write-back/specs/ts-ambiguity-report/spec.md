@@ -3,16 +3,15 @@
 ## ADDED Requirements
 
 ### Requirement: Sentinel templates are report action items naming their cause
-The report's exposure-templates section SHALL carry one action item per template whose `gain`, `offset`,
-or `readoutmode` is the use-camera-default sentinel (`-1`), naming the template (name and TS Id) and
-exactly which field(s) carry the sentinel — the **what and why only**: no roll of the plans or targets
-using the template (the grid's badge already marks those rows, and the list clutters the file — user
-decision 2026-08-04). The item SHALL state the consequence **accurately per field class**: a gain or
-offset sentinel means the plans can never pair and stamp 0; a readout-mode-only sentinel is an authoring
-error whose counts are unaffected (readout mode is not a pairing dimension — the disk plane does not
-express it). A zero-use sentinel template is still an item (the error exists in TS regardless of use).
-The exempt defer-to-explicit-value sentinels (plan `exposure` `-1`, template `ditherevery` `-1`) SHALL
-NOT produce items.
+The report's exposure-templates section SHALL carry one action item per template whose `gain` or `offset`
+is the use-camera-default sentinel (`-1`), naming the template (name and TS Id) and exactly which field(s)
+carry the sentinel — the **what and why only**: no roll of the plans or targets using the template (the
+grid's badge already marks those rows, and the list clutters the file — user decision 2026-08-04). The
+item SHALL state the consequence (plans using it can never pair and stamp 0) and the fix. A zero-use
+sentinel template is still an item (the error exists in TS regardless of use). Sentinels that are a
+field's designed deferral state (template `readoutmode` `-1` — the source UI's blank "camera decides"
+default; plan `exposure` `-1`; template `ditherevery` `-1`) are correct by construction and SHALL NOT
+produce items.
 
 #### Scenario: Sentinel template item names field and consequence, never the using plans
 - **WHEN** the report is built while a template carries gain `-1` and two plans on one target use it

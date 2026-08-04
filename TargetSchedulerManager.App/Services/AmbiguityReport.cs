@@ -283,32 +283,24 @@ internal static class AmbiguityReport
                 $"  → Rename so every template's name is unique (names are how plans read in the TS UI).");
         }
 
+        // Sentinel items cover gain and offset only — the fields the authoring convention decides
+        // explicitly (their sentinel is an affirmative act in the source UI, and pairing compares them).
+        // A template's readout-mode sentinel is that field's designed "camera decides" state, correct by
+        // construction — never an item. What + why ONLY (user 2026-08-04): no using-plans/targets roll —
+        // the badge already marks the rows in the grid, and the list cluttered the file.
         foreach (ExposureTemplate t in graph.Templates.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
         {
             List<string> fields = [];
             if (CaptureConfigPairing.PlanGain(t) == CaptureConfigPairing.Sentinel) fields.Add("gain");
             if (CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel) fields.Add("offset");
-            if (t.ReadoutMode == CaptureConfigPairing.Sentinel) fields.Add("readout mode");
             if (fields.Count == 0) continue;
             if (!TemplateInScope([t])) continue;   // scoped: only templates a visible target's plan uses
 
-            // What + why ONLY (user 2026-08-04): no using-plans/targets roll — the badge already marks the
-            // rows in the grid, and the list cluttered the file. The consequence stays accurate per field
-            // class: gain/offset join pairing (plans stamp 0); readout mode is NOT a pairing dimension
-            // (the disk plane does not express it) — an authoring error whose counts are unaffected.
-            bool zeroes = CaptureConfigPairing.PlanGain(t) == CaptureConfigPairing.Sentinel
-                || CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel;
-            string consequence = zeroes
-                ? "plans using it can never pair and stamp 0"
-                : "readout mode does not join pairing — counts are unaffected";
-            string why = zeroes
-                ? "an unspecified value can never pair or credit"
-                : "the capture configuration must be explicit — never a camera default";
             templates.Add(
                 $"**{t.Name}** (Id {t.ImportedFromTsGuid ?? "?"}, {t.FilterName}) — camera-default sentinel on " +
-                $"{string.Join(" + ", fields)} ({consequence}).\n" +
+                $"{string.Join(" + ", fields)} (plans using it can never pair and stamp 0).\n" +
                 $"  → Set an explicit {string.Join(" and ", fields)} on the template (TSM's template editor or " +
-                $"NINA's TS UI); {why}.");
+                $"NINA's TS UI); an unspecified value can never pair or credit.");
         }
         return templates;
     }

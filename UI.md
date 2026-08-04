@@ -58,12 +58,13 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   character), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
   the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing).
-  A plan whose template carries a camera-default sentinel (gain/offset/readoutmode `-1`) carries the warning
+  A plan whose template carries a camera-default sentinel on **gain or offset** (`-1`) carries the warning
   **`sentinel` badge** on every row using that template (2026-08-04, openspec `pairing-credited-write-back`):
-  the sentinel is a user-defined authoring error (`DOMAIN.md` → *TS authoring conventions*), the plan can
+  there the sentinel marks an incorrect state (`DOMAIN.md` → *TS authoring conventions*), the plan can
   never pair or credit while it stands, and TSM never auto-corrects it — the badge says where to hand-fix,
-  and disappears on the reconciliation after the template is made explicit. (Plan exposure `-1` and template
-  `ditherevery` `-1` defer to explicit user-authored values and never badge.)
+  and disappears on the reconciliation after the template is made explicit. (Sentinels that are a field's
+  designed representation of a correct state never badge: template readoutmode `-1`, plan exposure `-1`,
+  template `ditherevery` `-1`.)
   **Every row-scoped badge** (`camera` · `cam≠` · `framing` · `sentinel` — `Badges.IsRowScoped`) displays at the
   **deepest visible level** (user rule 2026-07-29): always on the target summary row; on a collapsed rollup
   (the triggering line is hidden inside it); on the triggering line itself once expanded — the rollup then

@@ -310,22 +310,23 @@ public class AmbiguityReportTests
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
         CatalogGraph graph = Graph(
             targets: [Tgt(t, TargetSource.Planned, "Abell 78", tsKey: "7")],
-            templates: [Tpl(tpl, "Stars B", "B", 30, tsKey: "21", gain: null, readout: -1)],
+            templates: [Tpl(tpl, "Stars B", "B", 30, tsKey: "21", gain: null, offset: null)],
             plans: [Plan(t, tpl, "31"), Plan(t, tpl, "32", exposure: 60.0)]);   // different seconds — no same-key item
 
         AmbiguityReportResult r = Build(graph);
         Assert.Equal(1, r.ActionCount);
-        Assert.Contains("camera-default sentinel on gain + readout mode", r.Markdown);
+        Assert.Contains("camera-default sentinel on gain + offset", r.Markdown);
         Assert.DoesNotContain("used by", r.Markdown);   // what + why only — no using-plans roll (user 2026-08-04)
         Assert.DoesNotContain("Abell 78 |", r.Markdown);
-        Assert.Contains("Set an explicit gain and readout mode", r.Markdown);
+        Assert.Contains("Set an explicit gain and offset", r.Markdown);
     }
 
     [Fact]
-    public void ReadoutOnlySentinel_SaysCountsUnaffected_GainSentinelSaysStampsZero()
+    public void ReadoutModeSentinel_IsCorrectByConstruction_NoItem_GainSentinelIsAnItem()
     {
-        // The consequence must be accurate per field class: readout mode is NOT a pairing dimension, so a
-        // readout-only sentinel badges without touching counts; a gain sentinel really does stamp 0.
+        // A template's readout-mode -1 is the source UI's blank "camera decides" default — the designed
+        // representation of a correct state (user framing 2026-08-04) — so it never produces an item; a
+        // gain sentinel is the designed representation of an incorrect state and really does stamp 0.
         Guid t = Guid.NewGuid(), readoutTpl = Guid.NewGuid(), gainTpl = Guid.NewGuid();
         CatalogGraph graph = Graph(
             targets: [Tgt(t, TargetSource.Planned, "M42 - Orion", tsKey: "7")],
@@ -334,11 +335,13 @@ public class AmbiguityReportTests
                 Tpl(readoutTpl, "L300", "L", 300, tsKey: "7", readout: -1),
                 Tpl(gainTpl, "O600", "O", 600, tsKey: "2", gain: null),
             ],
-            plans: [Plan(t, readoutTpl, "31"), Plan(t, gainTpl, "32")]);
+            plans: [Plan(t, readoutTpl, "31"), Plan(t, gainTpl, "32", exposure: 60.0)]);
 
-        string md = Build(graph).Markdown;
-        Assert.Contains("readout mode does not join pairing — counts are unaffected", md);
-        Assert.Contains("sentinel on gain (plans using it can never pair and stamp 0)", md);
+        AmbiguityReportResult r = Build(graph);
+        Assert.Equal(1, r.ActionCount);
+        Assert.DoesNotContain("L300", r.Markdown);
+        Assert.DoesNotContain("readout mode", r.Markdown);
+        Assert.Contains("sentinel on gain (plans using it can never pair and stamp 0)", r.Markdown);
     }
 
     [Fact]
@@ -356,8 +359,8 @@ public class AmbiguityReportTests
             ],
             templates:
             [
-                Tpl(tplA, "L300", "L", 300, tsKey: "7", readout: -1),
-                Tpl(tplB, "H900", "H", 900, tsKey: "1", readout: -1),
+                Tpl(tplA, "L300", "L", 300, tsKey: "7", gain: null),
+                Tpl(tplB, "H900", "H", 900, tsKey: "1", gain: null),
             ],
             plans: [Plan(a, tplA, "31"), Plan(b, tplB, "32")]);
         WriteBackPlan plan = new([], [],

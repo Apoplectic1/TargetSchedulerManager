@@ -28,10 +28,12 @@ assigned template would not pair with the source disk cell, and template camera-
   `accepted` = 0 instead of born-complete. When it pairs, born-complete stays as shipped. Applies per-cell
   in the bulk rollup dialog too.
 - **`sentinel` badge** (app render): a row-scoped warning badge on every plan row whose template carries a
-  camera-default sentinel (`gain` / `offset` / `readoutmode` = −1), recomputed each reconciliation;
-  TSM never auto-corrects the value — the badge tells the user where to hand-fix. Plan `exposure` −1
-  (defers to template) and `ditherevery` −1 (defers to project) are exempt — they defer to explicit
-  user-authored values, not camera defaults.
+  camera-default sentinel on `gain` or `offset` (−1) — the fields the authoring convention decides
+  explicitly, where the sentinel is the designed representation of an incorrect state — recomputed each
+  reconciliation; TSM never auto-corrects the value — the badge tells the user where to hand-fix.
+  Sentinels that are a field's designed representation of a correct state never badge (refined mid-verify,
+  2026-08-04): template `readoutmode` −1 (TS's blank "camera decides" box — measured live: all 20
+  templates carry it), plan `exposure` −1, template `ditherevery` −1.
 - **Operational (one-time)**: the first load after this ships stamps the historical backlog (~245 disk
   buckets stopped pairing when gain/offset became keys: broadband gain 53→0 in 2024, narrowband 111 since
   2019, offset-50 frames in every filter) as decreases; the next Push review opens with hundreds of

@@ -724,10 +724,11 @@ public class BuildRowsTests
     }
 
     [Fact]
-    public void ReadoutModeSentinel_Badges_ButNeverPreventsPairing()
+    public void ReadoutModeSentinel_IsCorrectByConstruction_NeverBadges()
     {
-        // Readout mode is in the badge trio but NOT a pairing dimension (the disk plane does not express
-        // it): the plan still pairs into one Both row, which carries the badge.
+        // A template's readout-mode -1 is the source UI's blank "camera decides" default — a designed
+        // deferral state, never an authoring act (user framing 2026-08-04) — and not a pairing dimension:
+        // the plan pairs into one Both row with no badge.
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
         List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
             Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
@@ -739,8 +740,8 @@ public class BuildRowsTests
 
         ReconciliationRow r = Assert.Single(rows);
         Assert.Equal(RowPlane.Both, r.Plane);
-        Assert.Contains(Badges.Sentinel, r.Badge);
-        Assert.True(r.IsFlagged);
+        Assert.DoesNotContain(Badges.Sentinel, r.Badge);
+        Assert.False(r.IsFlagged);
     }
 
     [Fact]
