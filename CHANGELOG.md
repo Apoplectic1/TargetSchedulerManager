@@ -11,8 +11,10 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
-**▶ SHIPPED 2026-08-04 — `adopt-target-rollup`: whole-target "Add to TS" from the rollup row** (openspec
-change in flight — awaiting field verification before archive): right-clicking a target rollup with ≥1
+**▶ SHIPPED 2026-08-04 — `adopt-target-rollup`: whole-target "Add to TS" from the rollup row**
+(**field-verified same day** — Abell 78 whole-target adoption: TS target + 7 born-complete plans created,
+pushed to BIRDWATCHER, correct project/counts/sentinels confirmed in TS's editor; archived
+`2026-08-04-adopt-target-rollup`, `disk-row-adoption` spec now carries the two grains): right-clicking a target rollup with ≥1
 individually-eligible disk-only cell offers **"Add to TS…"** (no TS target — creates it) / **"Add TS
 plans…"** (bulk-adopts the remaining unplanned cells); mosaic parents never qualify. One **combined
 assignment dialog**: project chosen once (locked to the owner when the TS target exists), then one row per
@@ -27,8 +29,8 @@ aborts the whole batch naming the cell. Planner-side, the bulk members **compose
 (`EligibleCells`/`GetBulkFacts`/`BuildBulk` over `IsEligible`/`ListCandidates`/shared payload builders), so
 the two grains can never disagree; delta spec amends `disk-row-adoption` (two grains; per-cell requirements
 untouched). Tests 377 (13 new: enumeration, bulk facts, batch build incl. abort-names-cell, VM
-gate/cancel/refusal); the accept leg (dialog layout, re-scope, checkbox flow, push round-trip) awaits field
-verification like the per-cell verb did.
+gate/cancel/refusal); the accept leg (dialog layout, checkbox flow, push round-trip) was field-verified
+like the per-cell verb was.
 
 **▶ DECIDED 2026-08-03 (late) — docs-architecture audit applied + `DOMAIN.md` split executed.** The
 60-worker audit's 10 adjudicated groups landed (`344233d` — adoption-verb absolutes, acquired-basis

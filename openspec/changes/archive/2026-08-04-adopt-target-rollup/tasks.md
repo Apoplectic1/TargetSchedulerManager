@@ -51,7 +51,7 @@
 
 - [x] 5.1 `SUBSYSTEMS.md` adoption section: the two grains; `UI.md`: the combined dialog; `CHANGELOG.md`
   + `ROADMAP.md` current-status line
-- [ ] 5.2 At sync/archive: amend the main spec's Purpose ("always per-row, never a sweep" → two grains)
-  per the delta's note
+- [x] 5.2 At sync/archive: amend the main spec's Purpose ("always per-row, never a sweep" → two grains)
+  per the delta's note *(done at archive, 2026-08-04)*
 - [x] 5.3 Build + full app test suite green (377 passed, 13 new); visual verification (dialog layout,
   re-scope behavior, checkbox flow, push round-trip) handed to the user per VERIFICATION.md

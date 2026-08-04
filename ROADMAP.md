@@ -20,11 +20,10 @@ dialog, one atomic insert batch; specs `disk-row-adoption` + `target-and-plan-fl
 Actual-only, with mosaics resolved per panel; live counts show in the app + `tsm.log` (not pinned here — they
 move with every edit and every imaging night). Match tolerance **0.5°** (validated 2026-06-04).
 
-**Where things stand:** everything through the 2026-08-03 adoption pair (`adopt-disk-rows` +
-`assign-template-adoption`) has shipped, been field-verified, and archived — 16 capability specs under
-`openspec/specs/`. In flight: **`adopt-target-rollup`** (whole-target "Add to TS" from the rollup row,
-shipped 2026-08-04, tests green — awaiting field verification, then archive extends `disk-row-adoption` to
-its two grains); distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
+**Where things stand:** everything through the 2026-08-04 adoption arc (`adopt-disk-rows` +
+`assign-template-adoption` + `adopt-target-rollup` — the last extending `disk-row-adoption` to its two
+grains, per-cell and whole-rollup) has shipped, been field-verified, and archived — 16 capability specs
+under `openspec/specs/`; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
 change `velopack-self-update`, formal contract → spec `self-update`; the current version is the latest tag —
 rules in `RELEASING.md`). The load-split idea stays **retired** (2026-07-08: the ~2 s fresh scan is acceptable,
 so the grid can never show stale ACTUAL). The dated unit-by-unit history — every SHIPPED/DECIDED entry this
