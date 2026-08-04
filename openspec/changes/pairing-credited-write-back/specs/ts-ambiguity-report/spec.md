@@ -4,19 +4,21 @@
 
 ### Requirement: Sentinel templates are report action items naming their cause
 The report's exposure-templates section SHALL carry one action item per template whose `gain`, `offset`,
-or `readoutmode` is the use-camera-default sentinel (`-1`), naming the template (name and TS Id), exactly
-which field(s) carry the sentinel, and the plans using it (count plus the owning targets) — so the reader
-of the report alone learns both the cause of every grid `sentinel` badge and where the hand fix goes. The
-item SHALL state the consequence **accurately per field class**: a gain or offset sentinel means the plans
-can never pair and stamp 0; a readout-mode-only sentinel is an authoring error whose counts are unaffected
-(readout mode is not a pairing dimension — the disk plane does not express it). A zero-use sentinel
-template is still an item (the error exists in TS regardless of use). The exempt defer-to-explicit-value
-sentinels (plan `exposure` `-1`, template `ditherevery` `-1`) SHALL NOT produce items.
+or `readoutmode` is the use-camera-default sentinel (`-1`), naming the template (name and TS Id) and
+exactly which field(s) carry the sentinel — the **what and why only**: no roll of the plans or targets
+using the template (the grid's badge already marks those rows, and the list clutters the file — user
+decision 2026-08-04). The item SHALL state the consequence **accurately per field class**: a gain or
+offset sentinel means the plans can never pair and stamp 0; a readout-mode-only sentinel is an authoring
+error whose counts are unaffected (readout mode is not a pairing dimension — the disk plane does not
+express it). A zero-use sentinel template is still an item (the error exists in TS regardless of use).
+The exempt defer-to-explicit-value sentinels (plan `exposure` `-1`, template `ditherevery` `-1`) SHALL
+NOT produce items.
 
-#### Scenario: Sentinel template item names field and blast radius
+#### Scenario: Sentinel template item names field and consequence, never the using plans
 - **WHEN** the report is built while a template carries gain `-1` and two plans on one target use it
-- **THEN** the templates section holds an action item naming the template, "gain", the two plans' targets,
-  and the fix (set an explicit value), and the report's action count includes it
+- **THEN** the templates section holds an action item naming the template, "gain", the accurate
+  consequence, and the fix (set an explicit value) — with no using-plans/targets list — and the report's
+  action count includes it
 
 #### Scenario: Explicit templates produce no item
 - **WHEN** every template expresses gain, offset, and readout mode

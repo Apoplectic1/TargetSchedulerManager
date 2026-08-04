@@ -111,7 +111,7 @@ internal static class AmbiguityReport
         List<string> identity = BuildIdentitySection(report, heldCellsByDirectory, NameInScope, DirInScope);
         List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees, NameInScope, DirInScope);
         List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, PlanLocation, ProjectOf, IdInScope);
-        List<string> templates = BuildTemplateSection(graph, targetById, IdInScope, scoped: scope is not null);
+        List<string> templates = BuildTemplateSection(graph, IdInScope, scoped: scope is not null);
         List<string> unreadable = BuildUnreadableSection(skippedFiles, PathInScope);
         List<string> info = BuildInfoSection(plan, NameInScope);
         info.AddRange(BuildFramingInfo(graph, report, ProjectOf, IdInScope));
@@ -266,7 +266,7 @@ internal static class AmbiguityReport
     /// b22d): the template, exactly which field(s) defer to the camera, and the plans riding on it. The
     /// exempt defer-to-explicit-value sentinels (plan exposure −1, ditherevery −1) never appear here.</summary>
     private static List<string> BuildTemplateSection(
-        CatalogGraph graph, Dictionary<Guid, Target> targetById, Func<Guid, bool> idInScope, bool scoped)
+        CatalogGraph graph, Func<Guid, bool> idInScope, bool scoped)
     {
         List<string> templates = [];
         bool TemplateInScope(IEnumerable<ExposureTemplate> group) =>
@@ -292,29 +292,21 @@ internal static class AmbiguityReport
             if (fields.Count == 0) continue;
             if (!TemplateInScope([t])) continue;   // scoped: only templates a visible target's plan uses
 
-            List<ExposurePlan> plansUsing = [.. graph.Plans.Where(p => p.ExposureTemplateId == t.Id)];
-            string[] targets = [.. plansUsing
-                .Select(p => targetById.GetValueOrDefault(p.TargetId)?.Name)
-                .Where(n => n is not null)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Order(StringComparer.OrdinalIgnoreCase)!];
-            // The consequence must be accurate per field class: gain/offset join pairing (plans stamp 0);
-            // readout mode is NOT a pairing dimension (the disk plane does not express it) — an authoring
-            // error whose counts are unaffected.
+            // What + why ONLY (user 2026-08-04): no using-plans/targets roll — the badge already marks the
+            // rows in the grid, and the list cluttered the file. The consequence stays accurate per field
+            // class: gain/offset join pairing (plans stamp 0); readout mode is NOT a pairing dimension
+            // (the disk plane does not express it) — an authoring error whose counts are unaffected.
             bool zeroes = CaptureConfigPairing.PlanGain(t) == CaptureConfigPairing.Sentinel
                 || CaptureConfigPairing.PlanOffset(t) == CaptureConfigPairing.Sentinel;
             string consequence = zeroes
-                ? "each carries the `sentinel` badge and stamps 0"
-                : "each carries the `sentinel` badge (readout mode does not join pairing — counts are unaffected)";
-            string use = plansUsing.Count == 0
-                ? "no plans use it yet"
-                : $"used by {plansUsing.Count} plan(s) on [{string.Join(" | ", targets)}] — {consequence}";
+                ? "plans using it can never pair and stamp 0"
+                : "readout mode does not join pairing — counts are unaffected";
             string why = zeroes
                 ? "an unspecified value can never pair or credit"
                 : "the capture configuration must be explicit — never a camera default";
             templates.Add(
                 $"**{t.Name}** (Id {t.ImportedFromTsGuid ?? "?"}, {t.FilterName}) — camera-default sentinel on " +
-                $"{string.Join(" + ", fields)}; {use}.\n" +
+                $"{string.Join(" + ", fields)} ({consequence}).\n" +
                 $"  → Set an explicit {string.Join(" and ", fields)} on the template (TSM's template editor or " +
                 $"NINA's TS UI); {why}.");
         }

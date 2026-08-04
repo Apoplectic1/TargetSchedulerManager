@@ -316,7 +316,8 @@ public class AmbiguityReportTests
         AmbiguityReportResult r = Build(graph);
         Assert.Equal(1, r.ActionCount);
         Assert.Contains("camera-default sentinel on gain + readout mode", r.Markdown);
-        Assert.Contains("used by 2 plan(s) on [Abell 78]", r.Markdown);
+        Assert.DoesNotContain("used by", r.Markdown);   // what + why only — no using-plans roll (user 2026-08-04)
+        Assert.DoesNotContain("Abell 78 |", r.Markdown);
         Assert.Contains("Set an explicit gain and readout mode", r.Markdown);
     }
 
@@ -337,7 +338,7 @@ public class AmbiguityReportTests
 
         string md = Build(graph).Markdown;
         Assert.Contains("readout mode does not join pairing — counts are unaffected", md);
-        Assert.Contains("sentinel on gain; used by 1 plan(s) on [M42 - Orion] — each carries the `sentinel` badge and stamps 0", md);
+        Assert.Contains("sentinel on gain (plans using it can never pair and stamp 0)", md);
     }
 
     [Fact]
@@ -387,7 +388,7 @@ public class AmbiguityReportTests
         CatalogGraph sentinel = Graph(templates: [Tpl(Guid.NewGuid(), "O600", "O", 600, offset: null)]);
         AmbiguityReportResult r = Build(sentinel);
         Assert.Equal(1, r.ActionCount);
-        Assert.Contains("no plans use it yet", r.Markdown);
+        Assert.Contains("sentinel on offset", r.Markdown);
 
         CatalogGraph clean = Graph(templates: [Tpl(Guid.NewGuid(), "O600", "O", 600)]);
         Assert.Equal(0, Build(clean).ActionCount);
