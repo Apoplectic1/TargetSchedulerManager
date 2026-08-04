@@ -79,11 +79,20 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
+- **Never rely on a camera default — a template sentinel is an error** (decided 2026-08-04, openspec
+  `pairing-credited-write-back`). A template `gain`/`offset`/`readoutmode` of `-1` ("use the camera's
+  default") is valid TS but violates this library's authoring convention: an unspecified value can never
+  pair and never credits, so such a plan's counts stamp 0 until fixed. TSM never auto-corrects a sentinel;
+  it badges every row using the template (`sentinel`, warning tier) and the fix is a hand edit (TSM's
+  template editor or NINA's TS UI). The defer-to-explicit-value sentinels are exempt and normal idiom:
+  plan `exposure` `-1` (use the template's default exposure) and template `ditherevery` `-1` (defer to the
+  project) defer to values the user authored.
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
   slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges);
   its one structural verb is the explicit per-row adoption (spec `disk-row-adoption`; the broader resolver
   was rejected 2026-07-08 — see `docs/2026-07-08-resolver-rejection-is-lane.md` for why). `desired` is
-  user-owned planning intent — adoption seeds it once from the disk count at creation, but it is never
+  user-owned planning intent — adoption seeds it once at creation (the disk count when the assigned
+  template pairs with the cell, 0 under the non-pairing caution), but it is never
   *derived* from disk afterward and never edited without the user asking (TSM's grid does edit the value;
   see `UI.md` → *Editing*).
 - TS's `acquiredimage`/`imagedata`/`flathistory` are disposable noise (grading lives in PixInsight; disk is the

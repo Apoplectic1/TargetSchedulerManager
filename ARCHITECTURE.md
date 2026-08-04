@@ -105,10 +105,15 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   them — it rides disk-side cells as a label and never prevents pairing. Scanner aggregates carry the same
   configuration, so gain/offset/binning are *uniform* within an aggregate rather than a mode over mixed frames.
   Offset is read **raw**: the writer stores it already in the scale TS's templates use (its "divided by N"
-  comment is descriptive), so it must never be rescaled per camera. `WriteBackPlanner` keeps the coarser key
-  `(target, filter, purpose, seconds)` and *sums* inventory rows — but since 2026-07-29 only rows whose
-  **framing serves the target's rotation** join the sum (see the framing invariant below), so a re-framed
-  plan stamps its true progress instead of staying credited with the old framing's frames.
+  comment is descriptive), so it must never be rescaled per camera. `WriteBackPlanner` keeps the coarser
+  grouping key `(target, filter, purpose, seconds)`, but since 2026-08-04 (openspec
+  `pairing-credited-write-back`) an inventory row joins a plan's credit sum only when its **capture
+  configuration pairs with the plan's template** — the shared `CaptureConfigPairing` predicate
+  (gain/offset/binning value equality after plan-side normalization; a camera-default sentinel `-1` pairs
+  with nothing), the same rule this cell key merges by — and, since 2026-07-29, only when its **framing
+  serves the target's rotation** (see the framing invariant below). The grid's separation, the stamped
+  counts, and the push review therefore always tell one story: a plan whose configuration no frames match
+  stamps its true progress, 0.
 - **Framing = (field-center, sky-rotation), clustered per unit before the aggregate grouping**
   (2026-07-29, openspec `rotation-framing-key`; formal contract → the `framing-keys` spec).
   `FramingClusterer` partitions a unit's frames by rotation **expression** first — sky (`OBJCTROT`),

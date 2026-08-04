@@ -323,10 +323,12 @@ public class AdoptionPlannerTests
     }
 
     [Fact]
-    public void NonPairingTemplate_StillBuilds()
+    public void NonPairingTemplate_StillBuilds_SeedsZeros()
     {
         // Assignment never blocks (the caution is the dialog's): a gain-139 template over gain-100 frames
-        // builds a plan that will render beside the disk row — the informed choice the user accepted.
+        // builds a plan that will render beside the disk row — the informed choice the user accepted. Its
+        // counts seed 0/0/0: no disk files correspond to the plan being created, so the pushed row carries
+        // no counts the disk cannot back (pairing-credited-write-back).
         TsExposureTemplate o600 = new(22, "prof-1", "O600", "O", Gain: 139, Offset: 10, Bin: 1, 600);
         TsPlanData ts = Ts(o600);
         RowConfig gain100 = new(Gain: 100, Offset: 10, BinningX: 1, BinningY: 1, Camera: null, CameraDisagrees: false);
@@ -335,7 +337,26 @@ public class AdoptionPlannerTests
             DiskRow(filter: "O", seconds: 600, config: gain100), Graph(), ts, ts.Projects[0], o600);
 
         Assert.Null(refusal);
-        Assert.Equal(22L, Assert.Single(plan!.Rows).Payload["exposureTemplateId"]);
+        TsRowInsert insert = Assert.Single(plan!.Rows);
+        Assert.Equal(22L, insert.Payload["exposureTemplateId"]);
+        Assert.Equal(0, insert.Payload["desired"]);
+        Assert.Equal(0, insert.Payload["acquired"]);
+        Assert.Equal(0, insert.Payload["accepted"]);
+        Assert.Equal(1, insert.Payload["enabled"]);   // enabled either way
+    }
+
+    [Fact]
+    public void SentinelTemplate_SeedsZeros()
+    {
+        // A camera-default sentinel can never be asserted to agree with what was captured — the same
+        // never-pairs rule as everywhere, so the plan is born empty.
+        TsExposureTemplate o600 = new(22, "prof-1", "O600", "O", Gain: -1, Offset: 0, Bin: 1, 600);
+        TsPlanData ts = Ts(o600);
+
+        (AdoptionPlan? plan, _) = AdoptionPlanner.Build(
+            DiskRow(filter: "O", seconds: 600), Graph(), ts, ts.Projects[0], o600);
+
+        Assert.Equal(0, Assert.Single(plan!.Rows).Payload["desired"]);
     }
 
     // ---- target creation ----------------------------------------------------------------------------------

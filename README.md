@@ -21,8 +21,9 @@ imaging rig.
   pushes them back only through a reviewed confirmation that replays exactly the edited fields.
 - **Adopt history into the plan.** A disk-only cell — captured frames with no corresponding TS
   plan — becomes one right-click: pick the project and an existing exposure template, and TSM
-  creates the target and plan born complete (desired = acquired = the frames on disk), journaled
-  and pushable like any other edit.
+  creates the target and plan born complete (desired = acquired = the frames on disk) when the
+  template matches the captured history, or born empty when it doesn't — journaled and pushable
+  like any other edit.
 - **Visible tonight.** One click enables exactly the targets that clear a configurable altitude
   floor for a configurable duration tonight, and disables the rest — batch-applied, journaled, and
   pushable like any other edit.

@@ -58,7 +58,13 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   character), em dash when frames record neither — and a TS row shows
   the target's own rotation folded, so an agreeing pair reads identically. A disk row whose sky rotation fails
   the plan's carries the warning **`framing` badge** (filter on it to enumerate every stray framing).
-  **Every row-scoped badge** (`camera` · `cam≠` · `framing` — `Badges.IsRowScoped`) displays at the
+  A plan whose template carries a camera-default sentinel (gain/offset/readoutmode `-1`) carries the warning
+  **`sentinel` badge** on every row using that template (2026-08-04, openspec `pairing-credited-write-back`):
+  the sentinel is a user-defined authoring error (`DOMAIN.md` → *TS authoring conventions*), the plan can
+  never pair or credit while it stands, and TSM never auto-corrects it — the badge says where to hand-fix,
+  and disappears on the reconciliation after the template is made explicit. (Plan exposure `-1` and template
+  `ditherevery` `-1` defer to explicit user-authored values and never badge.)
+  **Every row-scoped badge** (`camera` · `cam≠` · `framing` · `sentinel` — `Badges.IsRowScoped`) displays at the
   **deepest visible level** (user rule 2026-07-29): always on the target summary row; on a collapsed rollup
   (the triggering line is hidden inside it); on the triggering line itself once expanded — the rollup then
   hands it down rather than repeating it. Flagging and header aggregation use the full union and are
@@ -198,7 +204,9 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   2026-08-03 by the adoption items "Add TS plan…" / "Add to TS…" on eligible disk-only rows, spec
   `disk-row-adoption`: each opens the one **assignment dialog** — project dropdown (locked when the TS
   target exists) + existing-template dropdown (same filter + bin, best match preselected, non-pairing
-  caution), no editable plan fields — the plan is born complete and adjusted afterward in this editor.
+  caution), no editable plan fields — the plan's counts seed by the pairing verdict (born complete when the
+  assigned template pairs with the cell, 0/0/0 under the non-pairing caution — no disk files correspond to
+  such a plan) and are adjusted afterward in this editor.
   Since 2026-08-04 (openspec `adopt-target-rollup`) target **rollup** rows carry the bulk grain — "Add to
   TS…" / "Add TS plans…" when ≥1 child cell is eligible → one **combined dialog**: project once, then per
   cell an include checkbox + its own template dropdown + caution (the per-cell controls factored into

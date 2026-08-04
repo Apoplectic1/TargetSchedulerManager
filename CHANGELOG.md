@@ -11,6 +11,33 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-04 — `pairing-credited-write-back`: crediting = pairing, sentinels are errors**
+(field obs `acfd` same day — the freshly adopted Abell 78 Stars-B plan, assigned a gain-0 template over 18
+gain-53 frames, kept acquired/accepted 18 on a fresh BIRDWATCHER read; the write-back pass logged "all 657
+auto cells already stamped"): the bulk write-back credit key predated `capture-config-keys` and still summed
+the whole `(target, filter, purpose, seconds)` bucket, so frames the grid correctly renders as a *separate*
+disk row still credited a non-matching plan. Three enforcement points, one rule. **(A)** `WriteBackPlanner`
+(and `SingleTargetPlanner`) now credit an inventory row only when its capture configuration **pairs with
+the plan's template** — the new shared `CaptureConfigPairing` predicate in AL (gain/offset/binning value
+equality after plan-side normalization; the camera-default sentinel `-1` pairs with *nothing*), the same
+normalization `ReconciliationProjection`'s cell key now derives from, so grid separation, stamped counts,
+and push review can never drift again. A plan with no pairing frames stamps 0 (the existing zeroing
+machinery); non-pairing buckets surface as `UnplannedFrames` notes naming the configuration (report stays
+complete by user decision — they iterate report → grid fix → re-read). `desired` untouched by zeroing;
+ratchet-up kept (user decision (a)). **(B)** Adoption seeds by the same verdict: `PlanInsert` (the one
+funnel under `Build`/`BuildBulk`) seeds born-complete when the assigned template pairs, **0/0/0** under the
+non-pairing caution — the pushed row never carries counts the disk cannot back; per-cell in the bulk
+dialog. **(C)** New row-scoped warning badge **`sentinel`** on every plan row whose template carries a
+camera-default sentinel (`gain`/`offset`/`readoutmode` = −1 — user convention: never rely on a camera
+default; plan `exposure` −1 and `ditherevery` −1 are exempt defer-to-explicit-value idiom). TSM never
+auto-corrects a sentinel — the badge says where to hand-fix and clears on the next reconciliation after.
+Plumbing: `TsExposureTemplate` gained `ReadoutMode` (reader now selects `readoutmode`);
+`ReconciliationCell` gained `TemplateSentinel`. **Operational (one-time):** the first load stamps the
+historical backlog (~245 buckets stopped pairing when gain/offset became keys — gain 53→0 era 2024,
+offset-50 frames, NB 111 since 2019) as journaled decreases; the first push review opens with hundreds of
+`N→0` lines. Chosen knowingly: disk is truth, the user manages desired/enable by hand. Tests: Catalog 268 /
+App 384 / Contracts 61.**
+
 **▶ SHIPPED 2026-08-04 — `adopt-target-rollup`: whole-target "Add to TS" from the rollup row**
 (**field-verified same day** — Abell 78 whole-target adoption: TS target + 7 born-complete plans created,
 pushed to BIRDWATCHER, correct project/counts/sentinels confirmed in TS's editor; archived

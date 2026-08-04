@@ -218,19 +218,21 @@ public static class ReconciliationLoader
                     // means the lengths themselves differ, nothing else.
                     bool lengthsMixed = planCells.Concat(diskCells).Select(c => c.Seconds).Distinct().Count() > 1;
 
-                    // The rollup's own camera/framing provenance is the union over its disk-side cells, so a
-                    // bad capture directory or a stray framing anywhere beneath it is visible without
-                    // expanding. Display refinement (user obs 6b72 + 8be0, 2026-07-29): `Badge` carries the
-                    // full union, but an EXPANDED rollup renders `BadgeText` without the framing token — the
-                    // visible source line beneath it carries the badge then, and repeating it between the
-                    // header and that line was noise. Collapsed, the rollup shows it (the line is hidden).
+                    // The rollup's own row-scoped provenance is the union over its cells — camera/framing
+                    // from the disk-side ones, the template sentinel from any plan-carrying one — so a bad
+                    // capture directory, a stray framing, or a sentinel template anywhere beneath it is
+                    // visible without expanding. Display refinement (user obs 6b72 + 8be0, 2026-07-29):
+                    // `Badge` carries the full union, but an EXPANDED rollup renders `BadgeText` without the
+                    // framing token — the visible source line beneath it carries the badge then, and
+                    // repeating it between the header and that line was noise. Collapsed, the rollup shows
+                    // it (the line is hidden).
                     ReconciliationCell configCell = diskCells[0];
                     string rollupBadge = badge;
                     bool rollupFlagged = flagged;
-                    foreach (ReconciliationCell c in diskCells)
+                    foreach (ReconciliationCell c in fp)
                     {
-                        rollupBadge = RowBadge(rollupBadge, c, true);
-                        rollupFlagged = RowFlagged(rollupFlagged, c, true);
+                        rollupBadge = RowBadge(rollupBadge, c, c.Disk > 0);
+                        rollupFlagged = RowFlagged(rollupFlagged, c, c.Disk > 0);
                     }
 
                     rows.Add(new ReconciliationRow(
@@ -285,19 +287,25 @@ public static class ReconciliationLoader
                 static double CellRemainingHours(ReconciliationCell c) =>
                     Math.Max(0, c.Desired - c.Acquired) * (double)c.Seconds / 3600.0;
 
-                // Row-scoped camera/framing provenance, appended to the target-scope tokens for THIS row only.
+                // Row-scoped provenance, appended to the target-scope tokens for THIS row only: camera and
+                // framing describe frames (disk-side rows), the template sentinel describes a plan's
+                // template and rides any row with a plan side — withCamera gates only the disk-side trio.
                 static string RowBadge(string targetBadge, ReconciliationCell c, bool withCamera)
                 {
-                    if (!withCamera) return targetBadge;
                     List<string> extra = [];
-                    if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
-                    if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
-                    if (c.FramingDisagrees) extra.Add(Badges.Framing);
+                    if (withCamera)
+                    {
+                        if (c.Camera is not null && Format.Camera(c.Camera) is null) extra.Add(Badges.UnknownCamera);
+                        if (c.CameraDisagrees) extra.Add(Badges.CameraMismatch);
+                        if (c.FramingDisagrees) extra.Add(Badges.Framing);
+                    }
+                    if (c.TemplateSentinel) extra.Add(Badges.Sentinel);
                     return extra.Count == 0 ? targetBadge : Badges.Join([targetBadge, .. extra]);
                 }
 
                 static bool RowFlagged(bool targetFlagged, ReconciliationCell c, bool withCamera) =>
                     targetFlagged
+                    || c.TemplateSentinel
                     || (withCamera && ((c.Camera is not null && Format.Camera(c.Camera) is null)
                         || c.CameraDisagrees || c.FramingDisagrees));
 
@@ -322,7 +330,7 @@ public static class ReconciliationLoader
                         PlanHours: c.Seconds > 0 ? c.Desired * c.Seconds / 3600.0 : null,
                         DiskHours: null,
                         RemainingHours: c.Seconds > 0 ? CellRemainingHours(c) : null),
-                    badge, flagged, isDetail: isDetail,
+                    RowBadge(badge, c, false), RowFlagged(flagged, c, false), isDetail: isDetail,
                     planTsKey: c.PlanTsKey, planEnabled: c.PlanEnabled, config: Cfg(c, false, tc.TargetRotationDeg));
 
                 ReconciliationRow DiskRow(ReconciliationCell c, bool isDetail) => new(

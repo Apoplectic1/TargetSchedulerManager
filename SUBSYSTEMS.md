@@ -224,15 +224,23 @@ the mechanism there):
   `desired` **up** to ≥ that (never lowered — a goal can't be below what was kept); touches no `acquiredimage` rows.
   TS never recomputes counts from images, so the cached columns are authoritative (its own Database-Manager UI
   hand-edits them) — that is why a column write suffices and survives.
-- **`(target, filter, purpose, seconds)` is the join.** Purpose (Light vs Stars) is the `"Stars "` naming
-  convention, symmetric across disk directories and TS templates. **The plan's whole-second exposure is its
-  spec**: effective seconds = round(plan exposure ?? template default); each plan receives the disk count at
-  exactly that bucket — **0 when none match** (a flagged decrease; 600 s frames never satisfy a 900 s plan).
-  Same-purpose plans at *different* durations are different cells and auto-resolve; disk buckets no plan
-  targets are surfaced as `UnplannedFrames` notes, never written and never manual — **write-back updates
-  existing plan rows only**. Plan *creation* exists since 2026-08-03 but is a separate, user-initiated act
-  (the right-click adoption, openspec `disk-row-adoption`), never something this automatic pass performs;
-  an adopted plan is just an ordinary existing plan on the next pass.
+- **`(target, filter, purpose, seconds)` is the join; the pairing rule credits.** Purpose (Light vs Stars)
+  is the `"Stars "` naming convention, symmetric across disk directories and TS templates. **The plan's
+  whole-second exposure is its spec**: effective seconds = round(plan exposure ?? template default). Within
+  the bucket, a frame credits the plan **only when its capture configuration pairs with the plan's
+  template** (2026-08-04, openspec `pairing-credited-write-back`): gain/offset/binning value equality via
+  the shared `CaptureConfigPairing` predicate — the same rule the grid's cell key merges by, so the grid's
+  separation, the stamped counts, and the push review always tell one story. A template carrying a
+  camera-default sentinel (`-1`) pairs with nothing and its plans stamp 0 (the `sentinel` badge names why).
+  **0 when none pair** (a flagged decrease; 600 s frames never satisfy a 900 s plan, gain-53 frames never
+  satisfy a gain-0 plan). Same-purpose plans at *different* durations are different cells and auto-resolve;
+  disk buckets no plan targets — and frames whose configuration no plan pairs with — are surfaced as
+  `UnplannedFrames` notes, never written and never manual — **write-back updates existing plan rows only**.
+  Plan *creation* exists since 2026-08-03 but is a separate, user-initiated act (the right-click adoption,
+  openspec `disk-row-adoption`; since 2026-08-04 its counts seed by the same pairing verdict — born
+  complete when the assigned template pairs, 0/0/0 for a cautioned non-pairing assignment), never
+  something this automatic pass performs; an adopted plan is just an ordinary existing plan on the next
+  pass.
 - **Only serving framings credit** (2026-07-29, openspec `rotation-framing-key`). Within the join's bucket,
   a frame counts toward `acquired` only when its framing serves the target's rotation
   (`FramingCluster.ServesPlanRotation` — the same rule the grid pairs and badges by): sky framing must agree
@@ -253,9 +261,10 @@ the mechanism there):
 - **Surgical single-target.** The single-target path (was `tsm writeback --target "<dir>"`) scans one directory
   only (no catalog rebuild) and writes just its cells; a **mosaic writes per panel** — each panel dir
   coordinate-anchors to its TS panel *within the same-named isMosaic project*, and each `(filter, purpose,
-  binning, seconds)` cell lands on that panel's matching plan (binning guards a 2×2 cell off a 1×1 plan; seconds
-  guard 600 s frames off a 900 s plan — a same-seconds plan at another binning is a `NoMatchingPlan` manual with
-  context, a pure duration mismatch is an `UnplannedFrames` note). The unit is a filter-cell, so a normal target
+  seconds)` + capture-configuration cell lands on that panel's matching plan (the shared pairing rule guards a
+  2×2 cell off a 1×1 plan and gain-53 frames off a gain-0 plan; seconds guard 600 s frames off a 900 s plan — a
+  same-seconds plan at another configuration is a `NoMatchingPlan` manual with context, a pure duration
+  mismatch is an `UnplannedFrames` note). The unit is a filter-cell, so a normal target
   is one unit and a mosaic is N panel units. Unmatched units (beyond tolerance / ambiguous) are **reported,
   never forced**; reuses the same writer (acq/acc + `desired` ratchet + verify) and guards. **Deliberate
   asymmetry:** the surgical path never zeroes plans with no matching cell (a per-cell push tool must not let a

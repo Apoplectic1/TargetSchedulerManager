@@ -184,6 +184,33 @@ public class BulkAdoptionTests
     }
 
     [Fact]
+    public void BuildBulk_MixedPairingOutcomes_SeedPerCell()
+    {
+        // Each cell seeds by its OWN pairing verdict (pairing-credited-write-back): two pairing cells are
+        // born complete, the cautioned non-pairing cell is born empty — one batch, three different seeds.
+        TsPlanData ts = Ts(
+            new TsExposureTemplate(22, "prof-1", "O600", "O", Gain: 0, Offset: 0, Bin: 1, 600),
+            new TsExposureTemplate(23, "prof-1", "S600", "S", Gain: 0, Offset: 0, Bin: 1, 600));
+        ReconciliationRow h600 = DiskRow(seconds: 600, frames: 30);
+        ReconciliationRow o600 = DiskRow(filter: "O", seconds: 600, frames: 12);
+        ReconciliationRow s600 = DiskRow(filter: "S", seconds: 600, frames: 18, config: Config(gain: 53));
+        TargetGroupRow group = Group(h600, o600, s600);
+
+        (BulkAdoptionPlan? plan, string? refusal) = AdoptionPlanner.BuildBulk(group, Graph(), ts,
+            new BulkAdoptionChoice(ts.Projects[0],
+                [(h600, ts.Templates[0]), (o600, ts.Templates[1]), (s600, ts.Templates[2])]));
+
+        Assert.Null(refusal);
+        Assert.Equal(30, plan!.Rows[0].Payload["desired"]);
+        Assert.Equal(30, plan.Rows[0].Payload["acquired"]);
+        Assert.Equal(12, plan.Rows[1].Payload["desired"]);
+        Assert.Equal(0, plan.Rows[2].Payload["desired"]);    // gain 53 vs template gain 0 — born empty
+        Assert.Equal(0, plan.Rows[2].Payload["acquired"]);
+        Assert.Equal(0, plan.Rows[2].Payload["accepted"]);
+        Assert.Equal(1, plan.Rows[2].Payload["enabled"]);
+    }
+
+    [Fact]
     public void BuildBulk_DiskOnlyTarget_TargetOnce_ThenPlansReferencingItsGuid()
     {
         TsPlanData ts = Ts(new TsExposureTemplate(22, "prof-1", "O600", "O", 0, 0, 1, 600));

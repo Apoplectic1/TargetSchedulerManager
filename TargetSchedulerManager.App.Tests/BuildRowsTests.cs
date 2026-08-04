@@ -669,11 +669,13 @@ public class BuildRowsTests
     }
 
     [Fact]
-    public void SentinelGainOffset_RenderAsDefault_NeverRawMinusOne()
+    public void SentinelGainOffset_RenderAsDefault_NeverRawMinusOne_AndBadges()
     {
         // The general render-as-meaning rule (user 2026-07-29): a template deferring gain/offset to the
         // camera projects as the sentinel, and the grid cell must say "default", never a raw -1 that
-        // reads as an ID. The sentinel stays its own key, so such a plan still never pairs with frames.
+        // reads as an ID. The sentinel stays its own key, so such a plan still never pairs with frames —
+        // and it is a user-defined authoring error (pairing-credited-write-back), so the row carries the
+        // warning `sentinel` badge and is flagged until the template is hand-fixed.
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
         List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
             Graph([T(t, "M 81", TargetSource.Planned)],
@@ -686,6 +688,77 @@ public class BuildRowsTests
         ReconciliationRow r = Assert.Single(rows);
         Assert.Equal("default", r.GainText);
         Assert.Equal("default", r.OffsetText);
+        Assert.Contains(Badges.Sentinel, r.Badge);
+        Assert.True(r.IsFlagged);
+    }
+
+    [Fact]
+    public void SentinelTemplate_BadgesOnlyTheRowsUsingIt()
+    {
+        // Row scope: the sentinel describes one template's plans, so it marks the rows using that template
+        // (and their rollup, as the union) — never a sibling filter's rows on the same target.
+        Guid t = Guid.NewGuid(), hTpl = Guid.NewGuid(), oTpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, hTpl, desired: 10, seconds: 300.0), Plan(t, oTpl, desired: 10, seconds: 300.0)],
+                [
+                    new ExposureTemplate(hTpl, Guid.NewGuid(), "Ha", "H", Gain: -1, OffsetAdu: 50,
+                        Binning: 1, ReadoutMode: null, DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null),
+                    Tpl(oTpl, "O3", "O"),
+                ],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0), Inv(t, "O", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        // H: the sentinel plan never pairs → rollup with separate TS/Disk lines. The TS line (the plan
+        // using the template) and the rollup union carry the badge; the disk line does not.
+        ReconciliationRow hRollup = Assert.Single(rows, r => r.Filter == "H");
+        Assert.Contains(Badges.Sentinel, hRollup.Badge);
+        Assert.Contains(Badges.Sentinel, Assert.Single(hRollup.Detail!, r => r.Plane == RowPlane.Ts).Badge);
+        Assert.DoesNotContain(Badges.Sentinel, Assert.Single(hRollup.Detail!, r => r.Plane == RowPlane.Disk).Badge);
+
+        // O: explicit template, pairs — no sentinel anywhere.
+        ReconciliationRow oRow = Assert.Single(rows, r => r.Filter == "O");
+        Assert.Equal(RowPlane.Both, oRow.Plane);
+        Assert.DoesNotContain(Badges.Sentinel, oRow.Badge);
+        Assert.False(oRow.IsFlagged);
+    }
+
+    [Fact]
+    public void ReadoutModeSentinel_Badges_ButNeverPreventsPairing()
+    {
+        // Readout mode is in the badge trio but NOT a pairing dimension (the disk plane does not express
+        // it): the plan still pairs into one Both row, which carries the badge.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: 300.0)],
+                [new ExposureTemplate(tpl, Guid.NewGuid(), "Ha", "H", Gain: 100, OffsetAdu: 50,
+                    Binning: 1, ReadoutMode: -1, DefaultExposureSeconds: 300.0, ImportedFromTsGuid: null)],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.Equal(RowPlane.Both, r.Plane);
+        Assert.Contains(Badges.Sentinel, r.Badge);
+        Assert.True(r.IsFlagged);
+    }
+
+    [Fact]
+    public void DeferToTemplateExposure_IsNotASentinel()
+    {
+        // The exempt sentinel: a plan exposure deferring to the template's default defers to a value the
+        // user authored — no badge, nothing flagged.
+        Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl, desired: 10, seconds: null)],   // defer to template default
+                [Tpl(tpl, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow r = Assert.Single(rows);
+        Assert.DoesNotContain(Badges.Sentinel, r.Badge);
+        Assert.False(r.IsFlagged);
     }
 
     [Fact]

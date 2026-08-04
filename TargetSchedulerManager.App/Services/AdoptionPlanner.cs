@@ -1,5 +1,6 @@
 using System.Globalization;
 using Astronomy.Catalog.Build;
+using Astronomy.Catalog.Reconcile;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using TargetSchedulerManager.App.Models;
@@ -206,10 +207,11 @@ internal static class AdoptionPlanner
     }
 
     /// <summary>
-    /// Assembles the accepted adoption: the assigned template's plan with born-complete counts, preceded —
-    /// when the target is not in TS — by the target payload from the disk centroid, landing in
-    /// <paramref name="project"/>. Refusals here are unreachable after <see cref="GetFacts"/> succeeded and
-    /// exist as a backstop; never writes.
+    /// Assembles the accepted adoption: the assigned template's plan with counts seeded by the pairing
+    /// verdict (born complete when the template pairs with the cell, all zeros for a cautioned non-pairing
+    /// assignment), preceded — when the target is not in TS — by the target payload from the disk centroid,
+    /// landing in <paramref name="project"/>. Refusals here are unreachable after <see cref="GetFacts"/>
+    /// succeeded and exist as a backstop; never writes.
     /// </summary>
     public static (AdoptionPlan? Plan, string? Refusal) Build(
         ReconciliationRow row, CatalogGraph graph, TsPlanData ts, TsProject project, TsExposureTemplate template)
@@ -305,9 +307,9 @@ internal static class AdoptionPlanner
 
     /// <summary>
     /// Assembles the accepted bulk adoption as one batch: the target payload (when the TS target doesn't
-    /// exist — rotation seeded from the first included cell expressing a sky angle) followed by one
-    /// born-complete plan per accepted assignment. Any structural refusal aborts the whole batch naming
-    /// the offending cell — no partial adoption is ever built. Never writes.
+    /// exist — rotation seeded from the first included cell expressing a sky angle) followed by one plan
+    /// per accepted assignment, each seeded by its own cell's pairing verdict. Any structural refusal
+    /// aborts the whole batch naming the offending cell — no partial adoption is ever built. Never writes.
     /// </summary>
     public static (BulkAdoptionPlan? Plan, string? Refusal) BuildBulk(
         TargetGroupRow group, CatalogGraph graph, TsPlanData ts, BulkAdoptionChoice choice)
@@ -377,23 +379,30 @@ internal static class AdoptionPlanner
         return null;
     }
 
-    // Born complete (record history): desired = acquired = accepted = the cell's disk count. The exposure
-    // override only when the template default differs (the -1 defer-to-template sentinel). The template
-    // always pre-exists (assignment, never creation), so its copy-stable integer id is the reference.
+    // Counts seed by the pairing verdict — the same pure MismatchReason the dialog's caution used, on the
+    // same inputs, so the promise and the payload cannot disagree. Pairing → born complete (record
+    // history): desired = acquired = accepted = the cell's disk count. Non-pairing (the cautioned split) →
+    // all three 0: no disk files correspond to the plan being created, and disk is truth from the plan's
+    // first moment, not something the next write-back pass has to correct. The exposure override only when
+    // the template default differs (the -1 defer-to-template sentinel). The template always pre-exists
+    // (assignment, never creation), so its copy-stable integer id is the reference.
     private static TsRowInsert PlanInsert(
-        ReconciliationRow row, TsProject project, TsExposureTemplate template, object targetReference) =>
-        new(TsTable.ExposurePlan, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        ReconciliationRow row, TsProject project, TsExposureTemplate template, object targetReference)
+    {
+        int seed = MismatchReason(template, RowPurpose(row), row.Config) is null ? row.Disk : 0;
+        return new(TsTable.ExposurePlan, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["guid"] = Guid.NewGuid().ToString(),
             ["profileId"] = project.ProfileId,
             ["targetid"] = targetReference,
             ["exposureTemplateId"] = template.Id,
             ["exposure"] = (int)Math.Round(template.DefaultExposure) == row.DiskSeconds ? -1.0 : (double)row.DiskSeconds,
-            ["desired"] = row.Disk,
-            ["acquired"] = row.Disk,
-            ["accepted"] = row.Disk,
+            ["desired"] = seed,
+            ["acquired"] = seed,
+            ["accepted"] = seed,
             ["enabled"] = 1,
         });
+    }
 
     // Only a sky angle seeds rotation (fold-180 normalized, the comparison space); mechanical and unknown
     // never convert. No rotation stays NULL — a rotation-less target credits any framing. Over several
@@ -426,14 +435,19 @@ internal static class AdoptionPlanner
     // Bin is equal by scope. Null means the assigned plan merges into Both.
     private static string? MismatchReason(TsExposureTemplate t, FilterPurpose purpose, RowConfig config)
     {
+        // Gain/offset semantics are CaptureConfigPairing's (value equality, the camera-default sentinel
+        // compared as the value it is — it pairs with nothing); this wording layer only names what differed.
+        // Binning needs no line: the candidate scope is already strictly same-bin.
         List<string> reasons = [];
         FilterPurpose templatePurpose = FilterPurposeClassifier.Classify(t.Name);
         if (templatePurpose != purpose)
             reasons.Add($"purpose {templatePurpose} vs {purpose}");
         if (t.Gain != config.Gain)
-            reasons.Add(t.Gain < 0 ? $"camera-default gain vs {config.Gain}" : $"gain {t.Gain} vs {config.Gain}");
+            reasons.Add(t.Gain == CaptureConfigPairing.Sentinel
+                ? $"camera-default gain vs {config.Gain}" : $"gain {t.Gain} vs {config.Gain}");
         if (t.Offset != config.Offset)
-            reasons.Add(t.Offset < 0 ? $"camera-default offset vs {config.Offset}" : $"offset {t.Offset} vs {config.Offset}");
+            reasons.Add(t.Offset == CaptureConfigPairing.Sentinel
+                ? $"camera-default offset vs {config.Offset}" : $"offset {t.Offset} vs {config.Offset}");
         return reasons.Count == 0 ? null : string.Join(", ", reasons);
     }
 

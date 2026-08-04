@@ -64,6 +64,13 @@ internal static class Badges
     /// composition. Row-scoped, like <see cref="UnknownCamera"/> (openspec rotation-framing-key).</summary>
     public const string Framing = "framing";
 
+    /// <summary>A plan whose template carries a use-camera-default sentinel (gain, offset or readout mode
+    /// −1) — a user-defined authoring error (the convention: never rely on a camera default), and a plan
+    /// that can never pair or credit while it stands. Repaired in the template (TSM's editor or NINA's TS
+    /// UI); never auto-corrected. Row-scoped: only the rows using that template carry it
+    /// (openspec pairing-credited-write-back).</summary>
+    public const string Sentinel = "sentinel";
+
     /// <summary>The framing token carrying its overlap price — "framing 57%": how much of the row's frames'
     /// own footprint lies where the plan (currently) points. RENDER-layer only (openspec
     /// framing-overlap-column): <c>Badge</c> strings always hold the bare token — search, flagging, header
@@ -84,14 +91,16 @@ internal static class Badges
     public static bool IsWarning(string token) => Canonical(token) switch
     {
         NoCoords or Duplicate or NameMismatch or Ambiguous or MultiPlan or AccNeAcq
-            or UnknownCamera or CameraMismatch or Framing => true,
+            or UnknownCamera or CameraMismatch or Framing or Sentinel => true,
         _ => false,
     };
 
-    /// <summary>True when the token describes particular frames rather than a whole target — the set that
-    /// follows the deepest-visible-level display rule (see the Scope paragraph above). A new frame-level
-    /// token joins this list and inherits the rule; everything else displays at its own scope.</summary>
-    public static bool IsRowScoped(string token) => Canonical(token) is UnknownCamera or CameraMismatch or Framing;
+    /// <summary>True when the token describes particular frames or particular plans rather than a whole
+    /// target — the set that follows the deepest-visible-level display rule (see the Scope paragraph
+    /// above). A new row-level token joins this list and inherits the rule; everything else displays at
+    /// its own scope.</summary>
+    public static bool IsRowScoped(string token) =>
+        Canonical(token) is UnknownCamera or CameraMismatch or Framing or Sentinel;
 
     /// <summary>Splits a joined badge string into its tokens with each one's severity — the pure core the
     /// renderer walks, so the classification is testable without a XAML runtime. An empty string yields

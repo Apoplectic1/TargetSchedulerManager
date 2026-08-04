@@ -17,8 +17,13 @@ public class BadgesTests
     [InlineData(Badges.MultiPlan)]
     [InlineData(Badges.AccNeAcq)]
     [InlineData(Badges.NoCoords)]     // repairable authoring: TS cannot schedule a coordinate-less target
+    [InlineData(Badges.Sentinel)]     // a camera-default template value: repaired in the template, by hand
     public void WarningTier_IsTheRepairableAuthoringSet(string token) =>
         Assert.True(Badges.IsWarning(token));
+
+    [Fact]
+    public void Sentinel_IsRowScoped() =>
+        Assert.True(Badges.IsRowScoped(Badges.Sentinel));
 
     [Theory]
     [InlineData(Badges.Mosaic)]
@@ -69,6 +74,7 @@ public class BadgesTests
         [
             Badges.Mosaic, Badges.NoData, Badges.NoCoords, Badges.Duplicate,
             Badges.NameMismatch, Badges.Ambiguous, Badges.MultiPlan, Badges.AccNeAcq,
+            Badges.Sentinel,
         ];
 
         Assert.All(all, t => Assert.DoesNotContain(Badges.Separator, t));
