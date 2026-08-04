@@ -48,6 +48,7 @@ public sealed partial class MainWindow : Window
         ViewModel.ConfirmPushPrompt = ShowPushReviewDialogAsync;
         ViewModel.AdoptRefusalPrompt = ShowAdoptRefusalDialogAsync;
         ViewModel.AdoptPrompt = ShowAdoptDialogAsync;
+        ViewModel.BulkAdoptPrompt = ShowBulkAdoptDialogAsync;
         ((FrameworkElement)Content).Loaded += (_, _) =>
         {
             if (_initialLoadStarted) return;

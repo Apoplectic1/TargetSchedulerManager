@@ -11,6 +11,25 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-04 — `adopt-target-rollup`: whole-target "Add to TS" from the rollup row** (openspec
+change in flight — awaiting field verification before archive): right-clicking a target rollup with ≥1
+individually-eligible disk-only cell offers **"Add to TS…"** (no TS target — creates it) / **"Add TS
+plans…"** (bulk-adopts the remaining unplanned cells); mosaic parents never qualify. One **combined
+assignment dialog**: project chosen once (locked to the owner when the TS target exists), then one row per
+eligible cell — include checkbox (default on), the cell's disk facts, and its own existing-template
+dropdown running the same strict-scope/preselect/caution machinery as the per-cell dialog (controls
+factored into `AssignmentRowControls`, shared by both dialogs — identical by construction); empty-scope
+cells grey with the reason and are excluded; switching the project re-scopes every cell from precomputed
+facts (the dialog never queries). Accept writes **one atomic insert batch** — target payload first when
+creating (rotation seeded from the first included cell expressing a sky angle, design D6), then a
+born-complete plan per included cell — one journal group, one no-pull re-reconcile; any structural refusal
+aborts the whole batch naming the cell. Planner-side, the bulk members **compose the per-cell ones**
+(`EligibleCells`/`GetBulkFacts`/`BuildBulk` over `IsEligible`/`ListCandidates`/shared payload builders), so
+the two grains can never disagree; delta spec amends `disk-row-adoption` (two grains; per-cell requirements
+untouched). Tests 377 (13 new: enumeration, bulk facts, batch build incl. abort-names-cell, VM
+gate/cancel/refusal); the accept leg (dialog layout, re-scope, checkbox flow, push round-trip) awaits field
+verification like the per-cell verb did.
+
 **▶ DECIDED 2026-08-03 (late) — docs-architecture audit applied + `DOMAIN.md` split executed.** The
 60-worker audit's 10 adjudicated groups landed (`344233d` — adoption-verb absolutes, acquired-basis
 `remaining`, centered-columns rules, the flyout→dialog terminology sweep, `CLAUDE.md` invariants trimmed to

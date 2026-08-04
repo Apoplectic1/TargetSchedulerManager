@@ -74,7 +74,13 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   push or discard (discard-and-pull is the undo). The adoption **assigns an existing exposure template**
   through its one always-shown dialog (obs 3dfe, 2026-08-03: TS is the authoring surface for templates —
   TSM never creates or edits one from adoption; a non-pairing assignment cautions inline and lands the plan
-  beside the disk row, the honest split). At push the inserts replay **first**, references before
+  beside the disk row, the honest split). The verb has **two grains** (openspec `adopt-target-rollup`,
+  2026-08-04) sharing every rule: per-cell, and whole-rollup — a target rollup with ≥1 individually-eligible
+  cell offers "Add to TS… / Add TS plans…", one combined dialog (project once, per-cell template assignment
+  + include checkboxes, empty-scope cells greyed with the reason, project switch re-scopes from precomputed
+  facts), Accept landing as **one insert batch** (target payload first when creating, rotation seeded from
+  the first included sky-angle cell) journaled as one group — the planner's bulk members compose the
+  per-cell ones, so the grains can't disagree. At push the inserts replay **first**, references before
   referrers (templates → targets → plans), as remote INSERTs: the remote autoincrement mints its own id,
   parent references travel as **guids** wherever ids can diverge (a plan's `targetid`, a target's
   `projectid`, a same-batch created template) and as the copy-stable integer id for a template that came

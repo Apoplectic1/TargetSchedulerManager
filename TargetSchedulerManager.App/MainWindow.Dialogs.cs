@@ -242,29 +242,11 @@ public sealed partial class MainWindow
             IsEnabled = !facts.ProjectLocked,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
-        ComboBox templateBox = new()
-        {
-            Header = "Exposure template",
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
-        TextBlock emptyNote = new()
-        {
-            Text = facts.EmptyScopeReason,
-            TextWrapping = TextWrapping.Wrap,
-            MaxWidth = 460,
-            Visibility = Visibility.Collapsed,
-        };
-        TextBlock caution = new()
-        {
-            Foreground = ThemeBrushes.CautionText,
-            TextWrapping = TextWrapping.Wrap,
-            MaxWidth = 460,
-            Visibility = Visibility.Collapsed,
-        };
+        AssignmentRowControls assignment = new(facts.EmptyScopeReason, header: "Exposure template");
         panel.Children.Add(projectBox);
-        panel.Children.Add(templateBox);
-        panel.Children.Add(emptyNote);
-        panel.Children.Add(caution);
+        panel.Children.Add(assignment.Box);
+        panel.Children.Add(assignment.EmptyNote);
+        panel.Children.Add(assignment.Caution);
 
         ContentDialog dialog = new()
         {
@@ -276,46 +258,202 @@ public sealed partial class MainWindow
             DefaultButton = ContentDialogButton.Primary,
         };
 
-        AdoptionProjectOption Option() => facts.Projects[Math.Max(0, projectBox.SelectedIndex)];
-        static string CandidateText(TsExposureTemplate t) =>
-            $"{t.Name} — {(t.Gain < 0 ? "camera-default gain" : $"gain {t.Gain}")}, "
-            + $"{(t.Offset < 0 ? "camera-default offset" : $"offset {t.Offset}")}, bin {t.Bin}, "
-            + $"default {t.DefaultExposure.ToString("0.#", CultureInfo.InvariantCulture)}s";
-
-        void RefreshCaution()
-        {
-            AdoptionProjectOption option = Option();
-            if (templateBox.SelectedIndex < 0 || templateBox.SelectedIndex >= option.Candidates.Count
-                || option.Candidates[templateBox.SelectedIndex] is { WouldPair: true })
-            {
-                caution.Visibility = Visibility.Collapsed;
-                return;
-            }
-            AdoptionCandidate selected = option.Candidates[templateBox.SelectedIndex];
-            caution.Text = $"'{selected.Template.Name}' would not pair with these frames "
-                + $"({selected.MismatchReason}) — the plan will appear as a separate TS row beside the "
-                + "disk row, not merged into Both";
-            caution.Visibility = Visibility.Visible;
-        }
+        assignment.Changed += () => dialog.IsPrimaryButtonEnabled = assignment.Selected is not null;
         void RefreshTemplates()
         {
-            AdoptionProjectOption option = Option();
-            templateBox.ItemsSource = option.Candidates.Select(c => CandidateText(c.Template)).ToList();
-            templateBox.SelectedIndex = option.PreselectIndex;
-            bool empty = option.Candidates.Count == 0;
-            templateBox.IsEnabled = !empty;
-            dialog.IsPrimaryButtonEnabled = !empty;
-            emptyNote.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
-            RefreshCaution();
+            AdoptionProjectOption option = facts.Projects[Math.Max(0, projectBox.SelectedIndex)];
+            assignment.SetScope(option.Candidates, option.PreselectIndex);
         }
         projectBox.SelectionChanged += (_, _) => RefreshTemplates();
-        templateBox.SelectionChanged += (_, _) => RefreshCaution();
         RefreshTemplates();
 
         if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary
-            || projectBox.SelectedIndex < 0 || templateBox.SelectedIndex < 0)
+            || projectBox.SelectedIndex < 0 || assignment.Selected is not { } chosen)
             return null;
-        AdoptionProjectOption chosen = facts.Projects[projectBox.SelectedIndex];
-        return new AdoptionChoice(chosen.Project, chosen.Candidates[templateBox.SelectedIndex].Template);
+        return new AdoptionChoice(facts.Projects[projectBox.SelectedIndex].Project, chosen.Template);
+    }
+
+    // The combined bulk-assignment dialog (openspec adopt-target-rollup): the project chosen once, then one
+    // assignment row per eligible cell — include checkbox + the cell's disk facts + its own template combo
+    // with the per-cell preselect and caution; a cell whose scope is empty in the chosen project's profile
+    // renders greyed with the reason and is excluded. Switching the project swaps every row's precomputed
+    // candidate list. Accept stays enabled while ≥1 included servable cell remains and returns exactly
+    // those; Cancel writes nothing.
+    private async Task<BulkAdoptionChoice?> ShowBulkAdoptDialogAsync(BulkAdoptionFacts facts)
+    {
+        int cellCount = facts.Cells.Count;
+        string cells = cellCount == 1 ? "1 unplanned cell" : $"{cellCount} unplanned cells";
+        StackPanel panel = new() { Spacing = 10, MinWidth = 460 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = facts.TargetName is string newName
+                ? $"Create TS target \"{newName}\" from the disk centroid, plus a born-complete plan for "
+                    + $"each included cell ({cells})."
+                : $"Add a born-complete TS plan for each included cell of {facts.Label} ({cells}).",
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 500,
+        });
+        if (facts is { RaHours: double ra, DecDegrees: double dec })
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"RA {ra.ToString("0.0000", CultureInfo.InvariantCulture)} h · "
+                    + $"Dec {dec.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)}°"
+                    + (facts.SeededRotationDeg is double rot
+                        ? $" · rotation {rot.ToString("0.#", CultureInfo.InvariantCulture)}° (from the frames' sky angle)"
+                        : " · no rotation (none expressed on disk)"),
+            });
+
+        ComboBox projectBox = new()
+        {
+            Header = facts.ProjectLocked ? "Project (the target's — fixed)" : "Project",
+            ItemsSource = facts.Projects.Select(o => o.Project.Name).ToList(),
+            SelectedIndex = 0,
+            IsEnabled = !facts.ProjectLocked,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        panel.Children.Add(projectBox);
+
+        ContentDialog dialog = new()
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = facts.TargetName is null ? "Add TS plans" : "Add to TS",
+            Content = panel,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        List<(BulkAdoptionCell Cell, CheckBox Include, AssignmentRowControls Controls)> rows = [];
+        void RefreshAccept() => dialog.IsPrimaryButtonEnabled =
+            rows.Any(r => r.Include.IsChecked == true && r.Controls.Selected is not null);
+
+        StackPanel cellList = new() { Spacing = 12 };
+        foreach (BulkAdoptionCell cell in facts.Cells)
+        {
+            CheckBox include = new()
+            {
+                IsChecked = true,
+                Content = $"{cell.Filter} ({cell.Purpose}) · {cell.DiskCount} × {cell.Seconds}s · "
+                    + $"gain {cell.Gain}, offset {cell.Offset}, bin {cell.Bin}",
+            };
+            include.Checked += (_, _) => RefreshAccept();
+            include.Unchecked += (_, _) => RefreshAccept();
+
+            AssignmentRowControls controls = new(cell.EmptyScopeReason);
+            controls.Changed += RefreshAccept;
+
+            StackPanel detail = new() { Spacing = 4, Margin = new Thickness(28, 0, 0, 0) };
+            detail.Children.Add(controls.Box);
+            detail.Children.Add(controls.EmptyNote);
+            detail.Children.Add(controls.Caution);
+            StackPanel cellPanel = new() { Spacing = 4 };
+            cellPanel.Children.Add(include);
+            cellPanel.Children.Add(detail);
+            cellList.Children.Add(cellPanel);
+            rows.Add((cell, include, controls));
+        }
+        panel.Children.Add(new ScrollViewer
+        {
+            Content = cellList,
+            MaxHeight = 380,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        });
+
+        void RefreshScopes()
+        {
+            BulkAdoptionProjectOption option = facts.Projects[Math.Max(0, projectBox.SelectedIndex)];
+            for (int i = 0; i < rows.Count; i++)
+            {
+                BulkCellScope scope = option.CellScopes[i];
+                rows[i].Controls.SetScope(scope.Candidates, scope.PreselectIndex);
+                bool servable = scope.Candidates.Count > 0;
+                rows[i].Include.IsEnabled = servable;
+                if (!servable)
+                    rows[i].Include.IsChecked = false;   // an unservable cell can't be included; re-checking after a project switch is the user's call
+            }
+            RefreshAccept();
+        }
+        projectBox.SelectionChanged += (_, _) => RefreshScopes();
+        RefreshScopes();
+
+        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary || projectBox.SelectedIndex < 0)
+            return null;
+        List<(ReconciliationRow, TsExposureTemplate)> assignments = [.. rows
+            .Where(r => r.Include.IsChecked == true && r.Controls.Selected is not null)
+            .Select(r => (r.Cell.Row, r.Controls.Selected!.Template))];
+        if (assignments.Count == 0)
+            return null;   // unreachable backstop — Accept is disabled in this state
+        return new BulkAdoptionChoice(facts.Projects[projectBox.SelectedIndex].Project, assignments);
+    }
+
+    // One template-assignment control set — the candidate combo, the empty-scope note, and the non-pairing
+    // caution — shared by the single-cell and bulk adoption dialogs so per-cell assignment behavior is
+    // identical by construction (openspec adopt-target-rollup, design D3). The owner places the three
+    // elements, feeds scopes through SetScope, and listens on Changed for Accept enablement.
+    private sealed class AssignmentRowControls
+    {
+        private IReadOnlyList<AdoptionCandidate> _candidates = [];
+
+        public AssignmentRowControls(string emptyReason, string? header = null)
+        {
+            Box = new ComboBox { Header = header, HorizontalAlignment = HorizontalAlignment.Stretch };
+            EmptyNote = new TextBlock
+            {
+                Text = emptyReason,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 460,
+                Visibility = Visibility.Collapsed,
+            };
+            Caution = new TextBlock
+            {
+                Foreground = ThemeBrushes.CautionText,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 460,
+                Visibility = Visibility.Collapsed,
+            };
+            Box.SelectionChanged += (_, _) => { RefreshCaution(); Changed?.Invoke(); };
+        }
+
+        public ComboBox Box { get; }
+        public TextBlock EmptyNote { get; }
+        public TextBlock Caution { get; }
+
+        /// <summary>Raised on any selection or scope change — the owner recomputes Accept enablement.</summary>
+        public event Action? Changed;
+
+        /// <summary>The selected candidate, or null when the scope is empty (Accept must not consume).</summary>
+        public AdoptionCandidate? Selected =>
+            Box.SelectedIndex >= 0 && Box.SelectedIndex < _candidates.Count ? _candidates[Box.SelectedIndex] : null;
+
+        /// <summary>Swaps in one (cell × project) scope: candidates listed, best match preselected, the
+        /// combo disabled and the empty note shown when the scope is empty.</summary>
+        public void SetScope(IReadOnlyList<AdoptionCandidate> candidates, int preselectIndex)
+        {
+            _candidates = candidates;
+            Box.ItemsSource = candidates.Select(c => CandidateText(c.Template)).ToList();
+            Box.SelectedIndex = preselectIndex;
+            Box.IsEnabled = candidates.Count > 0;
+            EmptyNote.Visibility = candidates.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshCaution();
+            Changed?.Invoke();
+        }
+
+        private void RefreshCaution()
+        {
+            if (Selected is not { WouldPair: false } selected)
+            {
+                Caution.Visibility = Visibility.Collapsed;
+                return;
+            }
+            Caution.Text = $"'{selected.Template.Name}' would not pair with these frames "
+                + $"({selected.MismatchReason}) — the plan will appear as a separate TS row beside the "
+                + "disk row, not merged into Both";
+            Caution.Visibility = Visibility.Visible;
+        }
+
+        private static string CandidateText(TsExposureTemplate t) =>
+            $"{t.Name} — {(t.Gain < 0 ? "camera-default gain" : $"gain {t.Gain}")}, "
+            + $"{(t.Offset < 0 ? "camera-default offset" : $"offset {t.Offset}")}, bin {t.Bin}, "
+            + $"default {t.DefaultExposure.ToString("0.#", CultureInfo.InvariantCulture)}s";
     }
 }

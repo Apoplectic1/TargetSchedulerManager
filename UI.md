@@ -198,7 +198,12 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   2026-08-03 by the adoption items "Add TS plan…" / "Add to TS…" on eligible disk-only rows, spec
   `disk-row-adoption`: each opens the one **assignment dialog** — project dropdown (locked when the TS
   target exists) + existing-template dropdown (same filter + bin, best match preselected, non-pairing
-  caution), no editable plan fields — the plan is born complete and adjusted afterward in this editor).
+  caution), no editable plan fields — the plan is born complete and adjusted afterward in this editor.
+  Since 2026-08-04 (openspec `adopt-target-rollup`) target **rollup** rows carry the bulk grain — "Add to
+  TS…" / "Add TS plans…" when ≥1 child cell is eligible → one **combined dialog**: project once, then per
+  cell an include checkbox + its own template dropdown + caution (the per-cell controls factored into
+  `AssignmentRowControls`, shared with the single-cell dialog so behavior is identical by construction);
+  empty-scope cells grey with the reason, the cell list scrolls, Accept = one atomic insert batch).
   The form opens in a **centered ContentDialog** draggable by
   any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
   move, so form-hosting surfaces are dialogs and menus stay flyouts; open-near-the-row seeding retired

@@ -5,7 +5,7 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-08-03)
+## Status — pick up here (2026-08-04)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), rows keyed by the **capture-configuration cell**
@@ -14,15 +14,17 @@ disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), rows keyed by 
 open, journaled local edits, reviewed Push to BIRDWATCHER, automatic write-back each load). Editing: target
 enable checkbox + in-grid `desired` + the **edit dialog** (hover glyph / right-click on target + filter rows →
 schema-generated form, per-field guarded commit; every form-hosting surface is a centered, movable
-`ContentDialog` — menus stay flyouts), plus **one structural verb** — per-row adoption of a disk-only cell into
-TS via the assignment dialog (project + existing-template dropdowns; specs `disk-row-adoption` +
-`target-and-plan-flyouts`). Each load reconciles disk targets against TS targets into Both / Planned-only /
+`ContentDialog` — menus stay flyouts), plus **one structural verb** — adoption of disk-only cells into TS via
+the assignment dialog, at two grains: per-cell, or whole-rollup ("Add to TS…" on the target row → one combined
+dialog, one atomic insert batch; specs `disk-row-adoption` + `target-and-plan-flyouts`). Each load reconciles disk targets against TS targets into Both / Planned-only /
 Actual-only, with mosaics resolved per panel; live counts show in the app + `tsm.log` (not pinned here — they
 move with every edit and every imaging night). Match tolerance **0.5°** (validated 2026-06-04).
 
 **Where things stand:** everything through the 2026-08-03 adoption pair (`adopt-disk-rows` +
 `assign-template-adoption`) has shipped, been field-verified, and archived — 16 capability specs under
-`openspec/specs/`; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
+`openspec/specs/`. In flight: **`adopt-target-rollup`** (whole-target "Add to TS" from the rollup row,
+shipped 2026-08-04, tests green — awaiting field verification, then archive extends `disk-row-adoption` to
+its two grains); distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
 change `velopack-self-update`, formal contract → spec `self-update`; the current version is the latest tag —
 rules in `RELEASING.md`). The load-split idea stays **retired** (2026-07-08: the ~2 s fresh scan is acceptable,
 so the grid can never show stale ACTUAL). The dated unit-by-unit history — every SHIPPED/DECIDED entry this

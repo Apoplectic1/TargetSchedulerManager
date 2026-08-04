@@ -45,13 +45,54 @@ internal sealed record AdoptionFacts(
 /// template. Null from the prompt means cancel — nothing is written.</summary>
 internal sealed record AdoptionChoice(TsProject Project, TsExposureTemplate Template);
 
+/// <summary>One eligible cell's read-only facts in the bulk dialog — the same facts the per-cell dialog
+/// shows, carried per row so the dialog never reaches back into the row model. The row itself travels for
+/// the accepted choice; <see cref="EmptyScopeReason"/> is that cell's wording when a project's scope for it
+/// is empty.</summary>
+internal sealed record BulkAdoptionCell(
+    ReconciliationRow Row, string Filter, string Purpose, int Gain, int Offset, int Bin, int Seconds,
+    int DiskCount, string EmptyScopeReason);
+
+/// <summary>One cell's template scope under one project's profile: the strict-scope candidates with their
+/// merge verdicts and the preselect index — <see cref="AdoptionPlanner.ListCandidates"/> per (cell, project),
+/// precomputed so the dialog only ever swaps lists.</summary>
+internal sealed record BulkCellScope(IReadOnlyList<AdoptionCandidate> Candidates, int PreselectIndex);
+
+/// <summary>A project the bulk adoption may land in, carrying one scope per cell (parallel to
+/// <see cref="BulkAdoptionFacts.Cells"/>).</summary>
+internal sealed record BulkAdoptionProjectOption(TsProject Project, IReadOnlyList<BulkCellScope> CellScopes);
+
+/// <summary>The bulk dialog's entire input: the project situation (locked owner or pickable list — the
+/// per-cell rules), every eligible cell with its per-project scopes, and the target-creation facts (null
+/// when the TS target exists). Assembled before anything is shown; the dialog never queries.</summary>
+internal sealed record BulkAdoptionFacts(
+    string Label,
+    bool ProjectLocked,
+    IReadOnlyList<BulkAdoptionCell> Cells,
+    IReadOnlyList<BulkAdoptionProjectOption> Projects,
+    string? TargetName, double? RaHours, double? DecDegrees, double? SeededRotationDeg);
+
+/// <summary>What the bulk dialog returns on Accept: the chosen (or locked) project and the included,
+/// servable cells with their assigned templates. Null from the prompt means cancel — nothing is written.</summary>
+internal sealed record BulkAdoptionChoice(
+    TsProject Project,
+    IReadOnlyList<(ReconciliationRow Row, TsExposureTemplate Template)> Assignments);
+
+/// <summary>The bulk counterpart of <see cref="AdoptionPlan"/>: one insert batch (a target payload when
+/// creating, then one plan per accepted cell), the grid-style label, and the counts the status line
+/// reports. Nothing here has touched the db.</summary>
+internal sealed record BulkAdoptionPlan(
+    IReadOnlyList<TsRowInsert> Rows, string Label, bool CreatesTarget, int PlanCount);
+
 /// <summary>
 /// The pure planning half of "Add to TS" (openspec `disk-row-adoption`): decides which disk-only rows offer
 /// the action, assembles the assignment dialog's facts (project options, strict-scope template candidates
 /// with their merge verdicts), and builds the insert payloads for the accepted choice — all from the
 /// retained load (graph + TS snapshot), no db access. The write itself goes through
 /// <c>TsEditGate.ApplyInsertAsync</c>. Templates are assigned, never created or edited (obs 3dfe): TS is
-/// the authoring surface; TSM only points at existing rows.
+/// the authoring surface; TSM only points at existing rows. Adoption has two grains sharing every rule:
+/// per-cell (one row, one plan) and per-target (a rollup's eligible cells through one combined dialog,
+/// one atomic batch) — the bulk members compose the per-cell ones, so the grains can never disagree.
 /// </summary>
 internal static class AdoptionPlanner
 {
@@ -115,9 +156,7 @@ internal static class AdoptionPlanner
             targetName = diskTarget.Name;
             raHours = ra;
             decDegrees = dec;
-            // Only a sky angle seeds rotation (fold-180 normalized, the comparison space); mechanical and
-            // unknown never convert. No rotation stays NULL — a rotation-less target credits any framing.
-            seededRotation = row.Config.Rotation == RotationExpression.Sky ? row.Config.RotationFoldDeg : null;
+            seededRotation = SeededRotation([row]);
 
             IReadOnlyList<TsProject> pickable = PickableProjects(ts);
             if (pickable.Count == 0)
@@ -125,9 +164,7 @@ internal static class AdoptionPlanner
             options.AddRange(pickable.Select(p => ProjectOption(p, row, ts)));
         }
 
-        string emptyReason = row.Config.BinningX != row.Config.BinningY
-            ? $"{row.Config.BinningX}×{row.Config.BinningY} binning — no TS template can express a non-square bin"
-            : $"no {row.Filter} template at bin {row.Config.BinningX} in this profile — create one in NINA's TS editor first";
+        string emptyReason = EmptyScopeReason(row);
 
         return (new AdoptionFacts(label, ProjectLocked: tsTarget is not null, options,
             row.Filter, RowPurpose(row).ToString(), row.Config.Gain, row.Config.Offset,
@@ -180,54 +217,174 @@ internal static class AdoptionPlanner
         TsTarget? tsTarget = FindTarget(ts, row.TsTargetKey);
         string label = Format.Label(row.Target, row.Filter);
 
-        string planGuid = Guid.NewGuid().ToString();
         List<TsRowInsert> rows = [];
-        object targetReference;
-
+        object? targetReference;
         if (tsTarget is not null)
         {
-            // Reference by guid whenever the target has one — its integer id is only copy-stable when the
-            // row itself came from a pull, and an unpushed adopted target's id is local-minted.
-            targetReference = (object?)tsTarget.TsGuid ?? tsTarget.Id;
+            targetReference = ExistingTargetReference(tsTarget);
         }
         else
         {
-            Astronomy.Catalog.Schema.Target? diskTarget = graph.Targets.FirstOrDefault(t => t.Id == row.TargetId);
-            if (diskTarget is null)
-                return (null, $"{label}: the disk target is missing from the retained graph — reload and retry");
-            if (diskTarget.RaHours is not double ra || diskTarget.DecDegreesSigned is not double dec)
-                return (null, $"{label}: no plate-solved centroid on disk — TS needs coordinates");
-
-            // Only a sky angle seeds rotation (fold-180 normalized, the comparison space); mechanical and
-            // unknown never convert. No rotation stays NULL — a rotation-less target credits any framing.
-            double? seededRotation = row.Config.Rotation == RotationExpression.Sky ? row.Config.RotationFoldDeg : null;
-
-            string targetGuid = Guid.NewGuid().ToString();
-            Dictionary<string, object?> targetPayload = new(StringComparer.OrdinalIgnoreCase)
-            {
-                ["guid"] = targetGuid,
-                ["projectid"] = (object?)project.TsGuid ?? project.Id,
-                ["name"] = diskTarget.Name,
-                ["active"] = 1,
-                ["ra"] = ra,                 // graph coords are already TS's units (hours / signed degrees)
-                ["dec"] = dec,
-                ["epochcode"] = 2,           // NINA Epoch.J2000 — disk plate solves are J2000
-                ["roi"] = 100.0,
-                ["priority"] = -1,           // TargetPriority.Default
-            };
-            if (seededRotation is double rot)
-                targetPayload["rotation"] = rot;
-            rows.Add(new TsRowInsert(TsTable.Target, targetPayload));
-            targetReference = targetGuid;    // resolved in the same batch locally, after its insert remotely
+            string? refusal = AppendCreatedTarget(rows, row, [row], graph, project, label);
+            if (refusal is not null)
+                return (null, refusal);
+            targetReference = rows[0].Payload["guid"];
         }
 
-        // Born complete (record history): desired = acquired = accepted = the cell's disk count. The
-        // exposure override only when the template default differs (the -1 defer-to-template sentinel).
-        // The template always pre-exists (assignment, never creation), so its copy-stable integer id is
-        // the reference.
-        rows.Add(new TsRowInsert(TsTable.ExposurePlan, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        rows.Add(PlanInsert(row, project, template, targetReference!));
+        return (new AdoptionPlan(rows, label, template, CreatesTarget: tsTarget is null), null);
+    }
+
+    /// <summary>
+    /// A rollup's individually-eligible cells, grid order preserved — the bulk action's unit of work and
+    /// its menu gate (any ⇒ offer). A mosaic parent has none by definition (panel/target creation under
+    /// isMosaic stays out of scope, matching the per-cell exclusion).
+    /// </summary>
+    public static IReadOnlyList<ReconciliationRow> EligibleCells(TargetGroupRow group, TsPlanData ts) =>
+        group.IsMosaic ? [] : [.. group.Children.Where(c => IsEligible(c, ts))];
+
+    /// <summary>
+    /// Everything the bulk dialog shows, or the refusal explaining why it can't open: the project
+    /// situation resolved once (locked owner / pickable list + target-creation facts — the per-cell
+    /// rules), every eligible cell's facts, and each cell's template scope under every offered project,
+    /// all precomputed. Refusals are structural; empty per-cell scopes still open the dialog, which greys
+    /// those cells with the reason.
+    /// </summary>
+    public static (BulkAdoptionFacts? Facts, string? Refusal) GetBulkFacts(
+        TargetGroupRow group, CatalogGraph graph, TsPlanData ts)
+    {
+        IReadOnlyList<ReconciliationRow> eligible = EligibleCells(group, ts);
+        if (eligible.Count == 0)
+            return (null, $"{group.Target}: no adoptable cells — reload and retry");
+
+        TsTarget? tsTarget = FindTarget(ts, eligible[0].TsTargetKey);
+        string? targetName = null;
+        double? raHours = null, decDegrees = null, seededRotation = null;
+        List<TsProject> projects = [];
+
+        if (tsTarget is not null)
         {
-            ["guid"] = planGuid,
+            TsProject? owning = ts.Projects.FirstOrDefault(p => p.Id == tsTarget.ProjectId);
+            if (owning is null)
+                return (null, $"{group.Target}: the TS target's project is missing from the snapshot — reload and retry");
+            projects.Add(owning);
+        }
+        else
+        {
+            Astronomy.Catalog.Schema.Target? diskTarget = graph.Targets.FirstOrDefault(t => t.Id == eligible[0].TargetId);
+            if (diskTarget is null)
+                return (null, $"{group.Target}: the disk target is missing from the retained graph — reload and retry");
+            if (diskTarget.RaHours is not double ra || diskTarget.DecDegreesSigned is not double dec)
+                return (null, $"{group.Target}: no plate-solved centroid on disk — TS needs coordinates");
+
+            targetName = diskTarget.Name;
+            raHours = ra;
+            decDegrees = dec;
+            seededRotation = SeededRotation(eligible);
+
+            IReadOnlyList<TsProject> pickable = PickableProjects(ts);
+            if (pickable.Count == 0)
+                return (null, "no TS projects to adopt into — create one in NINA's TS editor first");
+            projects.AddRange(pickable);
+        }
+
+        List<BulkAdoptionCell> cells = [.. eligible.Select(r => new BulkAdoptionCell(
+            r, r.Filter, RowPurpose(r).ToString(), r.Config.Gain, r.Config.Offset, r.Config.BinningX,
+            r.DiskSeconds, r.Disk, EmptyScopeReason(r)))];
+        List<BulkAdoptionProjectOption> options = [.. projects.Select(p => new BulkAdoptionProjectOption(
+            p,
+            [.. eligible.Select(r =>
+            {
+                (IReadOnlyList<AdoptionCandidate> candidates, int preselect) = ListCandidates(r, ts, p.ProfileId);
+                return new BulkCellScope(candidates, preselect);
+            })]))];
+
+        return (new BulkAdoptionFacts(group.Target, ProjectLocked: tsTarget is not null, cells, options,
+            targetName, raHours, decDegrees, seededRotation), null);
+    }
+
+    /// <summary>
+    /// Assembles the accepted bulk adoption as one batch: the target payload (when the TS target doesn't
+    /// exist — rotation seeded from the first included cell expressing a sky angle) followed by one
+    /// born-complete plan per accepted assignment. Any structural refusal aborts the whole batch naming
+    /// the offending cell — no partial adoption is ever built. Never writes.
+    /// </summary>
+    public static (BulkAdoptionPlan? Plan, string? Refusal) BuildBulk(
+        TargetGroupRow group, CatalogGraph graph, TsPlanData ts, BulkAdoptionChoice choice)
+    {
+        if (choice.Assignments.Count == 0)
+            return (null, $"{group.Target}: no cells included — nothing to adopt");
+
+        ReconciliationRow first = choice.Assignments[0].Row;
+        TsTarget? tsTarget = FindTarget(ts, first.TsTargetKey);
+
+        List<TsRowInsert> rows = [];
+        object? targetReference;
+        if (tsTarget is not null)
+        {
+            targetReference = ExistingTargetReference(tsTarget);
+        }
+        else
+        {
+            string? refusal = AppendCreatedTarget(rows, first, choice.Assignments.Select(a => a.Row),
+                graph, choice.Project, Format.Label(group.Target, first.Filter));
+            if (refusal is not null)
+                return (null, refusal);
+            targetReference = rows[0].Payload["guid"];
+        }
+
+        foreach ((ReconciliationRow row, TsExposureTemplate template) in choice.Assignments)
+            rows.Add(PlanInsert(row, choice.Project, template, targetReference!));
+
+        int count = choice.Assignments.Count;
+        string label = Format.Label(group.Target, count == 1 ? "1 plan" : $"{count} plans");
+        return (new BulkAdoptionPlan(rows, label, CreatesTarget: tsTarget is null, PlanCount: count), null);
+    }
+
+    // Reference by guid whenever the target has one — its integer id is only copy-stable when the row
+    // itself came from a pull, and an unpushed adopted target's id is local-minted.
+    private static object ExistingTargetReference(TsTarget tsTarget) =>
+        (object?)tsTarget.TsGuid ?? tsTarget.Id;
+
+    // Appends the created-target insert from the disk centroid (rotation seeded from the given cells), or
+    // returns the structural refusal naming the offending cell. The payload's minted guid is the batch's
+    // target reference — resolved in the same batch locally, after its insert remotely.
+    private static string? AppendCreatedTarget(
+        List<TsRowInsert> rows, ReconciliationRow anchor, IEnumerable<ReconciliationRow> seedCells,
+        CatalogGraph graph, TsProject project, string label)
+    {
+        Astronomy.Catalog.Schema.Target? diskTarget = graph.Targets.FirstOrDefault(t => t.Id == anchor.TargetId);
+        if (diskTarget is null)
+            return $"{label}: the disk target is missing from the retained graph — reload and retry";
+        if (diskTarget.RaHours is not double ra || diskTarget.DecDegreesSigned is not double dec)
+            return $"{label}: no plate-solved centroid on disk — TS needs coordinates";
+
+        Dictionary<string, object?> payload = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["guid"] = Guid.NewGuid().ToString(),
+            ["projectid"] = (object?)project.TsGuid ?? project.Id,
+            ["name"] = diskTarget.Name,
+            ["active"] = 1,
+            ["ra"] = ra,                 // graph coords are already TS's units (hours / signed degrees)
+            ["dec"] = dec,
+            ["epochcode"] = 2,           // NINA Epoch.J2000 — disk plate solves are J2000
+            ["roi"] = 100.0,
+            ["priority"] = -1,           // TargetPriority.Default
+        };
+        if (SeededRotation(seedCells) is double rot)
+            payload["rotation"] = rot;
+        rows.Add(new TsRowInsert(TsTable.Target, payload));
+        return null;
+    }
+
+    // Born complete (record history): desired = acquired = accepted = the cell's disk count. The exposure
+    // override only when the template default differs (the -1 defer-to-template sentinel). The template
+    // always pre-exists (assignment, never creation), so its copy-stable integer id is the reference.
+    private static TsRowInsert PlanInsert(
+        ReconciliationRow row, TsProject project, TsExposureTemplate template, object targetReference) =>
+        new(TsTable.ExposurePlan, new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["guid"] = Guid.NewGuid().ToString(),
             ["profileId"] = project.ProfileId,
             ["targetid"] = targetReference,
             ["exposureTemplateId"] = template.Id,
@@ -236,10 +393,26 @@ internal static class AdoptionPlanner
             ["acquired"] = row.Disk,
             ["accepted"] = row.Disk,
             ["enabled"] = 1,
-        }));
+        });
 
-        return (new AdoptionPlan(rows, label, template, CreatesTarget: tsTarget is null), null);
+    // Only a sky angle seeds rotation (fold-180 normalized, the comparison space); mechanical and unknown
+    // never convert. No rotation stays NULL — a rotation-less target credits any framing. Over several
+    // cells, the first in grid order expressing a sky angle wins (design D6: a target's filters share one
+    // framing cluster in practice; a divergent seed is harmless under the fold-180 tolerance rules).
+    private static double? SeededRotation(IEnumerable<ReconciliationRow> cells)
+    {
+        foreach (ReconciliationRow cell in cells)
+            if (cell.Config.Rotation == RotationExpression.Sky)
+                return cell.Config.RotationFoldDeg;
+        return null;
     }
+
+    // The one wording for a cell whose strict template scope is empty: names the non-square bin (nothing
+    // can ever serve it) or the missing filter/bin template (the remedy lives in TS).
+    private static string EmptyScopeReason(ReconciliationRow row) =>
+        row.Config.BinningX != row.Config.BinningY
+            ? $"{row.Config.BinningX}×{row.Config.BinningY} binning — no TS template can express a non-square bin"
+            : $"no {row.Filter} template at bin {row.Config.BinningX} in this profile — create one in NINA's TS editor first";
 
     private static AdoptionProjectOption ProjectOption(TsProject project, ReconciliationRow row, TsPlanData ts)
     {

@@ -244,6 +244,57 @@ public sealed partial class MainViewModel
         return true;
     }
 
+    /// <summary>Menu gating for the rollup's "Add to TS… / Add TS plans…": at least one child cell the
+    /// per-cell gate would accept — a mosaic parent has none by definition. False before a load.</summary>
+    public bool IsTargetAdoptable(TargetGroupRow group) =>
+        _lastLoad is { Ts: { } ts } && AdoptionPlanner.EligibleCells(group, ts).Count > 0;
+
+    /// <summary>
+    /// The bulk "Add to TS" action (openspec adopt-target-rollup): every individually-eligible cell of one
+    /// rollup through one combined dialog (<see cref="BulkAdoptPrompt"/> — project once, per-cell template
+    /// assignment, include checkboxes), the accepted set written as ONE atomic insert batch (target payload
+    /// first when the TS target doesn't exist), then a no-pull reload re-reconciles every cell — `Both`
+    /// where the assigned template pairs, a TS row beside the disk row where the user accepted the caution.
+    /// Structural refusals surface through <see cref="AdoptRefusalPrompt"/>; cancel writes nothing.
+    /// </summary>
+    public async Task<bool> AdoptTargetAsync(TargetGroupRow group)
+    {
+        if (RefuseIfBusy($"Add to TS for {group.Target}"))
+            return false;
+        if (_lastLoad is not LoadResult load)
+        {
+            StatusText = "no load yet — nothing to adopt against";
+            return false;
+        }
+
+        (BulkAdoptionFacts? facts, string? refusal) = AdoptionPlanner.GetBulkFacts(group, load.Graph, load.Ts);
+        if (facts is null)
+            return await RefuseAdoptionAsync(refusal!);
+
+        BulkAdoptionChoice? choice = BulkAdoptPrompt is null ? null : await BulkAdoptPrompt(facts);
+        if (choice is null)
+        {
+            Log.Info($"ADOPT bulk cancelled ({group.Target})");
+            return false;
+        }
+
+        (BulkAdoptionPlan? plan, string? buildRefusal) = AdoptionPlanner.BuildBulk(group, load.Graph, load.Ts, choice);
+        if (plan is null)
+            return await RefuseAdoptionAsync(buildRefusal!);
+
+        EditOutcome outcome = await WithEditInFlightAsync(() => _gate.ApplyInsertAsync(plan.Rows, plan.Label));
+        if (!ApplyOutcome(outcome, plan.Label))
+            return false;
+
+        string plans = plan.PlanCount == 1 ? "1 plan" : $"{plan.PlanCount} plans";
+        StatusText = plan.CreatesTarget
+            ? $"added TS target + {plans} for {group.Target} — unpushed"
+            : $"added {plans} to TS for {group.Target} — unpushed";
+        Log.Info($"ADOPT applied: {StatusText}");
+        await LoadAsync(PullPolicy.Never);   // the created rows re-reconcile their cells, marks ride the reload
+        return true;
+    }
+
     // An explicit menu action that declines must decline loudly (the f39f lesson): status line + log +
     // dialog. These are structural refusals — the assignment dialog itself handles the empty-scope case.
     private async Task<bool> RefuseAdoptionAsync(string reason)

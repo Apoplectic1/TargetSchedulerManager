@@ -77,6 +77,12 @@ public sealed partial class MainWindow
                 if (group is { CanEnable: true, TsTargetKey: string targetKey })
                     menu.Items.Add(EditMenuItem("Edit target…",
                         () => ShowEditDialogAsync(TsTable.Target, targetKey, group.Target, group, null)));
+                // Bulk adoption (openspec adopt-target-rollup): a rollup with ≥1 individually-eligible
+                // cell offers the whole-target action — "Add to TS…" creates the target, "Add TS plans…"
+                // bulk-adopts the remaining unplanned cells. Mosaic parents never qualify (planner rule).
+                if (ViewModel.IsTargetAdoptable(group))
+                    menu.Items.Add(AddMenuItem(group.TsTargetKey is null ? "Add to TS…" : "Add TS plans…",
+                        () => AdoptTargetFromMenuAsync(group)));
                 (projectKey, projectName) = (group.ProjectTsKey, group.Project);
                 break;
             case PanelGroupRow panel:
@@ -271,9 +277,11 @@ public sealed partial class MainWindow
         return item;
     }
 
-    // The adoption click: every adoption goes through the VM funnel, which shows the one assignment dialog
-    // (project + template) via the AdoptPrompt hook. Cancel writes nothing.
+    // The adoption clicks: every adoption goes through its VM funnel, which shows the assignment dialog
+    // (per-cell: project + template via AdoptPrompt; bulk: the combined dialog via BulkAdoptPrompt).
+    // Cancel writes nothing.
     private Task AdoptRowFromMenuAsync(ReconciliationRow row) => ViewModel.AdoptRowAsync(row);
+    private Task AdoptTargetFromMenuAsync(TargetGroupRow group) => ViewModel.AdoptTargetAsync(group);
 
     // The Templates… picker: every template from the loaded graph (zero-use ones included — they have no
     // rows to anchor from), each opening the standard schema-generated flyout with the shared-scope title.

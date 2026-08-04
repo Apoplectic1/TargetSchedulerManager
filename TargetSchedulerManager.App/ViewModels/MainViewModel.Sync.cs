@@ -33,6 +33,11 @@ public sealed partial class MainViewModel
     /// (tests) cancels.</summary>
     internal Func<AdoptionFacts, Task<AdoptionChoice?>>? AdoptPrompt { get; set; }
 
+    /// <summary>UI hook (set by the window): the combined bulk-adoption dialog — project once, one
+    /// template assignment + include checkbox per eligible cell, unservable cells greyed with the reason.
+    /// Returns the choice covering only included servable cells, or null on cancel. Unset (tests) cancels.</summary>
+    internal Func<BulkAdoptionFacts, Task<BulkAdoptionChoice?>>? BulkAdoptPrompt { get; set; }
+
     /// <summary>The always-visible sync badge: last-synced time + unpushed count (state is displayed, never
     /// recalled — the user must never have to remember cross-session facts).</summary>
     public string SyncBadgeText
