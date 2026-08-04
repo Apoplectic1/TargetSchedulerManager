@@ -26,6 +26,7 @@ internal static class AmbiguityReport
         CatalogGraph graph,
         CatalogBuildReport report,
         WriteBackPlan plan,
+        TsPlanData ts,
         DateTimeOffset generatedAtLocal,
         string tsDbPath,
         string libraryRoot,
@@ -46,6 +47,22 @@ internal static class AmbiguityReport
                 templateNameByTsPlanId[tsId] = tpl.Name;
         }
         string PlanLabel(long tsPlanId) => templateNameByTsPlanId.GetValueOrDefault(tsPlanId, "plan");
+
+        // Each plan's containing "project › target", from the RAW snapshot — the graph rewires plans to the
+        // canonical target, so a duplicate fold's plans would all read as one home; the raw rows keep their
+        // true, possibly different, ones (field obs 2026-08-04: template + counts alone did not say where
+        // each plan lives). Unresolvable ids print no path — never a fabricated one.
+        Dictionary<long, TsTarget> tsTargetById = ts.Targets.ToDictionary(t => t.Id);
+        Dictionary<long, string> tsProjectNameById = ts.Projects.ToDictionary(p => p.Id, p => p.Name);
+        Dictionary<long, string> locationByTsPlanId = [];
+        foreach (TsExposurePlan p in ts.Plans)
+        {
+            if (!tsTargetById.TryGetValue(p.TargetId, out TsTarget? tsTarget)) continue;
+            string project = tsTarget.ProjectId is long pid
+                && tsProjectNameById.TryGetValue(pid, out string? projectName) ? $"{projectName} › " : "";
+            locationByTsPlanId[p.Id] = $"{project}{tsTarget.Name}";
+        }
+        string? PlanLocation(long tsPlanId) => locationByTsPlanId.GetValueOrDefault(tsPlanId);
         // "project › target" is how the TS UI navigates; a target with no known project shows bare.
         string ProjectOf(Guid targetId) =>
             targetById.GetValueOrDefault(targetId)?.ProjectId is Guid pid
@@ -64,7 +81,7 @@ internal static class AmbiguityReport
         // One builder per section (review N9) — Build reads as the report's table of contents.
         List<string> identity = BuildIdentitySection(report, heldCellsByDirectory);
         List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees);
-        List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, ProjectOf);
+        List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, PlanLocation, ProjectOf);
         List<string> templates = BuildTemplateSection(graph, targetById);
         List<string> unreadable = BuildUnreadableSection(skippedFiles);
         List<string> info = BuildInfoSection(plan);
@@ -168,16 +185,18 @@ internal static class AmbiguityReport
     private static List<string> BuildPlanSection(
         WriteBackPlan plan, CatalogGraph graph,
         Dictionary<Guid, Target> targetById, Dictionary<Guid, ExposureTemplate> templateById,
-        Func<long, string> planLabel, Func<Guid, string> projectOf)
+        Func<long, string> planLabel, Func<long, string?> planLocation, Func<Guid, string> projectOf)
     {
         List<string> plans = [];
         HashSet<(Guid, string, FilterPurpose, int)> manualKeys = [];
         foreach (ManualGroup g in plan.Manual.Where(g => g.Reason is ManualReason.MultiPlan or ManualReason.DuplicateFold or ManualReason.NoMatchingPlan))
         {
             manualKeys.Add((g.TargetId, g.Filter.ToUpperInvariant(), g.Purpose, g.Seconds));
-            // One indented row per plan — the shape the TS UI shows under a target.
+            // One indented row per plan — the shape the TS UI shows under a target, each with its
+            // containing project › target (a fold's plans live under DIFFERENT TS targets).
             string detail = string.Concat(g.Plans.Select(p =>
-                PlanRow(planLabel(p.TsExposurePlanId), p.Desired, p.CatalogAcquired, p.CatalogAccepted)));
+                PlanRow(planLabel(p.TsExposurePlanId), planLocation(p.TsExposurePlanId),
+                    p.Desired, p.CatalogAcquired, p.CatalogAccepted)));
             string fix = g.Reason switch
             {
                 ManualReason.DuplicateFold =>
@@ -193,7 +212,7 @@ internal static class AmbiguityReport
                 $"{g.Plans.Count} plans share one key; disk has {g.DiskCount} frame(s) at this key; counts are HELD (not auto-stamped)." +
                 $"{detail}\n  {fix}");
         }
-        plans.AddRange(SameKeyPlans(graph, targetById, templateById, projectOf, manualKeys));
+        plans.AddRange(SameKeyPlans(graph, targetById, templateById, projectOf, planLocation, manualKeys));
         return plans;
     }
 
@@ -320,6 +339,7 @@ internal static class AmbiguityReport
         Dictionary<Guid, Target> targetById,
         Dictionary<Guid, ExposureTemplate> templateById,
         Func<Guid, string> projectOf,
+        Func<long, string?> planLocation,
         HashSet<(Guid, string, FilterPurpose, int)> manualKeys)
     {
         var groups = graph.Plans
@@ -336,7 +356,10 @@ internal static class AmbiguityReport
         {
             Target? t = targetById.GetValueOrDefault(g.Key.TargetId);
             string detail = string.Concat(g.Select(x =>
-                PlanRow(x.Template!.Name, x.Plan.DesiredCount, x.Plan.AcquiredCount, x.Plan.AcceptedCount)));
+                PlanRow(x.Template!.Name,
+                    long.TryParse(x.Plan.ImportedFromTsGuid, NumberStyles.Integer, CultureInfo.InvariantCulture, out long tsId)
+                        ? planLocation(tsId) : null,
+                    x.Plan.DesiredCount, x.Plan.AcquiredCount, x.Plan.AcceptedCount)));
             string anchor = t?.Source == TargetSource.Planned ? " No disk anchor — TS-internal duplicate." : "";
             yield return
                 $"**{(t is null ? "" : projectOf(t.Id))}{t?.Name ?? "?"} · {Cell(g.First().Template!.FilterName, g.Key.Purpose, g.Key.Seconds)}** — " +
@@ -395,9 +418,11 @@ internal static class AmbiguityReport
     }
 
     /// <summary>One indented plan row under a target — the TS-UI target→plans shape (template-named, never
-    /// plan Ids), with the counts that tell duplicate plans apart.</summary>
-    private static string PlanRow(string label, int desired, int acquired, int accepted) =>
-        $"\n  - {label} — desired {desired}, acq {acquired} / acc {accepted}";
+    /// plan Ids), with the plan's containing <c>project › target</c> path (how the TS UI navigates; a fold's
+    /// plans live under different TS targets) and the counts that tell duplicate plans apart. A null
+    /// location prints nothing — never a fabricated path.</summary>
+    private static string PlanRow(string label, string? location, int desired, int acquired, int accepted) =>
+        $"\n  - {label}{(location is null ? "" : $" (in {location})")} — desired {desired}, acq {acquired} / acc {accepted}";
 
     // The cell naming convention lives in Format (presentation-conventions); this alias keeps call sites short.
     private static string Cell(string filter, FilterPurpose purpose, int seconds) =>

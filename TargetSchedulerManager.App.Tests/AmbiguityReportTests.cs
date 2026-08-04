@@ -267,6 +267,42 @@ public class AmbiguityReportTests
     }
 
     [Fact]
+    public void FoldedPlans_ListEachPlansOwnProjectAndTarget()
+    {
+        // A duplicate fold's plans live under DIFFERENT TS targets — possibly different projects. The graph
+        // rewires both onto one canonical target, so the true homes come from the raw snapshot; each plan
+        // row must print its own `project › target` path (user 2026-08-04).
+        Guid t = Guid.NewGuid(), tplA = Guid.NewGuid(), tplB = Guid.NewGuid();
+        CatalogGraph graph = Graph(
+            targets: [Tgt(t, TargetSource.Both, "M27", dir: "M27")],
+            templates: [Tpl(tplA, "H900", "H", 900, tsKey: "21"), Tpl(tplB, "H fast", "H", 900, tsKey: "22")],
+            plans: [Plan(t, tplA, "1"), Plan(t, tplB, "2")]);
+        TsPlanData ts = new(
+            Projects:
+            [
+                new TsProject(101, "prof-1", "Nebulae", 1, 1, null, 0, "p-101"),
+                new TsProject(102, "prof-1", "Legacy", 1, 1, null, 0, "p-102"),
+            ],
+            Targets:
+            [
+                new TsTarget(7, "M27", 1, 19.99, 22.72, 2, null, 100, 101, -1, "t-7"),
+                new TsTarget(8, "Dumbell", 1, 19.99, 22.72, 2, null, 100, 102, -1, "t-8"),
+            ],
+            Templates: [],
+            Plans:
+            [
+                new TsExposurePlan(1, "prof-1", -1, 20, 5, 5, TargetId: 7, ExposureTemplateId: 21),
+                new TsExposurePlan(2, "prof-1", -1, 20, 5, 5, TargetId: 8, ExposureTemplateId: 22),
+            ]);
+        WriteBackPlan plan = new(
+            [], [Manual(t, "M27", "H", 900, ManualReason.DuplicateFold)], [], 0);
+
+        string md = Build(graph, plan: plan, ts: ts).Markdown;
+        Assert.Contains("(in Nebulae › M27)", md);
+        Assert.Contains("(in Legacy › Dumbell)", md);
+    }
+
+    [Fact]
     public void SentinelTemplate_IsAnActionItem_NamingFieldsAndBlastRadius()
     {
         // Field obs b22d: the report must say what CAUSED a `sentinel` badge — the template, exactly which
@@ -300,8 +336,9 @@ public class AmbiguityReportTests
 
     private static AmbiguityReportResult Build(
         CatalogGraph graph, CatalogBuildReport? report = null, WriteBackPlan? plan = null,
-        IReadOnlyDictionary<string, string>? skippedFiles = null) =>
+        IReadOnlyDictionary<string, string>? skippedFiles = null, TsPlanData? ts = null) =>
         AmbiguityReport.Build(graph, report ?? Report(), plan ?? EmptyPlan(),
+            ts ?? new TsPlanData([], [], [], []),
             new DateTimeOffset(2026, 7, 8, 21, 0, 0, TimeSpan.FromHours(-4)),
             @"X:\ts\schedulerdb.sqlite", @"X:\library", toleranceDegrees: 0.5, skippedFiles);
 

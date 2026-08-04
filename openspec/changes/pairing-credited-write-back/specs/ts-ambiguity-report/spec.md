@@ -21,3 +21,21 @@ produce items.
 - **WHEN** every template expresses gain, offset, and readout mode
 - **THEN** the templates section carries no sentinel items (the section's clean marker when nothing else
   fires)
+
+### Requirement: Multi-plan items list each plan with its containing project
+Every report item that enumerates competing or context plans — held multi-plan cells, duplicate folds,
+no-matching-plan context, and the TS-internal same-key check — SHALL print each plan's row with its
+**containing project and TS target** (the `project › target` path the TS UI navigates by), resolved from
+the raw TS snapshot so a duplicate fold's plans show their true, possibly different, homes rather than the
+one canonical target the fold collapsed onto. A plan whose location cannot be resolved from the snapshot
+prints without a path, never a fabricated one. (Field obs 2026-08-04: template name + counts alone did not
+say where each plan lives.)
+
+#### Scenario: Folded plans show their different projects
+- **WHEN** a duplicate fold holds two plans whose TS targets live in different projects
+- **THEN** each plan's row prints its own `project › target` path, so the reader can navigate to both in
+  the TS UI
+
+#### Scenario: Same-key plans name their home
+- **WHEN** the same-key check reports two plans sharing one key on a TS target
+- **THEN** both plan rows carry the owning `project › target` path beside the template name and counts
