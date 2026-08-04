@@ -23,8 +23,7 @@ PCL projects aren't in TSM's solution). Path defaults live in
 copy** (`Processing\Catalog\TS Database\schedulerdb.sqlite`) only; `TsSync` pulls it fresh from
 BIRDWATCHER at open (skipped when the persisted baseline says it's unchanged — so rapid test
 relaunches skip the copy) and pushes journaled edits back through the reviewed **Push** button.
-Toolbar: sync badge ("synced yy/MM/dd hh:mm AM|PM · N unpushed") · Push… · Pull now · Templates… · Ambiguities… ·
-**Visible Tonight:** (Duration + Floor up-downs + Tonight); Reload never pulls. Full toolbar map: `DOMAIN.md` → Chrome.
+Reload rescans and never pulls; full toolbar map: `DOMAIN.md` → *Chrome*.
 
 **The instrument for a visual pass is `Ctrl+N`** — the Diagnostics window: type a note, capture the main
 window, and both land in `tsm.log` bracketed by `USER_OBS_START`/`USER_OBS_END`, so an observation carries its
@@ -59,8 +58,14 @@ the transient-UI trick: `DOMAIN.md` → Chrome.
 - **Templates…:** the picker's blast-radius title + per-template change mark; a `filtername` edit warns.
 - **Ambiguities…:** writes a dated report to `%APPDATA%\TargetSchedulerManager\Reports\` and opens it; the
   status line's `· N ambiguities` matches.
-- **Flyout field marks:** open a flyout on a row with inbound + local changes → per-field `←`/`→`/`⇄`, blank
+- **Editor field marks:** open the row editor dialog (right-click → Edit…, or the row's edit glyph) on a row
+  with inbound + local changes → per-field `←`/`→`/`⇄`, blank
   slots still aligned. Revert a field to its baseline → its mark and its unpushed count both clear.
+- **Adopt a disk-only cell:** right-click an eligible disk-only row → "Add TS plan…" (or "Add to TS…" when
+  the whole target is disk-only) → assignment dialog (project locked whenever the TS target exists;
+  template dropdown scoped to same filter + bin, non-pairing selection cautions but never blocks) → Accept →
+  the grid re-reconciles in place (a pairing assignment merges to `Both`); the new rows appear in the next
+  Push review's **Creates** section.
 
 ## Tests
 
@@ -72,9 +77,8 @@ the transient-UI trick: `DOMAIN.md` → Chrome.
 > both builds and runs the same tree.
 
 One test project: **`TargetSchedulerManager.App.Tests`** (`dotnet test TargetSchedulerManager.slnx`)
-— the app's real logic: `ReconciliationLoader.BuildRows`, the `MainViewModel` filter/toggle
-pipeline, `VisibleRowTree` (the flatten==splice invariant), `TsDatabaseResolver.Stat`, and the sync
-model (`TsSync` pull/skip matrix + push replay, `TsJournal`, `TsEditGate`, `WriteBackStep`). The
+— the app's real logic: row building, the VM pipeline, and the sync model (the test-file names are the
+index; an enumeration here would just drift). The
 sync tests use per-test temp dirs with **real SQLite files** for the online-backup pull ("remote" =
 a local temp path; unreachable = a path that doesn't exist) and stub `ITsEditor` /
 `ITsWriteBackApplier` seams for push replay (`SyncStubs.cs`). Runs in a **plain test host (no XAML
@@ -112,6 +116,8 @@ xUnit types references `xunit.v3.extensibility.core`. (Also noted in `..\Library
 Distribution rules + per-release flow live in `RELEASING.md`; this is the *verification* recipe:
 ```powershell
 .\scripts\release.ps1 -NoUpload     # publish → vpk pack, no GitHub touch
+# pre-flight fires on -NoUpload too: HEAD needs a reachable vX.Y.Z tag, and ..\Library must be
+# clean + tagged (no -alpha MinVer stamp) or the AL gate aborts — RELEASING.md → AL coordination.
 .\Releases\TargetSchedulerManager-win-Setup.exe
 ```
 Confirm: installs per-user with Start Menu shortcut, launches, and `tsm.log` shows the startup

@@ -60,10 +60,8 @@ Four standing truths follow, and they settle most arguments about the grid:
   together still share ~67% at a full 90° turn, so a "bad" framing reads ~60%, not ~5%; only a pointing
   clear of the field approaches zero.
 
-(Landed 2026-07-27 with openspec `capture-config-keys` — gain/offset/binning reconciliation keys, camera a
-disk-side label — and 2026-07-29 with openspec `rotation-framing-key` — framing (fold-180 sky rotation +
-cluster centroid) as a key, per the same-day measurement spike over 18,650 frames. Telescope remains
-deferred — see `ROADMAP.md`.)
+(Contract detail: `openspec/specs/capture-config-keys` + `framing-keys`; telescope deferred — see
+`ROADMAP.md`.)
 
 ## The grid idiom
 
@@ -132,7 +130,7 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   the plan; target/project changes mark the header). Tooltip: per-field `old → new` on leaves, direction
   counts on headers. Cleared: `→` by Push/Discard; `←` at the next open's pull. (Mechanics:
   `SUBSYSTEMS.md` → *Sync-direction marks*.) The `←`/`→`/`⇄` set is the app's **one sync vocabulary and is
-  not grid-only**: the same marks lead every field row of the schema-generated flyouts (a blank mark still
+  not grid-only**: the same marks lead every field row of the schema-generated edit dialogs (a blank mark still
   reserves its slot so labels stay aligned) and tag each item in the Templates… picker (2026-07-26, openspec
   `flyout-field-marks` / `template-change-marks`).
 - **Desired** = TS goal · **TS** = TS's recorded `acquired` (the count TS schedules on with the grader off) ·
@@ -192,8 +190,9 @@ goal of zero); measured disk-side absence = `0`.
 - **Pills** (rounded fill behind a cell): Seconds reads **`mixed`** with a caution pill when a rollup spans 2+
   sub-lengths; Hours carries the caution/success fill by sign.
 - **Badges** (rightmost, **two-tier color per token** — 2026-07-26, openspec `badge-severity-color`):
-  - **warning** (caution foreground) = repairable authoring, fix it by hand in NINA's TS UI:
-    `duplicate · name≠ · ambiguous · multi-plan · acc≠acq · no-coords`
+  - **warning** (caution foreground) = repairable authoring or frame provenance:
+    `duplicate · name≠ · ambiguous · multi-plan · acc≠acq · no-coords · camera · cam≠ · framing` — the tier
+    is declared once in `Models\Badges.cs` (`IsWarning`; `IsFlagged` follows it), which wins over any list here
   - **informative** (`ThemeBrushes.Secondary`, quiet) = a fact with no call to action: `mosaic · no data`
 
   Severity resolves **per token**, so `mosaic · multi-plan` shows one of each rather than promoting the whole
@@ -213,30 +212,31 @@ goal of zero); measured disk-side absence = `0`.
 
 - **Every item on a line is vertically centered, line by line** — `VerticalAlignment="Center"` **explicitly per
   cell** (not a window-wide implicit style; see *WinUI gotchas*). Add it on every new cell.
-- Numeric **columns** right-align (`TextAlignment="Right"`); text columns left; the enable checkbox centers in its
-  36 px gutter. (Numeric **edit boxes** center — see *Editing*.)
+- Column alignment is the *Columns* section's centering rule (every data column centered — header, values,
+  and edit boxes; wide text columns left); the enable checkbox centers in its 36 px gutter.
 
 ## Editing
 
-- **Edit-only — never structural.** Every TSM editor changes *fields on rows that already exist*; it never
-  adds, deletes, or duplicates a TS row at any level (target, project, plan, template). Structural change is
+- **Edit-plus-one-verb — never destructive.** Every TSM editor changes *fields on rows that already exist*,
+  with exactly **one structural verb**: the explicit per-row adoption of a disk-only cell (spec
+  `disk-row-adoption` — `target` + `exposureplan` inserts, never unasked). TSM never deletes or duplicates
+  a TS row at any level (target, project, plan, template); that change is
   TS's own job, done by hand in NINA's TS UI. Two of the 2026-07-06 flyout efforts declared it a Non-Goal
   independently — "no add/delete/duplicate (TS function, user decision)"
   (`openspec/changes/archive/2026-07-06-template-manager/design.md`) and "project add/delete (user rule:
   major surgery is a TS function)" (`…/2026-07-06-project-settings-flyout/design.md`) — and the resolver
   rejection re-confirmed it (2026-07-08). `ruleWeights` is out for the same reason — a one-to-many table, so editing it is TS-side
-  surgery, not a per-field commit. Don't re-propose an add/delete/duplicate verb for the Templates picker or
-  any flyout. This is the editor-surface form of the membership rule under *TS authoring conventions* below
+  surgery, not a per-field commit. Don't re-propose a delete/duplicate verb for the Templates picker or
+  any editor. This is the editor-surface form of the membership rule under *TS authoring conventions* below
   (membership is the user's planning intent), extended to every row kind — templates and plans included.
 - **In/at the grid only.** A docked dossier panel was built then dropped; `WinUI.TableView` was evaluated and
   rejected (the grid is a hierarchical tree a flat data-grid can't render). **Do not re-litigate.** The edit
-  flyout (below) is per-invocation and anchored to the clicked row — a popup answering one gesture, not a
-  persistent panel.
+  dialog (below) is per-invocation — opened per gesture, centered and movable, not a persistent panel.
 - **Direct in-grid controls** (high-frequency scalars): the **target-enable checkbox** (column 1, immediately
   right of the sync-mark gutter; on target headers only — hidden on disk-only + mosaic-parent rows) and **Desired** (a `NumberBox` on 1:1 plan leaf rows;
   read-only on headers, disk rows, and mixed rollups — **each plan is inline-editable in exactly one place**, the
   row showing its own exposure time, so a mixed rollup's box moves down to the plan's detail line (TS or nested
-  Both); the rollup keeps its flyout/pencil as the deliberate secondary gesture, 2026-07-23).
+  Both); the rollup keeps its dialog/pencil as the deliberate secondary gesture, 2026-07-23).
 - **Edit dialog** (everything else, 2026-07-06; flyout → movable dialog 2026-08-03): a **hover-revealed
   pencil glyph** (Opacity 0→1 via the template-root pointer handlers; `x:Name="EditGlyph"`) and a
   **right-click menu** ("Edit target…" / "Edit exposure plan…", built in code — `Row_RightTapped` — so
@@ -248,17 +248,21 @@ goal of zero); measured disk-side absence = `0`.
   The form opens in a **centered ContentDialog** draggable by
   any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
   move, so form-hosting surfaces are dialogs and menus stay flyouts; open-near-the-row seeding retired
-  2026-08-03, user call). Both open a row-anchored `Flyout` hosting `Controls/TsFieldsEditor` — a form
+  2026-08-03, user call). Both host `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
   directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
-  change/focus-loss (so light-dismiss can never lose work — no Apply button, ever); a failed write reverts the
+  change/focus-loss (so closing the dialog can never lose work — no Apply button, ever); a failed write reverts the
   control. **A committing surface stays interactive** — never disable it to prevent overlap: disabling moves
   focus, which re-fires the `LostFocus` commit re-entrantly (the cure invokes the disease). Commit *ordering*
   is solved by `CommitChain`, never by `IsEnabled`
-  (`openspec/changes/archive/2026-07-24-serial-commits/design.md` D3). Fields with a direct in-grid control also appear in the flyout — both paths converge on the same
-  setters, so the grid mirrors in place. **Sentinel columns** (TS stores a reserved −1 meaning "defer to the
-  default": plan `exposure` → template, template `gain`/`offset`/`readoutmode` → camera) render as their meaning
+  (`openspec/changes/archive/2026-07-24-serial-commits/design.md` D3). Fields with a direct in-grid control also appear in the dialog — both paths converge on the same
+  setters, so the grid mirrors in place. The exposure-plan dialog also renders a write-through **template
+  capture section** (gain/offset/bin): an edit there *is* a template edit — it journals as one, lights marks
+  on every plan sharing the template, and the section header carries that blast radius (2026-08-03,
+  obs ec6d). **Sentinel columns** (TS stores a reserved −1 meaning "defer to the
+  default" — declared per field in `TsEditableSchema` via `Sentinel`/`SentinelLabel`: plan `exposure` →
+  template, template `gain`/`offset`/`readoutmode` → camera, template `ditherevery` → project) render as their meaning
   — a "use default (…)" checkbox over the number box, never the raw −1; checked ⇔ the column holds −1 (box
   disabled, showing the resolved value when known), unchecking arms the box (the override commits only when a
   number commits). **The render-as-meaning rule is general** (2026-07-29, user obs: a push-review line read
@@ -271,13 +275,13 @@ goal of zero); measured disk-side absence = `0`.
   re-evaluates — clusters that matched may separate (old-framing frames stop serving the re-framed plan) and
   vice versa. The first edit that changes row *identity* rather than a value; designed behavior, not drift.
 - **Mosaics are a special case (user decision 2026-07-06):** a mosaic *parent* row is a grouping node (no TS
-  target), so its flyout edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
+  target), so its dialog edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
   to every TS-backed panel; tri-state display when panels disagree; each write individually guarded + audited)
   and **project priority** (one `project.priority` write; per-panel priority overrides survive — mechanism in
   `ARCHITECTURE.md` → *Key facts* / Mosaics). **Panels are normal targets**: standard target
-  glyph/flyout on the panel mini-header rows.
+  glyph/dialog on the panel mini-header rows.
 - **Cadence-breaking edits write directly - no confirm (user decision 2026-07-07):** plan `enabled` (checkbox
-  on 1:1 filter rows + flyout) and project `filterswitchfrequency` (project flyout) commit like any field.
+  on 1:1 filter rows + dialog) and project `filterswitchfrequency` (project dialog) commit like any field.
   Safety is structural, not dialog-based — the library clears the invalidated `filtercadenceitem` rows in the
   same transaction as the write (mechanism: `SUBSYSTEMS.md` → *TS write-back* + `ARCHITECTURE.md`'s `TsEditGate` paragraph; the
   cadence-clear scope contract is specced in `openspec/specs/per-filter-enabled-editing`). **Scope caveat:** a hand-authored
@@ -288,23 +292,23 @@ goal of zero); measured disk-side absence = `0`.
 - **Templates are shared config with no rows — so their editor is list-first (user decision 2026-07-06):**
   the toolbar **Templates…** picker lists every template from the loaded graph (name · filter · used-by count,
   zero-use templates included), and plan rows offer "Edit template…" for the template behind that plan. The
-  flyout title and the push-review label always state the **blast radius** — "Template '<name>' — used by
+  dialog title and the push-review label always state the **blast radius** — "Template '<name>' — used by
   N plan(s)" — because one template edit affects every plan using it. Caution: editing a template's
   `filtername` re-keys its write-back cells at the next resolve (legitimate, but know what it does).
 - **Projects are a column, not rows — so their editor is right-click-only (user decision 2026-07-06):**
   "Edit project…" appears in the context menu of any row that resolves a TS project key (target groups,
-  panels, plan rows) and opens the schema-generated project flyout; no second hover glyph (the hover-reveal
+  panels, plan rows) and opens the schema-generated project dialog; no second hover glyph (the hover-reveal
   is one glyph per row, and the pencil stays the row's own editor). All cadence-safe project fields are
   editable, `state` included — verified against the TS source that state is a plain enum column (no
   date-stamping on transitions). One courtesy rides the commits, **warn-never-block**: when
   `Min time > 2 × Meridian window` (with a window in use), TS would never select the project — TS's own Save
   refuses this pair; TSM's per-field commit instead writes the value and shows a persistent caution in the
-  flyout (clears when a commit fixes the pair) plus a status note.
+  dialog (clears when a commit fixes the pair) plus a status note.
 - Edits write to the **local** TS copy through one guarded path (refuse open-sidecar / read-only, read-back
   verify, audit, journal-for-push) and apply **in place** (no grid rebuild — scroll + a half-typed next cell
   survive). Nothing reaches BIRDWATCHER until the reviewed Push.
-- **Mirror rule (user-set, 2026-07-06):** any flyout-editable value that is also a visible grid column must
-  reflect **immediately on commit** (flyout still open), never waiting for a reload — including header
+- **Mirror rule (user-set, 2026-07-06):** any dialog-editable value that is also a visible grid column must
+  reflect **immediately on commit** (dialog still open), never waiting for a reload — including header
   re-aggregation. Row **positions hold** even when the edit changes a sort key (order refreshes on the next
   reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
@@ -344,8 +348,10 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
   refreshed 2026-08-02, obs 0cf4) + the collapsed journal count; `BIRDWATCHER offline · …` when the probe
   failed; `never pulled` before a first pull. State is *displayed*, never recalled.
 - **Push…** (caution-colored — this is the moment writes reach the rig): enabled exactly when unpushed edits
-  exist; opens the review `ContentDialog` — write-back count stamps first (**decreases first**, caution-colored,
-  `▼ target · filter @secs — TS old → new`), then manual edits (`label — column old → new`), with an InfoBar
+  exist; opens the review `ContentDialog` — **Creates** first (new TS rows from adoption, `＋ label — new entity:
+  summary`), then write-back count stamps (**decreases first**, caution-colored,
+  `▼ target · filter @secs — TS old → new`; a desired-only raise shows just `desired old → new`), then
+  manual edits (`label — column old → new`), with an InfoBar
   warning when BIRDWATCHER changed since the pull (warn, not block) or an error bar when its db is busy. The
   ellipsis is the dialog convention: Push… always reviews first.
 - **Pull now**: the skip-heuristic override; routed through the dirty guard (unpushed edits prompt first).
@@ -374,10 +380,12 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
 - Under these two conventions the write-back manual tray is provably empty; a non-zero tray means a convention
-  slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges)
-  but has no structural edit verbs (resolver rejected 2026-07-08; see
-  `docs/2026-07-08-resolver-rejection-is-lane.md` for why). `desired` is likewise user-owned planning
-  intent — never derived from disk (TSM's grid does edit the value; see Editing).
+  slipped. **Fixes happen by hand in NINA's TS UI on BIRDWATCHER** — TSM surfaces ambiguities (report/badges);
+  its one structural verb is the explicit per-row adoption (spec `disk-row-adoption`; the broader resolver
+  was rejected 2026-07-08 — see `docs/2026-07-08-resolver-rejection-is-lane.md` for why). `desired` is
+  user-owned planning intent — adoption seeds it once from the disk count at creation, but it is never
+  *derived* from disk afterward and never edited without the user asking (TSM's grid does edit the value;
+  see Editing).
 - TS's `acquiredimage`/`imagedata`/`flathistory` are disposable noise (grading lives in PixInsight; disk is the
   graded truth); TSM never reads or writes them.
 - TS structure reference (tables, columns, identity semantics): **`TS-SCHEMA.md`**.
@@ -406,8 +414,9 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
 - **Status bar:** library path + sync/write-back notes + load time.
 - **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
   hover-hint is suppressed. **Capture in 5 s** hides the window for the countdown so transient light-dismiss UI
-  (edit flyouts, context menus) can be opened and survives into the shot — plain Capture can never contain one
-  (focus shift dismisses it).
+  (context menus, pickers) can be opened and survives into the shot — plain Capture can never contain one
+  (focus shift dismisses it). Edit dialogs need no countdown: every dialog carries its own Ctrl+N
+  (`ShowDialogAsync` wires `PreviewKeyDown`).
 
 ## WinUI gotchas (and the workarounds)
 
@@ -445,7 +454,8 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 - **A `NumberBox` can't center its text via XAML.** `TextAlignment` doesn't reach its template-internal TextBox
   (microsoft-ui-xaml [#7399](https://github.com/microsoft/microsoft-ui-xaml/issues/7399) /
   [#2896](https://github.com/microsoft/microsoft-ui-xaml/issues/2896)). Workaround: one shared `Loaded` handler
-  (`NarrowNumberBox_Loaded`, used by every narrow box — the grid's Desired cell and the Visible-Tonight knobs)
+  (`NarrowNumberBox_Loaded`, used by the grid's Desired cell — its only call site; the toolbar knobs are
+  `Controls/UpDownBox` and need no repair)
   walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its `Padding`/`MinWidth`
   so digits fit a narrow box. **Zeroing that `MinWidth` is what makes a narrow `Width` take effect at all.**
 - **A narrow inline-spinner `NumberBox` is unreachable — use `Controls/UpDownBox` instead.** Decided
@@ -491,7 +501,8 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    block**, whose documented exception sorts after Seconds. If the column is a **reconciliation key** (rows
    separate on it), it must be legible on the rows that separated and must render `mixed` on a rollup whose
    children disagree — a separation the reader cannot explain is worse than no column.
-2. New **cell**? Add `VerticalAlignment="Center"`. Right-align if numeric. Text conventions come from
+2. New **cell**? Add `VerticalAlignment="Center"`. Center it (header, value, and any edit box) per the
+   Columns alignment rule. Text conventions come from
    `Models\Format.cs` — the one home (2026-07-24, `presentation-conventions`): `Format.Dash`/`CountOrDash`
    for empty cells (— means "nothing to say"; a measured 0 renders 0), `Format.Hours`, `Format.When`,
    `Format.Cell` ("H @900s"), `Format.Label` ("target · filter" — journal-persisted, shape is contract).
@@ -506,7 +517,7 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    never by spreading to siblings.
 4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical fills; `CautionText` / `Secondary`
    foregrounds) — don't hard-code. Note `Run`/`Inline` foregrounds can't use `Opacity`; reach for `Secondary`.
-5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; right-align.
+5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; center it.
 6. New **integer edit box**? Digit-budget width. In-grid, no spinners → `NumberBox` + `Loaded="NarrowNumberBox_Loaded"` (centers digits, lets a narrow `Width` stick). Visible spinners → `Controls/UpDownBox` (never a narrow inline `NumberBox` — see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
    run/screenshot the app (don't do it unprompted).

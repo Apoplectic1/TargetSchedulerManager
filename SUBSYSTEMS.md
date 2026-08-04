@@ -53,7 +53,7 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   `(seq, kind, table, key, column, absolute value, old, label, at)` to the journal. **Dirty ≡ journal
   non-empty** — derived from the persisted file, never a stored flag, so it is crash-safe by construction. The
   toolbar badge ("synced yy/MM/dd hh:mm AM|PM · N unpushed" — the time local == remote was last *proven*:
-  a pull, or a verified skip refreshing `RecordedAt`) displays the facts; Push is enabled exactly when dirty.
+  a pull, or a verified skip refreshing `RecordedAt`) displays the facts; Push is enabled exactly when dirty and no bulk operation is running.
   *Durability boundary (2026-07-24):* appends are flushed to the OS before becoming visible — they survive
   a **process** crash; an OS/power failure can lose the final line, and nothing here can close that (the
   SQLite commit and the journal append are two separate durability events, never atomic). The loss mode is
@@ -140,6 +140,14 @@ per-field `old → new` lines on leaves (template-inherited lines attributed "�
 headers, attributed lines for own-scope target/project fields + direction counts for rolled-up plan/template
 fields. Spec: `openspec/specs/edit-direction-marks/`.
 
+- **Key spaces are per-table, layered on the TS guid/`Id` identity system** (`TS-SCHEMA.md` → *Two-name
+  identity system*): `Target` and `Project` = **guid** (both from `TargetResolver.Provenance`, which returns
+  the TS guid and falls back to the `Id`-string only when TS supplies none); `ExposurePlan` and
+  `ExposureTemplate` = the TS integer `Id` as a string (manual `PlanTsKey` and write-back `TsExposurePlanId`
+  share one space). All key compares are **case-insensitive**. Getting a key space wrong makes a mark or
+  journal lookup *silently miss* rather than fail — exactly how `TsInboundDiff` keyed projects by `Id`
+  unnoticed until 2026-07-26; a guid-keyed regression test pins it
+  (`TsInboundDiffTests.PullDiff_ProjectChange_IsKeyedByGuid_NotId`).
 - **Outbound is the journal, re-read.** No new state: a row marks `→` iff a journal entry's (table, key)
   matches its `PlanTsKey` / `TsTargetKey` / `ProjectTsKey` — so marks survive restarts (the journal sidecar
   persists) and a partial push's retained failures keep exactly their rows marked.
@@ -149,7 +157,7 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
   **session-sticky in-memory store** (`TsSync.Inbound`). The diffed set is authored (the columns TSM displays
   or edits — the `TsEditableSchema` convention), never `PRAGMA`-discovered, so TS-internal bookkeeping can't
   produce noise; the `exposuretemplate` columns are *derived* from `TsEditableSchema` (2026-07-26) so ←
-  coverage can't drift from what the flyout edits. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
+  coverage can't drift from what the edit dialog edits. First-ever pull (no local file) diffs nothing; no-pull sessions (offline / Continue-local)
   have no `←`; a remotely-added row reports one "new row" entry; deletions report nothing. A diffable column
   **absent from either snapshot is silently skipped** — a deliberate carve-out from the house fail-fast posture,
   because the differ is *observation, not contract*: a TS-side rename simply stops diffing that column instead
@@ -184,12 +192,12 @@ fields. Spec: `openspec/specs/edit-direction-marks/`.
   graph and re-applies every mark via PropertyChanged (raise-on-change only, never a collection rebuild — the
   scroll-preserving in-place rule). Called from `ApplyFilters`, every applied edit, and a push without a reload
   (Discard refreshes marks via its own full reload, not a direct sweep).
-- **Per-field marks in the flyouts** (2026-07-26): `SyncMarks.ForField(table, key, column)` resolves one
-  field's own directions (unattributed — the flyout names the entity; the row-scoped new-row fact never
+- **Per-field marks in the edit dialogs** (2026-07-26): `SyncMarks.ForField(table, key, column)` resolves one
+  field's own directions (unattributed — the dialog names the entity; the row-scoped new-row fact never
   surfaces per field), and `TsFieldsEditor` renders a leading fixed-width mark column through an optional
   batched `MarkResolver` delegate (one `BuildMarks()` per refresh pass, re-run after every commit — a
   just-committed field flips `→` live). A per-field `⇄` is the exact-field collision signal: an unpushed
-  local write and a rig-side change on that one field. The hand-built mosaic flyout wires the same marks
+  local write and a rig-side change on that one field. The hand-built mosaic dialog wires the same marks
   (master enable = union over the panels' `target.active`, per-panel tooltip lines).
 
 ## TS write-back (engine built 2026-06-08; app action shipped 2026-07-06)

@@ -22,7 +22,7 @@ goes, that ambiguity is the bug — resolve it before writing code.
 | UI-free display policy (formatting, badge vocabulary, enums) | `Models` (`Format.cs`, `Badges.cs`, `RowEnums.cs`) |
 | Sync / guarded-write policy | `Shared` (`TsSync`, `TsEditGate`, `TsJournal`, `TsInboundDiff`, `CommitChain`, …) |
 | A whole pipeline stage or report | `Services` (`ReconciliationLoader`, `SyncMarks`, `WriteBackStep`, `AmbiguityReport`, `VisibleTonightPass`) |
-| A custom control | `Controls` (`UpDownBox`, `TsFieldsEditor`, `BadgeRuns`) |
+| A custom control or attached behavior | `Controls` (`UpDownBox`, `TsFieldsEditor`, `BadgeRuns`, `DragMove`) |
 | A static XAML reaches directly — attached property, brush lookup | the **App project root**, `namespace TargetSchedulerManager.App` (`GridColumns`, `ThemeBrushes`) |
 | Window / app-shell plumbing | `Support`, `MainWindow.*.cs` partials |
 
@@ -51,11 +51,12 @@ project key space for weeks (2026-07-26, fixed) while the code did something els
 
 No back-edges: a stage never reaches backwards to re-run an earlier one.
 
-- **Load:** scan → TS read → resolve → project into rows.
+- **Load:** scan → TS read → resolve → write-back stamp → re-resolve (when it stamped) → project into rows.
 - **`ApplyFilters`:** filter → group → sort → flatten → publish.
 
-Keep it that way. A flow that needs to revisit an earlier stage is a signal the stage boundaries are wrong,
-not an invitation to add a loop. (This is also why `Resolve` is one long method with sequential phases rather
+Keep it that way. No stage silently loops; the load's one re-entry (write-back → re-resolve, reusing the
+scan) is explicit, bounded, and named. A flow that needs to revisit an earlier stage is otherwise a signal
+the stage boundaries are wrong, not an invitation to add a loop. (This is also why `Resolve` is one long method with sequential phases rather
 than extracted helpers — see *A note on long methods*.)
 
 ## The view/view-model seam
@@ -71,7 +72,7 @@ than extracted helpers — see *A note on long methods*.)
 - **Reach into a row template with an attached property** (`GridColumns.ApplyRuler`, `BadgeRuns.Tokens`),
   never from `MainWindow` code-behind.
 - **A shared control takes identity as delegates, never as a key.** `TsFieldsEditor` serves the target,
-  project, template and plan flyouts and never learns which table or row it is editing: commit, effective-value
+  project, template and plan edit dialogs and never learns which table or row it is editing: commit, effective-value
   seed, and mark lookup all arrive as delegates closed over the key at the call site (`CommitField`,
   `EffectiveValue`, `MarkResolver`). Each new cross-cutting concern has taken that same seam rather than
   teaching the control about TS keys — do the same with the next one
@@ -117,7 +118,7 @@ one you have before reaching for the split.
 
 ## Naming
 
-Private fields are `_camelCase` (99 of them, uniformly). Ported Hungarian forms — `mId`, `sCurrent` — are not
+Private fields are `_camelCase`, uniformly. Ported Hungarian forms — `mId`, `sCurrent` — are not
 used here and should not arrive with code copied from TargetPlanner.
 
 ## One helper, two null postures
@@ -148,7 +149,8 @@ mutable state that has nowhere to live* is. If this ever does get split, the uni
 owns the state, not a static helper that receives it.
 
 The companion rule where that fix *was* applied: when a parameter object groups a run of same-typed fields
-(`RowNumbers` — seven ints and two doubles), **construct it with named arguments at every call site**. The
+(`RowNumbers` — a run of same-typed ints followed by same-typed doubles), **construct it with named
+arguments at every call site**. The
 type can't enforce this, and a positional build silently restores the transposition hazard the parameter
 object exists to remove (`openspec/changes/archive/2026-07-24-row-param-objects/design.md` D3).
 

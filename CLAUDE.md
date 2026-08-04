@@ -56,7 +56,7 @@ TSM has three cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astr
 `..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract),
 and `..\Library\Astronomy.Core\Astronomy.Core.csproj` (night window + visibility math for the
 Visible-tonight pass, added 2026-07-23) (local disk is source of truth; no NuGet/package hop).
-`Astronomy.Catalog` pulls in `Astronomy.XISF` (XISF header reader for the scanner). Build specifics
+`Astronomy.Catalog` pulls its own library deps (`..\Library\CLAUDE.md` has the map). Build specifics
 (pure-managed, plain `dotnet build`, why the `.vcxproj` MSBuild caveat doesn't apply here) → `VERIFICATION.md`.
 
 ## Build, run, test, verify
@@ -70,43 +70,19 @@ Disk = **ACTUAL**, TS = **PLAN**, reconciled onto **one canonical `target`** (`s
 Both). Full model + the build pipeline (`ImageLibraryScanner` → `TargetResolver` + `CatalogBuilder` →
 `CatalogStore` → `Reconciler`) → `ARCHITECTURE.md` → *Source-of-truth model* / *Components*.
 
-Invariants (condensed mirror of `ARCHITECTURE.md` → Key facts — **edit both**; full detail there):
-- **Coordinate-primary, scope-equal matching** — each TS target anchors to the nearest disk unit *of its own
-  scope* within a haversine tolerance (default **0.5°**; an *unaligned* panel claim only within **0.1°** —
-  a name-aligned panel directory anchors at the full 0.5°, an unrelated framing nearby stays unclaimed);
-  name validates (panels via their directory token);
-  an aligned claim outranks an unaligned one; **disk plate-solved coords win** on merge; the TS guid is
-  retained on `Both` as `imported_from_ts_guid` for write-back. Mismatches / ambiguous / duplicates /
-  unanchored / coerced rows are **reported in `CatalogBuildReport`, not dropped**.
-- **The capture configuration + framing key the cell** — a reconciliation cell is `(target, filter, purpose,
-  whole-second exposure, gain, offset, binning, framing cluster)`: everything deciding whether frames combine
-  into one integration. A plan and a disk aggregate render as one `Both` row **only when they agree on every
-  dimension both planes express** (rotation compared **fold-180**, and only where both express a *sky* angle —
-  mechanical is never converted to sky); otherwise a TS row plus Disk row(s), and that separation **is** the
-  diagnostic. **Camera is deliberately NOT a key** (a TS profile cannot name one) — a disk-side label only.
-  Write-back keeps the coarser `(target, filter, purpose, seconds)` key but sums only rows whose framing
-  **serves** the target's rotation. The `framing` badge **prices itself** on the deepest visible line
-  (`framing 57%` — share of the frames' own footprint landing on the plan's; render-layer decoration,
-  diagnostic only — never scales a credited count). Specs: `capture-config-keys` · `framing-keys`.
-- **A mosaic panel is a normal target** with a composite key: one parent row (grouping node, no plans or
-  inventory) + one child target per panel (`parent_target_id`); plans and inventory hang off children;
-  write-back treats panels like any other target. `GetShotTargets()` is top-level only.
-- **No migration framework** — the catalog is fully derived (scan + TS) and rebuildable. A schema change just
-  means deleting `Catalog.db`. There is no `schema_migration` / `user_version`. Schema is an embedded idempotent
-  `schema.sql`.
-- **Harden rule** — never pass a raw TS integer into a CHECK/FK column; `TargetResolver` coerces unknown
-  epoch/state/priority codes to a safe default and clamps planned RA/Dec, so one bad external TS row can't abort
-  the rebuild.
-- **Single writer + WAL** — one writer per db: TSM's in-app editor owns the **local** TS copy (BIRDWATCHER's db
-  is written only inside the reviewed push replay — `TsSync`, see `SUBSYSTEMS.md` → *TS sync model*),
-  `Catalog.db`'s builder (future ISM) there; consumers open via `SchemaManager.OpenReadOnly`. WAL is unhappy
-  over network shares (relevant if a consumer runs on another PC).
-- **Busy exclusion** — bulk operations (load, pull, push, visible-tonight) are mutually exclusive via
-  `TryBeginBusy()`/`EndBusy()` (the only writers of `IsLoading`); row edits are refused in the VM funnel while
-  one runs and their surfaces disable off `CanEdit`; an in-flight edit blocks a bulk op from starting. The
-  visible-tonight pass batches through `TsEditGate.ApplyManyAsync` — targets, then project flips derived
-  from the target flips that **landed** — under one unbroken busy scope (no seam admits an edit). The gate is
-  **bulk-vs-edit only**; edit-vs-edit ordering is `CommitChain` (per editing surface).
+Invariant *names* + one-line hooks — the full statements live ONCE in `ARCHITECTURE.md` → *Key facts*
+(single source; don't restate here):
+- **Matching** — coordinate-primary, scope-equal; aligned claims outrank; disk plate-solved coords win;
+  problem rows are reported in `CatalogBuildReport`, never dropped.
+- **Cell key** — the capture configuration + framing key reconciliation; `Both` only on full agreement on
+  every dimension both planes express; camera is a disk-side label, never a key.
+- **Mosaic model** — a panel is a normal target with a composite key; the parent is a grouping node.
+- **No migration framework** — the catalog is derived and rebuildable; a schema change deletes `Catalog.db`.
+- **Harden rule** — raw TS integers never reach CHECK/FK columns; coerce + report so one bad row can't
+  abort the rebuild.
+- **Single writer + WAL** — one writer per db; consumers open read-only.
+- **Busy exclusion** — bulk ops and row edits are structurally mutually exclusive (`TryBeginBusy`);
+  edit-vs-edit ordering is `CommitChain`.
 
 ## Shared-library discipline
 

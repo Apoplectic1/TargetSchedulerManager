@@ -41,33 +41,38 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   `WriteCatalog`), `GuidBlob`, the `Scan/` image-library scanner, the `Build/` reconciler (`TargetResolver` +
   `CatalogBuilder` + `CatalogBuildReport`), the `Reconcile/` goal-vs-actual layer (`Reconciler` +
   `CatalogStore.GetReconciliation` + `ReconciliationProjection`), and the hardened read-only
-  `TargetSchedulerReader`. Pure-managed (Microsoft.Data.Sqlite + Astronomy.XISF). **Every consumer references
+  `TargetSchedulerReader`. Pure-managed (no native deps). **Every consumer references
   this**, not the TSM app — the library is the contract.
 - **`TargetSchedulerManager`** (this app) — `TargetSchedulerManager.App` (assembly `tsmui`), a grid-first
   reconciliation editor over the **local TS working copy** (synced with BIRDWATCHER by pull/push — `SUBSYSTEMS.md` →
-  *TS sync model*): plan vs disk-ACTUAL per (target, filter, purpose, exposure seconds), tiered
-  editing (counts/toggles → identity → project knobs; structural fixes are hand-edits in NINA's TS UI, not
-  TSM verbs — resolver rejected 2026-07-08). Each load runs scan → resolve → project
+  *TS sync model*): plan vs disk-ACTUAL per capture-configuration cell (the full key → *Key facts*), tiered
+  editing (counts/toggles → identity → project knobs) plus **one structural verb** — per-row adoption of a
+  disk-only cell into TS (`target` + `exposureplan` inserts, journaled and replayed at push —
+  `SUBSYSTEMS.md` → *TS sync model*). All other structural fixes (delete, duplicate, re-parent) remain
+  hand-edits in NINA's TS UI, not TSM verbs — the 2026-07-08 resolver rejection scoped to ambiguity
+  resolution. Each load runs scan → resolve → project
   **in memory** (`ReconciliationLoader`); no `Catalog.db` is needed or written. Its TS data layer is a
   deletable stop-gap; the **UI shell is permanent** and retargets `Catalog.db` when IS arrives.
   Guarded TS writes go through two App-side modules: **`TsSync`** (`Shared/`) owns the sync model — the two
   paths, the timeout-guarded remote probe (`TsDatabaseResolver.Stat`), the persisted baseline
   (`TsSyncState`) + journal (`TsJournal`), the pull/skip decision, and the push replay; **`TsEditGate`**
-  (`Shared/`) is the one guarded write — `ApplyAsync(...) → EditOutcome` (`Applied`/`Refused`/`Failed`) over
-  an injected `ITsEditor`, always targeting the local copy, journaling every verified write for push — plus
+  (`Shared/`) is the guarded write — `ApplyAsync(...) → EditOutcome` (`Applied`/`Refused`/`Failed`) over
+  an injected `ITsEditor`, always targeting the local copy, journaling every verified write for push, with
+  `ApplyInsertAsync` as its row-creation sibling (the adoption verb's guarded insert) — plus
   the read half, `ReadFieldsAsync(table, key)`: the current db values of one row's editable columns
   (drift-absent columns omitted via `IsFieldAvailable`; row-missing/fault → null, never fabricated defaults),
-  which seeds the edit-flyout form. Both take their dependencies by injection, so the sync machine, the
+  which seeds the edit dialog's form. Both take their dependencies by injection, so the sync machine, the
   journal, and the guarded write are unit-tested without SMB (the pull's backup path over real temp SQLite
   files). The library half is the consumer-neutral
   `TargetSchedulerEditor.TrySetField(...) → (FieldEditResult?, RefusalReason)`, which folds the five guard predicates (four
-  open-db checks + the cadence-scope `HasOverrideOrder` refusal) into one structured-refusal call. UI-side, `Controls/TsFieldsEditor` generates the edit
+  open-db checks + the cadence-scope `HasOverrideOrder` refusal) into one structured-refusal call;
+  `TryInsertRows` is its batch-atomic insert sibling — the editor's only two public write paths. UI-side, `Controls/TsFieldsEditor` generates the edit
   form from `TsEditableSchema` (control type per `TsFieldType`, bounds/enum maps/units from the reference;
   cadence-breaking fields commit directly — the library clears `filtercadenceitem` atomically with the
   write, so no confirm dialog is needed) and commits per field back through the gate — the reference is the
   single source of truth from SQL whitelist to rendered control.
 - **`Catalog.db` and its consumers** — the persistent catalog is the planned **ISM**'s output (was the retired
-  CLI's job). TP / IS / IS will open it read-only via `SchemaManager.OpenReadOnly` (XFM opted out 2026-07-07 —
+  CLI's job). TP / IS / ISM will open it read-only via `SchemaManager.OpenReadOnly` (XFM opted out 2026-07-07 —
   TS-free, never consumes `Catalog.db`). The actual-only world for actuals-only consumers is
   `CatalogStore.GetShotTargets()` (source `Actual` | `Both`).
 
@@ -87,7 +92,7 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   target releases back to planned instead of piling onto a directory a correctly-named target owns — the
   Witch Head shape). Disk plate-solved coords win on merge; the TS guid is retained on `Both` for write-back.
   Cross-scope matches are impossible by construction (`CygnusLoop P3` can never grab `NGC 6995`). Duplicates /
-  mismatches / ambiguous / unanchored rows are reported in `CatalogBuildReport`, never dropped — a multi-claim
+  mismatches / ambiguous / unanchored / coerced rows are reported in `CatalogBuildReport`, never dropped — a multi-claim
   is always a duplicate (the alias-fold escape was removed 2026-07-23; one TS row per position, no exceptions).
 - **The capture configuration is the cell key** (2026-07-27, openspec `capture-config-keys`; framing added
   2026-07-29, openspec `rotation-framing-key`). A reconciliation cell is `(target, filter, purpose,
@@ -121,8 +126,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   crediting, surgical write-back routing — so the badge and the stamped counts can never tell different
   stories (a non-serving cell on the surgical path surfaces as a `FramingMismatch` note, never a silent
   skip). Tolerances are constants on `FramingCluster`, not settings (measured: real framings ≥ 9° apart,
-  jitter ≤ 0.2°). Editing a target's `rotation` re-keys pairing AND re-credits write-back on the next load —
-  the first edit that changes row *identity*, by design.
+  jitter ≤ 0.2°). Editing a target's `rotation` re-keys pairing AND re-credits write-back — the first edit
+  that changes row *identity*. Since 2026-08-03 a pairing-key edit (rotation; plan `exposure`; template
+  `gain`/`offset`/`bin`/`defaultexposure`/`filtername`/`name`) ends the editor session with a no-pull
+  re-reconcile, so reshaped rows appear when the dialog closes, not on the next manual reload.
 - **The badge prices itself: `framing 57%`** (2026-07-29, openspec `framing-overlap-column`) — the share of
   a cluster's own footprint landing inside the plan's, both rectangles the **cluster's own sensor** (so no
   neighbouring framing's camera can move the number), centered/rotated per plane on a tangent plane with
@@ -207,7 +214,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   acquired; a rare in-session `accepted ≠ acquired` drift surfaces as a flagged **`acc≠acq` badge** instead
   (`BuildRows`; the data stays in the row model). *Why `TS`, not a TS %:* TS's grader-off `PercentComplete`
   divides acquired by `ExposureThrottle × Desired` (default **125 %**), so a target shot to `Desired` reads ~80 %
-  and TS keeps scheduling it — TSM's `remaining = max(0, Desired − Actual)` is the honest completion. The
+  and TS keeps scheduling it — TSM's `remaining = max(0, Desired − Acquired)` is the honest completion
+  (deliberately acquired-based, not raw disk count: write-back stamps `acquired` from framing-**serving**
+  frames only, so this is the framing-aware number TS actually schedules on — user decision obs 01b7,
+  2026-07-29; the Hours gauge and `Sort: remaining` share the same basis). The
   `acc = acq = disk` *write* is the write-back contract (`SUBSYSTEMS.md` → *TS write-back*), applied **automatically to the local copy on
   every load** (`WriteBackStep`) and reviewed — decreases first — at push.
 - **Reuse:** the scan is `Astronomy.Catalog.Scan.ImageLibraryScanner` (on `Astronomy.XISF`'s header reader); the

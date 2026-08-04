@@ -29,24 +29,20 @@ NINA profile (equipment lives in NINA; TS references its guid as profileId)
 - An **Exposure Template** defines *how* to shoot a filter (filter, default exposure, gain, offset, bin, readout
   mode, twilight level, moon avoidance family, humidity cap, dither cadence, minutes offset). Profile-scoped.
 - An **Exposure Plan** is a target's *commitment* to a template: **counts live here** (`desired` = intent,
-  `acquired`/`accepted` = TS's tallies). Write-back stamps all three — `acquired`/`accepted` ← disk count and
-  `desired` ratcheted **up** to ≥ that (never lowered) — plus `enabled` and the exposure override.
+  `acquired`/`accepted` = TS's tallies). Write-back stamps exactly those three — `acquired`/`accepted` ← disk
+  count and `desired` ratcheted **up** to ≥ that (never lowered). The row also carries `enabled` and the
+  per-plan exposure override — user-edited, never stamped.
 - **Two-name identity system:** integer `Id` (autoincrement, **per-copy** — the FK glue; diverges between local
   copy and BIRDWATCHER for inserted rows) vs `guid` (minted at row creation, travels with the row — the
   **cross-copy stable name**; what TSM keys targets by and must carry through any insert replay).
   Exercised since 2026-08-03 by the adoption's insert replay (openspec `adopt-disk-rows`): locally created
-  `exposuretemplate`/`target`/`exposureplan` rows INSERT remotely at push (the remote mints its own `Id`,
-  the guid travels), parent references resolve **by guid** wherever ids can diverge (a plan's `targetid`, a
-  target's `projectid`, a same-batch created template) and by the copy-stable integer `Id` for a template
-  that came from a pull; the closing pull brings the rows back renumbered, correlated in the inbound differ
-  by guid.
-  TSM's **journal and mark key spaces** are layered per-table on top of this: `Target` and `Project` = **guid**
-  (both come from `TargetResolver.Provenance`, which returns the TS guid and falls back to the `Id`-string only
-  when TS supplies none); `ExposurePlan` and `ExposureTemplate` = the TS integer `Id` as a string (manual
-  `PlanTsKey` and write-back `TsExposurePlanId` share one space). All key compares are **case-insensitive**.
-  Getting a key space wrong makes a mark or journal lookup *silently miss* rather than fail — which is exactly
-  how `TsInboundDiff` keyed projects by `Id` unnoticed until 2026-07-26; a guid-keyed regression test now pins
-  it (`TsInboundDiffTests.PullDiff_ProjectChange_IsKeyedByGuid_NotId`).
+  `target`/`exposureplan` rows INSERT remotely at push (the remote mints its own `Id`, the guid travels —
+  templates are never created by TSM: assign-only since `assign-template-adoption`, TS is the authoring
+  surface). Parent references resolve **by guid** wherever ids can diverge (a plan's `targetid`, a
+  target's `projectid`) and a plan's template reference is always the copy-stable integer `Id` of a pulled
+  row; the closing pull brings the rows back renumbered, correlated in the inbound differ by guid.
+  Consequence for any consumer: **key by guid wherever ids can diverge** — TSM's own per-table journal/mark
+  key spaces and the guid-keyed regression test live in `SUBSYSTEMS.md` → *Sync-direction marks*.
 - **Units:** `target.ra` is **hours** (0–24); `target.dec` degrees. `exposureplan.exposure` / `defaultexposure`
   seconds; `exposure = -1` is the **use-template-default sentinel** (rendered by TSM's sentinel checkbox). The
   template columns `gain` / `offset` / `readoutmode` carry the same `-1` convention meaning **use-camera-default**
@@ -66,7 +62,7 @@ in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 `inactivedate` · `minimumtime` ✎ · `minimumaltitude` ✎ · `usecustomhorizon` ✎ · `horizonoffset` ✎ · `meridianwindow` ✎ ·
 `filterswitchfrequency` ✎ · `ditherevery` ✎ · `enablegrader` ✎ · `isMosaic` · `flatsHandling` ✎ · `maximumAltitude` ✎ ·
 `smartexposureorder` ✎ · `guid`
-TSM: read for grid grouping + project flyout; `isMosaic` drives the mosaic/panel model; per-project policy
+TSM: read for grid grouping + project dialog; `isMosaic` drives the mosaic/panel model; per-project policy
 (min/max altitude etc.) is the user's intent — TSM displays, never derives.
 
 ### target — 102 rows
