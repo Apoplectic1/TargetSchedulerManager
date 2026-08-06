@@ -11,6 +11,14 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED + RELEASED 2026-08-06 late — TSM `v1.5.0`: ambiguity report enumerates mechanical-only
+rotations** (`report-mechanical-rotation`, delta on `ts-ambiguity-report`): one Info line per
+in-scope target whose framings express only mechanical rotation — project+target, folded `°(M)`
+angle(s), frame count, and the now-actionable pointer (solve the frames in XFM's Solver read pass to
+measure sky rotation — the same-day XFM `v2.1.0` feature born from this grid's `°(M)` fallback).
+Info, not an action item: a missing measurement, not a slipped convention. The report is thereby the
+solve-candidate worklist — TSM identifies read-only, XFM executes. Tests App 423.
+
 **▶ RELEASED 2026-08-06 evening — TSM `v1.4.1`: payload realignment to AL `v1.5.0`** — no TSM app
 changes (repo delta since `v1.4.0` is tooling-only); the release rebuilds against the sibling
 Library at `v1.5.0` (XISF Tier 3 codecs + image read, `WcsOrientation`, `Diagnostics.WinForms` —

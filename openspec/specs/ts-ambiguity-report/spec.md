@@ -7,9 +7,7 @@ by hand in NINA's TS UI). One report gathers every detected TS/disk ambiguity wi
 hand fix, in rig vocabulary; the status line carries the action count after each load. (The original
 alias-fold informational handling was removed before this capability archived — a multi-claim is always a
 flagged duplicate; see `archive/2026-07-23-remove-alias-fold`.)
-
 ## Requirements
-
 ### Requirement: One printable report rolls up every detected ambiguity
 The app SHALL generate, on the user's demand, a single dated Markdown report containing every ambiguity known
 to the current load — the build report's target issues (name-mismatch, ambiguous match, duplicate fold,
@@ -151,3 +149,19 @@ should yield that target's report.)
 #### Scenario: The tripwire stays global
 - **WHEN** a search is active and a load completes
 - **THEN** the status line's ambiguity count still reflects the whole library, not the filtered view
+
+### Requirement: Mechanical-only framings are enumerated as informational items
+The report's informational section SHALL list every in-scope target whose disk framings express only
+mechanical rotation (no sky angle recorded), naming the target with its project prefix, the folded
+mechanical angle(s), and the number of frames, with a pointer to the measurement fix (plate-solving
+the frames). These are informational, not action items — a mechanical angle is a missing measurement,
+not a slipped authoring convention.
+
+#### Scenario: Mechanical framing listed
+- **WHEN** an in-scope target's framing carries mechanical-only rotation
+- **THEN** the informational section names the target, its folded `°(M)` angle(s), and its frame count
+
+#### Scenario: Sky framing not listed
+- **WHEN** a target's framings all express sky rotation
+- **THEN** no mechanical-rotation line appears for it
+
