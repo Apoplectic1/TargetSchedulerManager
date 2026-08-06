@@ -11,7 +11,8 @@ legible at a glance.
 ## What Changes
 
 - Every `FilterRowTemplate` row (filter leaves, mixed rollups, nested detail lines) gets a **low-alpha
-  full-row background wash** keyed by its filter code. Target group headers and mosaic panel
+  background wash spanning the Camera→Actual columns inclusive** (refined from full-row, user call
+  2026-08-05 after first render), keyed by its filter code. Target group headers and mosaic panel
   mini-headers span filters and stay plain.
 - Palette (user-supplied normalized RGB, the natural passband/emission hues):
   - Narrowband: `O` (0.00, 1.00, 0.71) · `H` (1.00, 0.00, 0.06) · `S` (0.78, 0.00, 0.00)

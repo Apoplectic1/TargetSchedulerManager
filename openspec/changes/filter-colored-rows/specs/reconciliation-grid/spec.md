@@ -1,8 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Filter-keyed row background wash on filter-level rows
-Every filter-level row (filter leaf, mixed rollup, and nested detail line) SHALL render a full-row
-background wash keyed by its filter code, from the fixed palette:
+Every filter-level row (filter leaf, mixed rollup, and nested detail line) SHALL render a background
+wash spanning the **Camera through Actual columns inclusive** (the capture-configuration + filter +
+count band; the identity/text columns left of Camera and the Hours/Plans/Badges columns right of
+Actual stay unwashed), keyed by its filter code, from the fixed palette:
 `O` (0.00, 1.00, 0.71) · `H` (1.00, 0.00, 0.06) · `S` (0.78, 0.00, 0.00) ·
 `B` (0.00, 0.27, 1.00) · `G` (0.00, 1.00, 0.24) · `R` (1.00, 0.08, 0.00)
 (normalized RGB, rendered at a low alpha tuned for the dark theme). Target group headers and mosaic
@@ -16,7 +18,7 @@ sorting, or any reconciliation key. Final wash strength is settled by the author
 
 #### Scenario: Palette filter tints
 - **WHEN** a target expands and an H-filter plan row renders
-- **THEN** the entire row carries the low-alpha H wash, and sibling O/S/R/G/B rows each carry their own palette wash
+- **THEN** the row's Camera→Actual column band carries the low-alpha H wash, and sibling O/S/R/G/B rows each carry their own palette wash
 
 #### Scenario: L and unknown filters stay plain
 - **WHEN** an L-filter row or a row whose filter code is outside the palette renders

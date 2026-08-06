@@ -137,7 +137,7 @@ public sealed partial class MainViewModel
     /// with tonight's sky — visible = a single contiguous window of at least <paramref name="minDuration"/>
     /// above <paramref name="floorAltitudeDeg"/> at the DevDefaults site (see
     /// <see cref="VisibleTonightPass"/>; both knobs come from the toolbar, defaults 30 min / 30°).3
-    /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flip
+    /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flipkel
     /// journals like a hand edit), reloads without a pull so the grid shows the flips + marks, then
     /// reports the counts on the status line.</summary>
     public async Task RunVisibleTonightAsync(TimeSpan minDuration, double floorAltitudeDeg)

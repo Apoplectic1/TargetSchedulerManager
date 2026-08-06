@@ -147,7 +147,9 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   acquired basis so sort and gauge never disagree. Tiny non-zero values render F2 so they never read `0.0`
   (`Format.Hours`).
 - **Filter wash** (2026-08-05, openspec `filter-colored-rows`): every filter-level row (filter leaf,
-  mixed rollup, nested detail line) carries a **low-alpha full-row background** in its filter's
+  mixed rollup, nested detail line) carries a **low-alpha background band spanning the Camera→Actual
+  columns inclusive** (the filter's own story; identity text left of Camera and Hours/Plans/Badges
+  right of Actual stay unwashed — user call after first render) in its filter's
   passband/emission hue — O teal · H red · S deep red · B blue · G green · R orange-red
   (`Models/FilterBrushes.cs`, one `WashAlpha` knob, dark-theme tuned). **`L` and any off-palette code
   are deliberately plain** — no fallback hue, no warning. Headers and panel mini-headers span filters

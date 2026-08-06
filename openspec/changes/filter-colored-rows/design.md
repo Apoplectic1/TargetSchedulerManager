@@ -37,10 +37,14 @@ A small static map (filter code → `SolidColorBrush` at wash alpha, `null` for 
 `Badges`/`Format`, per the one-plausible-home rule. UI.md checklist item 4 gains the sibling:
 filter-identity color comes from `FilterBrushes`, state color from `ThemeBrushes`.
 
-**D4 — Binding on the template root, `Transparent` fallback.** `ReconciliationRow` exposes a brush
-property (`FilterWash` or similar) consumed by `x:Bind` on the root `Grid.Background`. L/unknown/
-non-filter rows return `Transparent` — never `null` — preserving the hit-test contract the current
-literal provides. Recycle-safe by construction (plain binding, no imperative cell build).
+**D4 — A column-band `Border` underlay, not the template root.** (Revised 2026-08-05 after the first
+render: the user scoped the wash to the **Camera→Actual columns inclusive** — the columns carrying
+the filter's own story — leaving the identity text left of Camera and Hours/Plans/Badges right of
+Actual unwashed.) `ReconciliationRow` exposes `FilterWash`, consumed by a first-child `Border`
+spanning columns 5–15 (`IsHitTestVisible="False"`; first child = bottom of z-order, cells render on
+top). The root `Grid` keeps its literal `Transparent` background, so the hit-test contract is
+untouched rather than preserved-by-convention. L/unknown rows bind the shared transparent brush —
+never `null`. Recycle-safe by construction (plain binding, no imperative cell build).
 
 **D5 — Filter-code match is the row's own `Filter` display code.** The wash keys off the same
 single-letter code the Filter column renders (the row model's existing notion), so wash and letter

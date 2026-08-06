@@ -108,10 +108,14 @@
                 </Grid>
             </DataTemplate>
             <DataTemplate x:Key="FilterRowTemplate" x:DataType="m:ReconciliationRow">
-                <!-- The filter-identity wash (low alpha; transparent off-palette so empty cells still
-                     hit-test — the hover handlers reveal the edit glyph). -->
-                <Grid Background="{x:Bind FilterWash}" local:GridColumns.ApplyRuler="True"
+                <!-- Transparent background so empty cells hit-test: the hover handlers reveal the edit glyph. -->
+                <Grid Background="Transparent" local:GridColumns.ApplyRuler="True"
                       PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited">
+                    <!-- The filter-identity wash: the Camera→Actual column band (5–15), an underlay the
+                         cells render on top of. First child = bottom of the z-order; hit-test-invisible so
+                         the root Grid keeps owning hover. -->
+                    <Border Grid.Column="5" Grid.ColumnSpan="11" Background="{x:Bind FilterWash}"
+                            IsHitTestVisible="False"/>
                     <!-- Column 0: this plan's sync-direction mark (per-field old→new lines in the tooltip);
                          blank on disk-plane rows (no plan key) — target/project changes mark the header. -->
                     <TextBlock Grid.Column="0" Text="{x:Bind MarkGlyph, Mode=OneWay}" TextAlignment="Center"
