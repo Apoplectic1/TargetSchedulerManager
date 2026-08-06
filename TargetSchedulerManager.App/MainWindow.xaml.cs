@@ -183,18 +183,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static FrameworkElement? FindDescendantByName(DependencyObject root, string name)
-    {
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is FrameworkElement fe && fe.Name == name) return fe;
-            if (FindDescendantByName(child, name) is FrameworkElement nested) return nested;
-        }
-        return null;
-    }
-
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
     {
         int count = VisualTreeHelper.GetChildrenCount(root);

@@ -35,7 +35,7 @@ internal static class UpdateService
             }
 
             string version = update.TargetFullRelease.Version.ToString();
-            ContentDialog prompt = new()
+            ContentDialog prompt = new Controls.AppDialog()
             {
                 XamlRoot = owner.Content.XamlRoot,
                 Title = "Update available",

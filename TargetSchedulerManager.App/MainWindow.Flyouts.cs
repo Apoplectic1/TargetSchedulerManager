@@ -238,7 +238,7 @@ public sealed partial class MainWindow
         RefreshMosaicMarks();
         // A movable, centered dialog (2026-08-03 — was an anchored Flyout; a flyout's own popup window
         // can't be repositioned, so form-hosting surfaces are dialogs now; menus stay flyouts).
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Content = form,
@@ -420,7 +420,7 @@ public sealed partial class MainWindow
         // A movable, centered dialog (2026-08-03 — was an anchored Flyout; a flyout's own popup window
         // can't be repositioned, so form-hosting surfaces are dialogs now; menus stay flyouts).
         // ContentDialog's template scrolls the content, so tall forms (the 18-field template) stay usable.
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Content = content,

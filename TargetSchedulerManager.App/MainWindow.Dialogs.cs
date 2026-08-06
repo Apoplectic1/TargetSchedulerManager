@@ -31,37 +31,9 @@ public sealed partial class MainWindow
         // the centered "BackgroundElement" box), and translating it against the anchor raced layout —
         // twice field-failed with the box off-screen, a modal you can't see eating every click.
         Controls.DragMove.Attach(dialog);
-        // A lone dialog button centers (user 2026-08-05, obs f4d0). The template's CommandSpace is five
-        // columns — Primary(*) · spacer · Secondary(0) · spacer · Close(*) — with every button
-        // stretched, so a single visible button fills its half and reads off-center; 2–3 buttons fill
-        // the whole row symmetrically and need nothing. All the knobs are per-instance settable after
-        // the visibility states fire (unlike the NumberBox width saga), so this is a one-place repair.
-        // Deferred one tick past Opened: at Opened the dialog's template children may not be reachable
-        // from the element yet (the walk found nothing and the repair silently no-oped — field failure
-        // obs c200); the enqueued pass runs after the tree is live. The DIAG line is the tripwire if
-        // this ever regresses again.
-        dialog.Opened += (d, _) => d.DispatcherQueue.TryEnqueue(() =>
-        {
-            string? lone = (d.PrimaryButtonText, d.SecondaryButtonText, d.CloseButtonText) switch
-            {
-                (not (null or ""), null or "", null or "") => "PrimaryButton",
-                (null or "", not (null or ""), null or "") => "SecondaryButton",
-                (null or "", null or "", not (null or "")) => "CloseButton",
-                _ => null,
-            };
-            if (lone is null) return;   // 2-3 buttons fill the row symmetrically — nothing to repair
-            if (FindDescendantByName(d, lone) is Button b)
-            {
-                Grid.SetColumn(b, 0);
-                Grid.SetColumnSpan(b, 5);
-                b.HorizontalAlignment = HorizontalAlignment.Center;
-                b.MinWidth = 160;   // ~the half-column width it had; centered but still a dialog-scale target
-            }
-            else
-            {
-                Astronomy.Diagnostics.Log.Diag("Dialog", $"lone-button center: {lone} not found in visual tree");
-            }
-        });
+        // Lone-button centering rides the AppDialog TYPE (Controls/AppDialog.cs, template-part route) —
+        // an Opened-time visual-tree walk here field-failed twice (obs f4d0/c200: the walk never reached
+        // the template children, even a dispatcher tick later). Construct app dialogs as AppDialog.
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
@@ -79,7 +51,7 @@ public sealed partial class MainWindow
     // Escape/"Not now" keeps working locally with the journal intact (nothing is ever lost silently).
     private async Task<OpenDirtyDecision> ShowOpenDirtyDialogAsync(PushReview review)
     {
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Title = review.OldestEditAt is { } oldest
@@ -102,7 +74,7 @@ public sealed partial class MainWindow
     // The push review: the one real decision, made with the collapsed journal on screen.
     private async Task<bool> ShowPushReviewDialogAsync(PushReview review)
     {
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Title = $"Push {review.CollapsedCount} field(s) to BIRDWATCHER",
@@ -219,7 +191,7 @@ public sealed partial class MainWindow
     // unwatched).
     private async Task ShowAdoptRefusalDialogAsync(string reason)
     {
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS — not added",
@@ -279,7 +251,7 @@ public sealed partial class MainWindow
         panel.Children.Add(assignment.EmptyNote);
         panel.Children.Add(assignment.Caution);
 
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS",
@@ -344,7 +316,7 @@ public sealed partial class MainWindow
         };
         panel.Children.Add(projectBox);
 
-        ContentDialog dialog = new()
+        ContentDialog dialog = new Controls.AppDialog()
         {
             XamlRoot = Content.XamlRoot,
             Title = facts.TargetName is null ? "Add TS plans" : "Add to TS",
