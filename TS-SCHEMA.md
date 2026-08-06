@@ -64,9 +64,13 @@ in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 `smartexposureorder` ✎ · `guid`
 TSM: read for grid grouping + project dialog; `isMosaic` drives the mosaic/panel model; per-project policy
 (min/max altitude etc.) is the user's intent — TSM displays, never derives.
-**`minimumaltitude` 0 = "Off" in NINA's TS UI** (its dropdown offers no literal 0 — user 2026-08-06):
-the stored value is a plain 0.0, TSM shows it numerically, and a project named "… - Above 0" means the
-constraint is off, not a 0° floor demand.
+**Altitude/time fields are list-driven in NINA's TS UI, stored as plain numbers** (user fact 2026-08-06
++ verified in the TS source clone, `ProjectViewVM` / `AltitudeChoicesConverter`): `minimumaltitude`
+**0 = "Off"**, choices Off + 5–60° by 5; `maximumAltitude` **0 = "Off"**, choices Off + 50–85° by 5;
+`minimumtime` choices 5/10/20 then 30–240 by 30 (no Off). A project named "… - Above 0" means the
+constraint is off, not a 0° floor demand. **Gotcha:** any db value is legal to TS's planner, but a value
+outside the UI list (37.5°, 90 min…) renders as an *unselected* dropdown in TS's own editor — a TSM
+write can create that state.
 
 ### target — 102 rows
 `Id` PK · `name` · `active` ✎ · `ra` · `dec` · `epochcode` · `rotation` ✎(guarded) · `roi` · `projectid` ·
