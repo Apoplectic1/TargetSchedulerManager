@@ -108,10 +108,18 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
 ## Sorting
 
 Sort precedence follows the columns **left-to-right**: `Target → Project → Filter → Purpose → Seconds`, **natural
-order** on Target/Project/Filter (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21";
-Purpose compares plain ordinal). Project
+order** on Target/Project (`NaturalComparer` — "IC 405" before "IC 1318", "Abell 6" before "Abell 21";
+Purpose compares plain ordinal). **Filter compares by display rank, not alphabetically** (2026-08-05, obs c73e,
+openspec `filter-rank-row-order`): the fixed passband order **H · S · O · L · R · G · B**
+(`Format.FilterRank` — the single edit point when the filter set changes); codes outside the rank land after B,
+natural order among themselves. Project
 only separates same-named targets in different projects. Structural keys sit outside the column order: a mosaic's
-**panels** stay under their parent, and **plane** (TS above Disk) is the final tiebreak within a cell.
+**panels** stay under their parent, and **plane** is the final tiebreak — **Disk above TS** ("commitments sit
+under evidence", same reading as the expanded-rollup rule below).
+
+**Expanded Both rollups** present their source lines in **two blocks** (obs c73e): disk-backed lines first
+(pure Disk lines *and* merged Both lines — both are evidence of actuals), plan-only TS lines last, seconds
+ascending within each block — the bare commitment always sits under the evidence, even on a seconds tie.
 
 **One deliberate exception** (2026-07-27, openspec `capture-config-keys`): the **capture-configuration columns
 (Camera · Gain · Offset · Bin · Rot) sit left of Filter but sort *after* Seconds.** Sorting them in column
@@ -119,7 +127,7 @@ position would group every gain-53 row across *all* filters ahead of every gain-
 rows apart — exactly when you have expanded a target to follow that filter's story. Keeping them late leaves
 each filter's rows contiguous, with configuration breaking ties *within* a filter (Rot, 2026-07-29, follows the
 same rule and sits outside sort precedence entirely). Full precedence:
-`Target → Project → Panel → Filter → Purpose → Seconds → Gain → Offset → Bin → Camera → Plane`. The toolbar
+`Target → Project → Panel → Filter(rank) → Purpose → Seconds → Gain → Offset → Bin → Camera → Plane(Disk<TS)`. The toolbar
 sort picker's other modes (`remaining` / `disk` / `Δ ↓`) are **number-first** with a natural `Target → Project`
 tiebreak. `NaturalComparer` is pure-managed (no `shlwapi` P/Invoke).
 

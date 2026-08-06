@@ -208,10 +208,10 @@ public class BuildRowsTests
         Assert.True(rollup.SecondsMixed);
         Assert.NotNull(rollup.Detail);
         Assert.Equal(2, rollup.Detail!.Count);
-        Assert.Equal(RowPlane.Ts, rollup.Detail[0].Plane);     // seconds ascending: 300 plan first
-        Assert.Equal(300, rollup.Detail[0].PlanSeconds);
-        Assert.Equal(RowPlane.Disk, rollup.Detail[1].Plane);
-        Assert.Equal(600, rollup.Detail[1].DiskSeconds);
+        Assert.Equal(RowPlane.Disk, rollup.Detail[0].Plane);   // disk evidence first (obs c73e) …
+        Assert.Equal(600, rollup.Detail[0].DiskSeconds);
+        Assert.Equal(RowPlane.Ts, rollup.Detail[1].Plane);     // … the bare plan commitment last
+        Assert.Equal(300, rollup.Detail[1].PlanSeconds);
         Assert.All(rollup.Detail, d => Assert.True(d.IsDetail));
 
         // The rollup still aggregates both planes (counts + hours) even though the buckets never pair.
@@ -315,7 +315,7 @@ public class BuildRowsTests
     }
 
     [Fact]
-    public void Rows_SortByTargetFilterThenPlane_TsAboveDisk()
+    public void Rows_SortByFilterRank_PlanDetailLineLast()
     {
         Guid t = Guid.NewGuid(), tpl = Guid.NewGuid();
         List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
@@ -324,12 +324,85 @@ public class BuildRowsTests
                 [Inv(t, "B", FilterPurpose.Light, 3, 300.0), Inv(t, "O", FilterPurpose.Light, 2, 600.0)]),
             Report());
 
-        // B (disk-only filter) sorts before O; O's plan and disk buckets disagree → mixed rollup.
+        // O outranks B (Format.FilterRank, obs c73e — not alphabetical); O's plan and disk buckets
+        // disagree → mixed rollup.
         Assert.Equal(2, rows.Count);
-        Assert.Equal("B", rows[0].Filter);
-        Assert.Equal("O", rows[1].Filter);
-        Assert.True(rows[1].SecondsMixed);
-        Assert.Equal(RowPlane.Ts, rows[1].Detail![0].Plane);   // within a cell: TS above Disk
+        Assert.Equal("O", rows[0].Filter);
+        Assert.Equal("B", rows[1].Filter);
+        Assert.True(rows[0].SecondsMixed);
+        // Expanded detail: disk evidence first, the bare plan commitment last — even though the plan's
+        // 300 s would sort before the disk line's 600 s on seconds alone.
+        Assert.Equal(RowPlane.Disk, rows[0].Detail![0].Plane);
+        Assert.Equal(RowPlane.Ts, rows[0].Detail![^1].Plane);
+    }
+
+    [Fact]
+    public void Rows_FilterOrder_IsPassbandRank_NotAlphabetical()
+    {
+        Guid t = Guid.NewGuid();
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")], [], [],
+                [Inv(t, "B", FilterPurpose.Light, 1, 300.0), Inv(t, "G", FilterPurpose.Light, 1, 300.0),
+                 Inv(t, "H", FilterPurpose.Light, 1, 300.0), Inv(t, "L", FilterPurpose.Light, 1, 300.0),
+                 Inv(t, "O", FilterPurpose.Light, 1, 300.0), Inv(t, "R", FilterPurpose.Light, 1, 300.0),
+                 Inv(t, "S", FilterPurpose.Light, 1, 300.0)]),
+            Report());
+
+        Assert.Equal(new[] { "H", "S", "O", "L", "R", "G", "B" }, rows.Select(r => r.Filter));
+    }
+
+    [Fact]
+    public void Rows_UnrankedFilter_SortsAfterEveryRankedOne()
+    {
+        Guid t = Guid.NewGuid();
+        // "A" precedes every ranked code alphabetically but is not in the rank — it must land after B,
+        // ordering naturally among the other unranked codes.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")], [], [],
+                [Inv(t, "X1", FilterPurpose.Light, 1, 300.0), Inv(t, "A", FilterPurpose.Light, 1, 300.0),
+                 Inv(t, "B", FilterPurpose.Light, 1, 300.0), Inv(t, "H", FilterPurpose.Light, 1, 300.0)]),
+            Report());
+
+        Assert.Equal(new[] { "H", "B", "A", "X1" }, rows.Select(r => r.Filter));
+    }
+
+    [Fact]
+    public void Detail_MergedBothLine_StaysInDiskBlock_PlanOnlyLast()
+    {
+        Guid t = Guid.NewGuid(), tpl1 = Guid.NewGuid(), tpl2 = Guid.NewGuid();
+        // Plan 300 s pairs with the 300 s frames (merged Both line — evidence); plan 60 s has no frames
+        // (bare commitment). The merged line stays in the disk block; the plan-only line sinks last,
+        // 60 s < 300 s notwithstanding.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl1, desired: 10, seconds: 300.0), Plan(t, tpl2, desired: 5, seconds: 60.0)],
+                [Tpl(tpl1, "H", "H"), Tpl(tpl2, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0)]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.Equal(
+            new[] { RowPlane.Both, RowPlane.Ts },
+            rollup.Detail!.Select(d => d.Plane));
+    }
+
+    [Fact]
+    public void Detail_SecondsAscendWithinEachBlock()
+    {
+        Guid t = Guid.NewGuid(), tpl1 = Guid.NewGuid(), tpl2 = Guid.NewGuid();
+        // Two bare plan commitments (600 s, 60 s) + one unpaired disk bucket (gain split): the disk
+        // block leads, then the plan block in seconds-ascending order.
+        List<ReconciliationRow> rows = ReconciliationLoader.BuildRows(
+            Graph([T(t, "M 81", TargetSource.Both, dir: "M 81")],
+                [Plan(t, tpl1, desired: 10, seconds: 600.0), Plan(t, tpl2, desired: 5, seconds: 60.0)],
+                [Tpl(tpl1, "H", "H"), Tpl(tpl2, "H", "H")],
+                [Inv(t, "H", FilterPurpose.Light, 4, 300.0, gain: 53)]),
+            Report());
+
+        ReconciliationRow rollup = Assert.Single(rows);
+        Assert.Equal(
+            new[] { (RowPlane.Disk, 300), (RowPlane.Ts, 60), (RowPlane.Ts, 600) },
+            rollup.Detail!.Select(d => (d.Plane, d.Plane == RowPlane.Ts ? d.PlanSeconds : d.DiskSeconds)));
     }
 
     [Fact]

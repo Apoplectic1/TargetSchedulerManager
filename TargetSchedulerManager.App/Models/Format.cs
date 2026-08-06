@@ -42,6 +42,22 @@ internal static class Format
     /// already uses for mixed sub lengths, so one idiom covers every "these differ" cell.</summary>
     public const string Mixed = "mixed";
 
+    /// <summary>The filter display rank — narrowband H, S, O, then broadband L, R, G, B (user 2026-08-05,
+    /// obs c73e): the order a target's expanded rows read in, replacing alphabetical. Presentation only —
+    /// never a matching or reconciliation key. When the filter set changes, the user re-specifies this
+    /// list; it is the single edit point (codes outside it sort after every ranked one, naturally
+    /// ordered among themselves — see <see cref="FilterRankIndex"/>).</summary>
+    public static readonly string[] FilterRank = ["H", "S", "O", "L", "R", "G", "B"];
+
+    /// <summary>The sort position of a filter code: its <see cref="FilterRank"/> index, or one past the
+    /// rank for codes outside it (the caller breaks unranked ties naturally). Case-insensitive to match
+    /// the grid's uppercased filter grouping.</summary>
+    public static int FilterRankIndex(string filter)
+    {
+        int i = Array.FindIndex(FilterRank, f => f.Equals(filter, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 ? i : FilterRank.Length;
+    }
+
     /// <summary>
     /// Resolves a capture directory name to its camera alias, or <see langword="null"/> when the directory
     /// names no camera we know. Matching is on the model number the directory contains, so a directory named

@@ -199,15 +199,15 @@ public static class ReconciliationLoader
 
                 if (planCells.Count > 0 && diskCells.Count > 0)
                 {
-                    // One detail line per sub length, seconds ascending: a bucket carrying both planes is
-                    // a nested Both line (plan + disk together, gap hours); one-sided buckets stay TS/Disk.
+                    // One detail line per sub length, in two blocks (user obs c73e — commitments sit
+                    // under evidence): disk-backed lines first (a bucket carrying both planes is a
+                    // nested Both line — plan + disk together, gap hours — and counts as evidence),
+                    // plan-only TS lines last; seconds ascending within each block.
                     List<ReconciliationRow> detail = [];
-                    foreach (ReconciliationCell c in fp.OrderBy(c => c.Seconds))
-                    {
-                        if (c.PlanCount > 0 && c.Disk > 0) detail.Add(BothRow(c));
-                        else if (c.PlanCount > 0) detail.Add(TsRow(c, isDetail: true));
-                        else detail.Add(DiskRow(c, isDetail: true));
-                    }
+                    foreach (ReconciliationCell c in fp.Where(c => c.Disk > 0).OrderBy(c => c.Seconds))
+                        detail.Add(c.PlanCount > 0 ? BothRow(c) : DiskRow(c, isDetail: true));
+                    foreach (ReconciliationCell c in fp.Where(c => c.Disk == 0).OrderBy(c => c.Seconds))
+                        detail.Add(TsRow(c, isDetail: true));
 
                     // The rollup collapses to a single plain row ONLY when the group is one cell carrying both
                     // planes — i.e. the plan and the frames agree on the whole capture configuration, so the
@@ -386,6 +386,11 @@ public static class ReconciliationLoader
             if (byProject != 0) return byProject;
             int byPanel = PanelOrd(a).CompareTo(PanelOrd(b));
             if (byPanel != 0) return byPanel;
+            // Filter compares by display rank (H,S,O,L,R,G,B — Format.FilterRank; user obs c73e), not
+            // alphabetically; unranked codes land after every ranked one and order naturally among
+            // themselves via the fallback compare.
+            int byRank = Format.FilterRankIndex(a.Filter).CompareTo(Format.FilterRankIndex(b.Filter));
+            if (byRank != 0) return byRank;
             int byFilter = NaturalComparer.Instance.Compare(a.Filter, b.Filter);
             if (byFilter != 0) return byFilter;
             int byPurpose = string.Compare(a.Purpose, b.Purpose, StringComparison.Ordinal);
@@ -399,13 +404,23 @@ public static class ReconciliationLoader
             int byBin = a.Config.BinningX.CompareTo(b.Config.BinningX);
             if (byBin != 0) return byBin;
             int byCamera = string.Compare(a.Config.Camera, b.Config.Camera, StringComparison.OrdinalIgnoreCase);
-            return byCamera != 0 ? byCamera : a.Plane.CompareTo(b.Plane);
+            return byCamera != 0 ? byCamera : PlaneOrd(a.Plane).CompareTo(PlaneOrd(b.Plane));
         });
         return rows;
 
         // Panels keep their emit order (disk-backed by label, then planned); normal rows have no panel.
         int PanelOrd(ReconciliationRow r) =>
             r.PanelKey is null ? -1 : panelOrdinal[$"{r.Target}|{r.PanelKey}"];
+
+        // The plane tie-break reads "commitments sit under evidence" (user obs c73e): disk-backed rows
+        // (merged first, then pure disk) above plan-only TS rows — NOT enum declaration order, which
+        // would put the plan first.
+        static int PlaneOrd(RowPlane p) => p switch
+        {
+            RowPlane.Both => 0,
+            RowPlane.Disk => 1,
+            _ => 2,
+        };
 
         // Plan seconds when the row has a plan side, the disk bucket otherwise — keeps a filter's rows
         // in sub-length order with merged rows sitting where their plan does.
