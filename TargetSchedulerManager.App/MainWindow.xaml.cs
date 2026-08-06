@@ -176,6 +176,10 @@ public sealed partial class MainWindow : Window
             input.TextAlignment = TextAlignment.Center;
             input.MinWidth = 0;                          // default MinWidth can overflow a narrow box
             input.Padding = new Thickness(2, 0, 2, 0);   // trim inner padding so 3 digits fit centered when narrow
+            // The theme's 32px TextBox min-height exceeds the grid's 30px row minimum, making editor rows
+            // taller than their neighbours. Reachable per-instance: the template's BorderElement
+            // template-binds MinHeight (unlike the hard-coded widths that forced UpDownBox).
+            input.MinHeight = 0;
         }
     }
 

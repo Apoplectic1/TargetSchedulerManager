@@ -80,6 +80,11 @@ Indentation steps in per level (`ReconciliationRow.SourceMargin`); panel childre
   search, the flagged filter and headers reason over bare `framing`. Overlap facts with no badge (a serving
   framing pointed off-plan; the mixed-sensor qualifier) live in the ambiguity report's Info section.
 
+- **Purpose** prints only the exceptional value: `Light` (the default purpose, near-universal) shows a **blank
+  cell**; `Stars` prints (2026-08-05, obs 342a — the repeated `Light` was noise). Display-only
+  (`ReconciliationRow.PurposeText`): the underlying `Purpose` still carries `Light` for sort, the visible-row
+  tree key, and adoption's enum round-trip.
+
 - **Mark** (column 0, 24 px, unlabeled): the sync-direction mark on every row level — `←` = arrived changed
   from BIRDWATCHER (pull diff, sticky for the session) · `→` = unpushed local writes (journal: manual edits
   *and* write-back stamps) · `⇄` = both · blank = clean. Headers roll up the union of their subtree; a mosaic
@@ -410,6 +415,9 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   `Controls/UpDownBox` and need no repair)
   walks to the inner `TextBox` and sets `TextAlignment=Center` on the instance, trimming its `Padding`/`MinWidth`
   so digits fit a narrow box. **Zeroing that `MinWidth` is what makes a narrow `Width` take effect at all.**
+  The same handler zeroes the inner `MinHeight` (theme floor **32 px** > the grid's 30 px row minimum — editor
+  rows read taller than their neighbours; 2026-08-05, obs 342a). Height, unlike the widths below, IS reachable
+  per-instance: the template's `BorderElement` template-binds `MinHeight`, so the local value propagates.
 - **A narrow inline-spinner `NumberBox` is unreachable — use `Controls/UpDownBox` instead.** Decided
   2026-07-26 after three failed visual passes against three hard-coded template widths (WASDK 2.2's
   `generic.xaml`): the input's forced **120 px** `MinWidth` (the `SpinButtonsVisible` state), the

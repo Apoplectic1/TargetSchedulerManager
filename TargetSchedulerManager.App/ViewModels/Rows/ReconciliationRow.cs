@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Astronomy.Catalog.Scan;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
@@ -102,6 +103,12 @@ public sealed class ReconciliationRow(
     public string Project { get; } = id.Project;
     public string Filter { get; } = filter;
     public string Purpose { get; } = purpose;
+
+    /// <summary>Purpose column display: Light is the default purpose on nearly every row, so only the
+    /// exceptional purpose (Stars) prints — a blank cell reads "ordinary". Display-only:
+    /// <see cref="Purpose"/> itself stays intact (adoption parses it back to the enum; the
+    /// visible-row tree and sort key on it).</summary>
+    public string PurposeText => Purpose == nameof(FilterPurpose.Light) ? "" : Purpose;
 
     /// <summary>The plan side's whole-second sub length (representative when mixed); 0 = none/unknown. Settable
     /// for an in-place inline exposure edit (see <see cref="ApplyPlanSeconds"/>).</summary>

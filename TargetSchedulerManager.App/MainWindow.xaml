@@ -190,7 +190,8 @@
                             HorizontalAlignment="Center" VerticalAlignment="Center" Padding="6,1">
                         <TextBlock Text="{x:Bind SecondsText, Mode=OneWay}"/>
                     </Border>
-                    <TextBlock Grid.Column="11" Text="{x:Bind Purpose}" Opacity="0.7" TextAlignment="Center"
+                    <!-- Light (the default purpose) prints blank — only the exceptional Stars shows. -->
+                    <TextBlock Grid.Column="11" Text="{x:Bind PurposeText}" Opacity="0.7" TextAlignment="Center"
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="13" Text="{x:Bind DesiredText, Mode=OneWay}" TextAlignment="Center"
                                VerticalAlignment="Center" Visibility="{x:Bind DesiredTextVisibility}"/>
