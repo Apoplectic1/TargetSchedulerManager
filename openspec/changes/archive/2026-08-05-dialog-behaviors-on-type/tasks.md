@@ -16,5 +16,5 @@
 
 - [x] 3.1 `UI.md`: dialog-conventions bullets say behaviors ride the `AppDialog` type (funnel = await
       seam only; update prompt no longer an exception) — same commit as the code
-- [ ] 3.2 Build + app tests green; user verifies editor dialogs still drag/center/Ctrl+N; archive on
+- [x] 3.2 Build + app tests green; user verifies editor dialogs still drag/center/Ctrl+N; archive on
       their word
