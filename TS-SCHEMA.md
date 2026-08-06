@@ -68,9 +68,11 @@ TSM: read for grid grouping + project dialog; `isMosaic` drives the mosaic/panel
 + verified in the TS source clone, `ProjectViewVM` / `AltitudeChoicesConverter`): `minimumaltitude`
 **0 = "Off"**, choices Off + 5–60° by 5; `maximumAltitude` **0 = "Off"**, choices Off + 50–85° by 5;
 `minimumtime` choices 5/10/20 then 30–240 by 30 (no Off). A project named "… - Above 0" means the
-constraint is off, not a 0° floor demand. **Gotcha:** any db value is legal to TS's planner, but a value
-outside the UI list (37.5°, 90 min…) renders as an *unselected* dropdown in TS's own editor — a TSM
-write can create that state.
+constraint is off, not a 0° floor demand. **Gotcha:** an off-list db value is *honored exactly* by TS's planner
+(`HorizonDefinition` uses the raw double; with a custom horizon the min altitude still floors the curve —
+`max(horizon + offset, minimumAltitude)`), but renders as an *unselected* dropdown in TS's own editor — a
+TSM write can create that state. **Exception:** `minimumaltitude` ≥ 90 THROWS in TS's planner
+(`Assert.isTrue(< 90)`) — one of the few TS-enforced bounds; the TSM schema clamps to 89.9 for it.
 
 ### target — 102 rows
 `Id` PK · `name` · `active` ✎ · `ra` · `dec` · `epochcode` · `rotation` ✎(guarded) · `roi` · `projectid` ·

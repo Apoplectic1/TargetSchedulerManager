@@ -13,7 +13,7 @@ The system SHALL obtain the observing site (latitude, longitude, time zone, elev
 and the predicate knobs from the toolbar's Visible-Tonight group: a **Project dropdown** (immediately
 right of the group label) listing every TS project by name regardless of state with an **All projects**
 entry selected by default; a Duration numeric up-down in whole minutes, range 0–999, default 30; and a
-Floor numeric up-down in real degrees, range 0–90, default 30. A **Set** button (relabeled from Tonight, user 2026-08-05) SHALL run the pass with
+Floor numeric up-down in real degrees, range 0–89.9 (TSs planner asserts a minimum altitude < 90), default 30. A **Set** button (relabeled from Tonight, user 2026-08-05) SHALL run the pass with
 the knobs' current values.
 
 Selecting a project in the dropdown SHALL fill Duration from the project's `minimumtime` and Floor from

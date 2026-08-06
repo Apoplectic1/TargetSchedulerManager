@@ -376,9 +376,9 @@
                                 Value="30" Width="60" VerticalAlignment="Center"
                                 ToolTipService.ToolTip="Shortest single stretch above the Floor (minutes, 0–999 — the TS minimumtime range) that counts as visible tonight; filled from the selected project's Min time"/>
             <TextBlock Text="Floor:" VerticalAlignment="Center" Opacity="0.85" Margin="0,0,-6,0"/>
-            <controls:UpDownBox x:Name="VisibleFloor" Minimum="0" Maximum="90" SmallChange="1" DecimalPlaces="1"
+            <controls:UpDownBox x:Name="VisibleFloor" Minimum="0" Maximum="89.9" SmallChange="1" DecimalPlaces="1"
                                 Value="30" Width="56" VerticalAlignment="Center"
-                                ToolTipService.ToolTip="Altitude floor (degrees, 0–90, tenths allowed — the TS minimumaltitude range): the target must climb above this to count as visible; filled from the selected project's Min altitude"/>
+                                ToolTipService.ToolTip="Altitude floor (degrees, 0–89.9, tenths allowed — the TS minimumaltitude range; TS asserts < 90): the target must climb above this to count as visible; filled from the selected project's Min altitude"/>
             <Button Content="Set" Click="VisibleTonight_Click" MinWidth="0"
                     IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
                     ToolTipService.ToolTip="Enable targets with a ≥ Duration-minute stretch above the Floor tonight, disable the rest (every project; Draft/Closed lifecycle state never changes); with a project selected, first write changed Duration/Floor to its Min time / Min altitude"/>
