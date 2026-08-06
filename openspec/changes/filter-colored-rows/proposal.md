@@ -14,9 +14,10 @@ legible at a glance.
   background wash spanning the Camera→Actual columns inclusive** (refined from full-row, user call
   2026-08-05 after first render), keyed by its filter code. Target group headers and mosaic panel
   mini-headers span filters and stay plain.
-- Palette (user-supplied normalized RGB, the natural passband/emission hues):
-  - Narrowband: `O` (0.00, 1.00, 0.71) · `H` (1.00, 0.00, 0.06) · `S` (0.78, 0.00, 0.00)
-  - Broadband: `B` (0.00, 0.27, 1.00) · `G` (0.00, 1.00, 0.24) · `R` (1.00, 0.08, 0.00)
+- Palette (seeded from the user-supplied natural passband/emission hues, then contrast-separated in
+  the 2026-08-05 sign-off round — at wash alpha luminance vanishes, so neighbors split by hue):
+  - Narrowband: `O` (0.00, 0.82, 1.00) cyan · `H` (1.00, 0.00, 0.06) red · `S` (1.00, 0.00, 0.50) crimson
+  - Broadband: `B` (0.00, 0.27, 1.00) blue · `G` (0.00, 1.00, 0.24) green · `R` (1.00, 0.47, 0.00) orange
 - **`L` is deliberately untouched** (plain row, no wash) — and any filter code outside the palette
   renders plain the same way. No warning, no fallback hue: plain is the designed answer.
 - Wash alpha is **tuned for dark theme** (the daily driver); the exact alpha is settled by the user's

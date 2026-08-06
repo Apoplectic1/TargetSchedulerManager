@@ -150,13 +150,13 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   mixed rollup, nested detail line) carries a **low-alpha background band spanning the Camera→Actual
   columns inclusive** (the filter's own story; identity text left of Camera and Hours/Plans/Badges
   right of Actual stay unwashed — user call after first render) in its filter's
-  passband/emission hue — O teal · H red · S deep red · B blue · G green · R orange-red
-  (`Models/FilterBrushes.cs`, one `WashAlpha` knob, dark-theme tuned). **`L` and any off-palette code
+  filter hue — O cyan · H red · S crimson · B blue · G green · R orange
+  (`Models/FilterBrushes.cs`, one `WashAlpha` knob, dark-theme tuned; hues are contrast-separated
+  from the natural passband colors — at wash alpha luminance vanishes, so neighbors split by hue). **`L` and any off-palette code
   are deliberately plain** — no fallback hue, no warning. Headers and panel mini-headers span filters
   and stay plain. The wash is an **identity layer beneath the state language**: the fills/pills below
   render on top of it, hover chrome reads through it, and it touches no search/flag/sort/key behavior.
-  Accepted eyes-open: a `G` row's green wash coexists with green-means-goals-met, and H/S converge at
-  low alpha (the letter disambiguates).
+  Accepted eyes-open: a `G` row's green wash coexists with green-means-goals-met.
 - **Fills** (`ThemeBrushes`): **caution** = time still owed beneath · **success** (green) = nothing owed —
   the value is the captured total · **critical** = data that shouldn't exist (e.g. a desired-0 plan). Disk
   lines stay **plain** — quiet positive facts; green belongs to levels that could owe and don't. Dark-theme

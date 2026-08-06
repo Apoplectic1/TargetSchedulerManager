@@ -17,15 +17,18 @@ internal static class FilterBrushes
     internal const byte WashAlpha = 0x26;
 
     /// <summary>The wash color for a filter code — exact match on the code the Filter column renders, so
-    /// wash and letter can never disagree — or null for L/unknown (plain by design).</summary>
+    /// wash and letter can never disagree — or null for L/unknown (plain by design). Hues are
+    /// contrast-separated from the natural passband colors (2026-08-05 tune: at wash alpha, luminance
+    /// differences vanish, so neighbors split by HUE): O pushed to cyan away from G's green; R to orange
+    /// and S to crimson away from H, the pure-red anchor.</summary>
     public static Color? WashColor(string filter) => filter switch
     {
-        "O" => Color.FromArgb(WashAlpha, 0, 255, 181),
+        "O" => Color.FromArgb(WashAlpha, 0, 210, 255),
         "H" => Color.FromArgb(WashAlpha, 255, 0, 15),
-        "S" => Color.FromArgb(WashAlpha, 199, 0, 0),
+        "S" => Color.FromArgb(WashAlpha, 255, 0, 128),
         "B" => Color.FromArgb(WashAlpha, 0, 69, 255),
         "G" => Color.FromArgb(WashAlpha, 0, 255, 61),
-        "R" => Color.FromArgb(WashAlpha, 255, 20, 0),
+        "R" => Color.FromArgb(WashAlpha, 255, 120, 0),
         _ => null,
     };
 

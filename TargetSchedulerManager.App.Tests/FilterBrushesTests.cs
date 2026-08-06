@@ -14,12 +14,12 @@ namespace TargetSchedulerManager.App.Tests;
 public class FilterBrushesTests
 {
     [Theory]
-    [InlineData("O", 0, 255, 181)]
-    [InlineData("H", 255, 0, 15)]
-    [InlineData("S", 199, 0, 0)]
+    [InlineData("O", 0, 210, 255)]   // cyan — split from G's green (2026-08-05 contrast tune)
+    [InlineData("H", 255, 0, 15)]    // the pure-red anchor
+    [InlineData("S", 255, 0, 128)]   // crimson — split from H
     [InlineData("B", 0, 69, 255)]
     [InlineData("G", 0, 255, 61)]
-    [InlineData("R", 255, 20, 0)]
+    [InlineData("R", 255, 120, 0)]   // orange — split from H
     public void PaletteCode_MapsToItsPassbandHue_AtWashAlpha(string filter, byte r, byte g, byte b)
     {
         Color? color = FilterBrushes.WashColor(filter);
