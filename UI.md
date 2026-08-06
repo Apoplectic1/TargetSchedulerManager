@@ -408,6 +408,12 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   the clamp collapses and seeding no-ops, and with `Opened` outrunning layout (`ActualWidth` 0) the box
   lands **off-screen** — an invisible modal that eats all input and reads as a UI hang; a box-based
   reseed still opened "almost off screen." Centered + drag is the whole model.
+- **A lone dialog button centers** (user 2026-08-05, obs f4d0). The `ContentDialog` template's
+  CommandSpace is five columns (`Primary(*) · spacer · Secondary(0) · spacer · Close(*)`, buttons
+  stretched), so a single visible button fills its half-width column and reads off-center; 2–3 buttons
+  fill the row symmetrically and are left alone. Repaired once in `ShowDialogAsync` (`Opened` walks to
+  the lone button, spans it and centers with `MinWidth` 160) — every dialog shows through that funnel,
+  so no per-dialog code. Per-instance *visual* repair, same family as `NarrowNumberBox_Loaded`.
 - **`KeyboardAccelerator`s are dead inside a `ContentDialog`** — the window-level one never sees the key
   (focus lives in the dialog's popup tree), and one attached to the dialog itself is *ignored entirely*
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml

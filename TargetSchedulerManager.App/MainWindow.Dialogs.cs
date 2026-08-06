@@ -31,6 +31,28 @@ public sealed partial class MainWindow
         // the centered "BackgroundElement" box), and translating it against the anchor raced layout —
         // twice field-failed with the box off-screen, a modal you can't see eating every click.
         Controls.DragMove.Attach(dialog);
+        // A lone dialog button centers (user 2026-08-05, obs f4d0). The template's CommandSpace is five
+        // columns — Primary(*) · spacer · Secondary(0) · spacer · Close(*) — with every button
+        // stretched, so a single visible button fills its half and reads off-center; 2–3 buttons fill
+        // the whole row symmetrically and need nothing. All the knobs are per-instance settable after
+        // the visibility states fire (unlike the NumberBox width saga), so this is a one-place repair.
+        dialog.Opened += (d, _) =>
+        {
+            string? lone = (d.PrimaryButtonText, d.SecondaryButtonText, d.CloseButtonText) switch
+            {
+                (not (null or ""), null or "", null or "") => "PrimaryButton",
+                (null or "", not (null or ""), null or "") => "SecondaryButton",
+                (null or "", null or "", not (null or "")) => "CloseButton",
+                _ => null,
+            };
+            if (lone is not null && FindDescendantByName(d, lone) is Button b)
+            {
+                Grid.SetColumn(b, 0);
+                Grid.SetColumnSpan(b, 5);
+                b.HorizontalAlignment = HorizontalAlignment.Center;
+                b.MinWidth = 160;   // ~the half-column width it had; centered but still a dialog-scale target
+            }
+        };
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
