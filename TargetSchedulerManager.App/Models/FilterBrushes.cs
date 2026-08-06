@@ -25,11 +25,11 @@ internal static class FilterBrushes
     public static Color? WashColor(string filter) => filter switch
     {
         "O" => Color.FromArgb(WashAlpha, 0, 210, 255),
-        "H" => Color.FromArgb(WashAlpha, 255, 0, 90),
+        "H" => Color.FromArgb(WashAlpha, 196, 20, 62),
         "S" => Color.FromArgb(WashAlpha, 220, 0, 255),
-        "B" => Color.FromArgb(WashAlpha, 0, 69, 255),
+        "B" => Color.FromArgb(WashAlpha, 0, 0, 255),
         "G" => Color.FromArgb(WashAlpha, 0, 255, 61),
-        "R" => Color.FromArgb(WashAlpha, 255, 0, 15),
+        "R" => Color.FromArgb(WashAlpha, 255, 0, 0),
         _ => null,
     };
 

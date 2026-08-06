@@ -16,8 +16,8 @@ legible at a glance.
   mini-headers span filters and stay plain.
 - Palette (seeded from the user-supplied natural passband/emission hues, then contrast-separated in
   the 2026-08-05 sign-off round — at wash alpha luminance vanishes, so neighbors split by hue):
-  - Narrowband: `O` (0.00, 0.82, 1.00) cyan · `H` (1.00, 0.00, 0.35) crimson · `S` (0.86, 0.00, 1.00) magenta
-  - Broadband: `B` (0.00, 0.27, 1.00) blue · `G` (0.00, 1.00, 0.24) green · `R` (1.00, 0.00, 0.06) red
+  - Narrowband: `O` (0.00, 0.82, 1.00) cyan · `H` (0.77, 0.08, 0.24) crimson · `S` (0.86, 0.00, 1.00) magenta
+  - Broadband: `B` (0.00, 0.00, 1.00) blue · `G` (0.00, 1.00, 0.24) green · `R` (1.00, 0.00, 0.00) red
   - R holds pure red (letter-fidelity: "R" means Red — user call over the passband-fidelity
     alternative that anchored H; reversible if the visual pass disagrees)
 - **`L` is deliberately untouched** (plain row, no wash) — and any filter code outside the palette

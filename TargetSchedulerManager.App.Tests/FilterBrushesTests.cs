@@ -15,11 +15,11 @@ public class FilterBrushesTests
 {
     [Theory]
     [InlineData("O", 0, 210, 255)]   // cyan — split from G's green (2026-08-05 contrast tune)
-    [InlineData("H", 255, 0, 90)]    // crimson — split from R (letter-fidelity swap, same day)
+    [InlineData("H", 196, 20, 62)]   // crimson — split from R (letter-fidelity swap + hand-tune, same day)
     [InlineData("S", 220, 0, 255)]   // magenta — split from H
-    [InlineData("B", 0, 69, 255)]
+    [InlineData("B", 0, 0, 255)]     // pure blue (hand-tune)
     [InlineData("G", 0, 255, 61)]
-    [InlineData("R", 255, 0, 15)]    // the pure-red anchor: "R" means Red
+    [InlineData("R", 255, 0, 0)]     // the pure-red anchor: "R" means Red
     public void PaletteCode_MapsToItsPassbandHue_AtWashAlpha(string filter, byte r, byte g, byte b)
     {
         Color? color = FilterBrushes.WashColor(filter);
