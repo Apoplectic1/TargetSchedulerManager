@@ -24,6 +24,9 @@ imaging rig.
   creates the target and plan born complete (desired = acquired = the frames on disk) when the
   template matches the captured history, or born empty when it doesn't — journaled and pushable
   like any other edit.
+- **Filter-colored rows.** Expanded rows carry a subtle background tint in their filter's hue
+  (Hα crimson, OIII cyan, SII magenta, RGB primaries), so one filter's story reads at a glance
+  across a tall expanded tree.
 - **Visible tonight.** One click enables exactly the targets that clear a configurable altitude
   floor for a configurable duration tonight, and disables the rest — batch-applied, journaled, and
   pushable like any other edit.

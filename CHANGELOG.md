@@ -11,6 +11,21 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-05 — `filter-colored-rows`: the filter-identity wash** (same-day idea → explore →
+ship → sign-off): every filter-level row (leaf, mixed rollup, nested detail) carries a low-alpha
+background wash spanning the **Camera→Actual column band** (scoped from full-row by user call after the
+first render), keyed by the row's filter code — `Models/FilterBrushes.cs`, the sanctioned domain palette
+beside `ThemeBrushes`' system lookups (UI.md checklist 4 records the split). Palette settled across three
+sign-off rounds: hues contrast-separated (at wash alpha luminance vanishes — neighbors split by *hue*),
+the pure-red anchor moved from H to **R** (letter-fidelity over passband-fidelity, a what/why decision),
+then hand-tuned by the user (final: O cyan · H crimson 196,20,62 · S magenta · B blue · G green · R red).
+`L` and off-palette codes deliberately plain. Wash = identity layer *beneath* the state fills; hover
+chrome reads through (first-child Border underlay, `IsHitTestVisible=False`; root Grid keeps the literal
+Transparent hit-test surface). New requirement in `reconciliation-grid`; tests pin the palette (App 404).
+**Archived 2026-08-05** together with `pairing-credited-write-back` (below — its field verify: sentinel
+badges gone, M42 `no-rotation`, scoped report, and the ~200-entry settling **pushed to BIRDWATCHER**);
+5 deltas synced, 16 specs validate. Released as **TSM v1.3.0 on AL v1.3.0** (`CaptureConfigPairing`).
+
 **▶ SHIPPED 2026-08-04 — `pairing-credited-write-back`: crediting = pairing, sentinels are errors**
 (field obs `acfd` same day — the freshly adopted Abell 78 Stars-B plan, assigned a gain-0 template over 18
 gain-53 frames, kept acquired/accepted 18 on a fresh BIRDWATCHER read; the write-back pass logged "all 657
