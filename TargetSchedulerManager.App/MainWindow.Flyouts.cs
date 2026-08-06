@@ -71,47 +71,47 @@ public sealed partial class MainWindow
         switch (el.DataContext)
         {
             case TargetGroupRow { IsMosaic: true, ProjectTsKey: not null } mosaic:
-                menu.Items.Add(EditMenuItem("Edit mosaic project…", () => ShowMosaicDialogAsync(mosaic)));
+                menu.Items.Add(RowMenuItem("Edit mosaic project…", () => ShowMosaicDialogAsync(mosaic)));
                 break;
             case TargetGroupRow group:
                 if (group is { CanEnable: true, TsTargetKey: string targetKey })
-                    menu.Items.Add(EditMenuItem("Edit target…",
+                    menu.Items.Add(RowMenuItem("Edit target…",
                         () => ShowEditDialogAsync(TsTable.Target, targetKey, group.Target, group, null)));
                 // Bulk adoption (openspec adopt-target-rollup): a rollup with ≥1 individually-eligible
                 // cell offers the whole-target action — "Add to TS…" creates the target, "Add TS plans…"
                 // bulk-adopts the remaining unplanned cells. Mosaic parents never qualify (planner rule).
                 if (ViewModel.IsTargetAdoptable(group))
-                    menu.Items.Add(AddMenuItem(group.TsTargetKey is null ? "Add to TS…" : "Add TS plans…",
+                    menu.Items.Add(RowMenuItem(group.TsTargetKey is null ? "Add to TS…" : "Add TS plans…",
                         () => AdoptTargetFromMenuAsync(group)));
                 (projectKey, projectName) = (group.ProjectTsKey, group.Project);
                 break;
             case PanelGroupRow panel:
                 if (panel.TsTargetKey is string panelKey)
-                    menu.Items.Add(EditMenuItem("Edit panel target…",
+                    menu.Items.Add(RowMenuItem("Edit panel target…",
                         () => ShowEditDialogAsync(TsTable.Target, panelKey, Format.Label(panel.Target, panel.Label), null, null)));
                 (projectKey, projectName) = (panel.Children[0].ProjectTsKey, panel.Children[0].Project);
                 break;
             case ReconciliationRow row:
                 if (row.PlanTsKey is string planKey)
                 {
-                    menu.Items.Add(EditMenuItem("Edit exposure plan…",
+                    menu.Items.Add(RowMenuItem("Edit exposure plan…",
                         () => ShowEditDialogAsync(TsTable.ExposurePlan, planKey, Format.Label(row.Target, row.Filter), null, row)));
                     // The template BEHIND this plan — shared config, so the flyout title carries the blast radius.
                     if (ViewModel.TryGetTemplateForPlan(planKey) is { } template)
-                        menu.Items.Add(EditMenuItem("Edit template…",
+                        menu.Items.Add(RowMenuItem("Edit template…",
                             () => ShowEditDialogAsync(TsTable.ExposureTemplate, template.TsKey, TemplateTitle(template), null, null)));
                 }
                 // Adoption (openspec disk-row-adoption): an eligible disk-only cell offers "Add TS plan…"
                 // (existing TS target) or "Add to TS…" (whole target) — both through the one assignment
                 // dialog. Split rows and disk-only mosaic panels never qualify — the planner's gate decides.
                 if (ViewModel.IsRowAdoptable(row))
-                    menu.Items.Add(AddMenuItem(row.TsTargetKey is null ? "Add to TS…" : "Add TS plan…",
+                    menu.Items.Add(RowMenuItem(row.TsTargetKey is null ? "Add to TS…" : "Add TS plan…",
                         () => AdoptRowFromMenuAsync(row)));
                 (projectKey, projectName) = (row.ProjectTsKey, row.Project);
                 break;
         }
         if (projectKey is string prjKey)
-            menu.Items.Add(EditMenuItem("Edit project…",
+            menu.Items.Add(RowMenuItem("Edit project…",
                 () => ShowEditDialogAsync(TsTable.Project, prjKey, $"{projectName} — project", null, null)));
 
         if (menu.Items.Count == 0)
@@ -261,18 +261,13 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(block, tooltip);
     }
 
-    private static MenuFlyoutItem EditMenuItem(string text, Func<Task> open)
+    // Deliberately icon-free (user 2026-08-05, obs 60ed — "shrink to fit"): merely SETTING Icon flips
+    // the template's IconPlaceholder state and indents the text 28 px, and the glyphs these items once
+    // declared were empty strings — every menu was paying the gutter for an icon that never rendered.
+    // No Icon → no placeholder → the flyout hugs its text.
+    private static MenuFlyoutItem RowMenuItem(string text, Func<Task> open)
     {
-        MenuFlyoutItem item = new() { Text = text, Icon = new FontIcon { Glyph = "" } };
-        item.Click += (_, _) => FireAndLog(open, "row menu action");
-        return item;
-    }
-
-    // The adoption entry: same shape as EditMenuItem with the Add glyph — a row action that creates rather
-    // than edits.
-    private static MenuFlyoutItem AddMenuItem(string text, Func<Task> open)
-    {
-        MenuFlyoutItem item = new() { Text = text, Icon = new FontIcon { Glyph = "" } };
+        MenuFlyoutItem item = new() { Text = text };
         item.Click += (_, _) => FireAndLog(open, "row menu action");
         return item;
     }
@@ -300,7 +295,7 @@ public sealed partial class MainWindow
             // The template's own sync-direction mark (grid column-0 language) + old→new tooltip when pending.
             (string glyph, string? tooltip) = marks.ForTemplate(template.TsKey);
             string prefix = glyph.Length > 0 ? $"{glyph} " : "";
-            MenuFlyoutItem item = EditMenuItem($"{prefix}{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
+            MenuFlyoutItem item = RowMenuItem($"{prefix}{template.Name} · {template.Filter} — used by {template.UsedByPlans} plan(s)",
                 () => ShowEditDialogAsync(TsTable.ExposureTemplate, template.TsKey,
                     TemplateTitle(template), null, null));
             if (tooltip is not null)
