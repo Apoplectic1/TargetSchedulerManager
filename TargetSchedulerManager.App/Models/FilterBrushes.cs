@@ -14,7 +14,7 @@ internal static class FilterBrushes
     /// <summary>The one wash-strength knob, tuned for the dark theme by visual sign-off. The wash paints
     /// over the ListViewItem's hover visual, so it must stay low enough for hover chrome (and the
     /// caution/success pills) to read through.</summary>
-    internal const byte WashAlpha = 0x26;
+    internal const byte WashAlpha = 0x50;
 
     /// <summary>The wash color for a filter code — exact match on the code the Filter column renders, so
     /// wash and letter can never disagree — or null for L/unknown (plain by design). Hues are
