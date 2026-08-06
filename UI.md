@@ -150,9 +150,10 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   mixed rollup, nested detail line) carries a **low-alpha background band spanning the Camera→Actual
   columns inclusive** (the filter's own story; identity text left of Camera and Hours/Plans/Badges
   right of Actual stay unwashed — user call after first render) in its filter's
-  filter hue — O cyan · H red · S crimson · B blue · G green · R orange
+  filter hue — O cyan · H crimson · S magenta · B blue · G green · R red
   (`Models/FilterBrushes.cs`, one `WashAlpha` knob, dark-theme tuned; hues are contrast-separated
-  from the natural passband colors — at wash alpha luminance vanishes, so neighbors split by hue). **`L` and any off-palette code
+  from the natural passband colors — at wash alpha luminance vanishes, so neighbors split by hue —
+  with R the pure-red anchor: letter-fidelity over passband-fidelity, user call 2026-08-05). **`L` and any off-palette code
   are deliberately plain** — no fallback hue, no warning. Headers and panel mini-headers span filters
   and stay plain. The wash is an **identity layer beneath the state language**: the fills/pills below
   render on top of it, hover chrome reads through it, and it touches no search/flag/sort/key behavior.

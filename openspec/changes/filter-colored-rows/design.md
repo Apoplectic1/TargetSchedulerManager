@@ -53,8 +53,10 @@ can never disagree. No normalization layer, no alias table.
 ## Risks / Trade-offs
 
 - ~~`H` vs `S` near-indistinguishable at low alpha~~ — resolved in the 2026-08-05 sign-off round by
-  hue separation (S → crimson, R → orange, O → cyan; H the pure-red anchor): at wash alpha luminance
-  differences vanish, so neighboring filters must split by hue, not brightness.
+  hue separation (O → cyan; the three reds spread): at wash alpha luminance differences vanish, so
+  neighboring filters must split by hue, not brightness. Which filter anchors pure red was decided
+  the same day (**R** — letter-fidelity, "R" means Red — over passband-fidelity, which had anchored
+  Hα; H → crimson, S → magenta; user reserves backing the swap out on visual review).
 - Selection/hover chrome interaction is theme- and alpha-dependent — that's exactly what the visual
   sign-off is for; if the wash fights the hover reveal, the alpha drops before anything structural.
 - A future filter code outside the palette silently renders plain — by design (spec), not a gap.

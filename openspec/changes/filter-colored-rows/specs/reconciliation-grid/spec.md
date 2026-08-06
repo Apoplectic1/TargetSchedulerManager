@@ -5,10 +5,11 @@ Every filter-level row (filter leaf, mixed rollup, and nested detail line) SHALL
 wash spanning the **Camera through Actual columns inclusive** (the capture-configuration + filter +
 count band; the identity/text columns left of Camera and the Hours/Plans/Badges columns right of
 Actual stay unwashed), keyed by its filter code, from the fixed palette:
-`O` (0.00, 0.82, 1.00) cyan · `H` (1.00, 0.00, 0.06) red · `S` (1.00, 0.00, 0.50) crimson ·
-`B` (0.00, 0.27, 1.00) blue · `G` (0.00, 1.00, 0.24) green · `R` (1.00, 0.47, 0.00) orange
+`O` (0.00, 0.82, 1.00) cyan · `H` (1.00, 0.00, 0.35) crimson · `S` (0.86, 0.00, 1.00) magenta ·
+`B` (0.00, 0.27, 1.00) blue · `G` (0.00, 1.00, 0.24) green · `R` (1.00, 0.00, 0.06) red
 (normalized RGB, rendered at a low alpha tuned for the dark theme; hues are contrast-separated from
-the natural passband colors — at wash alpha luminance vanishes, so neighboring filters split by hue). Target group headers and mosaic
+the natural passband colors — at wash alpha luminance vanishes, so neighboring filters split by hue —
+with **R the pure-red anchor**: letter-fidelity over passband-fidelity, user call 2026-08-05). Target group headers and mosaic
 panel mini-headers span filters and SHALL stay plain. `L` and any filter code outside the palette
 SHALL render plain — no wash, no fallback hue, no warning: plain is the designed answer.
 
