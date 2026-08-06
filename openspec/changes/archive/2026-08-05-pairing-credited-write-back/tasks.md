@@ -42,5 +42,5 @@
 
 - [x] 5.1 Both repos build; full test suites green (Library Catalog + App).
 - [x] 5.2 Update reference docs in the same commit: `SUBSYSTEMS.md` → TS write-back (credit key = pairing rule), `UI.md`/`DOMAIN.md` as touched (sentinel-is-error convention lands where the badge vocabulary lives), `CHANGELOG.md`.
-- [ ] 5.3 Operational heads-up in the ship summary: first load stamps the ~245-bucket historical settling; first push review opens with hundreds of decreases — review once, push once.
-- [ ] 5.4 Field verify (user): fresh load → Abell 78 adopted plan stamps 18→0 with journaled decrease; push review shows the settling; sentinel badge visible if any live template carries −1 (may be none today).
+- [x] 5.3 Operational heads-up in the ship summary: first load stamps the ~245-bucket historical settling; first push review opens with hundreds of decreases — review once, push once.
+- [x] 5.4 Field verify (user): fresh load → Abell 78 adopted plan stamps 18→0 with journaled decrease; push review shows the settling; sentinel badge visible if any live template carries −1 (may be none today).

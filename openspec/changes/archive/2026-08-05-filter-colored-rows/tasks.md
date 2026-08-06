@@ -25,5 +25,5 @@
       layering); checklist item 4 gains the `FilterBrushes` vs `ThemeBrushes` split. Same commit as
       code.
 - [x] 4.2 Build + full app test suite green.
-- [ ] 4.3 User visual sign-off (dark theme): wash strength, H-vs-S legibility, pills/hover/selection
+- [x] 4.3 User visual sign-off (dark theme): wash strength, H-vs-S legibility, pills/hover/selection
       reading through — alpha adjusted on feedback before archive.
