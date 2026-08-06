@@ -336,6 +336,26 @@ internal static class AmbiguityReport
         foreach (TargetCells tc in ReconciliationProjection.Project(graph, report))
         {
             if (!idInScope(tc.TargetId)) continue;
+
+            // Mechanical-only rotation (the grid's °(M)): a missing measurement, not a slipped
+            // convention — informational, with the fix now actionable (XFM's ASTAP solver, 2026-08-06).
+            List<ReconciliationCell> mech = tc.Cells
+                .Where(c => c.DiskRotation == Astronomy.Catalog.Scan.RotationExpression.Mechanical)
+                .ToList();
+            if (mech.Count > 0)
+            {
+                string folds = string.Join("/", mech
+                    .Where(c => c.DiskRotationFoldDeg is not null)
+                    .Select(c => c.DiskRotationFoldDeg!.Value.ToString("0.#", CultureInfo.InvariantCulture))
+                    .Distinct());
+                int frames = mech.Sum(c => c.Disk);
+                lines.Add(
+                    $"Mechanical-only rotation: **{projectOf(tc.TargetId)}{tc.Name}** — " +
+                    (folds.Length > 0 ? $"{folds}°(M)" : "°(M)") +
+                    $" across {frames} frame(s); no sky angle recorded, so plan-vs-actual rotation " +
+                    $"cannot be compared. Solve the frames in XFM (Solver checkbox on Browse) to measure it.");
+            }
+
             foreach (ReconciliationCell c in tc.Cells)
             {
                 if (c.FramingOverlapFraction is not double f) continue;

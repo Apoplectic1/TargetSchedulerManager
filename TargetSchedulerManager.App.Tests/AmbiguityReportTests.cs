@@ -78,6 +78,25 @@ public class AmbiguityReportTests
 
         Assert.DoesNotContain("Off-plan pointing", r.Markdown);
         Assert.DoesNotContain("Mixed-sensor framing", r.Markdown);
+        Assert.DoesNotContain("Mechanical-only rotation", r.Markdown);
+    }
+
+    [Fact]
+    public void MechanicalOnlyRotation_IsInfoNotAction_NamingFoldAndFrames()
+    {
+        // A framing whose frames record only the mechanical rotator angle (the grid's degree-(M)):
+        // a missing measurement, not a slipped convention -- info line with the XFM-solve pointer.
+        Guid t = Guid.NewGuid();
+        AmbiguityReportResult r = Build(Graph(
+            targets: [Tgt(t, TargetSource.Both, "IC 405", dir: "IC 405", ra: 5.27, dec: 34.35)],
+            inventory: [Inv(t, "H", FilterPurpose.Light, 116, 600.0, rotationFold: 99.1,
+                rotationExpression: RotationExpression.Mechanical)]));
+
+        Assert.Equal(0, r.ActionCount);
+        Assert.Contains("Mechanical-only rotation: **IC 405", r.Markdown);
+        Assert.Contains("99.1°(M)", r.Markdown);
+        Assert.Contains("116 frame(s)", r.Markdown);
+        Assert.Contains("Solve the frames in XFM", r.Markdown);
     }
 
     [Fact]
@@ -432,11 +451,12 @@ public class AmbiguityReportTests
     private static InventoryFilter Inv(
         Guid target, string filter, FilterPurpose purpose, int count, double seconds,
         double? rotationFold = 20.0, double? centroidRaHours = null, double? centroidDecDeg = null,
-        double? fieldWidthDeg = null, double? fieldHeightDeg = null, bool spansSensors = false) =>
+        double? fieldWidthDeg = null, double? fieldHeightDeg = null, bool spansSensors = false,
+        RotationExpression rotationExpression = RotationExpression.Sky) =>
         new(target, filter, purpose, filter, count, count * seconds, FirstImagedAt: 0, LastImagedAt: 0,
             TypicalGain: 100, TypicalOffset: 50, TypicalSetTempC: -10.0, TypicalBinningX: 1,
             TypicalBinningY: 1, ExposureSeconds: seconds, Camera: "Z533",
-            FramingOrdinal: 0, RotationExpression: RotationExpression.Sky, RotationFoldDeg: rotationFold,
+            FramingOrdinal: 0, RotationExpression: rotationExpression, RotationFoldDeg: rotationFold,
             FramingCentroidRaHours: centroidRaHours, FramingCentroidDecDeg: centroidDecDeg,
             FramingFieldWidthDeg: fieldWidthDeg, FramingFieldHeightDeg: fieldHeightDeg,
             FramingSpansMultipleSensors: spansSensors);
