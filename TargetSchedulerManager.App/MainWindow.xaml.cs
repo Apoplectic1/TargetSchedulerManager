@@ -33,6 +33,11 @@ public sealed partial class MainWindow : Window
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ?? "?").Split('+')[0];
         Title = $"Target Scheduler Manager {version}";
+        // The one place the Ctrl+N dialog hook is set (openspec dialog-behaviors-on-type): every
+        // AppDialog — including ones shown outside ShowDialogAsync, like the update prompt — gets
+        // diagnostics capture without knowing the window.
+        Controls.AppDialog.DiagnosticsHook =
+            () => Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
         // Title-bar + taskbar icon; <ApplicationIcon> only stamps the exe, a WinUI 3 window needs this
         // runtime call. Absolute path: SetIcon resolves relative paths against the process CWD, not the exe.
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"));

@@ -241,8 +241,8 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   cell an include checkbox + its own template dropdown + caution (the per-cell controls factored into
   `AssignmentRowControls`, shared with the single-cell dialog so behavior is identical by construction);
   empty-scope cells grey with the reason, the cell list scrolls, Accept = one atomic insert batch).
-  The form opens in a **centered ContentDialog** draggable by
-  any non-interactive spot (`ShowDialogAsync`; see the reposition gotcha — flyouts structurally can't
+  The form opens in a **centered `AppDialog`** draggable by
+  any non-interactive spot (behavior rides the type — see below; reposition gotcha — flyouts structurally can't
   move, so form-hosting surfaces are dialogs and menus stay flyouts; open-near-the-row seeding retired
   2026-08-03, user call). Both host `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
@@ -381,7 +381,7 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
   hover-hint is suppressed. **Capture in 5 s** hides the window for the countdown so transient light-dismiss UI
   (context menus, pickers) can be opened and survives into the shot — plain Capture can never contain one
   (focus shift dismisses it). Edit dialogs need no countdown: every dialog carries its own Ctrl+N
-  (`ShowDialogAsync` wires `PreviewKeyDown`).
+  (`Controls/AppDialog` wires `PreviewKeyDown` in its constructor — on the type, not the show-site).
 
 ## WinUI gotchas (and the workarounds)
 
@@ -422,8 +422,11 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
   (the dialog's inner popup doesn't participate in accelerator collection — microsoft-ui-xaml
   [#2408](https://github.com/microsoft/microsoft-ui-xaml/issues/2408) family; field-verified 2026-08-03,
   the accelerator variant shipped and did nothing). Workaround: `PreviewKeyDown` on the dialog (tunnels
-  before its children), modifier state via `InputKeyboardSource.GetKeyStateForCurrentThread` — every
-  dialog shows through `MainWindow.ShowDialogAsync`, which wires Ctrl+N this way. Flyouts/context menus
+  before its children), modifier state via `InputKeyboardSource.GetKeyStateForCurrentThread` — wired
+  once in `Controls/AppDialog`'s constructor against the static `DiagnosticsHook` the window sets at
+  startup (openspec `dialog-behaviors-on-type`: behaviors ride the type, so even dialogs shown outside
+  `ShowDialogAsync` — the update prompt — get it; the funnel itself is a thin await seam typed
+  `AppDialog`, so a raw `ContentDialog` cannot compile its way in). Flyouts/context menus
   are popups too and may need the same treatment if a shortcut goes dead there.
 - **A `NumberBox` can't center its text via XAML.** `TextAlignment` doesn't reach its template-internal TextBox
   (microsoft-ui-xaml [#7399](https://github.com/microsoft/microsoft-ui-xaml/issues/7399) /

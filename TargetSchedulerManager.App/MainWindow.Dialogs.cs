@@ -16,42 +16,20 @@ namespace TargetSchedulerManager.App;
 // shared review body. Wired to the view-model's UI hooks in the core part's constructor.
 public sealed partial class MainWindow
 {
-    // An open ContentDialog swallows the window-level Ctrl+N — precisely when a diagnostics capture
-    // matters most (an observation OF the dialog). And a KeyboardAccelerator attached to the dialog is
-    // ignored too: the dialog's inner popup doesn't participate in accelerator collection at all (the
-    // long-standing microsoft-ui-xaml #2408 family; field-verified here 2026-08-03 — the accelerator
-    // variant shipped and did nothing). PreviewKeyDown is the reliable route: it tunnels through the
-    // dialog before its children see the key, independent of the accelerator plumbing. Every dialog
-    // shows through here.
-    private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
-    {
-        // Every dialog opens CENTERED (user call 2026-08-03, obs 3eba round 2: "just center any and all
-        // dialogs") and is draggable from any non-interactive spot. Near-the-row open seeding is retired:
-        // the ContentDialog element is a full-window overlay (generic.xaml: Container → smoke LayoutRoot →
-        // the centered "BackgroundElement" box), and translating it against the anchor raced layout —
-        // twice field-failed with the box off-screen, a modal you can't see eating every click.
-        Controls.DragMove.Attach(dialog);
-        // Lone-button centering rides the AppDialog TYPE (Controls/AppDialog.cs, template-part route) —
-        // an Opened-time visual-tree walk here field-failed twice (obs f4d0/c200: the walk never reached
-        // the template children, even a dispatcher tick later). Construct app dialogs as AppDialog.
-        dialog.PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
-                || !Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
-                    .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-                return;
-            Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
-            e.Handled = true;
-        };
-        return await dialog.ShowAsync();
-    }
+    // The single show seam, typed AppDialog so a raw ContentDialog cannot compile its way in. Every
+    // per-dialog behavior — drag-to-move, Ctrl+N diagnostics, lone-button centering, centered open
+    // (user call 2026-08-03, obs 3eba: never seed from an anchor; twice field-failed off-screen) —
+    // rides the AppDialog TYPE (Controls/AppDialog.cs, openspec dialog-behaviors-on-type), so dialogs
+    // shown elsewhere (the update prompt) behave identically without this funnel.
+    private static async Task<ContentDialogResult> ShowDialogAsync(Controls.AppDialog dialog) =>
+        await dialog.ShowAsync();
 
     // The open-with-dirty prompt: unpushed edits exist and BIRDWATCHER is reachable, so the user decides
     // BEFORE any pull can overwrite them. Same review content as the push dialog, plus the Discard choice;
     // Escape/"Not now" keeps working locally with the journal intact (nothing is ever lost silently).
     private async Task<OpenDirtyDecision> ShowOpenDirtyDialogAsync(PushReview review)
     {
-        ContentDialog dialog = new Controls.AppDialog()
+        Controls.AppDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = review.OldestEditAt is { } oldest
@@ -74,7 +52,7 @@ public sealed partial class MainWindow
     // The push review: the one real decision, made with the collapsed journal on screen.
     private async Task<bool> ShowPushReviewDialogAsync(PushReview review)
     {
-        ContentDialog dialog = new Controls.AppDialog()
+        Controls.AppDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = $"Push {review.CollapsedCount} field(s) to BIRDWATCHER",
@@ -191,7 +169,7 @@ public sealed partial class MainWindow
     // unwatched).
     private async Task ShowAdoptRefusalDialogAsync(string reason)
     {
-        ContentDialog dialog = new Controls.AppDialog()
+        Controls.AppDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS — not added",
@@ -251,7 +229,7 @@ public sealed partial class MainWindow
         panel.Children.Add(assignment.EmptyNote);
         panel.Children.Add(assignment.Caution);
 
-        ContentDialog dialog = new Controls.AppDialog()
+        Controls.AppDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = "Add to TS",
@@ -316,7 +294,7 @@ public sealed partial class MainWindow
         };
         panel.Children.Add(projectBox);
 
-        ContentDialog dialog = new Controls.AppDialog()
+        Controls.AppDialog dialog = new()
         {
             XamlRoot = Content.XamlRoot,
             Title = facts.TargetName is null ? "Add TS plans" : "Add to TS",
