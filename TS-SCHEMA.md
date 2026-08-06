@@ -64,6 +64,9 @@ in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 `smartexposureorder` ✎ · `guid`
 TSM: read for grid grouping + project dialog; `isMosaic` drives the mosaic/panel model; per-project policy
 (min/max altitude etc.) is the user's intent — TSM displays, never derives.
+**`minimumaltitude` 0 = "Off" in NINA's TS UI** (its dropdown offers no literal 0 — user 2026-08-06):
+the stored value is a plain 0.0, TSM shows it numerically, and a project named "… - Above 0" means the
+constraint is off, not a 0° floor demand.
 
 ### target — 102 rows
 `Id` PK · `name` · `active` ✎ · `ra` · `dec` · `epochcode` · `rotation` ✎(guarded) · `roi` · `projectid` ·
