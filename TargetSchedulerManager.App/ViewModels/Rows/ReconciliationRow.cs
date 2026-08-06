@@ -422,6 +422,11 @@ public sealed class ReconciliationRow(
     /// where no rotation is expressed; a rollup shows the shared value or the mixed marker.</summary>
     public string RotText => Cfg(r => r.RotText, Format.Rotation(Config.Rotation, Config.RotationFoldDeg));
 
+    /// <summary>The full-row filter-identity wash behind the whole template (identity layer; the state
+    /// fills above render on top). Transparent — never null — off-palette, preserving the row root's
+    /// hit-test surface. Display only: no part of search, flagging, sorting, or any key.</summary>
+    public Brush FilterWash => FilterBrushes.Wash(Filter);
+
     private static Brush? MixedFill(string text) => text == Format.Mixed ? ThemeBrushes.Caution : null;
 
     public Brush? CameraBackground => MixedFill(CameraText);

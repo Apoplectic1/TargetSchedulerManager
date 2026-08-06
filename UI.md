@@ -146,6 +146,15 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   gap semantics (a positive value is a total, never a surplus). The "Sort: remaining ↓" key uses the same
   acquired basis so sort and gauge never disagree. Tiny non-zero values render F2 so they never read `0.0`
   (`Format.Hours`).
+- **Filter wash** (2026-08-05, openspec `filter-colored-rows`): every filter-level row (filter leaf,
+  mixed rollup, nested detail line) carries a **low-alpha full-row background** in its filter's
+  passband/emission hue — O teal · H red · S deep red · B blue · G green · R orange-red
+  (`Models/FilterBrushes.cs`, one `WashAlpha` knob, dark-theme tuned). **`L` and any off-palette code
+  are deliberately plain** — no fallback hue, no warning. Headers and panel mini-headers span filters
+  and stay plain. The wash is an **identity layer beneath the state language**: the fills/pills below
+  render on top of it, hover chrome reads through it, and it touches no search/flag/sort/key behavior.
+  Accepted eyes-open: a `G` row's green wash coexists with green-means-goals-met, and H/S converge at
+  low alpha (the letter disambiguates).
 - **Fills** (`ThemeBrushes`): **caution** = time still owed beneath · **success** (green) = nothing owed —
   the value is the captured total · **critical** = data that shouldn't exist (e.g. a desired-0 plan). Disk
   lines stay **plain** — quiet positive facts; green belongs to levels that could owe and don't. Dark-theme
@@ -455,8 +464,10 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
    target and mark every one of its rows, but a token describing particular *frames* (the camera-provenance
    pair) marks only the rows drawing on them and reaches the collapsed view through the ordinary rollup —
    never by spreading to siblings.
-4. New **fill / color**? Use `ThemeBrushes` (caution / success / critical fills; `CautionText` / `Secondary`
-   foregrounds) — don't hard-code. Note `Run`/`Inline` foregrounds can't use `Opacity`; reach for `Secondary`.
+4. New **fill / color**? **State** color comes from `ThemeBrushes` (caution / success / critical fills;
+   `CautionText` / `Secondary` foregrounds); **filter-identity** color from `Models/FilterBrushes.cs`
+   (domain passband constants — the one sanctioned hard-coded palette). Never hard-code elsewhere. Note
+   `Run`/`Inline` foregrounds can't use `Opacity`; reach for `Secondary`.
 5. New **count / number**? Decide its plane (TS / Disk / Both) and show `—` when the plane is empty; center it.
 6. New **integer edit box**? Digit-budget width. In-grid, no spinners → `NumberBox` + `Loaded="NarrowNumberBox_Loaded"` (centers digits, lets a narrow `Width` stick). Visible spinners → `Controls/UpDownBox` (never a narrow inline `NumberBox` — see *WinUI gotchas*).
 7. Touching **look-and-feel**? The build verifies code; **visual correctness is the author's call** — they
