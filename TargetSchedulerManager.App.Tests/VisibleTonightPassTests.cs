@@ -304,18 +304,20 @@ public class VisibleTonightPassTests
     // ---- the altitude-clause rename (obs ff07 follow-up: the name must not lie) --------------------
 
     [Theory]
-    [InlineData("Nebulae - Above 45", 30, "Nebulae - Above 30")]
-    [InlineData("Mosaic - Clamshell  - Above 30", 25, "Mosaic - Clamshell - Above 25")]   // normalizes the stray double space
-    [InlineData("Nebulea - Above 0", 40, "Nebulea - Above 40")]                            // 0 ("Off") clause still rewrites
-    [InlineData("Galaxies - Above 45", 37.5, "Galaxies - Above 37.5")]                     // decimal altitude
-    [InlineData("Galaxies - Above 45", 0, "Galaxies - Above 0")]                           // writing Off keeps the convention
-    public void RenameForAltitude_RewritesTheClause(string name, double alt, string expected) =>
+    [InlineData("Nebulae - 45", 30, "Nebulae - 30")]                          // the short authoring form
+    [InlineData("Nebulae - Above 45", 30, "Nebulae - 30")]                    // legacy form migrates to short
+    [InlineData("Mosaic - Clamshell  - 30", 25, "Mosaic - Clamshell - 25")]   // normalizes the stray double space
+    [InlineData("Nebulea - 0", 40, "Nebulea - 40")]                           // 0 ("Off") clause still rewrites
+    [InlineData("Galaxies - 45", 37.5, "Galaxies - 37.5")]                    // decimal altitude
+    [InlineData("Galaxies - 45", 0, "Galaxies - 0")]                          // writing Off keeps the convention
+    public void RenameForAltitude_RewritesTheClause_ShortForm(string name, double alt, string expected) =>
         Assert.Equal(expected, VisibleTonightPass.RenameForAltitude(name, alt));
 
     [Theory]
     [InlineData("Galaxies", 30)]                 // no clause — never invent one
     [InlineData("Above the Clouds", 30)]         // "Above" inside a name is not a clause
-    [InlineData("Nebulae - Above 30", 30)]       // already accurate — no edit
+    [InlineData("Abell 2218", 30)]               // space-number without the dash is a NAME, never a clause
+    [InlineData("Nebulae - 30", 30)]             // already accurate — no edit
     public void RenameForAltitude_YieldsNoEditWhenNoneIsDue(string name, double alt) =>
         Assert.Null(VisibleTonightPass.RenameForAltitude(name, alt));
 

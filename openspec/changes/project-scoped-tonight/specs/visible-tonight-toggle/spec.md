@@ -132,11 +132,13 @@ up (the enable stage derives project `state` from what the sky left enabled). Wi
 selected the press SHALL write no project constraint.
 
 The project name SHALL track its altitude clause: when the `minimumaltitude` write verifiably lands
-and the name carries a trailing altitude clause ("… - Above N"), the press SHALL journal a rename
-rewriting the clause to the written value (normalizing stray spacing). A name without the clause SHALL
-be left untouched (the press never invents the convention); an already-accurate name yields no edit;
-and a refused or failed altitude write SHALL NOT rename — the name must never assert a constraint that
-did not land.
+and the name ends with a trailing altitude clause — the short form "… - N", or the legacy
+"… - Above N" — the press SHALL journal a rename rewriting the clause to the written value in the
+SHORT form (normalizing stray spacing; legacy names migrate on their first write). The clause requires
+the dash and sits only at the end of the name — a name merely ending in a number ("Abell 2218") is
+never a clause. A name without a clause SHALL be left untouched (the press never invents the
+convention); an already-accurate name yields no edit; and a refused or failed altitude write SHALL NOT
+rename — the name must never assert a constraint that did not land.
 
 #### Scenario: Changed values are journaled then applied
 - **WHEN** a project fills Duration 60 / Floor 30, the user sets Floor to 40, and presses Set
@@ -151,8 +153,12 @@ did not land.
 - **THEN** no project's `minimumtime` or `minimumaltitude` is written
 
 #### Scenario: The name clause follows the altitude write
+- **WHEN** a project named "Nebulae - 45" has its Floor written to 40
+- **THEN** a rename to "Nebulae - 40" is journaled alongside the `minimumaltitude` edit
+
+#### Scenario: A legacy clause migrates to the short form
 - **WHEN** a project named "Nebulae - Above 45" has its Floor written to 40
-- **THEN** a rename to "Nebulae - Above 40" is journaled alongside the `minimumaltitude` edit
+- **THEN** the journaled rename reads "Nebulae - 40"
 
 #### Scenario: A clause-less name is never renamed
 - **WHEN** a project named "Galaxies" has its Floor written to 40

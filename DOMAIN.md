@@ -79,8 +79,8 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
-- **Project names may carry a trailing altitude clause — `… - Above 30` — and the mosaic name-match
-  tolerates it** (decided 2026-08-06, obs ff07: renaming the mosaic projects to the portfolio's
+- **Project names may carry a trailing altitude clause — `… - 30` (short form, 2026-08-06 for UI
+  space; legacy `… - Above 30` still recognized) — and the mosaic name-match tolerates it** (decided 2026-08-06, obs ff07: renaming the mosaic projects to the portfolio's
   `- Above N` convention silently unmatched every mosaic, because the matcher demanded the bare disk
   directory name). The library strips one trailing clause (`MosaicConvention.StripAltitudeClause` —
   case/spacing-tolerant, integer or decimal) from BOTH sides before comparing, so
@@ -88,8 +88,9 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   coordinate scope keys strip identically (a raw-name scope would pass the parent match yet orphan
   every panel). Capture directories stay bare — the clause is TS-side authoring metadata only. **The clause is kept
   true by the scoped Set press** (project-scoped-tonight): a landed `minimumaltitude` write rewrites an
-  existing clause to the new value ("Above 0" = constraint Off, per the TS UI's 0 = "Off"); names
-  without a clause are never renamed.
+  existing clause to the new value in the short form ("- 0" = constraint Off, per the TS UI's 0 =
+  "Off"; the dash is required and the clause sits only at the end — "Abell 2218" is a name, not a
+  clause); names without a clause are never renamed.
 - **Every TS target carries a rotation (sky angle)** (decided 2026-08-04, obs 7c5e). A TS-backed target
   with NULL rotation — typically adopted from mechanical-only disk framing, which never converts to sky —
   is badged `no-rotation` (warning, target scope; distinct from `framing` = rotation present, frames

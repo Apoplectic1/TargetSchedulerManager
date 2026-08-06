@@ -25,7 +25,7 @@ project (2026-08-05 explore session).
   Draft/Closed projects' targets like any other's. Project lifecycle stays separate — the pass never
   writes a Draft/Closed project's `state` in either direction (promotion remains a hand edit).
 - **The name tracks the clause** (added before archive, user call): a Floor write that lands rewrites
-  an existing "- Above N" name clause to match (journaled rename; `project.name` joins the editable
+  an existing trailing altitude clause ("- N"; legacy "- Above N" migrates) to match (journaled rename; `project.name` joins the editable
   schema and the inbound diff). Clause-less names are never touched; a refused write never renames.
 - Custom-horizon projects get no special case: TS applies the horizon at the telescope; the scoped
   pass uses Min Altitude as its scalar floor regardless.

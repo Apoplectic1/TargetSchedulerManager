@@ -366,7 +366,8 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
   values journal onto the project before the scoped enable pass runs. Knob ranges are the TS schema's
   (Duration 0–999 whole minutes; Floor 0–89.9° with tenths — `UpDownBox` `DecimalPlaces=1`; TS asserts a
   minimum altitude below 90), so a fill never silently clamps a stored value. A landed Floor write also
-  rewrites an existing "- Above N" clause in the project name (never invented, never on a refused write).
+  rewrites an existing trailing "- N" altitude clause in the project name (legacy "- Above N" migrates;
+  never invented, never on a refused write).
   Mechanics → `SUBSYSTEMS.md` → *Visible-tonight pass*. Ambiguities…
   (enabled once a load exists) writes a dated printable Markdown report of every
   TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`
