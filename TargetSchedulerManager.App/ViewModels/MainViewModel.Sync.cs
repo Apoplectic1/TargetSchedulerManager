@@ -165,6 +165,7 @@ public sealed partial class MainViewModel
                 _lastLoad = result;
                 _allRows = result.Rows;
                 RefreshAmbiguities();
+                RefreshProjectChoices();
                 // Unreadable frames speak only when nonzero (the indication means "something was lost", not
                 // "a scan ran"); the ⚠ glyph is the caution emphasis a single-brush status TextBlock can
                 // carry. The paths live in the ambiguity report (openspec framing-overlap-column, 4a).
@@ -189,6 +190,7 @@ public sealed partial class MainViewModel
             Log.Error("reconciliation load failed", ex);
             _lastLoad = null;
             RefreshAmbiguities();
+            RefreshProjectChoices();
             _allRows = [];
             StatusText = $"load failed: {ex.Message}";
             ApplyFilters();

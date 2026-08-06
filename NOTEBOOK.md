@@ -6,6 +6,15 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-08-05 — target enables vs project lifecycle are separate concepts (settled in
+`project-scoped-tonight`; expected to resurface).** The Visible-tonight pass originally skipped
+Draft/Closed projects wholesale; the user's clarified model: `target.active` is **sky truth** (every
+project's targets flip per tonight's visibility, any state), while `project.state` is **lifecycle**
+(only the Active↔Inactive pair is ever derived/written; Draft/Closed promotion stays a hand edit).
+User flagged at decision time that this enable/Draft/Closed boundary "will probably re-surface later"
+— e.g. if lifecycle rules grow (auto-promotion, per-state enable policies), start from this split, not
+from the pre-2026-08-05 skip-wholesale model.
+
 **2026-07-29 — overlap-fraction traps + the 57–100% floor (fed `framing-overlap-column`).** *The rules these
 produced live in `ARCHITECTURE.md` (no-binning + cos(dec) derivation) and `DOMAIN.md` → What TSM is for (the
 compressed range, in the detects-not-enforces bullet); this entry keeps the measurements behind them.* **(1) Binning:** Z183 bin 1 reports

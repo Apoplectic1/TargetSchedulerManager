@@ -283,14 +283,28 @@ the mechanism there):
   template names) into one printable Markdown file with hand-fix instructions — the tripwire's detail. TSM
   never resolves these itself (resolver rejected 2026-07-08; fixes are hand-edits in NINA's TS UI).
 
-## Visible-tonight pass (toolbar group; shipped 2026-07-23)
+## Visible-tonight pass (toolbar group; shipped 2026-07-23, project-scoped 2026-08-05)
 
-A "Visible Tonight:" toolbar group — **Duration** (whole minutes, 15–480, default 30) and **Floor**
-(whole degrees, 0–89, default 30) numeric up-downs + a **Tonight** button (it replaced the toolbar's old
-load-summary text, removed same day). One press reconciles the enable state with tonight's sky — no
-confirm dialog (user decision: "this is why it's a button"), push stays optional. The up-downs are
+A "Visible Tonight:" toolbar group — a **Project** dropdown ("All projects" default, every project
+listed regardless of state), **Duration** (whole minutes, 0–999, default 30) and **Floor** (degrees
+with tenths, 0–90, default 30) numeric up-downs + a **Tonight** button (it replaced the toolbar's old
+load-summary text, removed same day). The knob ranges ARE the TS schema's for `minimumtime` /
+`minimumaltitude`, so a project fill can never silently clamp or round a stored value. One press
+reconciles the enable state with tonight's sky — no confirm dialog (user decision: "this is why it's a
+button"), push stays optional. The up-downs are
 `Controls/UpDownBox` — an app-local WinForms-style NumericUpDown (a narrow inline `NumberBox` is
-unreachable; `UI.md` → *WinUI gotchas*) — sized to their digit budgets (Duration 3, Floor 2). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+unreachable; `UI.md` → *WinUI gotchas*) — Floor uses its `DecimalPlaces=1` mode
+(openspec `project-scoped-tonight`).
+
+- **Project scoping (openspec `project-scoped-tonight`, 2026-08-05):** selecting a project **fills**
+  Duration ← `minimumtime` and Floor ← `minimumaltitude` (a fresh read of the local copy via the
+  field-read path — a read, never a write; switching selections refills over any box edits). The
+  Tonight press is then the **single write gesture**: it journals the changed constraint fields onto
+  the project (only-if-changed, compared against the fill snapshot the window holds), then runs both
+  stages scoped to that project. *Settings flow down* (TS cascades project constraints to member
+  targets at plan time), *state rolls up* (stage 2 derives `project.state` from what the sky left
+  enabled). All mode never writes a constraint. Project names encoding an altitude ("Above 45") are
+  deliberately NOT renamed on a Floor write — a planned follow-up. The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
 collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
 and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 
@@ -306,13 +320,17 @@ and `Astronomy.Core.Horizons`), and because floor is what the code always called
   (and promoted TP's `.hrz` parser into the library) was reverted 2026-07-23. "Tonight" is
   `NightCalculator.ComputeNight`'s bracket: the window whose dawn is the next dawn at-or-after now (the
   current night mid-night, the upcoming night in daylight).
-- **Flip rules:** `target.active ← verdict` for every target of an `Active`/`Inactive` project; then
+- **Flip rules:** `target.active ← verdict` for every target of **every project regardless of state**
+  (narrowed to the selected project when scoped) — enables are sky truth, a separate concept from the
+  project lifecycle (user decision 2026-08-05; before that, `Draft`/`Closed` targets were skipped
+  wholesale — this concept split will probably resurface as the lifecycle model grows). Then
   `project.state ← any-enabled-child ? Active : Inactive` over the **applied** values — recomputed after the
   target batch lands, so a refused/failed target flip contributes the target's *old* value and can never
   orphan a project flip whose premise didn't land (2026-07-24, `visible-tonight-applied-states`; a project
-  with no effectively enabled targets — including one with no targets — goes Inactive). `Draft`/`Closed`
-  projects and their targets are never read or written. Panels are ordinary target rows. No-op values
-  journal nothing.
+  with no effectively enabled targets — including one with no targets — goes Inactive). Stage 2 keeps
+  the `Active`/`Inactive` gate: a `Draft`/`Closed` project's targets may flip but its lifecycle state
+  is **never derived or written** — promotion stays a hand edit. Panels are ordinary target rows.
+  No-op values journal nothing.
 - **Data + writes:** consumes the load's retained `TsPlanData` snapshot (`LoadResult.Ts` — the single TS
   read; no re-open), plans as pure records (`Services/VisibleTonightPass` — `PlanTargets` then
   `PlanProjects` over the landed target edits, unit-tested without SQLite), applies through

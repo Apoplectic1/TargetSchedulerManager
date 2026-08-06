@@ -45,27 +45,31 @@ internal sealed record VisibleTonightProjectPlan(
 internal static class VisibleTonightPass
 {
     // TS project.state codes (TsEditableSchema "ProjectState": 0 Draft · 1 Active · 2 Inactive · 3 Closed).
-    // Only the Active/Inactive pair is ever read or written; Draft/Closed projects are skipped wholesale.
+    // Only the Active/Inactive pair is ever read or written BY STAGE 2; stage 1 flips every project's
+    // targets regardless of state (enables = sky truth; lifecycle separate — obs session 2026-08-05).
     private const int StateActive = 1;
     private const int StateInactive = 2;
 
     /// <summary>
-    /// Stage 1: computes the <c>target.active</c> flips for one button press. Projects outside the
-    /// Active/Inactive pair are skipped entirely (their targets too); each remaining target's
-    /// <c>active</c> tracks its visibility verdict. Unchanged fields yield no edit.
+    /// Stage 1: computes the <c>target.active</c> flips for one button press. Target enables are sky
+    /// truth, a separate concept from the project lifecycle (openspec project-scoped-tonight, user
+    /// decision): EVERY project's targets are evaluated regardless of project state — narrowed to one
+    /// project when <paramref name="onlyProjectId"/> scopes the press. Each target's <c>active</c>
+    /// tracks its visibility verdict; unchanged fields yield no edit.
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// A processed target has no RA/Dec — a TS contract violation; the pass aborts before any edit.
     /// </exception>
     public static VisibleTonightTargetPlan PlanTargets(
-        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double floorAltitudeDeg)
+        TsPlanData ts, Location site, DateTime utcNow, TimeSpan minDuration, double floorAltitudeDeg,
+        long? onlyProjectId = null)
     {
         NightWindow night = NightCalculator.ComputeNight(site, utcNow);
         ScalarHorizonProfile altitudeFloor = new(floorAltitudeDeg);
 
         List<VisibleTonightEdit> targetEdits = [];
         int enabled = 0, disabled = 0, unchanged = 0;
-        HashSet<long> processedProjects = ProcessedProjects(ts);
+        HashSet<long> processedProjects = TargetUniverse(ts, onlyProjectId);
 
         foreach (TsTarget target in ts.Targets)
         {
@@ -102,13 +106,15 @@ internal static class VisibleTonightPass
     /// its key, else the snapshot value — so a refused/failed flip contributes the target's OLD state,
     /// never the intent (overlay-on-snapshot: only the snapshot knows a failed flip's surviving value).
     /// Each project's <c>state</c> then follows "no effectively enabled targets → Inactive, any →
-    /// Active". Pure derivation — no visibility math, cannot throw.
+    /// Active". Pure derivation — no visibility math, cannot throw. Unlike stage 1, the universe here
+    /// keeps the Active/Inactive gate: a Draft/Closed project's targets may have flipped, but its
+    /// lifecycle state is never derived or written (openspec project-scoped-tonight).
     /// </summary>
     public static VisibleTonightProjectPlan PlanProjects(
-        TsPlanData ts, IReadOnlyList<VisibleTonightEdit> appliedTargetEdits)
+        TsPlanData ts, IReadOnlyList<VisibleTonightEdit> appliedTargetEdits, long? onlyProjectId = null)
     {
         Dictionary<string, int> appliedByKey = appliedTargetEdits.ToDictionary(e => e.Key, e => e.Value);
-        HashSet<long> processedProjects = ProcessedProjects(ts);
+        HashSet<long> processedProjects = ProcessedProjects(ts, onlyProjectId);
 
         Dictionary<long, bool> anyEnabledByProject = processedProjects.ToDictionary(id => id, _ => false);
         foreach (TsTarget target in ts.Targets)
@@ -143,9 +149,16 @@ internal static class VisibleTonightPass
         return new VisibleTonightProjectPlan(projectEdits, activated, deactivated);
     }
 
-    // The pass's project universe: only the Active/Inactive pair is ever read or written.
-    private static HashSet<long> ProcessedProjects(TsPlanData ts) =>
-        [.. ts.Projects.Where(p => p.State is StateActive or StateInactive).Select(p => p.Id)];
+    // Stage 1's universe: every project (enables are sky truth), scoped when a press selects one.
+    private static HashSet<long> TargetUniverse(TsPlanData ts, long? onlyProjectId) =>
+        [.. ts.Projects.Where(p => onlyProjectId is not long only || p.Id == only).Select(p => p.Id)];
+
+    // Stage 2's universe: only the Active/Inactive pair ever has its state read or written.
+    private static HashSet<long> ProcessedProjects(TsPlanData ts, long? onlyProjectId) =>
+        [.. ts.Projects
+            .Where(p => p.State is StateActive or StateInactive)
+            .Where(p => onlyProjectId is not long only || p.Id == only)
+            .Select(p => p.Id)];
 
     // The gate's row key convention: the TS guid when the row has one, else the integer Id as a string.
     private static string EditKey(string? tsGuid, long id) =>

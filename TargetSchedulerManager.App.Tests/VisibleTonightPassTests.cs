@@ -212,15 +212,55 @@ public class VisibleTonightPassTests
     // ---- exclusions + contract ---------------------------------------------------------------------
 
     [Fact]
-    public void DraftAndClosedProjects_AndTheirTargets_AreUntouched()
+    public void DraftAndClosedProjects_TargetsFlip_StateNeverWritten()
     {
+        // Enables are sky truth for every project (openspec project-scoped-tonight); lifecycle stays
+        // separate — both targets disable, neither project's state is derived or written.
         var (targets, projects) = Plan(
             [Project(1, Draft), Project(2, Closed)],
             [Target(10, 1, NeverRisesDec, active: 1), Target(20, 2, NeverRisesDec, active: 1)]);
 
-        Assert.Empty(targets.Edits);
+        Assert.Equal(2, targets.Edits.Count);
+        Assert.All(targets.Edits, e => Assert.Equal((TsTable.Target, "active", 0), (e.Table, e.Column, e.Value)));
+        Assert.Equal(2, targets.Disabled);
         Assert.Empty(projects.Edits);
-        Assert.Equal(0, targets.Disabled + targets.Enabled + targets.Unchanged);
+    }
+
+    // ---- scoped press (openspec project-scoped-tonight) --------------------------------------------
+
+    [Fact]
+    public void ScopedPress_FlipsOnlyTheSelectedProjectsTargetsAndState()
+    {
+        // Both Active projects hold an enabled never-rises target; scoping to project 1 must leave
+        // project 2's target AND state untouched even though both "deserve" the same flips.
+        TsPlanData data = Data(
+            [Project(1, Active), Project(2, Active)],
+            [Target(10, 1, NeverRisesDec, active: 1), Target(20, 2, NeverRisesDec, active: 1)]);
+
+        VisibleTonightTargetPlan targets = VisibleTonightPass.PlanTargets(
+            data, Site, UtcNow, ThirtyMinutes, floorAltitudeDeg: 0, onlyProjectId: 1);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(
+            data, targets.Edits, onlyProjectId: 1);
+
+        VisibleTonightEdit targetEdit = Assert.Single(targets.Edits);
+        Assert.Equal("10", targetEdit.Key);                 // project 2's target untouched
+        VisibleTonightEdit projectEdit = Assert.Single(projects.Edits);
+        Assert.Equal("1", projectEdit.Key);                 // project 2's state untouched
+        Assert.Equal((TsTable.Project, "state", Inactive), (projectEdit.Table, projectEdit.Column, projectEdit.Value));
+    }
+
+    [Fact]
+    public void ScopedPress_OnDraftProject_FlipsTargetsButNotState()
+    {
+        TsPlanData data = Data([Project(1, Draft)], [Target(10, 1, NeverRisesDec, active: 1)]);
+
+        VisibleTonightTargetPlan targets = VisibleTonightPass.PlanTargets(
+            data, Site, UtcNow, ThirtyMinutes, floorAltitudeDeg: 0, onlyProjectId: 1);
+        VisibleTonightProjectPlan projects = VisibleTonightPass.PlanProjects(
+            data, targets.Edits, onlyProjectId: 1);
+
+        Assert.Single(targets.Edits);
+        Assert.Empty(projects.Edits);   // Draft state is never derived, even when explicitly selected
     }
 
     [Fact]

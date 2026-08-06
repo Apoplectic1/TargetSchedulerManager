@@ -228,6 +228,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     {
         _lastLoad = load;
         RefreshAmbiguities();
+        RefreshProjectChoices();
     }
 
     /// <summary>Expand/collapse one group by editing the bound list in place (keeps the scroll position).</summary>

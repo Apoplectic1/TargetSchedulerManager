@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
@@ -8,6 +9,13 @@ using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
 
 namespace TargetSchedulerManager.App.ViewModels;
+
+/// <summary>One toolbar Project-dropdown entry: a TS project (edit key + numeric id + display name),
+/// or the <see cref="All"/> sentinel (null key/id) that keeps the press global and write-free.</summary>
+public sealed record TonightProjectChoice(string? Key, long? Id, string Name)
+{
+    public static readonly TonightProjectChoice All = new(null, null, "All projects");
+}
 
 // The report/derived surfaces (review M4 split): the ambiguity tripwire, the Templates… picker data, and
 // the Visible-tonight command — everything computed FROM the retained load rather than part of loading or
@@ -136,17 +144,23 @@ public sealed partial class MainViewModel
     /// <summary>The Visible-Tonight button: reconciles <c>target.active</c> / <c>project.state</c>
     /// with tonight's sky — visible = a single contiguous window of at least <paramref name="minDuration"/>
     /// above <paramref name="floorAltitudeDeg"/> at the DevDefaults site (see
-    /// <see cref="VisibleTonightPass"/>; both knobs come from the toolbar, defaults 30 min / 30°).3
-    /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flipkel
+    /// <see cref="VisibleTonightPass"/>; both knobs come from the toolbar, defaults 30 min / 30°).
+    /// Consumes the load's retained TS snapshot (no re-read), applies through the guarded gate (each flip
     /// journals like a hand edit), reloads without a pull so the grid shows the flips + marks, then
-    /// reports the counts on the status line.</summary>
-    public async Task RunVisibleTonightAsync(TimeSpan minDuration, double floorAltitudeDeg)
+    /// reports the counts on the status line.
+    /// <para>With <paramref name="scope"/> (openspec project-scoped-tonight) the press first journals
+    /// the selected project's changed constraints — settings flow down — then runs both stages scoped
+    /// to that project; state still rolls up from what the sky left enabled. Null scope = the
+    /// All-projects press, which never writes a constraint.</para></summary>
+    public async Task RunVisibleTonightAsync(
+        TimeSpan minDuration, double floorAltitudeDeg, TonightScope? scope = null)
     {
         if (!TryBeginBusy())
             return;
         VisibleTonightTargetPlan targetPlan;
         VisibleTonightProjectPlan projectPlan;
         int failed;
+        int constraintsWritten = 0;
         bool anythingLanded;   // reload only when a flip actually landed — an all-refused pass changed nothing
         try
         {
@@ -156,10 +170,29 @@ public sealed partial class MainViewModel
                 return;
             }
 
+            // The scoped constraint write, inside the same busy scope as the enable stages: only the
+            // fields the caller found changed travel (the fill snapshot lives in the view). The enable
+            // pass then uses the box values directly — no re-read.
+            List<TsFieldEdit> constraintEdits = [];
+            if (scope is not null)
+            {
+                if (scope.NewMinimumTime is int newMinTime)
+                    constraintEdits.Add(new TsFieldEdit(
+                        TsTable.Project, scope.EditKey, "minimumtime", newMinTime, $"{scope.Name} — project"));
+                if (scope.NewMinimumAltitude is double newMinAlt)
+                    constraintEdits.Add(new TsFieldEdit(
+                        TsTable.Project, scope.EditKey, "minimumaltitude", newMinAlt, $"{scope.Name} — project"));
+            }
+            IReadOnlyList<EditOutcome> constraintOutcomes = constraintEdits.Count > 0
+                ? await _gate.ApplyManyAsync(constraintEdits)
+                : [];
+            constraintsWritten = constraintOutcomes.Count(o => o is EditOutcome.Applied);
+
             try
             {
                 targetPlan = VisibleTonightPass.PlanTargets(
-                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, floorAltitudeDeg);
+                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, floorAltitudeDeg,
+                    scope?.ProjectId);
             }
             catch (Exception ex)
             {
@@ -180,13 +213,15 @@ public sealed partial class MainViewModel
                 .Where((_, i) => targetOutcomes[i] is EditOutcome.Applied)];
 
             // Always derived, even with zero target edits — a project can need a flip over already-settled targets.
-            projectPlan = VisibleTonightPass.PlanProjects(load.Ts, landed);
+            projectPlan = VisibleTonightPass.PlanProjects(load.Ts, landed, scope?.ProjectId);
             IReadOnlyList<EditOutcome> projectOutcomes = await _gate.ApplyManyAsync(
                 [.. projectPlan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
 
-            failed = targetOutcomes.Count(o => o is not EditOutcome.Applied)
+            failed = constraintOutcomes.Count(o => o is not EditOutcome.Applied)
+                + targetOutcomes.Count(o => o is not EditOutcome.Applied)
                 + projectOutcomes.Count(o => o is not EditOutcome.Applied);
-            anythingLanded = landed.Length > 0 || projectOutcomes.Any(o => o is EditOutcome.Applied);
+            anythingLanded = constraintsWritten > 0 || landed.Length > 0
+                || projectOutcomes.Any(o => o is EditOutcome.Applied);
         }
         finally
         {
@@ -196,12 +231,46 @@ public sealed partial class MainViewModel
         if (anythingLanded)
             await LoadAsync(PullPolicy.Never);   // after EndBusy — the reload takes the gate itself
 
-        StatusText = $"Visible tonight: {targetPlan.Enabled} enabled · {targetPlan.Disabled} disabled · "
+        string scopeNote = scope is null ? "" : $" [{scope.Name}]";
+        string constraintNote = constraintsWritten > 0 ? $" · {constraintsWritten} constraint field(s) written" : "";
+        StatusText = $"Visible tonight{scopeNote}: {targetPlan.Enabled} enabled · {targetPlan.Disabled} disabled · "
             + $"{targetPlan.Unchanged} unchanged · {projectPlan.Activated + projectPlan.Deactivated} project(s) flipped"
+            + constraintNote
             + (failed > 0 ? $" · {failed} FAILED — see tsm.log" : "");
-        Log.Info($"VISIBLE-TONIGHT: enabled={targetPlan.Enabled} disabled={targetPlan.Disabled}"
+        Log.Info($"VISIBLE-TONIGHT{scopeNote}: enabled={targetPlan.Enabled} disabled={targetPlan.Disabled}"
             + $" unchanged={targetPlan.Unchanged} projOn={projectPlan.Activated}"
-            + $" projOff={projectPlan.Deactivated} failed={failed}");
+            + $" projOff={projectPlan.Deactivated} constraints={constraintsWritten} failed={failed}");
+    }
+
+    /// <summary>A scoped Tonight press (openspec project-scoped-tonight): the selected project plus the
+    /// constraint values the view found CHANGED against its fill snapshot — null members write nothing.
+    /// The view owns the changed-compare because the view did the fill read.</summary>
+    public sealed record TonightScope(
+        long ProjectId, string EditKey, string Name, int? NewMinimumTime, double? NewMinimumAltitude);
+
+    /// <summary>The toolbar Project dropdown's items: "All projects" first (null key), then every TS
+    /// project regardless of state, name-sorted. Rebuilt after each load.</summary>
+    public IReadOnlyList<TonightProjectChoice> ProjectChoices
+    {
+        get => _projectChoices;
+        private set => Set(ref _projectChoices, value);
+    }
+
+    private IReadOnlyList<TonightProjectChoice> _projectChoices = [TonightProjectChoice.All];
+
+    /// <summary>Rebuilds <see cref="ProjectChoices"/> from the retained load (call after
+    /// <c>_lastLoad</c> changes). Every state is listed — Draft/Closed are selectable for constraint
+    /// edits even though the pass never writes their lifecycle state.</summary>
+    private void RefreshProjectChoices()
+    {
+        List<TonightProjectChoice> choices = [TonightProjectChoice.All];
+        if (_lastLoad is { Ts.Projects: { } projects })
+            choices.AddRange(projects
+                .OrderBy(p => p.Name, NaturalComparer.Instance)
+                .Select(p => new TonightProjectChoice(
+                    string.IsNullOrEmpty(p.TsGuid) ? p.Id.ToString(CultureInfo.InvariantCulture) : p.TsGuid,
+                    p.Id, p.Name)));
+        ProjectChoices = choices;
     }
 
     /// <summary>The loaded graph's templates for the Templates… picker: name-ordered, with used-by counts

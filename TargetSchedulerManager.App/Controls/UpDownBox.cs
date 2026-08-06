@@ -13,30 +13,45 @@ namespace TargetSchedulerManager.App.Controls;
 /// (120 px input minimum, 76 px inline chevron pair, 72 px reserved text column in the inner template)
 /// that make a narrow inline control unreachable without per-instance template surgery — attempted and
 /// abandoned 2026-07-26 (three failed visual passes; see DOMAIN.md → WinUI gotchas). Behavior mirrors
-/// the WinForms control: integer <see cref="Value"/> clamped to [<see cref="Minimum"/>, <see cref="Maximum"/>],
+/// the WinForms control: <see cref="RealValue"/> clamped to [<see cref="Minimum"/>, <see cref="Maximum"/>],
 /// chevrons and Up/Down arrow keys step by <see cref="SmallChange"/> (committing any typed text first),
 /// typed input commits on focus loss or Enter, and unparseable input reverts to the current value.
+/// Integer by default; <see cref="DecimalPlaces"/> = 1 admits tenths (openspec project-scoped-tonight:
+/// the Floor knob mirrors TS's Real <c>minimumaltitude</c>, and a fill must never round a stored value).
 /// </summary>
 public sealed class UpDownBox : Grid
 {
     private readonly TextBox _text;
-    private int _value;
+    private double _value;
 
     /// <remarks>Set <see cref="Minimum"/>/<see cref="Maximum"/> before <see cref="Value"/> in XAML —
     /// the Value setter clamps against them.</remarks>
-    public int Minimum { get; set; }
-    public int Maximum { get; set; } = int.MaxValue;
+    public double Minimum { get; set; }
+    public double Maximum { get; set; } = double.MaxValue;
     public int SmallChange { get; set; } = 1;
 
-    /// <summary>Current committed value; assignment clamps to range and refreshes the text.</summary>
-    public int Value
+    /// <summary>Fractional digits accepted and displayed: 0 (default, whole numbers — typed decimals
+    /// round on commit) or 1 (tenths; whole values still display bare — "30", not "30.0").</summary>
+    public int DecimalPlaces { get; set; }
+
+    /// <summary>Current committed value; assignment rounds to <see cref="DecimalPlaces"/>, clamps to
+    /// range, and refreshes the text.</summary>
+    public double RealValue
     {
         get => _value;
         set
         {
-            _value = Math.Clamp(value, Minimum, Maximum);
-            _text.Text = _value.ToString();
+            _value = Math.Clamp(Math.Round(value, DecimalPlaces), Minimum, Maximum);
+            _text.Text = _value.ToString(DecimalPlaces == 0 ? "0" : "0.#");
         }
+    }
+
+    /// <summary>Whole-number view of <see cref="RealValue"/> — the XAML-friendly property every
+    /// integer knob sets; reads round.</summary>
+    public int Value
+    {
+        get => (int)Math.Round(_value);
+        set => RealValue = value;
     }
 
     public UpDownBox()
@@ -87,12 +102,13 @@ public sealed class UpDownBox : Grid
     private void Step(int sign)
     {
         Commit();
-        Value = _value + sign * SmallChange;
+        RealValue = _value + sign * SmallChange;
     }
 
-    // Parse-or-revert; the Value setter clamps and rewrites the text either way, so out-of-range and
-    // unparseable input alike are visibly corrected (the old NumberBox InvalidInputOverwritten contract).
-    private void Commit() => Value = int.TryParse(_text.Text, out int typed) ? typed : _value;
+    // Parse-or-revert; the RealValue setter rounds, clamps and rewrites the text either way, so
+    // out-of-range and unparseable input alike are visibly corrected (the old NumberBox
+    // InvalidInputOverwritten contract).
+    private void Commit() => RealValue = double.TryParse(_text.Text, out double typed) ? typed : _value;
 
     private void Text_KeyDown(object sender, KeyRoutedEventArgs e)
     {

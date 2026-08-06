@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Reflection;
+using Astronomy.Catalog.TargetScheduler;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;   // RepeatButton — the NumberBox spin buttons
@@ -76,13 +78,77 @@ public sealed partial class MainWindow : Window
     // Write + open the printable ambiguity report (fixes happen by hand in NINA's TS UI, never here).
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
 
+    // The fill snapshot behind the Project dropdown (openspec project-scoped-tonight): what the boxes
+    // were filled WITH, so the Tonight press writes only fields the user actually changed. Null = All
+    // selected (or a fill failure) — the press then writes no constraint. The boxes are a viewport;
+    // Tonight is the only commit, so switching selections just refills over any edits.
+    private ViewModels.TonightProjectChoice? _tonightProject;
+    private (int MinTime, double MinAlt)? _tonightFill;
+
+    private void VisibleProject_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // An ItemsSource swap (every load rebuilds the list) clears the selection: restore the prior
+        // project by key, or All. The re-selection re-enters this handler on the restored item.
+        if (VisibleProject.SelectedItem is not ViewModels.TonightProjectChoice choice)
+        {
+            if (VisibleProject.Items.Count > 0)
+                VisibleProject.SelectedIndex = _tonightProject?.Key is string key
+                    ? Math.Max(0, ViewModel.ProjectChoices.ToList().FindIndex(c => c.Key == key))
+                    : 0;
+            return;
+        }
+
+        _tonightProject = choice;
+        if (choice.Key is not string projectKey)
+        {
+            _tonightFill = null;
+            VisibleDuration.Value = 30;   // All: restore the free-knob defaults
+            VisibleFloor.Value = 30;
+            return;
+        }
+        FireAndLog(async () =>
+        {
+            IReadOnlyDictionary<string, object?>? fields =
+                await ViewModel.ReadTsFieldsAsync(TsTable.Project, projectKey, choice.Name);
+            if (fields is null
+                || fields.GetValueOrDefault("minimumtime") is not { } rawTime
+                || fields.GetValueOrDefault("minimumaltitude") is not { } rawAlt)
+            {
+                // Fill needs both constraints; without them the press must not write half a pair.
+                _tonightFill = null;
+                ViewModel.NoteStatus($"{choice.Name}: could not read Min time / Min altitude — knobs not filled");
+                return;
+            }
+            int minTime = Convert.ToInt32(rawTime, CultureInfo.InvariantCulture);
+            double minAlt = Convert.ToDouble(rawAlt, CultureInfo.InvariantCulture);
+            VisibleDuration.Value = minTime;
+            VisibleFloor.RealValue = minAlt;
+            _tonightFill = (minTime, minAlt);
+        }, "tonight project fill");
+    }
+
     // One press, no confirm: enables/disables target.active by tonight's visibility (toolbar Duration
-    // minutes 15–480 above Floor whole degrees 0–89), projects follow. The UpDownBox knobs commit any
-    // typed text when the button steals focus and clamp to range, so both reads are valid whole numbers.
-    private void VisibleTonight_Click(object sender, RoutedEventArgs e) =>
+    // minutes above Floor degrees, both schema-ranged), projects follow. With a project selected the
+    // press first journals its CHANGED Min time / Min altitude (compared against the fill snapshot),
+    // then runs the pass scoped to it. The UpDownBox knobs commit any typed text when the button
+    // steals focus and clamp to range, so both reads are valid numbers.
+    private void VisibleTonight_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModels.MainViewModel.TonightScope? scope = null;
+        if (_tonightProject is { Key: string key, Id: long id } choice)
+        {
+            (int fillTime, double fillAlt)? fill = _tonightFill;
+            int boxTime = VisibleDuration.Value;
+            double boxAlt = VisibleFloor.RealValue;
+            scope = new ViewModels.MainViewModel.TonightScope(
+                id, key, choice.Name,
+                NewMinimumTime: fill is { } f1 && boxTime != f1.fillTime ? boxTime : null,
+                NewMinimumAltitude: fill is { } f2 && boxAlt != f2.fillAlt ? boxAlt : null);
+        }
         FireAndLog(() => ViewModel.RunVisibleTonightAsync(
-            TimeSpan.FromMinutes(VisibleDuration.Value), VisibleFloor.Value),
+            TimeSpan.FromMinutes(VisibleDuration.Value), VisibleFloor.RealValue, scope),
             "visible-tonight");
+    }
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
         ViewModel.SearchText = SearchBox.Text;

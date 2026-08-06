@@ -146,6 +146,50 @@ public class MainViewModelBusyGateTests
     }
 
     [Fact]
+    public async Task ScopedPress_AttemptsOnlyChangedConstraints_AndOnlyTheSelectedProject()
+    {
+        // Scope carries a changed minimumtime and an UNCHANGED (null) minimumaltitude; project 2 also
+        // "deserves" flips. Every write is refused so nothing lands (and the closing reload — a real
+        // disk scan — never runs); the recording still proves what the press ATTEMPTED: the one
+        // constraint field, then enables scoped to project 1 only. Null scope members write nothing —
+        // the VM half of only-if-changed (the box-vs-fill compare itself lives in the view).
+        RecordingEditor ed = new();
+        TsSync sync = SyncTestEnv.NewSync(out _);
+        MainViewModel vm = new(new TsEditGate(sync, _ => ed));
+        vm.SetLoadForTest(Load(new TsPlanData(
+            [new TsProject(1, "profile", "P1", 1 /* Active */, Priority: 1, null, IsMosaic: 0, null),
+             new TsProject(2, "profile", "P2", 1 /* Active */, Priority: 1, null, IsMosaic: 0, null)],
+            [new TsTarget(10, "T10", 1, 5.0, -80.0, EpochCode: 2, Rotation: null, Roi: null, 1, Priority: 1, null),
+             new TsTarget(20, "T20", 1, 5.0, -80.0, EpochCode: 2, Rotation: null, Roi: null, 2, Priority: 1, null)],
+            [], [])));
+
+        await vm.RunVisibleTonightAsync(
+            TimeSpan.FromMinutes(30), floorAltitudeDeg: 0,
+            new MainViewModel.TonightScope(1, "1", "P1", NewMinimumTime: 90, NewMinimumAltitude: null));
+
+        (TsTable Table, string Key, string Column) constraint = Assert.Single(
+            ed.Calls, c => c.Column is "minimumtime" or "minimumaltitude");
+        Assert.Equal((TsTable.Project, "1", "minimumtime"), constraint);   // the unchanged altitude never travels
+        (TsTable Table, string Key, string Column) enable = Assert.Single(ed.Calls, c => c.Column == "active");
+        Assert.Equal("10", enable.Key);                                    // project 2's target untouched
+        Assert.True(sync.Journal.IsEmpty);                                 // refused everywhere — nothing landed
+        Assert.Contains("[P1]", vm.StatusText);
+    }
+
+    [Fact]
+    public async Task AllProjectsPress_NeverAttemptsAConstraintWrite()
+    {
+        RecordingEditor ed = new();
+        MainViewModel vm = new(Gate(ed));
+        vm.SetLoadForTest(Load(CircumpolarDisabledTargetInInactiveProject()));
+
+        await vm.RunVisibleTonightAsync(TimeSpan.FromMinutes(30), floorAltitudeDeg: 0);
+
+        Assert.DoesNotContain(ed.Calls, c => c.Column is "minimumtime" or "minimumaltitude");
+        Assert.Contains(ed.Calls, c => c.Column == "active");   // the pass itself still planned enables
+    }
+
+    [Fact]
     public async Task VisibleTonight_NoLoad_ReleasesTheGate()
     {
         MainViewModel vm = new(Gate(new StubEditor()));
@@ -188,6 +232,25 @@ public class MainViewModelBusyGateTests
         DiskTargetCount: 0, TsTargetCount: 0, BothCount: 0, PlannedOnlyCount: 0, ActualOnlyCount: 0,
         NameMismatches: [], AmbiguousMatches: [], DuplicateTsTargets: [],
         UnanchoredTsTargets: [], InvalidTsTargets: []);
+
+    /// <summary>Records every attempted field write, refusing them all — orchestration assertions
+    /// without any landing (so the closing reload's real disk scan never runs in a test).</summary>
+    private sealed class RecordingEditor : ITsEditor
+    {
+        public List<(TsTable Table, string Key, string Column)> Calls { get; } = [];
+        public (FieldEditResult? Result, RefusalReason Refusal) TrySetField(
+            TsTable table, string tsKey, string column, object? value)
+        {
+            Calls.Add((table, tsKey, column));
+            return (null, RefusalReason.ReadOnly);
+        }
+        public (bool Found, object? Value) ReadField(TsTable table, string tsKey, string column) => (false, null);
+        public bool IsFieldAvailable(TsTable table, string column) => true;
+        public (bool Found, double? Value) ReadPlanEffectiveExposure(string tsPlanKey) => (false, null);
+        public (InsertOutcome? Outcome, RefusalReason Refusal) TryInsertRows(IReadOnlyList<TsRowInsert> rows) =>
+            (null, RefusalReason.SchemaIncompatible);
+        public void Dispose() { }
+    }
 
     private sealed class StubEditor : ITsEditor
     {
