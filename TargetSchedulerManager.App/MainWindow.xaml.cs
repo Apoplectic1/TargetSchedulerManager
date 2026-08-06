@@ -79,9 +79,9 @@ public sealed partial class MainWindow : Window
     private void Ambiguities_Click(object sender, RoutedEventArgs e) => ViewModel.WriteAmbiguityReport();
 
     // The fill snapshot behind the Project dropdown (openspec project-scoped-tonight): what the boxes
-    // were filled WITH, so the Tonight press writes only fields the user actually changed. Null = All
+    // were filled WITH, so the Set press writes only fields the user actually changed. Null = All
     // selected (or a fill failure) — the press then writes no constraint. The boxes are a viewport;
-    // Tonight is the only commit, so switching selections just refills over any edits.
+    // Set is the only commit, so switching selections just refills over any edits.
     private ViewModels.TonightProjectChoice? _tonightProject;
     private (int MinTime, double MinAlt)? _tonightFill;
 
@@ -132,7 +132,7 @@ public sealed partial class MainWindow : Window
     // press first journals its CHANGED Min time / Min altitude (compared against the fill snapshot),
     // then runs the pass scoped to it. The UpDownBox knobs commit any typed text when the button
     // steals focus and clamp to range, so both reads are valid numbers.
-    private void VisibleTonight_Click(object sender, RoutedEventArgs e)
+    private void SetProject_Click(object sender, RoutedEventArgs e)
     {
         ViewModels.MainViewModel.TonightScope? scope = null;
         if (_tonightProject is { Key: string key, Id: long id } choice)
