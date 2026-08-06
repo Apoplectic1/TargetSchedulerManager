@@ -82,7 +82,9 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   (co-located with the data it indexes). Currently unbuilt — nothing consumes it yet; ISM will own it.
 - **Reconciliation:** coordinate-primary, scope-equal — every disk unit (a top-level dir OR one mosaic panel)
   carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
-  none for a mosaic parent, which matches by project name); each TS target derives its scope from its own
+  none for a mosaic parent, which matches by project name — tolerating a trailing `- Above N` altitude
+  clause on either side, stripped before comparing and from the panel scope keys alike, 2026-08-06 obs ff07);
+  each TS target derives its scope from its own
   grouping (isMosaic project → that scope, else default). ONE rule: anchor to the nearest in-tolerance unit
   of the same scope (default 0.5° haversine; a panel claim whose directory token does NOT align is limited
   to a tight 0.1° radius — aligned directories anchor at the full tolerance since the name confirms identity

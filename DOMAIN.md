@@ -79,6 +79,14 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
+- **Project names may carry a trailing altitude clause — `… - Above 30` — and the mosaic name-match
+  tolerates it** (decided 2026-08-06, obs ff07: renaming the mosaic projects to the portfolio's
+  `- Above N` convention silently unmatched every mosaic, because the matcher demanded the bare disk
+  directory name). The library strips one trailing clause (`MosaicConvention.StripAltitudeClause` —
+  case/spacing-tolerant, integer or decimal) from BOTH sides before comparing, so
+  `Mosaic - Cygnus Loop - Above 25` matches the `Mosaic - Cygnus Loop` capture directory; the panels'
+  coordinate scope keys strip identically (a raw-name scope would pass the parent match yet orphan
+  every panel). Capture directories stay bare — the clause is TS-side authoring metadata only.
 - **Every TS target carries a rotation (sky angle)** (decided 2026-08-04, obs 7c5e). A TS-backed target
   with NULL rotation — typically adopted from mechanical-only disk framing, which never converts to sky —
   is badged `no-rotation` (warning, target scope; distinct from `framing` = rotation present, frames
