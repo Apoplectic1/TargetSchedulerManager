@@ -44,5 +44,5 @@
 
 - [x] 6.1 `UI.md` toolbar section + `SUBSYSTEMS.md` visible-tonight subsystem: dropdown, fill-is-read /
       Tonight-is-write, scoped universe, name-tracks-clause — same commit as the code
-- [ ] 6.2 Build + tests green; user field-verifies (fill, scoped enables, write in push review, All
+- [x] 6.2 Build + tests green; user field-verifies (fill, scoped enables, write in push review, All
       unchanged); archive on their word
