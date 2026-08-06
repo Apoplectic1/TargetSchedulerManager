@@ -11,6 +11,14 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ RELEASED 2026-08-06 evening — TSM `v1.4.1`: payload realignment to AL `v1.5.0`** — no TSM app
+changes (repo delta since `v1.4.0` is tooling-only); the release rebuilds against the sibling
+Library at `v1.5.0` (XISF Tier 3 codecs + image read, `WcsOrientation`, `Diagnostics.WinForms` —
+none consumed by TSM code paths today) so every installed portfolio app carries identically-stamped
+AL DLLs. Same-evening portfolio train: AL `v1.5.0` → XFM `v2.1.0` (first AL-carrying XFM release;
+ASTAP plate solving born from this repo's `°(M)` mechanical-fallback framings) → TP `v1.3.2` →
+TSM `v1.4.1`. Tests App 422.
+
 **▶ SHIPPED 2026-08-06 — `project-scoped-tonight`: the toolbar as a read/write window onto a project's
 TS constraints** (2026-08-05 explore → 2026-08-06 ship + NINA round-trip field verify): a **Project
 dropdown** joins the Visible-Tonight group listing every TS project (default **All projects**); selecting
