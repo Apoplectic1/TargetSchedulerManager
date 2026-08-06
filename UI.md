@@ -359,10 +359,10 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
 
 - **Toolbar:** Reload (rescan) · progress ring · Cancel (shown while any cancellable phase runs) · sync badge · Push… ·
   Pull now · Templates… · Ambiguities… · **Visible Tonight:** (Project dropdown + Duration + Floor up-downs +
-  Tonight). (The old toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced
+  Set). (The old toolbar load-summary text was removed 2026-07-23 when the Visible-Tonight group replaced
   it.) The Project dropdown (openspec `project-scoped-tonight`, 2026-08-05) defaults to **All projects**;
   selecting a project **fills** Duration/Floor from its TS `minimumtime`/`minimumaltitude` (a read — the boxes
-  are a viewport, switching selections refills over edits), and **Tonight is the only write gesture**: changed
+  are a viewport, switching selections refills over edits), and **Set is the only write gesture** (the button, relabeled from Tonight 2026-08-05): changed
   values journal onto the project before the scoped enable pass runs. Knob ranges are the TS schema's
   (Duration 0–999 whole minutes; Floor 0–90° with tenths — `UpDownBox` `DecimalPlaces=1`), so a fill never
   silently clamps a stored value. Mechanics → `SUBSYSTEMS.md` → *Visible-tonight pass*. Ambiguities…

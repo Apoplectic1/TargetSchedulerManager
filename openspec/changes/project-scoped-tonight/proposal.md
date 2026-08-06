@@ -15,7 +15,7 @@ project (2026-08-05 explore session).
   **every** TS project regardless of state, with **All projects** as the default entry.
 - Selecting a project **fills** Duration ← `minimumtime` and Floor ← `minimumaltitude` (read-only at
   selection time). Re-selecting or switching discards unsaved box edits.
-- With a project selected, **Tonight** becomes the single write gesture: it journals changed
+- With a project selected, **Set** (the group's button, relabeled from Tonight) becomes the single write gesture: it journals changed
   `minimumtime`/`minimumaltitude` onto the project, then runs the enable pass **scoped to that
   project's targets** using the box values. With All selected, today's global no-write behavior is
   unchanged.

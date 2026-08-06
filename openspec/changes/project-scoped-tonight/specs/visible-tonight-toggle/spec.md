@@ -13,7 +13,7 @@ The system SHALL obtain the observing site (latitude, longitude, time zone, elev
 and the predicate knobs from the toolbar's Visible-Tonight group: a **Project dropdown** (immediately
 right of the group label) listing every TS project by name regardless of state with an **All projects**
 entry selected by default; a Duration numeric up-down in whole minutes, range 0–999, default 30; and a
-Floor numeric up-down in real degrees, range 0–90, default 30. A Tonight button SHALL run the pass with
+Floor numeric up-down in real degrees, range 0–90, default 30. A **Set** button (relabeled from Tonight, user 2026-08-05) SHALL run the pass with
 the knobs' current values.
 
 Selecting a project in the dropdown SHALL fill Duration from the project's `minimumtime` and Floor from
@@ -23,11 +23,11 @@ SHALL match the TS schema's for those fields, so a fill can never clamp a stored
 user did not choose.
 
 #### Scenario: Knob values drive the verdicts
-- **WHEN** Tonight is pressed with Duration 120 and Floor 45
+- **WHEN** Set is pressed with Duration 120 and Floor 45
 - **THEN** verdicts use a 120-minute minimum window above 45° altitude at the DevDefaults site
 
 #### Scenario: Out-of-range input is corrected, not applied
-- **WHEN** a knob holds out-of-range or non-numeric input and Tonight is pressed
+- **WHEN** a knob holds out-of-range or non-numeric input and Set is pressed
 - **THEN** the knob's value is restored to a valid in-range number before the pass runs
 
 #### Scenario: Each knob is sized to its digit budget
@@ -43,7 +43,7 @@ user did not choose.
 - **THEN** the boxes show the stored values exactly — no clamping, no rounding
 
 #### Scenario: Switching selections discards unsaved edits
-- **WHEN** the user edits Duration after selecting project A, then selects project B without pressing Tonight
+- **WHEN** the user edits Duration after selecting project A, then selects project B without pressing Set
 - **THEN** the boxes refill from project B and nothing was written for project A
 
 ### Requirement: Bulk flip of target enables
@@ -72,7 +72,7 @@ SHALL be evaluated individually like any other target row.
 - **THEN** no edit is journaled for that target
 
 #### Scenario: Scoped press leaves other projects' targets alone
-- **WHEN** Tonight is pressed with one project selected while another project contains a target judged not visible tonight with `active = 1`
+- **WHEN** Set is pressed with one project selected while another project contains a target judged not visible tonight with `active = 1`
 - **THEN** that other project's target keeps `active = 1` and no edit is journaled for it
 
 ### Requirement: Project state derived from applied target enables
@@ -103,7 +103,7 @@ target batch applies, and no project outside the universe SHALL have its `state`
 - **THEN** project derivation runs against the unchanged pre-pass values and emits no flip whose premise did not land
 
 #### Scenario: Scoped press flips only the selected project's state
-- **WHEN** Tonight is pressed with one project selected and a different Active project happens to have zero enabled targets
+- **WHEN** Set is pressed with one project selected and a different Active project happens to have zero enabled targets
 - **THEN** only the selected project's `state` can change; the other project's `state` is untouched
 
 ### Requirement: The pass never writes Draft or Closed project state
@@ -118,13 +118,13 @@ constraint write like any other project.
 - **THEN** those targets' `active` values are set to 0 and the project's `state` stays Draft
 
 #### Scenario: Draft project accepts a constraint write
-- **WHEN** a Draft project is selected, Floor is changed, and Tonight is pressed
+- **WHEN** a Draft project is selected, Floor is changed, and Set is pressed
 - **THEN** the project's `minimumaltitude` is journaled with the new value and its targets flip per the sky, while its `state` stays Draft
 
 ## ADDED Requirements
 
 ### Requirement: A scoped press writes the project's constraints before enabling
-With a single project selected, the Tonight press SHALL first journal the project's `minimumtime` from
+With a single project selected, the Set press SHALL first journal the project's `minimumtime` from
 Duration and `minimumaltitude` from Floor — each only when the box value differs from the stored value
 — through the ordinary journaled edit path, then run the enable pass using the box values. Settings
 flow down (the write applies to every member target at TS plan time by TS's own cascade); state rolls
@@ -134,15 +134,15 @@ updated when the altitude changes (names encoding an altitude may go stale; rena
 follow-up).
 
 #### Scenario: Changed values are journaled then applied
-- **WHEN** a project fills Duration 60 / Floor 30, the user sets Floor to 40, and presses Tonight
+- **WHEN** a project fills Duration 60 / Floor 30, the user sets Floor to 40, and presses Set
 - **THEN** `minimumaltitude = 40` is journaled for that project (no `minimumtime` edit), and the enable pass runs with Duration 60 / Floor 40 over that project's targets
 
 #### Scenario: Unchanged values write nothing
-- **WHEN** a project is selected and Tonight is pressed with both boxes untouched
+- **WHEN** a project is selected and Set is pressed with both boxes untouched
 - **THEN** no constraint edit is journaled and only the enable pass runs
 
 #### Scenario: All mode never writes constraints
-- **WHEN** All projects is selected and Tonight is pressed with any Duration/Floor values
+- **WHEN** All projects is selected and Set is pressed with any Duration/Floor values
 - **THEN** no project's `minimumtime` or `minimumaltitude` is written
 
 #### Scenario: The stale name is tolerated

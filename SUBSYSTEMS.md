@@ -287,7 +287,7 @@ the mechanism there):
 
 A "Visible Tonight:" toolbar group — a **Project** dropdown ("All projects" default, every project
 listed regardless of state), **Duration** (whole minutes, 0–999, default 30) and **Floor** (degrees
-with tenths, 0–90, default 30) numeric up-downs + a **Tonight** button (it replaced the toolbar's old
+with tenths, 0–90, default 30) numeric up-downs + a **Set** button (labeled Tonight until 2026-08-05 — relabeled when the scoped press made it write settings, not just pick tonight's enables; it replaced the toolbar's old
 load-summary text, removed same day). The knob ranges ARE the TS schema's for `minimumtime` /
 `minimumaltitude`, so a project fill can never silently clamp or round a stored value. One press
 reconciles the enable state with tonight's sky — no confirm dialog (user decision: "this is why it's a
@@ -299,7 +299,7 @@ unreachable; `UI.md` → *WinUI gotchas*) — Floor uses its `DecimalPlaces=1` m
 - **Project scoping (openspec `project-scoped-tonight`, 2026-08-05):** selecting a project **fills**
   Duration ← `minimumtime` and Floor ← `minimumaltitude` (a fresh read of the local copy via the
   field-read path — a read, never a write; switching selections refills over any box edits). The
-  Tonight press is then the **single write gesture**: it journals the changed constraint fields onto
+  Set press is then the **single write gesture**: it journals the changed constraint fields onto
   the project (only-if-changed, compared against the fill snapshot the window holds), then runs both
   stages scoped to that project. *Settings flow down* (TS cascades project constraints to member
   targets at plan time), *state rolls up* (stage 2 derives `project.state` from what the sky left

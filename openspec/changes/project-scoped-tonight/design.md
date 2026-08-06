@@ -51,13 +51,13 @@ Two arrows, both true, different planes — the framing the spec uses: **setting
    the enable pass reading the box values directly (not re-reading the fields). The enable stage and
    the constraint write hold the same bulk-op exclusion as one operation, so no edit can interleave.
 6. **Selection fill is view-model state, not journal state**: switching selections refills and
-   discards box edits without any prompt — the boxes are a viewport, Tonight is the only commit.
+   discards box edits without any prompt — the boxes are a viewport, Set is the only commit.
 
 ## Risks / Trade-offs
 
 - [Fill shows stale values if another session edited the field since load] → fill re-reads from the
   local working copy at selection time (decision 2), not from the load snapshot.
-- [User expects the write without pressing Tonight] → the fill-is-read / Tonight-is-write model is
+- [User expects the write without pressing Set] → the fill-is-read / Set-is-write model is
   pinned in the spec and UI.md; the sync marks light on the project row after a write, giving
   immediate feedback that the commit happened.
 - [A Draft project's targets now flip on an All press — a behavior change from today] → intended
