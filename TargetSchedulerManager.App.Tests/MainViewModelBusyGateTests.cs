@@ -172,6 +172,7 @@ public class MainViewModelBusyGateTests
         Assert.Equal((TsTable.Project, "1", "minimumtime"), constraint);   // the unchanged altitude never travels
         (TsTable Table, string Key, string Column) enable = Assert.Single(ed.Calls, c => c.Column == "active");
         Assert.Equal("10", enable.Key);                                    // project 2's target untouched
+        Assert.DoesNotContain(ed.Calls, c => c.Column == "name");          // no altitude landed ⇒ no rename attempt
         Assert.True(sync.Journal.IsEmpty);                                 // refused everywhere — nothing landed
         Assert.Contains("[P1]", vm.StatusText);
     }

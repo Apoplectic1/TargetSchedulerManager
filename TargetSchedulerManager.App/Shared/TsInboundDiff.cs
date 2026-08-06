@@ -108,7 +108,7 @@ internal static class TsInboundDiff
         (TsTable.ExposurePlan, "Id",
             ["desired", "acquired", "accepted", "exposure", "exposureTemplateId", "enabled"]),
         (TsTable.Project, "guid",
-            ["state", "priority", "minimumtime", "minimumaltitude", "maximumaltitude", "usecustomhorizon",
+            ["name", "state", "priority", "minimumtime", "minimumaltitude", "maximumaltitude", "usecustomhorizon",
              "horizonoffset", "meridianwindow", "ditherevery", "enablegrader", "smartexposureorder",
              "flatshandling", "filterswitchfrequency"]),
         (TsTable.ExposureTemplate, "Id",

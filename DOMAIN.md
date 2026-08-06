@@ -86,7 +86,10 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   case/spacing-tolerant, integer or decimal) from BOTH sides before comparing, so
   `Mosaic - Cygnus Loop - Above 25` matches the `Mosaic - Cygnus Loop` capture directory; the panels'
   coordinate scope keys strip identically (a raw-name scope would pass the parent match yet orphan
-  every panel). Capture directories stay bare — the clause is TS-side authoring metadata only.
+  every panel). Capture directories stay bare — the clause is TS-side authoring metadata only. **The clause is kept
+  true by the scoped Set press** (project-scoped-tonight): a landed `minimumaltitude` write rewrites an
+  existing clause to the new value ("Above 0" = constraint Off, per the TS UI's 0 = "Off"); names
+  without a clause are never renamed.
 - **Every TS target carries a rotation (sky angle)** (decided 2026-08-04, obs 7c5e). A TS-backed target
   with NULL rotation — typically adopted from mechanical-only disk framing, which never converts to sky —
   is badged `no-rotation` (warning, target scope; distinct from `framing` = rotation present, frames

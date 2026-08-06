@@ -161,6 +161,7 @@ public sealed partial class MainViewModel
         VisibleTonightProjectPlan projectPlan;
         int failed;
         int constraintsWritten = 0;
+        int renameFailed = 0;
         bool anythingLanded;   // reload only when a flip actually landed — an all-refused pass changed nothing
         try
         {
@@ -174,19 +175,38 @@ public sealed partial class MainViewModel
             // fields the caller found changed travel (the fill snapshot lives in the view). The enable
             // pass then uses the box values directly — no re-read.
             List<TsFieldEdit> constraintEdits = [];
+            int altEditIndex = -1;
             if (scope is not null)
             {
                 if (scope.NewMinimumTime is int newMinTime)
                     constraintEdits.Add(new TsFieldEdit(
                         TsTable.Project, scope.EditKey, "minimumtime", newMinTime, $"{scope.Name} — project"));
                 if (scope.NewMinimumAltitude is double newMinAlt)
+                {
+                    altEditIndex = constraintEdits.Count;
                     constraintEdits.Add(new TsFieldEdit(
                         TsTable.Project, scope.EditKey, "minimumaltitude", newMinAlt, $"{scope.Name} — project"));
+                }
             }
             IReadOnlyList<EditOutcome> constraintOutcomes = constraintEdits.Count > 0
                 ? await _gate.ApplyManyAsync(constraintEdits)
                 : [];
             constraintsWritten = constraintOutcomes.Count(o => o is EditOutcome.Applied);
+
+            // The name tracks the altitude clause (obs ff07 follow-up: the "- Above N" suffix must not
+            // lie about the constraint it encodes). Renamed only AFTER the altitude write verifiably
+            // landed — a refused constraint must not leave a name asserting it — and only when the name
+            // already carries a clause (the press never invents the convention). Its own tiny batch so
+            // the gating is on the real outcome, not batch position.
+            if (scope is not null && altEditIndex >= 0
+                && constraintOutcomes[altEditIndex] is EditOutcome.Applied
+                && VisibleTonightPass.RenameForAltitude(scope.Name, scope.NewMinimumAltitude!.Value) is string newName)
+            {
+                IReadOnlyList<EditOutcome> renameOutcome = await _gate.ApplyManyAsync(
+                    [new TsFieldEdit(TsTable.Project, scope.EditKey, "name", newName, $"{scope.Name} — project")]);
+                constraintsWritten += renameOutcome.Count(o => o is EditOutcome.Applied);
+                renameFailed = renameOutcome.Count(o => o is not EditOutcome.Applied);
+            }
 
             try
             {
@@ -217,7 +237,7 @@ public sealed partial class MainViewModel
             IReadOnlyList<EditOutcome> projectOutcomes = await _gate.ApplyManyAsync(
                 [.. projectPlan.Edits.Select(e => new TsFieldEdit(e.Table, e.Key, e.Column, e.Value, e.Label))]);
 
-            failed = constraintOutcomes.Count(o => o is not EditOutcome.Applied)
+            failed = constraintOutcomes.Count(o => o is not EditOutcome.Applied) + renameFailed
                 + targetOutcomes.Count(o => o is not EditOutcome.Applied)
                 + projectOutcomes.Count(o => o is not EditOutcome.Applied);
             anythingLanded = constraintsWritten > 0 || landed.Length > 0
@@ -232,7 +252,7 @@ public sealed partial class MainViewModel
             await LoadAsync(PullPolicy.Never);   // after EndBusy — the reload takes the gate itself
 
         string scopeNote = scope is null ? "" : $" [{scope.Name}]";
-        string constraintNote = constraintsWritten > 0 ? $" · {constraintsWritten} constraint field(s) written" : "";
+        string constraintNote = constraintsWritten > 0 ? $" · {constraintsWritten} project field(s) written" : "";
         StatusText = $"Visible tonight{scopeNote}: {targetPlan.Enabled} enabled · {targetPlan.Disabled} disabled · "
             + $"{targetPlan.Unchanged} unchanged · {projectPlan.Activated + projectPlan.Deactivated} project(s) flipped"
             + constraintNote

@@ -58,7 +58,7 @@ is a one-line reference change, never a schema violation (openspec `template-man
 in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 
 ### project — 10 rows · FK: `target.projectid → project.Id`
-`Id` PK · `profileId` · `name` · `description` · `state` ✎ · `priority` ✎ · `createdate` · `activedate` ·
+`Id` PK · `profileId` · `name` ✎ · `description` · `state` ✎ · `priority` ✎ · `createdate` · `activedate` ·
 `inactivedate` · `minimumtime` ✎ · `minimumaltitude` ✎ · `usecustomhorizon` ✎ · `horizonoffset` ✎ · `meridianwindow` ✎ ·
 `filterswitchfrequency` ✎ · `ditherevery` ✎ · `enablegrader` ✎ · `isMosaic` · `flatsHandling` ✎ · `maximumAltitude` ✎ ·
 `smartexposureorder` ✎ · `guid`

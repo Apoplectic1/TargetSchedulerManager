@@ -129,9 +129,14 @@ Duration and `minimumaltitude` from Floor — each only when the box value diffe
 — through the ordinary journaled edit path, then run the enable pass using the box values. Settings
 flow down (the write applies to every member target at TS plan time by TS's own cascade); state rolls
 up (the enable stage derives project `state` from what the sky left enabled). With All projects
-selected the press SHALL write no project constraint. The project's display name is deliberately NOT
-updated when the altitude changes (names encoding an altitude may go stale; renaming is a planned
-follow-up).
+selected the press SHALL write no project constraint.
+
+The project name SHALL track its altitude clause: when the `minimumaltitude` write verifiably lands
+and the name carries a trailing altitude clause ("… - Above N"), the press SHALL journal a rename
+rewriting the clause to the written value (normalizing stray spacing). A name without the clause SHALL
+be left untouched (the press never invents the convention); an already-accurate name yields no edit;
+and a refused or failed altitude write SHALL NOT rename — the name must never assert a constraint that
+did not land.
 
 #### Scenario: Changed values are journaled then applied
 - **WHEN** a project fills Duration 60 / Floor 30, the user sets Floor to 40, and presses Set
@@ -145,6 +150,14 @@ follow-up).
 - **WHEN** All projects is selected and Set is pressed with any Duration/Floor values
 - **THEN** no project's `minimumtime` or `minimumaltitude` is written
 
-#### Scenario: The stale name is tolerated
+#### Scenario: The name clause follows the altitude write
 - **WHEN** a project named "Nebulae - Above 45" has its Floor written to 40
-- **THEN** the name is unchanged and no rename is journaled
+- **THEN** a rename to "Nebulae - Above 40" is journaled alongside the `minimumaltitude` edit
+
+#### Scenario: A clause-less name is never renamed
+- **WHEN** a project named "Galaxies" has its Floor written to 40
+- **THEN** `minimumaltitude` is journaled and the name stays "Galaxies"
+
+#### Scenario: A refused altitude write leaves the name alone
+- **WHEN** a scoped press's `minimumaltitude` write is refused
+- **THEN** no rename is journaled and the name keeps asserting the value still stored

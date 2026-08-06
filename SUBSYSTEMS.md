@@ -303,8 +303,11 @@ unreachable; `UI.md` → *WinUI gotchas*) — Floor uses its `DecimalPlaces=1` m
   the project (only-if-changed, compared against the fill snapshot the window holds), then runs both
   stages scoped to that project. *Settings flow down* (TS cascades project constraints to member
   targets at plan time), *state rolls up* (stage 2 derives `project.state` from what the sky left
-  enabled). All mode never writes a constraint. Project names encoding an altitude ("Above 45") are
-  deliberately NOT renamed on a Floor write — a planned follow-up. The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+  enabled). All mode never writes a constraint. **The name tracks the clause**: a landed
+  `minimumaltitude` write rewrites an existing "- Above N" name clause to match (its own journaled
+  rename, gated on the altitude outcome — a refused write never renames; clause-less names are never
+  touched; `VisibleTonightPass.RenameForAltitude`). Safe for mosaics because the mosaic name-match
+  strips the clause (2026-08-06). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
 collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
 and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 

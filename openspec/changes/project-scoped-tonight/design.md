@@ -21,8 +21,6 @@ Two arrows, both true, different planes — the framing the spec uses: **setting
 - Fill can never silently alter a stored value (ranges match schema; Real floor).
 
 **Non-Goals**
-- No project rename when the altitude changes (follow-up change; the "Above 45" names go stale
-  deliberately).
 - No horizon-aware visibility (custom horizon is TS's business at the telescope; the pass stays a
   scalar-floor test).
 - No new write path: constraint writes ride `SetTsFieldAsync` exactly like dialog edits (journal,
@@ -52,6 +50,14 @@ Two arrows, both true, different planes — the framing the spec uses: **setting
    the constraint write hold the same bulk-op exclusion as one operation, so no edit can interleave.
 6. **Selection fill is view-model state, not journal state**: switching selections refills and
    discards box edits without any prompt — the boxes are a viewport, Set is the only commit.
+7. **Rename gates on the landed altitude outcome, its own mini-batch** (added before archive): the
+   name edit applies only after the `minimumaltitude` outcome reads Applied — batch position can't
+   express "only if that one landed", so it gets a second one-edit batch inside the same busy scope.
+   Rename logic is a pure function (`VisibleTonightPass.RenameForAltitude`, clause detection via
+   `MosaicConvention.StripAltitudeClause` — which also makes the rewrite normalize stray spacing);
+   `project.name` joins `TsEditableSchema` (Text) and the inbound-diff column set so renames mark in
+   both directions. The mosaic matcher's clause tolerance (2026-08-06) is what makes the rename safe
+   for mosaic projects.
 
 ## Risks / Trade-offs
 

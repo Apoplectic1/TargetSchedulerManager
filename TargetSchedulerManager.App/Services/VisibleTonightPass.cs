@@ -1,4 +1,5 @@
 using System.Globalization;
+using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Core.Horizons;
 using Astronomy.Core.Locations;
@@ -147,6 +148,22 @@ internal static class VisibleTonightPass
         }
 
         return new VisibleTonightProjectPlan(projectEdits, activated, deactivated);
+    }
+
+    /// <summary>The name a project should carry after its <c>minimumaltitude</c> is written to
+    /// <paramref name="newAltitudeDeg"/>, or null when no rename is due: names carrying a trailing
+    /// altitude clause ("… - Above 30") track the field (the clause is authoring metadata — the name
+    /// must not lie about the constraint); a name WITHOUT the clause is left alone (the press never
+    /// invents a naming convention), and an already-accurate name yields no edit. Stripping rides
+    /// <see cref="MosaicConvention.StripAltitudeClause"/>, so a rewrite also normalizes stray spacing
+    /// ("X  - Above 30" → "X - Above 25").</summary>
+    public static string? RenameForAltitude(string name, double newAltitudeDeg)
+    {
+        string baseName = MosaicConvention.StripAltitudeClause(name);
+        if (baseName == name.TrimEnd())
+            return null;   // no clause — never invent one
+        string renamed = $"{baseName} - Above {newAltitudeDeg.ToString("0.#", CultureInfo.InvariantCulture)}";
+        return renamed == name ? null : renamed;
     }
 
     // Stage 1's universe: every project (enables are sky truth), scoped when a press selects one.

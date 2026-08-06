@@ -31,9 +31,18 @@
 - [x] 4.2 Press orchestration: write-only-if-changed gating; All never writes; Draft/Closed
       write-without-enables
 
-## 5. Docs + verify
+## 5. Name tracks the clause (added before archive)
 
-- [x] 5.1 `UI.md` toolbar section + `SUBSYSTEMS.md` visible-tonight subsystem: dropdown, fill-is-read /
-      Tonight-is-write, scoped universe, stale-name deferral — same commit as the code
-- [ ] 5.2 Build + tests green; user field-verifies (fill, scoped enables, write in push review, All
+- [x] 5.1 `project.name` joins `TsEditableSchema` (Text, with the clause note) + the inbound-diff
+      project columns
+- [x] 5.2 `VisibleTonightPass.RenameForAltitude` (pure; null = no edit due) + press applies the rename
+      in its own batch gated on the landed `minimumaltitude` outcome; failures count in the summary
+- [x] 5.3 Tests: rename theory (rewrite/normalize/decimal/Off; clause-less + accurate + refused ⇒ no
+      edit)
+
+## 6. Docs + verify
+
+- [x] 6.1 `UI.md` toolbar section + `SUBSYSTEMS.md` visible-tonight subsystem: dropdown, fill-is-read /
+      Tonight-is-write, scoped universe, name-tracks-clause — same commit as the code
+- [ ] 6.2 Build + tests green; user field-verifies (fill, scoped enables, write in push review, All
       unchanged); archive on their word
