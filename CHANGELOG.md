@@ -11,6 +11,40 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-06 — `project-scoped-tonight`: the toolbar as a read/write window onto a project's
+TS constraints** (2026-08-05 explore → 2026-08-06 ship + NINA round-trip field verify): a **Project
+dropdown** joins the Visible-Tonight group listing every TS project (default **All projects**); selecting
+one fills Duration ← `minimumtime` and Floor ← `minimumaltitude`, and **Set** (relabeled from Tonight)
+becomes the single write gesture — journal the changed constraints onto the project, then run the enable
+pass scoped to that project's targets. All mode keeps the global no-write behavior. Knob ranges adopt the
+schema (Duration 0–999; Floor Real 0–90°, clamped to **89.9** because TS's `HorizonDefinition` asserts
+< 90) so a fill can never silently clamp a stored value. **Enables are sky truth for every project state**
+(Draft/Closed flip like Active; the pass never writes `state`). **The name tracks the clause** (user call,
+pre-archive): a landed Floor write rewrites a trailing altitude clause to the short **"- N"** form (legacy
+"- Above N" migrates) as a journaled rename — `project.name` joined AL's editable schema for it. Custom-
+horizon projects get no special case. Rode along: AL's mosaic name-matcher went altitude-clause-tolerant
+(obs `ff07`), TS-SCHEMA gained the TS-UI choice lists + `minimumaltitude 0 = Off` + off-list-value gotcha
+(verified in TS source), and row menus hug their text (empty-glyph icons dropped, obs `60ed`). Archived
+2026-08-06; **released as TSM v1.4.0 on AL v1.4.0** (editable `project.name` + `StripAltitudeClause`).
+Tests App 422 / Catalog 284.
+
+**▶ SHIPPED 2026-08-05 — `dialog-behaviors-on-type`: every dialog behavior rides `AppDialog`** (same-day
+audit → ship): drag-move, the Ctrl+N diagnostics hook, and lone-button centering all moved onto the
+`AppDialog` type itself — true by construction for every dialog — and `ShowDialogAsync` shrank to a thin
+await seam **typed `AppDialog`**, so the compiler now rejects a raw `ContentDialog` (the audit found the
+self-update prompt bypassing the funnel and silently lacking drag + Ctrl+N; it gained both). Lone-button
+centering runs by the **template-part route** (`GetTemplateChild`), deferred one tick past `Opened` after
+a field failure (obs `c200`) — ⚠ never visual-tree-walk a `ContentDialog`. Archived 2026-08-05 (`532c40e`).
+
+**▶ SHIPPED 2026-08-05 — `filter-rank-row-order`: passband rank + commitments-under-evidence** (obs
+`c73e`): filter ordering switched from alphabetical to the fixed display rank **H, S, O, L, R, G, B**
+(off-rank codes after B, natural order; one named app-side constant — the app's first canonical
+filter-order home), and an expanded Both rollup presents disk-backed source lines first, plan-only TS
+lines last (seconds ascending within each block; the global plane tie-breaker flipped to Disk-before-TS
+to match). Same-day UI cleanup rode along (obs `342a`): uniform row height, snug Desired editor, quiet
+Purpose column, and the filter wash raised to alpha 0x50 (user hand-tune, visual sign-off). Archived
+2026-08-05 (`82806e9`).
+
 **▶ SHIPPED 2026-08-05 — `filter-colored-rows`: the filter-identity wash** (same-day idea → explore →
 ship → sign-off): every filter-level row (leaf, mixed rollup, nested detail) carries a low-alpha
 background wash spanning the **Camera→Actual column band** (scoped from full-row by user call after the

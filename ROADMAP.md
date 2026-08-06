@@ -5,7 +5,7 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-08-05)
+## Status — pick up here (2026-08-06)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), rows keyed by the **capture-configuration cell**
@@ -20,10 +20,11 @@ dialog, one atomic insert batch; specs `disk-row-adoption` + `target-and-plan-fl
 Actual-only, with mosaics resolved per panel; live counts show in the app + `tsm.log` (not pinned here — they
 move with every edit and every imaging night). Match tolerance **0.5°** (validated 2026-06-04).
 
-**Where things stand:** everything through 2026-08-05 (`pairing-credited-write-back` — crediting =
-pairing, sentinel/no-rotation badges, scoped report, the settling pushed — and `filter-colored-rows` —
-the Camera→Actual filter-identity wash) has shipped, been field-verified, and archived — 16 capability specs
-under `openspec/specs/`; current release **TSM v1.3.0 on AL v1.3.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
+**Where things stand:** everything through 2026-08-06 (`project-scoped-tonight` — the toolbar as a
+read/write window onto a project's TS constraints, Set writes + scoped enable pass, name tracks the
+"- N" altitude clause — plus `dialog-behaviors-on-type` and `filter-rank-row-order`) has shipped, been
+field-verified, and archived — 16 capability specs
+under `openspec/specs/`; current release **TSM v1.4.0 on AL v1.4.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
 change `velopack-self-update`, formal contract → spec `self-update`; the current version is the latest tag —
 rules in `RELEASING.md`). The load-split idea stays **retired** (2026-07-08: the ~2 s fresh scan is acceptable,
 so the grid can never show stale ACTUAL). The dated unit-by-unit history — every SHIPPED/DECIDED entry this

@@ -29,7 +29,9 @@ imaging rig.
   across a tall expanded tree.
 - **Visible tonight.** One click enables exactly the targets that clear a configurable altitude
   floor for a configurable duration tonight, and disables the rest — batch-applied, journaled, and
-  pushable like any other edit.
+  pushable like any other edit. Pick a project and the toolbar becomes a read/write window onto its
+  scheduler constraints: the knobs fill from the project, and Set writes them back and re-runs the
+  pass scoped to that project.
 - **Mosaics, templates, ambiguity reports** — panels are first-class targets, project/target
   templates speed authoring, and anything the reconciler couldn't place cleanly is reported, never
   silently dropped.
