@@ -36,7 +36,11 @@ public sealed partial class MainWindow
         // stretched, so a single visible button fills its half and reads off-center; 2–3 buttons fill
         // the whole row symmetrically and need nothing. All the knobs are per-instance settable after
         // the visibility states fire (unlike the NumberBox width saga), so this is a one-place repair.
-        dialog.Opened += (d, _) =>
+        // Deferred one tick past Opened: at Opened the dialog's template children may not be reachable
+        // from the element yet (the walk found nothing and the repair silently no-oped — field failure
+        // obs c200); the enqueued pass runs after the tree is live. The DIAG line is the tripwire if
+        // this ever regresses again.
+        dialog.Opened += (d, _) => d.DispatcherQueue.TryEnqueue(() =>
         {
             string? lone = (d.PrimaryButtonText, d.SecondaryButtonText, d.CloseButtonText) switch
             {
@@ -45,14 +49,19 @@ public sealed partial class MainWindow
                 (null or "", null or "", not (null or "")) => "CloseButton",
                 _ => null,
             };
-            if (lone is not null && FindDescendantByName(d, lone) is Button b)
+            if (lone is null) return;   // 2-3 buttons fill the row symmetrically — nothing to repair
+            if (FindDescendantByName(d, lone) is Button b)
             {
                 Grid.SetColumn(b, 0);
                 Grid.SetColumnSpan(b, 5);
                 b.HorizontalAlignment = HorizontalAlignment.Center;
                 b.MinWidth = 160;   // ~the half-column width it had; centered but still a dialog-scale target
             }
-        };
+            else
+            {
+                Astronomy.Diagnostics.Log.Diag("Dialog", $"lone-button center: {lone} not found in visual tree");
+            }
+        });
         dialog.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Windows.System.VirtualKey.N   // Ctrl+N — see the accelerator gotcha above
