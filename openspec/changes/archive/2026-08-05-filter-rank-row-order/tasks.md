@@ -26,5 +26,5 @@
 
 - [x] 4.1 Update `UI.md` sort-precedence text (filter rank + plane rule + expanded-rollup order) in
       the same commit as the code
-- [ ] 4.2 Build + full app test suite green; visual verification by the user (row order), then archive
+- [x] 4.2 Build + full app test suite green; visual verification by the user (row order), then archive
       on their word
