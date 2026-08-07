@@ -17,10 +17,13 @@ No other remotes.
   `dev` commit, tag it, push both:
   ```bash
   git checkout main && git merge --ff-only dev
-  git tag vX.Y.Z
+  git tag -a vX.Y.Z -m "one-line release summary"
   git push origin main vX.Y.Z
   git checkout dev
   ```
+  Tags are **annotated** (`-a -m`, portfolio convention 2026-08-06) so the summary shows in
+  `git tag -n` and GUI clients; earlier tags are lightweight — cosmetic only, MinVer treats
+  both alike.
 - Publish at natural completion points (a shipped unit of work, docs riding the same commit) —
   not on a schedule, and never mid-change. The working tree must be clean and tests green at the
   published commit. No tag → no push: the tag is what makes a `main` state a published state.
@@ -50,7 +53,7 @@ scope (only needed for upload; `-NoUpload` dry-runs without it).
 Per-release flow:
 ```powershell
 # on main, at the published commit (see Branch policy)
-git tag vX.Y.Z
+git tag -a vX.Y.Z -m "one-line release summary"
 git push origin main vX.Y.Z
 .\scripts\release.ps1          # publish → vpk pack → upload to GitHub Releases
 ```
