@@ -57,6 +57,11 @@ in `CHANGELOG.md` and pinned in `ARCHITECTURE.md` → *Key facts*.
   questions when picked up: detection of an ASTAP install, which frame(s) to solve, offer-vs-auto-seed
   (convention says offer — TSM surfaces, the user decides), and whether the solve happens at adoption time
   or as a later per-target action on badged rows.
+- **Constraint on any solved-rotation consumption (2026-08-07):** when TSM starts reading plate-solved sky
+  angles for framings — the XFM-stamped `OBJCTROT` backlog rescan, or the ASTAP-assisted seed above — read
+  orientation **through AL's `WcsOrientation`** (`PositionAngleDegrees` true 0–360 / `FramingAngleDegrees`
+  folded [0,180), added on demand), never raw `OBJCTROT`: the PA ≡ PA+180 framing fold is a named property
+  in AL, not hand math in TSM. Decided with XFM ROADMAP #9 (full rationale) / AL ROADMAP (the queued property).
 
 ## Phase 1 — Foundation (shared schema library) ✅ DONE
 
