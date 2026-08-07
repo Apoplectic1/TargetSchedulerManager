@@ -65,6 +65,10 @@ git push origin main vX.Y.Z
   dev/F5 runs never check. No manual check surface (user decision 2026-08-02).
 - **Dry-run:** `.\scripts\release.ps1 -NoUpload` → artifacts in `Releases\` (gitignored);
   run the Setup.exe there to test an install locally. Verification recipe: `VERIFICATION.md`.
+- **Bare `vpk` commands: run from the repo root.** vpk reads `.\Releases\` of the *current
+  directory* with no repo/package cross-check — a wrong cwd uploads another app's payload
+  (2026-08-06: a drifted shell published TP 1.3.3 assets as XFM v2.2.1; caught and deleted in
+  a minute). `release.ps1` is immune — it pins the repo root.
 
 ## README = storefront
 
