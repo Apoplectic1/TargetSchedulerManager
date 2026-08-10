@@ -13,6 +13,12 @@
   <Project Path="../Library/Astronomy.Diagnostics/Astronomy.Diagnostics.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
+  <Project Path="../Library/Astronomy.Diagnostics.Windows/Astronomy.Diagnostics.Windows.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
+  <Project Path="../Library/Astronomy.Diagnostics.WinUI/Astronomy.Diagnostics.WinUI.csproj">
+    <Platform Solution="*|*" Project="x64" />
+  </Project>
   <Project Path="../Library/Astronomy.Core/Astronomy.Core.csproj">
     <Platform Solution="*|*" Project="x64" />
   </Project>
