@@ -39,8 +39,21 @@ try {
     dotnet publish TargetSchedulerManager.App -c Release -r win-x64 --self-contained true -nologo
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
-    $publish = Join-Path $repoRoot 'TargetSchedulerManager.App\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish'
+    # The publish path derives from the csproj TFM — hardcoding it shipped stale payloads when
+    # the 2026-08-10 TFM raise left the old output dir on disk (v1.5.1/v1.5.2 packed v1.5.0
+    # bits; the path check passed against the leftover directory).
+    $tfm = [regex]::Match((Get-Content (Join-Path $repoRoot 'TargetSchedulerManager.App\TargetSchedulerManager.App.csproj') -Raw),
+        '<TargetFramework>([^<]+)</TargetFramework>').Groups[1].Value
+    if (-not $tfm) { throw "Could not read <TargetFramework> from TargetSchedulerManager.App.csproj" }
+    $publish = Join-Path $repoRoot "TargetSchedulerManager.App\bin\Release\$tfm\win-x64\publish"
     if (-not (Test-Path (Join-Path $publish 'tsmui.exe'))) { throw "Publish output not found at $publish" }
+
+    # Stamp gate (XFM model): the packed exe must stamp the tag's version — catches stale
+    # output dirs and MinVer cache leaks alike, making this class of failure unshippable.
+    $exeVer = (Get-Item (Join-Path $publish 'tsmui.exe')).VersionInfo.ProductVersion
+    if (($exeVer -split '\+')[0] -ne $version) {
+        throw "Packed tsmui.exe stamps '$exeVer' - expected '$version' from tag $tag (stale output dir or MinVer mismatch)."
+    }
 
     # AL coordination gate (see RELEASING.md): the payload embeds the sibling Library working
     # tree at pack time, unpinned - it must be a published (tagged, clean) AL state.
