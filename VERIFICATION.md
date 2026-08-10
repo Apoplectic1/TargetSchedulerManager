@@ -6,16 +6,22 @@ by running + screenshotting the app** (the author's call), not by the build.
 
 ## Build & run
 ```bash
-# Build (slnx pulls in Astronomy.Catalog + Astronomy.Diagnostics + Astronomy.Core from ..\Library,
-# plus Astronomy.XISF transitively via .Catalog)
+# Build (slnx pulls in Astronomy.Catalog + Astronomy.Diagnostics (+ .Windows/.WinUI) + Astronomy.Core
+# from ..\Library, plus Astronomy.XISF transitively via .Catalog)
 dotnet build TargetSchedulerManager.slnx -v:m -nologo
 
 # Run the WinUI app: TS plan vs disk grid (fresh in-memory scan on load, no Catalog.db needed)
-TargetSchedulerManager.App/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/tsmui.exe
+TargetSchedulerManager.App/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64/tsmui.exe
 
 # Tests (App.Tests only)
 dotnet test TargetSchedulerManager.slnx -v:q --nologo
 ```
+
+**Trap — new AL `ProjectReference` without a slnx entry fails silently.** The slnx lists the
+cross-repo AL projects *explicitly*; MSBuild follows a new csproj `ProjectReference` regardless, so
+the build stays green while Solution Explorer silently omits the project (bit 2026-08-10 when
+`Astronomy.Diagnostics.Windows`/`.WinUI` arrived). When adding an AL project reference, add the
+matching slnx `<Project>` entry (with the standard `*|*` → x64 mapping) in the same commit.
 TSM's graph is **pure-managed** (Microsoft.Data.Sqlite only), AnyCPU/x64, no native deps — so it
 builds with plain `dotnet build` (the `.vcxproj` MSBuild caveat does **not** apply here; the native
 PCL projects aren't in TSM's solution). Path defaults live in
