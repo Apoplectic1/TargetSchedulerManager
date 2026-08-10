@@ -11,6 +11,11 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED + RELEASED 2026-08-10 — TSM `v1.5.2`: payload realigned to AL `1.7.1`** — no app
+changes; AL cut a docs-only `v1.7.1` (CONSUMERS.md records XFM as third consumer) after TSM
+`v1.5.1` packed against `1.7.0`, and the portfolio realigned all app payloads on `1.7.1` the same
+day so embedded `Astronomy.*` stamps read identically across TP/TSM/XFM.
+
 **▶ SHIPPED 2026-08-10 — Ctrl+N dialog graduates to the Library; app TFM → 26100.0** (AL
 `diagnostics-portable-core` consumer window): `Support\DiagnosticsWindow.cs` deleted — the shell now
 comes from new `..\Library\Astronomy.Diagnostics.WinUI` (`DiagnosticsWindow.ShowOrFocus(owner,
