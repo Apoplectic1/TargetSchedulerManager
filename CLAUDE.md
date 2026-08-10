@@ -54,10 +54,13 @@ graduate *from* it by writing a pointer into the reference doc). `..\Library` is
 | **TargetSchedulerManager** (this) | `E:\Projects\…\TargetSchedulerManager` | the WinUI 3 app: a TS-database manager (view + edit TS; disk read-only for plan-vs-actual). App-only since 2026-06-11. |
 | **Astronomy.Catalog** + deps | `E:\Projects\…\Library` | the shared schema/build **contract** every consumer references |
 
-TSM has three cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`,
+TSM has four cross-repo `ProjectReference`s: `..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj`,
 `..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj` (the shared logging/observation contract),
-and `..\Library\Astronomy.Core\Astronomy.Core.csproj` (night window + visibility math for the
-Visible-tonight pass, added 2026-07-23) (local disk is source of truth; no NuGet/package hop).
+`..\Library\Astronomy.Diagnostics.WinUI\Astronomy.Diagnostics.WinUI.csproj` (the Ctrl+N dialog shell —
+graduated from app-side `Support\DiagnosticsWindow` 2026-08-10, `diagnostics-portable-core`; brings the
+`.Windows` capture backend transitively), and `..\Library\Astronomy.Core\Astronomy.Core.csproj` (night
+window + visibility math for the Visible-tonight pass, added 2026-07-23) (local disk is source of truth;
+no NuGet/package hop).
 `Astronomy.Catalog` pulls its own library deps (`..\Library\CLAUDE.md` has the map). Build specifics
 (pure-managed, plain `dotnet build`, why the `.vcxproj` MSBuild caveat doesn't apply here) → `VERIFICATION.md`.
 

@@ -38,8 +38,7 @@ public sealed partial class MainWindow : Window
         // The one place the Ctrl+N dialog hook is set (openspec dialog-behaviors-on-type): every
         // AppDialog — including ones shown outside ShowDialogAsync, like the update prompt — gets
         // diagnostics capture without knowing the window.
-        Controls.AppDialog.DiagnosticsHook =
-            () => Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
+        Controls.AppDialog.DiagnosticsHook = ShowDiagnostics;
         // Title-bar + taskbar icon; <ApplicationIcon> only stamps the exe, a WinUI 3 window needs this
         // runtime call. Absolute path: SetIcon resolves relative paths against the process CWD, not the exe.
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"));
@@ -230,9 +229,15 @@ public sealed partial class MainWindow : Window
     private void Diagnostics_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
         Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
     {
-        Support.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext);
+        ShowDiagnostics();
         args.Handled = true;
     }
+
+    // The Library's WinUI shell since 2026-08-10 (diagnostics-portable-core) — the app supplies only
+    // owner, context provider, and its icon (absolute path: SetIcon resolves relative against the CWD).
+    private void ShowDiagnostics() =>
+        Astronomy.Diagnostics.WinUI.DiagnosticsWindow.ShowOrFocus(this, ViewModel.GetDiagnosticsContext,
+            System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"));
 
     // Narrow hidden-spinner NumberBoxes (the grid's Desired cells) route here. WinUI 3 can't center a
     // NumberBox's input via TextAlignment/HorizontalContentAlignment — the property doesn't reach the

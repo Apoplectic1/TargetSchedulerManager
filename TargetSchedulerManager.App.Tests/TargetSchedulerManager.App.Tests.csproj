@@ -6,7 +6,7 @@
     <!-- Must match the App head's TFM/RID to reference it. Tests run in a plain test host (no XAML
          runtime): the row view-models resolve theme brushes lazily, so tests exercise everything except
          the two Brush getters (those need Application.Current and stay app-verified). -->
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <OutputType>Exe</OutputType>

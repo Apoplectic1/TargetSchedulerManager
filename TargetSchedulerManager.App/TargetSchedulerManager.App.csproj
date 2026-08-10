@@ -6,7 +6,10 @@
     <OutputType>WinExe</OutputType>
     <!-- WinUI needs a real Windows TargetPlatformVersion (unlike net10.0-windows = 7.0 in the library);
          19041 is the lowest TPV with the full WinUI 3 surface; min 17763 matches Windows App SDK support. -->
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- 26100.0 = the portfolio's unified APP TFM (2026-08-10, rode diagnostics-portable-core): apps float
+         high on the newest SDK surface; Library layers floor low (the .WinUI satellite pins 19041.0, the
+         WinUI minimum) — the two never need to match. -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <RootNamespace>TargetSchedulerManager.App</RootNamespace>
@@ -64,6 +67,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Library\Astronomy.Catalog\Astronomy.Catalog.csproj" />
     <ProjectReference Include="..\..\Library\Astronomy.Diagnostics\Astronomy.Diagnostics.csproj" />
+    <!-- The Ctrl+N dialog shell (DiagnosticsWindow) graduated to the Library 2026-08-10
+         (diagnostics-portable-core); brings Astronomy.Diagnostics.Windows (ScreenCapture) transitively. -->
+    <ProjectReference Include="..\..\Library\Astronomy.Diagnostics.WinUI\Astronomy.Diagnostics.WinUI.csproj" />
     <ProjectReference Include="..\..\Library\Astronomy.Core\Astronomy.Core.csproj" />
   </ItemGroup>
 

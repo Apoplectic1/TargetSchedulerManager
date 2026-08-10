@@ -11,6 +11,17 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-10 — Ctrl+N dialog graduates to the Library; app TFM → 26100.0** (AL
+`diagnostics-portable-core` consumer window): `Support\DiagnosticsWindow.cs` deleted — the shell now
+comes from new `..\Library\Astronomy.Diagnostics.WinUI` (`DiagnosticsWindow.ShowOrFocus(owner,
+contextProvider, iconPath)`; TSM supplies its icon path, the `UiTask.FireAndLog` wrap lives inside the
+satellite now). New cross-repo ref brings `Astronomy.Diagnostics.Windows` (ScreenCapture) transitively;
+`ObservationSession.Begin` is no longer called app-side. App + Tests TFM raised
+`10.0.19041.0` → `10.0.26100.0` (portfolio app-TFM unification; the satellite floors at 19041 so the
+raise was optional, done for consistency with XFM). 423/423 tests green, 0 warnings. **Pending as of
+this entry:** the manual Ctrl+N pass (open, capture, delayed capture, checkpoint, cancel/close-X,
+singleton) — the ported shell's first on-screen render happens there, not in the build.
+
 **▶ SHIPPED + RELEASED 2026-08-06 late — TSM `v1.5.0`: ambiguity report enumerates mechanical-only
 rotations** (`report-mechanical-rotation`, delta on `ts-ambiguity-report`): one Info line per
 in-scope target whose framings express only mechanical rotation — project+target, folded `°(M)`
