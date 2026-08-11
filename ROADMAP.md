@@ -31,6 +31,16 @@ so the grid can never show stale ACTUAL). The dated unit-by-unit history — eve
 section used to narrate — lives in **`CHANGELOG.md`**; this section deliberately doesn't repeat it. The next
 lane is strategic — the **IS transition** (intent store + lift/regenerate), which is *not* TSM work.
 
+### Open — clock-seam migration residue (2026-08-11)
+
+AL's `IClock` is the portfolio's single clock source (AL `CONSUMERS.md` clock convention);
+`MainViewModel` adopted it 2026-08-11 (settable `Clock` property, all four `Reports.cs` reads).
+**Remaining ambient reads — five, all service-layer, needing constructor threading (plan first):**
+`TsJournal` (entry timestamps ×2), `TsSync` (baseline recorded-at ×2), `ReconciliationLoader`
+(scan unix-seconds ×1). Timestamps are provenance data, so they belong on the seam eventually;
+none is planning-input-critical, so this migrates opportunistically with the next work in those
+files.
+
 ### Doc-system open items
 
 **All closed 2026-08-03.** Both 2026-07-29 maintain-sweep held graduates landed: the `DOMAIN.md` split

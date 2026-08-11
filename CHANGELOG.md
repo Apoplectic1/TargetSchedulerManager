@@ -11,6 +11,17 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-11 — clock seam adopted in `MainViewModel` (AL `IClock` portfolio convention)** —
+the same-day AL directive making `Core.Time.IClock`/`SystemClock` the portfolio's single clock
+source (AL `CONSUMERS.md` clock convention) lands in TSM's VM: new settable `Clock` property
+(defaults `SystemClock.Instance`), and all four `MainViewModel.Reports.cs` ambient reads route
+through it — the Visible-Tonight planning input (`Clock.UtcNow`, the one that mattered), the two
+ambiguity-report "generated at" stamps, and the report filename (local renderings derive from
+`Clock.UtcNow.ToLocalTime()`, so the VM reads the ambient clock zero times). 423 tests green.
+**Known residue, deliberately deferred** (service-layer constructor threading, plan before doing):
+`TsJournal` ×2, `TsSync` ×2, `ReconciliationLoader` ×1 — tracked in `ROADMAP.md` § *Open — clock-seam
+migration residue*.
+
 **▶ SHIPPED + RELEASED 2026-08-11 — TSM `v1.5.4`: payload realigned to AL `1.8.0`** — no app
 changes; AL `v1.8.0` adds the WinForms-side `DiagnosticsHotkey` (TP/XFM Ctrl+N routing hoist —
 nothing TSM consumes changed; TSM's accelerator + `AppDialog` hook is the WinUI equivalent), and

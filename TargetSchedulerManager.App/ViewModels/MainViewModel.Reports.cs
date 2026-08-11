@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Astronomy.Catalog.Schema;
 using Astronomy.Catalog.TargetScheduler;
+using Astronomy.Core.Time;
 using Astronomy.Diagnostics;
 using TargetSchedulerManager.App.Services;
 using TargetSchedulerManager.App.Shared;
@@ -23,6 +24,11 @@ public sealed record TonightProjectChoice(string? Key, long? Id, string Name)
 public sealed partial class MainViewModel
 {
     // ---- Ambiguity report (the tripwire's detail — decision 2026-07-08: detect here, fix by hand in TS) ----
+
+    /// <summary>The portfolio clock seam (AL `CONSUMERS.md` clock convention, 2026-08-11): every
+    /// "now" in this VM routes through here. Settable for tests; local-time renderings derive
+    /// from <c>Clock.UtcNow</c> rather than reading the ambient clock a second way.</summary>
+    internal IClock Clock { get; set; } = SystemClock.Instance;
 
     private AmbiguityReportResult? _ambiguities;
 
@@ -48,7 +54,7 @@ public sealed partial class MainViewModel
                 WriteBackPlanner.Plan(load.Graph.Targets, load.Graph.Plans, load.Graph.Templates,
                                       load.Graph.InventoryFilters, load.Report),
                 load.Ts,
-                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
+                new DateTimeOffset(Clock.UtcNow).ToLocalTime(), Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
                 load.SkippedFiles)
             : null;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AmbiguityCount)));
@@ -98,7 +104,7 @@ public sealed partial class MainViewModel
                 WriteBackPlanner.Plan(load.Graph.Targets, load.Graph.Plans, load.Graph.Templates,
                                       load.Graph.InventoryFilters, load.Report),
                 load.Ts,
-                DateTimeOffset.Now, Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
+                new DateTimeOffset(Clock.UtcNow).ToLocalTime(), Sync.LocalPath, DefaultLibrary, DefaultToleranceDegrees,
                 load.SkippedFiles, scope)
             : null;
         if ((scoped ?? _ambiguities) is not { } ambig)
@@ -113,7 +119,7 @@ public sealed partial class MainViewModel
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "TargetSchedulerManager", "Reports");
             Directory.CreateDirectory(dir);
-            string path = Path.Combine(dir, $"ambiguities-{DateTime.Now:yyyyMMdd-HHmm}.md");
+            string path = Path.Combine(dir, $"ambiguities-{Clock.UtcNow.ToLocalTime():yyyyMMdd-HHmm}.md");
             File.WriteAllText(path, ambig.Markdown);
             Log.Info($"AMBIGUITY report written: {path} ({ambig.ActionCount} action item(s)){scopeNote}");
 
@@ -211,7 +217,7 @@ public sealed partial class MainViewModel
             try
             {
                 targetPlan = VisibleTonightPass.PlanTargets(
-                    load.Ts, DevDefaults.Site(), DateTime.UtcNow, minDuration, floorAltitudeDeg,
+                    load.Ts, DevDefaults.Site(), Clock.UtcNow, minDuration, floorAltitudeDeg,
                     scope?.ProjectId);
             }
             catch (Exception ex)
