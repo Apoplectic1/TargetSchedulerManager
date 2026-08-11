@@ -11,6 +11,14 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED + RELEASED 2026-08-11 — TSM `v1.5.4`: payload realigned to AL `1.8.0`** — no app
+changes; AL `v1.8.0` adds the WinForms-side `DiagnosticsHotkey` (TP/XFM Ctrl+N routing hoist —
+nothing TSM consumes changed; TSM's accelerator + `AppDialog` hook is the WinUI equivalent), and
+the portfolio realigned all three app payloads on `1.8.0` the same day so embedded `Astronomy.*`
+stamps read identically across TP/TSM/XFM. The capture-at-OK-time contract recorded in AL's
+CHANGELOG (2026-08-11) is TSM's existing behavior — an invoke-time capture was shipped and
+reverted WinForms-side the same day, never here.
+
 **▶ SHIPPED + RELEASED 2026-08-10 — TSM `v1.5.3`: REMEDIATION — v1.5.1/v1.5.2 installers shipped
 v1.5.0 payloads.** `release.ps1` hardcoded the publish path at the old TFM
 (`net10.0-windows10.0.19041.0`); after the same-day TFM raise to `26100.0`, `dotnet publish` wrote
