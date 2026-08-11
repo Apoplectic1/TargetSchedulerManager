@@ -31,15 +31,15 @@ so the grid can never show stale ACTUAL). The dated unit-by-unit history — eve
 section used to narrate — lives in **`CHANGELOG.md`**; this section deliberately doesn't repeat it. The next
 lane is strategic — the **IS transition** (intent store + lift/regenerate), which is *not* TSM work.
 
-### Open — clock-seam migration residue (2026-08-11)
+### Clock-seam migration — CLOSED 2026-08-11 (same day, two passes)
 
-AL's `IClock` is the portfolio's single clock source (AL `CONSUMERS.md` clock convention);
-`MainViewModel` adopted it 2026-08-11 (settable `Clock` property, all four `Reports.cs` reads).
-**Remaining ambient reads — five, all service-layer, needing constructor threading (plan first):**
-`TsJournal` (entry timestamps ×2), `TsSync` (baseline recorded-at ×2), `ReconciliationLoader`
-(scan unix-seconds ×1). Timestamps are provenance data, so they belong on the seam eventually;
-none is planning-input-critical, so this migrates opportunistically with the next work in those
-files.
+AL's `IClock` is the portfolio's single clock source (AL `CONSUMERS.md` clock convention).
+`MainViewModel` adopted it first (settable `Clock` property, all four `Reports.cs` reads); the
+service-layer residue followed the same day — `TsJournal` / `TsSync` grew an optional
+`IClock? clock = null` ctor parameter (sync threads its clock down into the journal it owns),
+`ReconciliationLoader.ResolveAsync` an optional trailing parameter. **TSM now has zero ambient
+clock reads** (grep-verified); provenance timestamps (journal entries, sync baselines, scan
+stamp) are all seam-routed — which ISM inherits when it copies the sync/journal shapes.
 
 ### Doc-system open items
 

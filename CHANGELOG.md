@@ -19,8 +19,17 @@ through it — the Visible-Tonight planning input (`Clock.UtcNow`, the one that 
 ambiguity-report "generated at" stamps, and the report filename (local renderings derive from
 `Clock.UtcNow.ToLocalTime()`, so the VM reads the ambient clock zero times). 423 tests green.
 **Known residue, deliberately deferred** (service-layer constructor threading, plan before doing):
-`TsJournal` ×2, `TsSync` ×2, `ReconciliationLoader` ×1 — tracked in `ROADMAP.md` § *Open — clock-seam
-migration residue*.
+`TsJournal` ×2, `TsSync` ×2, `ReconciliationLoader` ×1 — *closed by the entry above, same day.*
+
+**▶ SHIPPED 2026-08-11 — clock seam: service-layer residue threaded; TSM ambient-read count = 0** —
+the five deferred reads route through the seam: `TsJournal(path, IClock? clock = null)` (entry
+timestamps ×2), `TsSync(..., IClock? clock = null)` (baseline `RecordedAt` ×2; its clock flows
+down into the journal it constructs), `ReconciliationLoader.ResolveAsync(..., IClock? clock = null)`
+(the resolve's unix-seconds scan stamp). Optional-with-default parameters (`SystemClock.Instance`),
+so no construction site changed; local-offset stamps derive via
+`new DateTimeOffset(clock.UtcNow).ToLocalTime()`. Grep-verified: zero `DateTime.Now/UtcNow` /
+`DateTimeOffset.Now/UtcNow` reads remain in `TargetSchedulerManager.App`. 423 tests green.
+Downstream point: ISM copies the sync/journal shapes with the seam already in them.
 
 **▶ SHIPPED + RELEASED 2026-08-11 — TSM `v1.5.4`: payload realigned to AL `1.8.0`** — no app
 changes; AL `v1.8.0` adds the WinForms-side `DiagnosticsHotkey` (TP/XFM Ctrl+N routing hoist —

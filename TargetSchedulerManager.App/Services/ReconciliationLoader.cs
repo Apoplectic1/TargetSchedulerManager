@@ -8,6 +8,7 @@ using Astronomy.Catalog.TargetScheduler;
 using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Shared;
 using TargetSchedulerManager.App.ViewModels.Rows;
+using Astronomy.Core.Time;
 using Astronomy.Diagnostics;
 
 namespace TargetSchedulerManager.App.Services;
@@ -48,7 +49,8 @@ public static class ReconciliationLoader
 
     /// <summary>The TS half: read the TS db, resolve against <paramref name="scan"/>, shape the grid rows.</summary>
     public static Task<LoadResult> ResolveAsync(
-        ImageLibraryReport scan, string tsDbPath, double toleranceDegrees, CancellationToken ct = default)
+        ImageLibraryReport scan, string tsDbPath, double toleranceDegrees, CancellationToken ct = default,
+        IClock? clock = null)
         => Task.Run(() =>
     {
         Stopwatch sw = Stopwatch.StartNew();
@@ -59,7 +61,8 @@ public static class ReconciliationLoader
         TimeSpan tTsRead = sw.Elapsed;
 
         (CatalogGraph graph, CatalogBuildReport report) = TargetResolver.Resolve(
-            scan.Targets, ts, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), new ResolveOptions(toleranceDegrees), ct);
+            scan.Targets, ts, new DateTimeOffset((clock ?? SystemClock.Instance).UtcNow).ToUnixTimeSeconds(),
+            new ResolveOptions(toleranceDegrees), ct);
         TimeSpan tResolve = sw.Elapsed;
 
         List<ReconciliationRow> rows = BuildRows(graph, report);

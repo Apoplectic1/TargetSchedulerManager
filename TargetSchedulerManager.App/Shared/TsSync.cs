@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using Astronomy.Catalog.Scan;
 using Astronomy.Catalog.TargetScheduler;
+using Astronomy.Core.Time;
 using Astronomy.Diagnostics;
 using Microsoft.Data.Sqlite;
 using SQLitePCL;
@@ -90,21 +91,26 @@ internal sealed class TsSync
     private readonly Func<string, ITsEditor> _editorFactory;
     private readonly Func<string, ITsWriteBackApplier> _applierFactory;
     private readonly TimeSpan _probeTimeout;
+    // The portfolio clock seam (AL CONSUMERS.md clock convention) — baseline RecordedAt stamps
+    // route through it, and it flows down into the journal's entry timestamps.
+    private readonly IClock _clock;
 
     public TsSync(
         string remotePath,
         string localPath,
         Func<string, ITsEditor> editorFactory,
         Func<string, ITsWriteBackApplier> applierFactory,
-        TimeSpan? probeTimeout = null)
+        TimeSpan? probeTimeout = null,
+        IClock? clock = null)
     {
         RemotePath = remotePath;
         LocalPath = localPath;
         _editorFactory = editorFactory;
         _applierFactory = applierFactory;
         _probeTimeout = probeTimeout ?? TsDatabaseResolver.DefaultProbeTimeout;
+        _clock = clock ?? SystemClock.Instance;
         _state = TsSyncState.Load(localPath + ".tsm-sync.json");
-        Journal = new TsJournal(localPath + ".tsm-edits.jsonl");
+        Journal = new TsJournal(localPath + ".tsm-edits.jsonl", _clock);
     }
 
     /// <summary>The real session: the live BIRDWATCHER db, the local working copy, and the production adapters.</summary>
@@ -180,7 +186,7 @@ internal sealed class TsSync
             // The verified skip proves local == remote exactly as strongly as a pull would (that is why it
             // may skip) — refresh RecordedAt so the badge's "synced" time reads "last proven in sync", not
             // "last copy". The remote stats are the comparison key; the probe just showed them unchanged.
-            _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, DateTimeOffset.Now));
+            _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, new DateTimeOffset(_clock.UtcNow).ToLocalTime()));
             Log.Info($"PULL skipped — baseline matches ({probe.Length:N0} bytes @ {probe.LastWriteUtc:u}, no sidecar); RecordedAt refreshed");
             return false;
         }
@@ -271,7 +277,7 @@ internal sealed class TsSync
                 Log.Info($"PULL inbound diff: {arrived.Count} field(s) arrived changed from BIRDWATCHER");
         }
 
-        _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, DateTimeOffset.Now));
+        _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, new DateTimeOffset(_clock.UtcNow).ToLocalTime()));
         Log.Info($"PULL {RemotePath} -> {LocalPath} ({probe.Length:N0} bytes, remote mtime {probe.LastWriteUtc:u}) in {sw.Elapsed.TotalSeconds:0.0} s");
     }
 

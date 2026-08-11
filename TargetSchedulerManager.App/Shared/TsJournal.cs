@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Astronomy.Catalog.TargetScheduler;
+using Astronomy.Core.Time;
 using Astronomy.Diagnostics;
 
 namespace TargetSchedulerManager.App.Shared;
@@ -70,9 +71,14 @@ internal sealed class TsJournal
     private readonly Dictionary<string, string?> _baselineOld = new(StringComparer.OrdinalIgnoreCase);
     private long _nextSeq = 1;
 
-    public TsJournal(string path)
+    // The portfolio clock seam (AL CONSUMERS.md clock convention) — entry timestamps are
+    // provenance data, so they route through the injectable clock rather than the ambient one.
+    private readonly IClock _clock;
+
+    public TsJournal(string path, IClock? clock = null)
     {
         _path = path;
+        _clock = clock ?? SystemClock.Instance;
         Load();
     }
 
@@ -120,7 +126,8 @@ internal sealed class TsJournal
                 return null;   // reverted to baseline (or first-touch same-value): nothing to push
             }
 
-            TsJournalEntry entry = new(_nextSeq++, kind, table, key, column, canonical, old, label, DateTimeOffset.Now);
+            TsJournalEntry entry = new(_nextSeq++, kind, table, key, column, canonical, old, label,
+                new DateTimeOffset(_clock.UtcNow).ToLocalTime());
             File.AppendAllText(_path, JsonSerializer.Serialize(entry, Options) + Environment.NewLine);
             _entries.Add(entry);
             if (_fieldKeys.Add(field))
@@ -144,7 +151,7 @@ internal sealed class TsJournal
         lock (_lock)
         {
             TsJournalEntry entry = new(_nextSeq++, TsEditKind.Insert, table, key, InsertColumn, payloadJson,
-                Old: null, label, DateTimeOffset.Now)
+                Old: null, label, new DateTimeOffset(_clock.UtcNow).ToLocalTime())
             { RowGuid = rowGuid };
             File.AppendAllText(_path, JsonSerializer.Serialize(entry, Options) + Environment.NewLine);
             _entries.Add(entry);
