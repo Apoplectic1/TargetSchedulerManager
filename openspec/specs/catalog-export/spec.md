@@ -4,19 +4,23 @@
 
 Feeds intent authored through TSM's TS-editing surface into ISM's authored intent store during the
 TS→IS coexistence window, by appending records to the catalog inbox (per the ISM-owned inbox
-contract v1) when a push-as-replay commits intent to TS. A record means "authored intent as
-committed to TS." One direction, contract-only: TSM never opens `Catalog.db`.
+contract v1) when a push-as-replay commits intent to TS — plus a narrow observed-emission mirror:
+target changes TS's side committed, projected at pull. A record means "intent as committed to TS."
+One direction, contract-only: TSM never opens `Catalog.db`.
 
 ## Requirements
 
-### Requirement: The push is the sole emitter
+### Requirement: The push emits TSM-authored changes
 
-TSM SHALL emit inbox records at exactly one point: after a successful push-as-replay commit — the
-single funnel where TS, the system of record, actually changes. Each replayed intent change SHALL
-map to its full-value upsert op(s) as defined by the catalog inbox contract v1
-(`..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`): desired-count and
+TSM SHALL emit inbox records for its own authored changes at exactly one point: after a successful
+push-as-replay commit — the single funnel where TS, the system of record, actually changes by TSM's
+hand. (Target changes TSM merely observes arriving from TS's side emit through the observed-emission
+path — see *Observed inbound target changes emit at pull*; no other emission point exists.) Each
+replayed intent change SHALL map to its full-value upsert op(s) as defined by the catalog inbox
+contract v1 (`..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`): desired-count and
 exposure-plan edits to `exposure-plan-upsert`, target-level intent (enable state, coordinates,
-name) to `target-upsert`, project-settings edits to `project-upsert`, adoption inserts to the
+name — including a rename committed through TSM's editing surface) to `target-upsert`,
+project-settings edits to `project-upsert`, adoption inserts to the
 adoption record set. Local edits, adoption inserts, and project-settings edits write the local
 working copy and journal only and SHALL NOT emit at edit time — a Catalog.db row means "authored
 intent as committed to TS," so intent the user abandons or trims at push review is never emitted.
@@ -33,6 +37,12 @@ values is permitted (idempotent upserts); TSM SHALL NOT keep sent-tracking state
 - **WHEN** a push replays a journaled desired-count edit and the push commits
 - **THEN** TSM appends one `exposure-plan-upsert` record carrying the plan's full committed values
   (template reference, exposure seconds, desired count, enabled), not just the changed count
+
+#### Scenario: Pushed rename emits a full target row
+
+- **WHEN** a push replays a journaled target rename and commits
+- **THEN** TSM appends one `target-upsert` record carrying the target's full committed values, the
+  new name among them
 
 #### Scenario: Local edits alone emit nothing
 
@@ -117,14 +127,67 @@ ratchets excluded).
 - **THEN** the emitted `exposure-plan-upsert` carries the authored desired — the explicit desired
   edit's value when the push also carried one, else the pre-push value — never the ratcheted value
 
+### Requirement: Observed inbound target changes emit at pull
+
+At every pull that overwrites the local working copy (the open pull, a manual Pull-now, a push's
+closing pull), TSM SHALL project the pull's inbound diff into the inbox: each **target-table** field
+change observed on an **existing** row (correlated by TS guid across the pull) SHALL emit one
+full-value `target-upsert` whose values are read from the fresh local copy after the pull — mirroring
+TS-committed intent whichever surface authored it, per the same posture as the template mirror.
+Target-table columns are user-authored intent by construction, so no origin bookkeeping applies on
+this path. The scope is deliberately narrow: remotely-**added** targets SHALL NOT emit (a target
+without its plans is half a family — an accepted residual), and inbound changes on project, plan, or
+template rows SHALL NOT emit through this path (project settings are the feed-v2 lane; plan columns
+include actuals). A pull whose inbound diff contains no target-table field changes SHALL emit
+nothing — no empty file. Records are ordinary contract-v1 upserts; emission consumes the single
+pull's diff, not accumulated session state, so one pull produces at most one observed-emission file.
+
+#### Scenario: A BIRDWATCHER rename flows at the next pull
+
+- **WHEN** a target was renamed in TS's UI on BIRDWATCHER and TSM's next pull observes the name
+  arriving changed
+- **THEN** TSM appends one `target-upsert` carrying the target's full post-pull values, the new name
+  among them
+
+#### Scenario: The closing pull never echoes the push's own changes
+
+- **WHEN** a push commits TSM-authored changes and its closing pull returns them
+- **THEN** those fields do not diff (local-first edits are already identical on both sides) and no
+  observed-emission records are produced for them
+
+#### Scenario: A remotely-added target stays silent
+
+- **WHEN** a pull observes a target row that exists remotely but not locally
+- **THEN** no observed-emission record is produced for it
+
+#### Scenario: Inbound plan actuals stay silent
+
+- **WHEN** a pull observes changed `acquired`/`accepted` (or any other plan/project/template field)
+  arriving from BIRDWATCHER
+- **THEN** the observed-emission path produces nothing for those rows
+
+#### Scenario: Quiet pull, no file
+
+- **WHEN** a pull's inbound diff is empty or touches no target-table fields
+- **THEN** no observed-emission file is written
+
+#### Scenario: Observed-emission failure is loud and the pull stands
+
+- **WHEN** the observed emission fails after a completed pull (disk error, uncreatable path)
+- **THEN** the pull remains applied, TSM logs the failure naming the inbox path and operation, and
+  the user sees an error — not a silent skip
+
 ### Requirement: Inbox transport per contract v1
 
 TSM SHALL write inbox files exactly as the contract's transport section specifies: files named
 `tsm-<yyyyMMdd-HHmmss>.jsonl` in the contract-named inbox directory (a new file per TSM session is
 acceptable), UTF-8 without BOM, one JSON object per line with `\n` endings, whole lines flushed
-atomically (a line is either complete on disk or absent), append-only within a file. Every record
-carries the v1 envelope: `v: 1`, `at` (UNIX seconds UTC of the push commit that carried the
-change), `source: "TSM"`. TSM SHALL create the inbox directory if it does not exist, and SHALL NOT
+atomically (a line is either complete on disk or absent), append-only within a file. When the stamped
+name is already taken (a push and a pull emitting within the same second), the stamp SHALL advance to
+the next free second — never overwrite, never a name outside the contract's pattern. Every record
+carries the v1 envelope: `v: 1`, `at` (UNIX seconds UTC — the push commit that carried the change,
+or the pull completion time for observed-emission records, which is when TSM observed the TS-committed
+value), `source: "TSM"`. TSM SHALL create the inbox directory if it does not exist, and SHALL NOT
 touch files the consumer has renamed to `*.processing`.
 
 #### Scenario: First emission creates the inbox directory
@@ -136,12 +199,18 @@ touch files the consumer has renamed to `*.processing`.
 
 - **WHEN** any record is emitted
 - **THEN** the line parses as a single JSON object with `v` = 1, `source` = "TSM", `at` set to the
-  push commit time, and an `op` from the v1 op set
+  push commit time (or the observing pull's completion time), and an `op` from the v1 op set
 
 #### Scenario: Consumer-claimed files are left alone
 
 - **WHEN** the inbox contains `*.processing` files at emission time
 - **THEN** TSM ignores them and appends only to its own `*.jsonl` session file
+
+#### Scenario: Same-second emissions get distinct files
+
+- **WHEN** a push commits and its closing pull carries an observed target change within the same
+  second
+- **THEN** two files publish under distinct stamps, neither overwriting the other
 
 ### Requirement: Inbox append failure aborts loudly after the committed push
 

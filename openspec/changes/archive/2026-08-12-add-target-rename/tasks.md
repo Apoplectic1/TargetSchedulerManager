@@ -41,6 +41,6 @@
 - [x] 4.2 Update reference docs: ROADMAP (Phase 5 export-duty entry — observed-emission shipped,
       P9 residual closed; drop the manual-flush note), SUBSYSTEMS.md → TS sync model (second
       emission point), UI.md → Editing (guarded rename, close-time re-reconcile), CHANGELOG entry
-- [ ] 4.3 Field verification (user): rename a target in TSM end-to-end (arm → commit → push → TS +
+- [x] 4.3 Field verification (user): rename a target in TSM end-to-end (arm → commit → push → TS +
       inbox record); confirm the pending `Cygnus Loop P9` BIRDWATCHER rename auto-flushes at the
       next session's open pull and ISM ingests it
