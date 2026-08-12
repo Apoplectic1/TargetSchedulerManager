@@ -1,9 +1,17 @@
 # Proposal: add-catalog-export-duty
 
-> **Queued 2026-08-12 — proposal only; do not start.** Blocked on the Catalog.db schema (ISM stage-0
-> item 1, `..\IntervalSchedulerManager\ROADMAP.md`). Specs/design/tasks are written when that schema
-> exists. Origin: the who-plans decision,
+> **UNBLOCKED 2026-08-12 (same day):** the schema landed (ISM `docs\design\catalog-db-schema.md`)
+> and decided the write protocol — **inbox file** (decision D1). TSM implements against
+> **`..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md` only** (JSONL, TS-guid
+> identity, three full-value-upsert ops, rule-#16 abort semantics) — TSM never opens `Catalog.db`
+> and needs no schema knowledge, which shrinks this change below what the proposal sketched.
+> Specs/design/tasks: write when picked up. Origin: the who-plans decision,
 > `..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md` (consequences table → TSM row).
+> **Open v1 question flagged by IS-session review — resolve at spec time:** TSM's adoption verb
+> *creates* TS exposure plans (and can create projects/targets) whose guids are unknown to import
+> provenance; the contract's `desired-set` op cannot create an exposure plan (no template linkage
+> in its payload). Either the contract gains an `exposure-plan-upsert` op (v1 revision, ISM-side)
+> or this duty's scope excludes adoption-created rows — decide with ISM before implementing.
 
 ## Why
 
