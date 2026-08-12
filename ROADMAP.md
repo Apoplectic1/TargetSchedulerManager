@@ -188,8 +188,14 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   settings (the D9 acceptance in ISM's `add-ism-scaffold-ingest` design, now promoted to a
   requirement). Close = bilateral contract v-bump widening `project-upsert` with the settings
   block; both emitters move together (candidates list: ISM
-  `docs\design\catalog-inbox-contract.md` § V2 candidates). Related lane: seeded change
-  `add-target-rename` (rename verb + pull-diff emission question).
+  `docs\design\catalog-inbox-contract.md` § V2 candidates).
+  **Related lane SHIPPED 2026-08-12 (pending field verification): `add-target-rename`** — the rename
+  verb (target `name` as a Guarded schema field; journal → push → `target-upsert`, no contract change)
+  **plus pull-diff emission adopted, targets only**: every pull now emits full-value `target-upsert`s
+  for externally-authored target changes it observes arriving (existing rows only; remotely-added
+  targets and inbound project/plan/template changes stay silent — the project half is exactly the
+  feed-v2 gap above). The pending BIRDWATCHER `Cygnus Loop P9` rename auto-flushes at the next
+  session's open pull — no manual touch needed.
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the

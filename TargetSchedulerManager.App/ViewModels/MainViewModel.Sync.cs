@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using Astronomy.Catalog.Scan;
+using Astronomy.Catalog.TargetScheduler;
 using Astronomy.Diagnostics;
 using TargetSchedulerManager.App.Models;
 using TargetSchedulerManager.App.Services;
@@ -147,6 +148,9 @@ public sealed partial class MainViewModel
             // ConfigureAwait(false) belongs — don't "fix" this in a sweep.
             string syncNote = await PrepareTsForLoadAsync(policy);
             RaiseSyncState();
+            // Observed emission rides whatever pull the preparation ran (open pull, forced, discard,
+            // heal, or a dirty-open push's closing pull) — take-and-clear, so a no-pull load emits nothing.
+            syncNote += await EmitObservedInboundAsync();
 
             await WithCancelUiAsync(async ct =>
             {
@@ -314,6 +318,9 @@ public sealed partial class MainViewModel
 
             result = await WithPullUiAsync((p, t) => Sync.Push(p, t));
             exportNote = await ExportToCatalogInboxAsync(result);
+            // The closing pull can carry externally-authored target changes — emit them now (the push's
+            // own replayed changes were local-first and never diff, so nothing here echoes the push).
+            exportNote += await EmitObservedInboundAsync();
         }
         catch (Exception ex)
         {
@@ -340,6 +347,38 @@ public sealed partial class MainViewModel
     /// <summary>The catalog inbox directory the export duty publishes to — the contract-named path in
     /// production; tests point it at a temp dir.</summary>
     internal string CatalogInboxDir { get; set; } = DevDefaults.CatalogInbox;
+
+    /// <summary>
+    /// The observed-emission half of the export duty (openspec delta <c>add-target-rename</c>): after any
+    /// operation that pulled, project the pull-observed TARGET-table field changes — existing rows only,
+    /// never <c>(new)</c> entries, never plan/project/template rows (plan columns include actuals; project
+    /// settings are the feed-v2 lane) — into the catalog inbox as full-value target-upserts, mirroring
+    /// TS-committed intent whichever surface authored it. Consumes each pull's fresh diff via take-and-clear
+    /// (never the session-accumulated marks store). A fault leaves the pull applied, requeues the batch for
+    /// the next pull-capable operation, and surfaces loudly (rule #16) — never a silent skip.
+    /// </summary>
+    private async Task<string> EmitObservedInboundAsync()
+    {
+        IReadOnlyList<TsInboundChange> arrived = Sync.TakeUntakenPullInbound();
+        if (arrived.Count == 0)
+            return "";
+        string[] guids = CatalogInboxExporter.ObservedTargetGuids(arrived);
+        if (guids.Length == 0)
+            return "";
+        try
+        {
+            DateTimeOffset observedAt = new(Clock.UtcNow);
+            int records = await Task.Run(() =>
+                CatalogInboxExporter.ExportObserved(Sync.LocalPath, guids, observedAt, CatalogInboxDir));
+            return $" · catalog inbox {records} observed record(s)";
+        }
+        catch (Exception ex)
+        {
+            Sync.RequeuePullInbound(arrived);   // retried at the next pull-capable operation this session
+            Log.Error($"CATALOG EXPORT (observed) FAILED — pull is applied; batch requeued for the next pull/push ({CatalogInboxDir})", ex);
+            return " — CATALOG EXPORT (observed) FAILED: see tsm.log";
+        }
+    }
 
     /// <summary>
     /// The catalog-export duty (openspec <c>catalog-export</c>): after the push committed, project the

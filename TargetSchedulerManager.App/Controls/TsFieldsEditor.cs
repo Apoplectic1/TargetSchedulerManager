@@ -393,6 +393,9 @@ internal sealed class TsFieldsEditor : UserControl
             if (_reverting) return;
             string current = _lastKnown[field.Column]?.ToString() ?? string.Empty;
             if (box.Text == current) return;
+            // Whitespace-only never reaches the gate (every Text column is a name/filter — blank is nonsense);
+            // revert like an out-of-bounds number.
+            if (string.IsNullOrWhiteSpace(box.Text)) { Revert(() => box.Text = current); return; }
             if (await Commit(field.Column, box.Text))
                 _lastKnown[field.Column] = box.Text;
             else

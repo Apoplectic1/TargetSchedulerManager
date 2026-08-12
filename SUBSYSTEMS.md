@@ -7,7 +7,7 @@ and the load-bearing invariants — stays in `ARCHITECTURE.md`, which is the doc
 
 | Subsystem | What it does | Formal contract |
 |---|---|---|
-| **TS sync model** | pull → edit local → push-as-replay (incl. the catalog-export step: committed push → ISM inbox JSONL) | `openspec/specs/ts-sync-model/` · `openspec/specs/catalog-export/` |
+| **TS sync model** | pull → edit local → push-as-replay (incl. the catalog-export steps: committed push → ISM inbox JSONL, plus pull-observed target changes) | `openspec/specs/ts-sync-model/` · `openspec/specs/catalog-export/` |
 | **Sync-direction marks** | `←` / `→` / `⇄` per row and per field | `openspec/specs/edit-direction-marks/` |
 | **TS write-back** | disk-derived counts → TS's cached columns | `openspec/specs/write-back/` |
 | **Visible-tonight pass** | reconcile TS enable state with tonight's sky | `openspec/specs/visible-tonight-toggle/` |
@@ -134,6 +134,19 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   upserts make redo-and-re-push the whole recovery story. Writer side of
   `..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`; spec
   `openspec/specs/catalog-export/`; **TSM never opens `Catalog.db`** — in code or tests.
+- **Observed emission rides every pull (2026-08-12, openspec `add-target-rename` — the push is no longer
+  the sole emitter).** Each pull's fresh inbound diff lands in a take-and-clear buffer on `TsSync`
+  (distinct from the session-accumulated marks store); after any pull-capable operation (a load's
+  open/forced/discard/heal pull, a push's closing pull) `MainViewModel.EmitObservedInboundAsync` filters
+  it to **target-table field changes on existing rows** (`CatalogInboxExporter.ObservedTargetGuids` —
+  never `(new)` row entries, never plan/project/template rows: plan columns include actuals, project
+  settings are the feed-v2 lane) and emits full-value `target-upsert`s from the fresh local copy —
+  mirroring TS-committed intent whichever surface authored it (the template-mirror posture). Target
+  columns are all intent by construction, so *actuals never emit* holds with zero origin bookkeeping;
+  local-first edits mean a closing pull can never echo the push's own changes. Envelope `at` = pull
+  completion time; same transport (`WriteInbox`, which advances a taken same-second stamp to the next
+  free second). A fault leaves the pull applied, requeues the batch for the next pull-capable operation
+  this session, and surfaces `CATALOG EXPORT (observed) FAILED` loudly (rule #16).
 - **Open-with-dirty prompts before any pull** (reachable + dirty): push (recommended — replay makes offline
   edits pushable at reconnect) / discard-and-pull (the deliberate debug-session path) / continue local. The
   push review dialog shows manual edits + the write-back summary with **decreases first**, and warns (not

@@ -247,7 +247,11 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   2026-08-03, user call). Both host `Controls/TsFieldsEditor` — a form
   **generated from `TsEditableSchema`** (Bool→ToggleSwitch, Whole/Real→NumberBox clamped to schema Min/Max,
   Enum→ComboBox from `EnumValues`, Text→TextBox; Unit beside, Notes as tooltip; cadence-breaking fields commit
-  directly (see the cadence convention below); **Guarded** fields — `rotation` — start disabled behind an arm-to-edit checkbox on their line, re-locked every open). Values seed fresh from the current db; **each field commits itself** on
+  directly (see the cadence convention below); **Guarded** fields — `rotation` and target `name` (the rename
+  verb, 2026-08-12 openspec `add-target-rename` — a rename redirects NINA's future file naming, so it must be
+  deliberate) — start disabled behind an arm-to-edit checkbox on their line, re-locked every open; a
+  **whitespace-only text commit never reaches the gate** — the box reverts like an out-of-bounds number).
+  Values seed fresh from the current db; **each field commits itself** on
   change/focus-loss (so closing the dialog can never lose work — no Apply button, ever); a failed write reverts the
   control. **A committing surface stays interactive** — never disable it to prevent overlap: disabling moves
   focus, which re-fires the `LostFocus` commit re-entrantly (the cure invokes the disease). Commit *ordering*
@@ -270,6 +274,9 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   `rotation-framing-key`): rotation is a reconciliation key, so after a rotation edit the framing pairing
   re-evaluates — clusters that matched may separate (old-framing frames stop serving the re-framed plan) and
   vice versa. The first edit that changes row *identity* rather than a value; designed behavior, not drift.
+  **Editing target `name` rides the same close-time trigger** (2026-08-12): not a pairing key but group
+  identity (header, sort, name claims, mosaic parent grouping) — no live mirror; the grid shows the old name
+  until the dialog closes, then the no-pull re-reconcile moves all of it at once.
 - **Mosaics are a special case (user decision 2026-07-06):** a mosaic *parent* row is a grouping node (no TS
   target), so its dialog edits the two whole-mosaic knobs — **"Enable all panels"** (fan-out `target.active`
   to every TS-backed panel; tri-state display when panels disagree; each write individually guarded + audited)

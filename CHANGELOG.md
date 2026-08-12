@@ -11,6 +11,28 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-12 — `add-target-rename`: the rename verb + pull-observed emission (push no longer
+the sole emitter)** — two halves, one motivating case (the user's BIRDWATCHER-side `Cygnus Loop P9` →
+`CygnusLoop P9` rename that the feed stayed blind to). **(1) Rename verb:** `target.name` joins
+`TsEditableSchema` (AL side, Text + `Guarded` — arm-to-edit like `rotation`; the resolver-era
+identity exclusion narrows to RA/Dec/epoch), lighting up the whole schema-driven pipeline for free:
+target/panel edit dialog, gate, journal, push replay, marks, and the existing full-value
+`target-upsert` emission (no contract change). Whitespace-only text commits are refused at the
+control (revert, like the numeric clamp). A committed rename triggers the obs-4798 **close-time
+no-pull re-reconcile** — name is group identity (header, sort, name claims, mosaic parent grouping),
+so it rides the reshape trigger, deliberately with no live mirror. **(2) Pull-diff emission adopted,
+targets only (user decision):** every pull's fresh inbound diff lands in a take-and-clear buffer on
+`TsSync`; after any pull-capable operation the VM filters it (`ObservedTargetGuids` — existing
+target rows only, never `(new)` entries, never plan/project/template rows) and
+`CatalogInboxExporter.ExportObserved` emits full-value `target-upsert`s from the post-pull local
+copy (`at` = pull time; `WriteInbox` advances taken same-second stamps). Target columns are all
+intent, so *actuals never emit* holds structurally; local-first edits mean the closing pull never
+echoes the push's own changes. Fault posture: pull stands, batch requeued for the session's next
+pull-capable op, `CATALOG EXPORT (observed) FAILED` loud (rule #16). Specs: `catalog-export`
+(sole-emitter requirement renamed + the observed-emission requirement) and `target-and-plan-flyouts`
+(guarded rename + name in the close-time re-reconcile). Library 317 / App 454 tests green. The
+pending P9 rename auto-flushes at the next session's open pull.
+
 **▶ SHIPPED 2026-08-11 — clock seam adopted in `MainViewModel` (AL `IClock` portfolio convention)** —
 the same-day AL directive making `Core.Time.IClock`/`SystemClock` the portfolio's single clock
 source (AL `CONSUMERS.md` clock convention) lands in TSM's VM: new settable `Clock` property

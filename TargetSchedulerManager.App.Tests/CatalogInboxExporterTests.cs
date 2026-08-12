@@ -361,4 +361,123 @@ public class CatalogInboxExporterTests
         Assert.Contains("unreachable", vm.StatusText);
         Assert.False(Directory.Exists(vm.CatalogInboxDir));
     }
+
+    // ---- the observed-emission path (openspec delta add-target-rename) ------------------------------------
+
+    [Fact]
+    public void ObservedTargetGuids_TargetsOnly_ExistingRowsOnly_Deduped()
+    {
+        // The scope filter: plan changes (actuals among them), project settings (the feed-v2 lane),
+        // template changes, and remotely-ADDED target rows all stay silent; two field changes on one
+        // target collapse to its one guid.
+        TsInboundChange[] arrived =
+        [
+            new(TsTable.Target, "t-g", "name", "Cygnus Loop P9", "CygnusLoop P9"),
+            new(TsTable.Target, "t-g", "active", "1", "0"),
+            new(TsTable.Target, "t-new", TsInboundDiff.NewRowColumn, null, "row"),
+            new(TsTable.ExposurePlan, "30", "acquired", "35", "40"),
+            new(TsTable.Project, "p-g", "minimumaltitude", "0", "30"),
+            new(TsTable.ExposureTemplate, "20", "gain", "100", "139"),
+        ];
+
+        Assert.Equal(["t-g"], CatalogInboxExporter.ObservedTargetGuids(arrived));
+    }
+
+    [Fact]
+    public void BuildObservedLines_EmitsFullValueTargetUpsert_AtObservationTime()
+    {
+        IReadOnlyList<string> lines = CatalogInboxExporter.BuildObservedLines(["t-g"], Rows(), CommitStamp);
+
+        JsonElement t = Parse(Assert.Single(lines));
+        Assert.Equal("target-upsert", t.GetProperty("op").GetString());
+        Assert.Equal(1, t.GetProperty("v").GetInt32());
+        Assert.Equal(1_755_043_200, t.GetProperty("at").GetInt64());   // the observing pull's time
+        Assert.Equal("TSM", t.GetProperty("source").GetString());
+        Assert.Equal("t-g", t.GetProperty("ts_guid").GetString());
+        Assert.Equal("p-g", t.GetProperty("project_ts_guid").GetString());
+        Assert.Equal("M 42", t.GetProperty("name").GetString());       // the full committed row, not a delta
+        Assert.True(t.GetProperty("enabled").GetBoolean());
+        Assert.Equal("J2000", t.GetProperty("epoch").GetString());
+    }
+
+    [Fact]
+    public void BuildObservedLines_GuidMissingFromLocalDb_ThrowsLoudly()
+    {
+        // The pull's diff just observed the row, so the fresh local copy MUST resolve it (rule #16).
+        Assert.Throws<InvalidOperationException>(() =>
+            CatalogInboxExporter.BuildObservedLines(["no-such"], Rows(), CommitStamp));
+    }
+
+    [Fact]
+    public void ExportObserved_PublishesUpserts_AndNoGuidsWritesNoFile()
+    {
+        string dir = SyncTestEnv.NewDir();
+        string db = Path.Combine(dir, "local.sqlite");
+        string inbox = Path.Combine(dir, "inbox");
+        CreateTsDb(db);
+
+        Assert.Equal(0, CatalogInboxExporter.ExportObserved(db, [], CommitStamp, inbox));
+        Assert.False(Directory.Exists(inbox));                       // a quiet pull writes nothing at all
+
+        Assert.Equal(1, CatalogInboxExporter.ExportObserved(db, ["t-g"], CommitStamp, inbox));
+        string file = Assert.Single(Directory.GetFiles(inbox, "*.jsonl"));
+        Assert.Equal("target-upsert", Parse(File.ReadAllLines(file).Single()).GetProperty("op").GetString());
+    }
+
+    [Fact]
+    public void WriteInbox_TakenStamp_AdvancesToTheNextFreeSecond()
+    {
+        // A push and its closing pull's observed emission can land in the same second — distinct files,
+        // never an overwrite; a crashed .partial blocks its stamp too (kept for diagnosis, never reclaimed).
+        string inbox = SyncTestEnv.NewDir();
+
+        string first = CatalogInboxExporter.WriteInbox(["{\"a\":1}"], inbox, CommitStamp);
+        string second = CatalogInboxExporter.WriteInbox(["{\"b\":2}"], inbox, CommitStamp);
+
+        Assert.Equal($"tsm-{CommitStamp.AddSeconds(1).ToLocalTime():yyyyMMdd-HHmmss}.jsonl", Path.GetFileName(second));
+        Assert.Equal("{\"a\":1}\n", File.ReadAllText(first));
+        Assert.Equal("{\"b\":2}\n", File.ReadAllText(second));
+
+        File.WriteAllText(Path.Combine(inbox, $"tsm-{CommitStamp.AddSeconds(2).ToLocalTime():yyyyMMdd-HHmmss}.jsonl.partial"), "x");
+        string third = CatalogInboxExporter.WriteInbox(["{\"c\":3}"], inbox, CommitStamp);
+        Assert.Equal($"tsm-{CommitStamp.AddSeconds(3).ToLocalTime():yyyyMMdd-HHmmss}.jsonl", Path.GetFileName(third));
+    }
+
+    [Fact]
+    public void Pull_RecordsObservedInbound_TakeClears_RequeueRestores()
+    {
+        // The BIRDWATCHER-rename flow at the sync layer: the pull's fresh diff lands in the untaken
+        // buffer (target name change observed), take-and-clear consumes it exactly once, and a requeue
+        // (emission fault) restores it for the next take. The push's own changes can never appear here —
+        // edits are local-first, so a closing pull returns values already identical on both sides.
+        string dir = SyncTestEnv.NewDir();
+        string remote = Path.Combine(dir, "remote.sqlite");
+        string local = Path.Combine(dir, "local.sqlite");
+        CreateTsDb(local);                                           // what the user last saw: 'M 42'
+        CreateTsDb(remote);
+        using (SqliteConnection c = new(new SqliteConnectionStringBuilder
+        { DataSource = remote, Mode = SqliteOpenMode.ReadWrite, Pooling = false }.ToString()))
+        {
+            c.Open();
+            using SqliteCommand cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE target SET name = 'M 42 LL' WHERE guid = 't-g';";
+            cmd.ExecuteNonQuery();
+        }
+        TsSync sync = new(remote, local,
+            _ => throw new InvalidOperationException("no editor expected"),
+            _ => throw new InvalidOperationException("no applier expected"));
+
+        sync.Pull(sync.ProbeRemote()!);
+
+        IReadOnlyList<TsInboundChange> taken = sync.TakeUntakenPullInbound();
+        TsInboundChange rename = Assert.Single(taken);
+        Assert.Equal((TsTable.Target, "t-g", "name", "M 42", "M 42 LL"),
+            (rename.Table, rename.Key, rename.Column, rename.Old, rename.New));
+        Assert.Equal(["t-g"], CatalogInboxExporter.ObservedTargetGuids(taken));
+
+        Assert.Empty(sync.TakeUntakenPullInbound());                 // take-and-clear: consumed exactly once
+
+        sync.RequeuePullInbound(taken);                              // emission fault → retry at next take
+        Assert.Single(sync.TakeUntakenPullInbound());
+    }
 }

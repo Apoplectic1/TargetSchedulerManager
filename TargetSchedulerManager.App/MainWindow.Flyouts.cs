@@ -445,7 +445,9 @@ public sealed partial class MainWindow
     // filter, the purpose the template NAME declares ("Stars " prefix), and the target rotation framings
     // credit against. An applied edit to one re-shapes rows (merged cells split, splits merge), which the
     // in-place mirror can't express — the editor session ends with a no-pull reload instead (obs 4798).
-    // Every other column keeps the mirror-only model.
+    // Target NAME rides the same trigger for a different reason: not a pairing key but group identity
+    // (group header, sort order, name claims, mosaic parent grouping) — only a re-reconcile can move all
+    // of it. Every other column keeps the mirror-only model.
     private static bool IsPairingKey(TsTable table, string column) => table switch
     {
         TsTable.ExposurePlan => column.Equals("exposure", StringComparison.OrdinalIgnoreCase),
@@ -456,7 +458,9 @@ public sealed partial class MainWindow
             || column.Equals("defaultexposure", StringComparison.OrdinalIgnoreCase)
             || column.Equals("filtername", StringComparison.OrdinalIgnoreCase)
             || column.Equals("name", StringComparison.OrdinalIgnoreCase),
-        TsTable.Target => column.Equals("rotation", StringComparison.OrdinalIgnoreCase),
+        TsTable.Target =>
+            column.Equals("rotation", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("name", StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 

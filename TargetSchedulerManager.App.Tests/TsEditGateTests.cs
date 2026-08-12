@@ -57,6 +57,25 @@ public class TsEditGateTests
     }
 
     [Fact]
+    public async Task TargetRename_JournalsLikeAnyIntentEdit()
+    {
+        // The rename verb (add-target-rename): target.name flows through the same gate → journal →
+        // push-replay pipeline as every other Manual edit; the label carries the identity for review.
+        StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "Cygnus Loop P9", Verified: true), RefusalReason.None) };
+        TsEditGate gate = Gate(ed, out TsSync sync);
+        EditOutcome o = await gate.ApplyAsync(TsTable.Target, "tg-9", "name", "CygnusLoop P9", "Cygnus Loop P9");
+        Assert.IsType<EditOutcome.Applied>(o);
+
+        TsJournalEntry entry = Assert.Single(sync.Journal.Entries);
+        Assert.Equal(TsEditKind.Manual, entry.Kind);
+        Assert.Equal(TsTable.Target, entry.Table);
+        Assert.Equal("tg-9", entry.Key);
+        Assert.Equal("name", entry.Column);
+        Assert.Equal("CygnusLoop P9", entry.Value);
+        Assert.Equal("Cygnus Loop P9", entry.Old);
+    }
+
+    [Fact]
     public async Task ProjectFieldWrite_JournalsWithTheProjectKey()
     {
         StubEditor ed = new() { Next = (new FieldEditResult(RowFound: true, OldValue: "45", Verified: true), RefusalReason.None) };

@@ -66,6 +66,51 @@ internal static class CatalogInboxExporter
         return lines.Count;
     }
 
+    /// <summary>The observed-emission half of the duty (openspec delta <c>add-target-rename</c>): project
+    /// pull-observed target-table changes into the inbox — one full-value <c>target-upsert</c> per existing
+    /// target row whose fields arrived changed from TS's side, values read from the fresh post-pull local
+    /// copy. Same records, same transport; <paramref name="observedAt"/> is the observing pull's completion
+    /// time (TS's own commit time is unknowable). Returns the record count (0 = no guids, no file).</summary>
+    public static int ExportObserved(
+        string localDbPath, IReadOnlyCollection<string> targetGuids, DateTimeOffset observedAt, string inboxDir)
+    {
+        if (targetGuids.Count == 0)
+            return 0;
+        IReadOnlyList<string> lines = BuildObservedLines(targetGuids, ReadRows(localDbPath), observedAt);
+        string file = WriteInbox(lines, inboxDir, observedAt);
+        Log.Info($"CATALOG EXPORT {lines.Count} observed record(s) -> {file}");
+        return lines.Count;
+    }
+
+    /// <summary>The observed-emission scope filter (spec: targets only, existing rows only): the distinct
+    /// target guids among a pull's inbound field changes — never <c>(new)</c> row entries (a remotely-added
+    /// target without its plans is half a family, an accepted residual), never plan/project/template rows
+    /// (plan columns include actuals; project settings are the feed-v2 lane).</summary>
+    public static string[] ObservedTargetGuids(IReadOnlyList<TsInboundChange> arrived) =>
+        [.. arrived
+            .Where(c => c.Table == TsTable.Target && c.Column != TsInboundDiff.NewRowColumn)
+            .Select(c => c.Key)
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Maps observed target guids to full-value <c>target-upsert</c> lines against
+    /// <paramref name="rows"/>. A guid the fresh local copy cannot resolve is a contract violation (the
+    /// pull's diff just observed the row) — thrown loudly, never skipped (rule #16).</summary>
+    public static IReadOnlyList<string> BuildObservedLines(
+        IReadOnlyCollection<string> targetGuids, CatalogExportRows rows, DateTimeOffset observedAt)
+    {
+        Dictionary<string, InboxTargetRow> targetsByGuid = ByGuid(rows.Targets, t => t.Guid);
+        Dictionary<long, InboxProjectRow> projectsById = rows.Projects.ToDictionary(p => p.Id);
+        long at = observedAt.ToUnixTimeSeconds();
+        List<string> lines = [];
+        foreach (string guid in targetGuids)
+            lines.Add(TargetUpsertLine(
+                targetsByGuid.TryGetValue(guid, out InboxTargetRow? t) ? t
+                    : throw new InvalidOperationException(
+                        $"catalog export: observed target guid '{guid}' not found in the local db after pull"),
+                projectsById, at));
+        return lines;
+    }
+
     // ---- the pure mapping ---------------------------------------------------------------------------------
 
     /// <summary>Maps the push's applied entries to contract records, resolving full row values from
@@ -164,19 +209,7 @@ internal static class CatalogInboxExporter
                 ["moon_avoidance_width_days"] = t.MoonAvoidanceWidthDays,
             }));
         foreach (InboxTargetRow t in targets)
-            lines.Add(Serialize("target-upsert", at, new()
-            {
-                ["ts_guid"] = RequireGuid(t.Guid, "target", t.Name),
-                ["project_ts_guid"] = RequireGuid(
-                    t.ProjectId is { } pid && projectsById.TryGetValue(pid, out InboxProjectRow? parent) ? parent.Guid : null,
-                    "target's project", t.Name),
-                ["name"] = t.Name,
-                ["enabled"] = t.Enabled,
-                ["ra_hours"] = t.RaHours ?? throw MissingField("target", t.Name, "ra"),
-                ["dec_degrees_signed"] = t.DecDegrees ?? throw MissingField("target", t.Name, "dec"),
-                ["epoch"] = EpochName(t),
-                ["rotation_deg"] = t.RotationDeg,
-            }));
+            lines.Add(TargetUpsertLine(t, projectsById, at));
         foreach (PlanEmit p in plans.Where(p => p.Affected))
             lines.Add(Serialize("exposure-plan-upsert", at, new()
             {
@@ -219,6 +252,23 @@ internal static class CatalogInboxExporter
                         $"catalog export: write-back desired Old '{old}' on plan id {Row.Id} is not an integer")
                 : Row.DesiredCount);
     }
+
+    // The one target-upsert serialization — the push path and the observed-emission path emit the same
+    // full-value record.
+    private static string TargetUpsertLine(InboxTargetRow t, Dictionary<long, InboxProjectRow> projectsById, long at) =>
+        Serialize("target-upsert", at, new()
+        {
+            ["ts_guid"] = RequireGuid(t.Guid, "target", t.Name),
+            ["project_ts_guid"] = RequireGuid(
+                t.ProjectId is { } pid && projectsById.TryGetValue(pid, out InboxProjectRow? parent) ? parent.Guid : null,
+                "target's project", t.Name),
+            ["name"] = t.Name,
+            ["enabled"] = t.Enabled,
+            ["ra_hours"] = t.RaHours ?? throw MissingField("target", t.Name, "ra"),
+            ["dec_degrees_signed"] = t.DecDegrees ?? throw MissingField("target", t.Name, "dec"),
+            ["epoch"] = EpochName(t),
+            ["rotation_deg"] = t.RotationDeg,
+        });
 
     private static Dictionary<string, T> ByGuid<T>(IReadOnlyList<T> rows, Func<T, string?> guid) =>
         rows.Where(r => !string.IsNullOrWhiteSpace(guid(r)))
@@ -353,15 +403,25 @@ internal static class CatalogInboxExporter
 
     // ---- the atomic file publish --------------------------------------------------------------------------
 
-    /// <summary>Publishes one push's records: creates the inbox directory if missing, writes every line to
-    /// <c>tsm-&lt;yyyyMMdd-HHmmss&gt;.jsonl.partial</c> (UTF-8 no BOM, <c>\n</c> endings), flushes to disk,
+    /// <summary>Publishes one emission's records: creates the inbox directory if missing, writes every line
+    /// to <c>tsm-&lt;yyyyMMdd-HHmmss&gt;.jsonl.partial</c> (UTF-8 no BOM, <c>\n</c> endings), flushes to disk,
     /// then renames to <c>.jsonl</c> — ISM's <c>*.jsonl</c> glob never observes an incomplete file, and a
-    /// crashed <c>.partial</c> is inert. Never touches any other file (including <c>*.processing</c>).</summary>
-    public static string WriteInbox(IReadOnlyList<string> lines, string inboxDir, DateTimeOffset committedAt)
+    /// crashed <c>.partial</c> is inert. A taken stamp (a push and its closing pull's observed emission
+    /// landing in the same second) advances to the next free second — never an overwrite, never a name
+    /// outside the contract's pattern. Never touches any other file (including <c>*.processing</c>).</summary>
+    public static string WriteInbox(IReadOnlyList<string> lines, string inboxDir, DateTimeOffset stamp)
     {
         Directory.CreateDirectory(inboxDir);
-        string final = Path.Combine(inboxDir, $"tsm-{committedAt.ToLocalTime():yyyyMMdd-HHmmss}.jsonl");
-        string partial = final + ".partial";
+        string final, partial;
+        while (true)
+        {
+            final = Path.Combine(inboxDir, $"tsm-{stamp.ToLocalTime():yyyyMMdd-HHmmss}.jsonl");
+            partial = final + ".partial";
+            // A crashed .partial also blocks its stamp: it stays on disk for diagnosis, never reclaimed.
+            if (!File.Exists(final) && !File.Exists(partial))
+                break;
+            stamp = stamp.AddSeconds(1);
+        }
         using (FileStream fs = new(partial, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         {
             foreach (string line in lines)

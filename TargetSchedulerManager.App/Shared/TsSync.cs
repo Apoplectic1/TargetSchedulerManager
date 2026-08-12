@@ -137,6 +137,36 @@ internal sealed class TsSync
     /// fed by every pull's diff and masked by write-back stamps — the ← half of the grid's direction marks.</summary>
     public TsInboundStore Inbound { get; } = new();
 
+    // The untaken fresh-pull diffs behind TakeUntakenPullInbound — per-pull observations for the
+    // observed-emission duty, distinct from the session-accumulated Inbound marks store.
+    private readonly Lock _arrivedLock = new();
+    private readonly List<TsInboundChange> _untakenArrived = [];
+
+    /// <summary>
+    /// The inbound changes of every pull since the last take, then clears (take-and-clear, so one pull's
+    /// observations are consumed exactly once). The observed-emission duty (openspec <c>catalog-export</c>)
+    /// reads this after any operation that can pull — a load's open pull or a push's closing pull — and
+    /// projects the target-table changes into the catalog inbox; consuming the per-pull diff here, not
+    /// <see cref="Inbound"/>, keeps the marks store's session accumulation out of emission.
+    /// </summary>
+    public IReadOnlyList<TsInboundChange> TakeUntakenPullInbound()
+    {
+        lock (_arrivedLock)
+        {
+            List<TsInboundChange> taken = [.. _untakenArrived];
+            _untakenArrived.Clear();
+            return taken;
+        }
+    }
+
+    /// <summary>Returns a taken batch to the untaken buffer (an emission fault after the take), so the
+    /// next take retries it. In-memory only — session end is the retry horizon; the fault itself is
+    /// surfaced loudly by the caller.</summary>
+    public void RequeuePullInbound(IReadOnlyList<TsInboundChange> changes)
+    {
+        lock (_arrivedLock) _untakenArrived.InsertRange(0, changes);
+    }
+
     /// <summary>Unpushed local writes exist (journal non-empty) — derived, never a stored flag.</summary>
     public bool IsDirty => !Journal.IsEmpty;
 
@@ -282,7 +312,10 @@ internal sealed class TsSync
             List<TsInboundChange> arrived = TsInboundDiff.Diff(before, TsInboundDiff.Snapshot(LocalPath));
             Inbound.Apply(arrived);
             if (arrived.Count > 0)
+            {
+                lock (_arrivedLock) _untakenArrived.AddRange(arrived);
                 Log.Info($"PULL inbound diff: {arrived.Count} field(s) arrived changed from BIRDWATCHER");
+            }
         }
 
         _state.Record(new TsBaseline(probe.Length, probe.LastWriteUtc, new DateTimeOffset(_clock.UtcNow).ToLocalTime()));
