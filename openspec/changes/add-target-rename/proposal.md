@@ -35,6 +35,25 @@ projects TSM's own writes only, so an externally-authored rename never reaches I
   if not, one TSM-side touch of that target (or the new rename verb re-committing the name)
   flushes it to the feed.
 
+## Field observations for this change (2026-08-12, the P9 toggle-flush)
+
+The workaround run that flushed the rename produced two emitter observations worth folding into
+this change's design (tsm.log 19:34–19:35; both records ingested fine, last-write-wins saved the
+outcome):
+
+1. **Stale-snapshot emission**: push #1's `target-upsert` carried the *pre-pull* name
+   (`Cygnus Loop P9`) even though the pull that ran inside that same push had just brought the
+   BIRDWATCHER rename — the emitter's row snapshot came from TSM's in-memory model, not the
+   freshly pulled db; push #2 (after the app reloaded) carried the new name. Benign under
+   file-order last-write-wins only because a reload happened between pushes.
+2. **The disable half never emitted `enabled:false`** — both records say `enabled:true` despite
+   the flush being a disable→push→enable→push sequence. Whether that's snapshot timing or emit
+   coalescing, the emitted row did not match the TS-committed state of push #1.
+
+Both point the same direction as the pull-diff question: the emitter should project
+**TS-committed post-replay state** (read back from the working copy after apply), not the UI
+model's snapshot.
+
 ## Capabilities
 
 *(TSM sessions refine at spec time per this repo's spec organization — likely a delta on the
