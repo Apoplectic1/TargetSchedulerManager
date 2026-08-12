@@ -169,6 +169,13 @@ decisions 4–5). The phase's original premise — *`Catalog.db` is the derived 
 bridging lane was cancelled 2026-07-24. That was the **second** reversal: the phase first read *"IS owns
 `scheduler.db`"* before `Catalog.db`-as-hub replaced it. What survives:
 
+- **NEW 2026-08-12 — the Catalog.db export duty (TSM's one ISM-era work item).** The who-plans
+  decision (`..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md`) settled the architecture:
+  ISM plans from `Catalog.db`; NINA executes; no db on BIRDWATCHER. TSM's part: **update Catalog.db
+  whenever it writes TS**, so intent authored through TSM feeds ISM's target pool during
+  coexistence. Queued as openspec change `add-catalog-export-duty` (proposal only — **blocked on the
+  Catalog.db schema**, ISM stage-0 item 1; specs/design/tasks at that time). Dies with TSM at TS
+  retirement.
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the
