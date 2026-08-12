@@ -15,6 +15,11 @@ internal static class DevDefaults
     public const string Catalog = @"E:\Photography\Astro Photography\Processing\Catalog\Catalog.db";
     public const string Library = @"E:\Photography\Astro Photography\Processing";
 
+    /// <summary>The ISM catalog inbox — the contract-named directory the catalog-export duty appends to
+    /// after each push (writer side of the inbox contract; openspec <c>catalog-export</c>). TSM creates it
+    /// if missing and never reads it; the feed dies with TSM at TS retirement.</summary>
+    public const string CatalogInbox = @"E:\Photography\Astro Photography\Processing\Catalog\inbox";
+
     /// <summary>The LOCAL working copy of the TS db — the one db the app reads and edits.</summary>
     public const string TsDatabase = @"E:\Photography\Astro Photography\Processing\Catalog\TS Database\schedulerdb.sqlite";
 

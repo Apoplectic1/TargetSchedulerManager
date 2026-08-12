@@ -455,4 +455,78 @@ public class TsSyncTests
         Assert.True(sync.ShouldPull(probe));                    // unbaselined always pulls…
         Assert.False(sync.PreparePush(probe).RemoteChangedSinceBaseline);   // …but nothing "changed since"
     }
+
+    // ---- the applied-entry set (openspec catalog-export: PushResult feeds the export step) ----------------
+
+    [Fact]
+    public void Push_Success_ExposesAppliedEntries_AllKinds_WithCommitStamp()
+    {
+        RecordingEditor editor = new();
+        StubWriteBackApplier applier = new();
+        applier.Rows[30] = (Acquired: 35, Accepted: 35, Desired: 30);
+        TsSync sync = NewPushSync(editor, applier, out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.Target, "g-1", "active", 0, "1", "B");
+        sync.RecordWriteBack("30", "desired", 40, "30", "A · H");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.Success, result.Outcome);
+        Assert.NotNull(result.CommittedAt);
+        Assert.NotNull(result.AppliedEntries);
+        Assert.Equal(2, result.AppliedEntries!.Count);          // BOTH kinds — the exporter filters by origin
+        Assert.Contains(result.AppliedEntries, e => e is { Kind: TsEditKind.Manual, Key: "g-1" });
+        Assert.Contains(result.AppliedEntries, e =>
+            e is { Kind: TsEditKind.WriteBack, Key: "30", Column: "desired", Old: "30" });   // ratchet's pre-push Old
+    }
+
+    [Fact]
+    public void Push_PartialFailure_ExcludesTheWholeFailedRow_KeepsUnrelatedRows()
+    {
+        // The plan row "30" has an applied manual edit AND a failed write-back entry (row gone on the
+        // applier) — the exposed set drops the WHOLE row (its local values are not remote truth), while
+        // the unrelated target row stays.
+        RecordingEditor editor = new();
+        StubWriteBackApplier applier = new();                   // Rows empty: plan 30 is gone remotely
+        TsSync sync = NewPushSync(editor, applier, out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordEdit(TsTable.ExposurePlan, "30", "enabled", 0, "1", "A · H");
+        sync.RecordWriteBack("30", "desired", 40, "30", "A · H");
+        sync.RecordEdit(TsTable.Target, "g-1", "active", 0, "1", "B");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.PartialFailure, result.Outcome);
+        TsJournalEntry survivor = Assert.Single(result.AppliedEntries!);
+        Assert.Equal("g-1", survivor.Key);                      // the manual plan edit applied, but its row failed
+    }
+
+    [Fact]
+    public void Push_Refused_ExposesNoAppliedEntries()
+    {
+        TsSync sync = NewPushSync(new RecordingEditor(), new StubWriteBackApplier(), out _);   // remote never created
+        sync.RecordEdit(TsTable.ExposurePlan, "30", "desired", 25, "20", "A · H");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.Unreachable, result.Outcome);
+        Assert.Null(result.AppliedEntries);
+        Assert.Null(result.CommittedAt);
+    }
+
+    [Fact]
+    public void Push_InsertEntry_RidesTheAppliedSet_WithItsRowGuid()
+    {
+        RecordingEditor editor = new();
+        TsSync sync = NewPushSync(editor, new StubWriteBackApplier(), out _);
+        SyncTestEnv.CreateDb(sync.RemotePath, "night-1");
+        sync.RecordInsert(TsTable.Target, "t-guid", """{"name":"X"}""", "t-guid", "X");
+
+        PushResult result = sync.Push();
+
+        Assert.Equal(PushOutcome.Success, result.Outcome);
+        TsJournalEntry insert = Assert.Single(result.AppliedEntries!);
+        Assert.Equal(TsEditKind.Insert, insert.Kind);
+        Assert.Equal("t-guid", insert.RowGuid);                 // the exporter's copy-stable resolution name
+    }
 }

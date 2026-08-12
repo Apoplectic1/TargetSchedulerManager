@@ -80,6 +80,11 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
 
 - **Catalog DB location (when built):** `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`
   (co-located with the data it indexes). Currently unbuilt — nothing consumes it yet; ISM will own it.
+- **Catalog export (2026-08-12, TSM's one ISM-era duty):** every committed push also projects the applied
+  **user-authored** entries into ISM's catalog inbox (`…\Catalog\inbox\`, JSONL contract-v1 upserts —
+  "authored intent as committed to TS"; write-back origin never emits). TSM never opens `Catalog.db`, and
+  the feed dies with TSM at TS retirement. Mechanism: `SUBSYSTEMS.md` → *TS sync model*; contract
+  `openspec/specs/catalog-export/`.
 - **Reconciliation:** coordinate-primary, scope-equal — every disk unit (a top-level dir OR one mosaic panel)
   carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
   none for a mosaic parent, which matches by project name — tolerating a trailing `- Above N` altitude

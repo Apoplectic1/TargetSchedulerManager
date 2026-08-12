@@ -59,14 +59,22 @@ internal sealed record PushFailure(string Label, string Detail);
 /// closing pull ran (local now mirrors the remote, including its overnight accruals).
 /// <see cref="ClosingPullFailed"/> marks a push whose writes all landed but whose closing pull faulted —
 /// still a SUCCESS (the journal cleared when the writes verified; the next open pulls fresh), the flag
-/// only lets the status line say so.</summary>
+/// only lets the status line say so.
+/// <para><see cref="AppliedEntries"/> + <see cref="CommittedAt"/> feed the catalog-export step (openspec
+/// <c>catalog-export</c>): the collapsed entries that replayed, excluding — at row grain — any row with a
+/// failed entry (its local values are not remote truth yet; the retained journal re-emits the whole row on
+/// the next successful push). All <see cref="TsEditKind"/>s are exposed — the exporter filters by origin
+/// itself and needs the write-back desired entry's Old for authored-desired sourcing. Null on outcomes
+/// where nothing committed.</para></summary>
 internal sealed record PushResult(
     PushOutcome Outcome,
     int AppliedCount,
     IReadOnlyList<PushFailure> Failures,
     bool PulledFresh,
     string? RefusalDetail = null,
-    bool ClosingPullFailed = false);
+    bool ClosingPullFailed = false,
+    IReadOnlyList<TsJournalEntry>? AppliedEntries = null,
+    DateTimeOffset? CommittedAt = null);
 
 /// <summary>
 /// The sync-model orchestrator, one per session: BIRDWATCHER is read at <b>pull</b> and written only at
@@ -743,17 +751,28 @@ internal sealed class TsSync
             [.. collapsed.Where(e => !state.FailedSeqs.Contains(e.Seq)).Select(TsJournal.FieldKey)],
             collapsed[^1].Seq);
 
+        // The catalog-export feed (see the PushResult doc): applied entries minus whole rows that had any
+        // failure, stamped with the commit moment the export's envelope carries.
+        HashSet<string> failedRows = new(
+            collapsed.Where(e => state.FailedSeqs.Contains(e.Seq)).Select(e => RowKey(e.Table, e.Key)),
+            StringComparer.OrdinalIgnoreCase);
+        List<TsJournalEntry> appliedEntries = [.. collapsed.Where(e =>
+            !state.FailedSeqs.Contains(e.Seq) && !failedRows.Contains(RowKey(e.Table, e.Key)))];
+        DateTimeOffset committedAt = new(_clock.UtcNow);
+
         if (state.Failures.Count > 0)
         {
             Log.Error($"PUSH partial: {applied}/{collapsed.Count} applied; {state.Failures.Count} FAILED and retained in the journal");
-            return new PushResult(PushOutcome.PartialFailure, applied, state.Failures, PulledFresh: false);
+            return new PushResult(PushOutcome.PartialFailure, applied, state.Failures, PulledFresh: false,
+                AppliedEntries: appliedEntries, CommittedAt: committedAt);
         }
         if (!Journal.IsEmpty)
         {
             // New edits landed mid-push: pulling now would overwrite their local values while they wait to
             // replay — skip the closing pull; the dirty badge shows them and the next push/open converges.
             Log.Warn($"PUSH applied {applied} field(s); {Journal.Count} edit(s) landed during the push — closing pull skipped");
-            return new PushResult(PushOutcome.Success, applied, [], PulledFresh: false);
+            return new PushResult(PushOutcome.Success, applied, [], PulledFresh: false,
+                AppliedEntries: appliedEntries, CommittedAt: committedAt);
         }
 
         // Full success: pull fresh so the local copy also gains everything BIRDWATCHER accrued since the last
@@ -790,7 +809,8 @@ internal sealed class TsSync
         }
         Log.Info($"PUSH applied {applied} field(s) to {RemotePath}");
         return new PushResult(PushOutcome.Success, applied, [], PulledFresh: pulledFresh,
-            ClosingPullFailed: closingPullFailed);
+            ClosingPullFailed: closingPullFailed,
+            AppliedEntries: appliedEntries, CommittedAt: committedAt);
     }
 
     private static PushResult RefusedStructurally(string detail)

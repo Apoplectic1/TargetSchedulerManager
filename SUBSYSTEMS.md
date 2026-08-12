@@ -7,7 +7,7 @@ and the load-bearing invariants — stays in `ARCHITECTURE.md`, which is the doc
 
 | Subsystem | What it does | Formal contract |
 |---|---|---|
-| **TS sync model** | pull → edit local → push-as-replay | `openspec/specs/ts-sync-model/` |
+| **TS sync model** | pull → edit local → push-as-replay (incl. the catalog-export step: committed push → ISM inbox JSONL) | `openspec/specs/ts-sync-model/` · `openspec/specs/catalog-export/` |
 | **Sync-direction marks** | `←` / `→` / `⇄` per row and per field | `openspec/specs/edit-direction-marks/` |
 | **TS write-back** | disk-derived counts → TS's cached columns | `openspec/specs/write-back/` |
 | **Visible-tonight pass** | reconcile TS enable state with tonight's sky | `openspec/specs/visible-tonight-toggle/` |
@@ -119,6 +119,21 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   journal truth to an unrelated network op and reopens the mirror-image lie (writes applied, journal still
   claims dirty, so a re-push replays onto a db that already holds the values)
   (`openspec/changes/archive/2026-07-24-truthful-outcome/design.md`).
+- **Catalog export rides every committed push (2026-08-12, openspec `catalog-export` — TSM's one ISM-era
+  duty; dies with TSM at TS retirement).** After `Journal.CommitPush`, `PushResult` exposes the applied
+  collapsed entries (all kinds; any row with a failed entry excluded whole — its retained journal re-emits
+  it next push) + the commit stamp; `MainViewModel.PushAsync` then runs `Services\CatalogInboxExporter`,
+  which maps **user-authored** entries (`Manual`/`Insert` — `WriteBack` never emits: the acquired/accepted
+  stamps AND the desired ratchet, whose pre-push `Old` sources the authored `desired_count` on a co-edited
+  row) into inbox-contract v1 full-value upserts. Row values read from the local copy post-push (journal
+  says *which*, local db says *what*); references first (project → template → target → plan); the template
+  mirror rides **every** plan upsert and a pushed template-manager edit refreshes it. One
+  `tsm-<stamp>.jsonl` per push, published atomically (`.partial` → rename, so ISM's `*.jsonl` glob never
+  sees a torn file) into `DevDefaults.CatalogInbox` (created if missing). An export fault never touches
+  the push outcome or the journal: loud log + `CATALOG EXPORT FAILED` status suffix (rule #16); idempotent
+  upserts make redo-and-re-push the whole recovery story. Writer side of
+  `..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`; spec
+  `openspec/specs/catalog-export/`; **TSM never opens `Catalog.db`** — in code or tests.
 - **Open-with-dirty prompts before any pull** (reachable + dirty): push (recommended — replay makes offline
   edits pushable at reconnect) / discard-and-pull (the deliberate debug-session path) / continue local. The
   push review dialog shows manual edits + the write-back summary with **decreases first**, and warns (not

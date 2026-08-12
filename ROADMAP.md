@@ -171,17 +171,17 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
 
 - *(Cross-repo program view for the TS-replacement effort: umbrella `..\ROADMAP.md`
   § TS-replacement program.)*
-- **NEW 2026-08-12 — the Catalog.db export duty (TSM's one ISM-era work item).** The who-plans
+- **SHIPPED 2026-08-12 — the Catalog.db export duty (TSM's one ISM-era work item).** The who-plans
   decision (`..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md`) settled the architecture:
-  ISM plans from `Catalog.db`; NINA executes; no db on BIRDWATCHER. TSM's part: **update Catalog.db
-  whenever it writes TS**, so intent authored through TSM feeds ISM's target pool during
-  coexistence. Queued as openspec change `add-catalog-export-duty` (proposal only — **unblocked 2026-08-12,
-  fully implementable**: Catalog.db stood up same day, import provenance populated, so every TS guid
-  TSM emits resolves. Implement against ISM's `docs\design\catalog-inbox-contract.md`, the JSONL
-  inbox — TSM never opens Catalog.db; contract v1 = four full-value-upsert ops, adoption emits
-  target + plan + template-mirror records, details in the proposal banner. Writer-side tests are
-  file-level contract fixtures; *ingest-side* end-to-end verification waits for ISM's app — don't
-  block on it). Dies with TSM at TS retirement.
+  ISM plans from `Catalog.db`; NINA executes; no db on BIRDWATCHER. TSM's part, now live (openspec
+  change `add-catalog-export-duty`; spec `openspec/specs/catalog-export/`): every committed push
+  also projects the applied user-authored entries into ISM's JSONL inbox as contract-v1 upserts —
+  push-time-only emission ("authored intent as committed to TS"), write-back origin excluded
+  (acquired/accepted AND the desired ratchet), template mirror riding every plan upsert, atomic
+  `.partial`→`.jsonl` publish, rule-#16 loud failure after the committed push. TSM never opens
+  Catalog.db; writer-side tests are file-level contract fixtures; *ingest-side* end-to-end
+  verification waits for ISM's app — don't block on it. Mechanism detail: `SUBSYSTEMS.md` → *TS
+  sync model*. Dies with TSM at TS retirement.
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the

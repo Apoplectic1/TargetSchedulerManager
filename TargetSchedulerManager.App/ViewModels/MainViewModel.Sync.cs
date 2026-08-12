@@ -291,6 +291,7 @@ public sealed partial class MainViewModel
         // while the push replays.
         if (!TryBeginBusy()) return;
         PushResult? result = null;
+        string? exportNote = null;
         try
         {
             if (!Sync.IsDirty)
@@ -312,6 +313,7 @@ public sealed partial class MainViewModel
                 return;
 
             result = await WithPullUiAsync((p, t) => Sync.Push(p, t));
+            exportNote = await ExportToCatalogInboxAsync(result);
         }
         catch (Exception ex)
         {
@@ -332,7 +334,36 @@ public sealed partial class MainViewModel
             await LoadAsync(PullPolicy.Never);   // the closing pull changed the local db — re-read it
         else
             RefreshAllMarks();   // partial failure / mid-push edits: the journal changed without a reload
-        StatusText = DescribePush(result);
+        StatusText = DescribePush(result) + exportNote;
+    }
+
+    /// <summary>The catalog inbox directory the export duty publishes to — the contract-named path in
+    /// production; tests point it at a temp dir.</summary>
+    internal string CatalogInboxDir { get; set; } = DevDefaults.CatalogInbox;
+
+    /// <summary>
+    /// The catalog-export duty (openspec <c>catalog-export</c>): after the push committed, project the
+    /// applied entries into ISM's catalog inbox. Runs strictly after the commit and never blocks or rolls
+    /// back the push — a fault aborts the export, logs loudly, and rides the status line (rule #16: abort +
+    /// surface, never skip-the-record); the user re-doing the affected edits and pushing again re-emits the
+    /// same intent harmlessly (idempotent upserts). Own catch: an export fault must never reach
+    /// <see cref="PushAsync"/>'s push catch, whose "edits stay journaled" message would be a lie here.
+    /// </summary>
+    private async Task<string?> ExportToCatalogInboxAsync(PushResult result)
+    {
+        if (result.AppliedEntries is not { Count: > 0 } applied || result.CommittedAt is not { } committedAt)
+            return null;
+        try
+        {
+            int records = await Task.Run(() =>
+                CatalogInboxExporter.Export(Sync.LocalPath, applied, committedAt, CatalogInboxDir));
+            return records == 0 ? null : $" · catalog inbox {records} record(s)";
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"CATALOG EXPORT FAILED — TS push is committed; intent reaches the inbox on the next push touching these rows ({CatalogInboxDir})", ex);
+            return " — CATALOG EXPORT FAILED: see tsm.log";
+        }
     }
 
     private static string DescribePush(PushResult result) => result.Outcome switch

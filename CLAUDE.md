@@ -10,7 +10,9 @@ copy** under the sync model (2026-07-06): pull from BIRDWATCHER at open (baselin
 journaled local edits + automatic write-back + right-click adoption of disk-only cells into TS
 (created rows journal as inserts), one reviewed **Push** replaying only the journaled changes back. It scans
 the disk image library *read-only* (a fresh in-memory scan each load) purely to show plan-vs-actual; it does
-**not** own or write `Catalog.db`.
+**not** own or write `Catalog.db`. Since 2026-08-12 every committed push also **feeds ISM's catalog inbox**
+(openspec `catalog-export` — TSM's one ISM-era duty: user-authored intent as JSONL upserts per the ISM inbox
+contract; TSM still never opens `Catalog.db`; dies at TS retirement).
 
 > **History:** the repo began dual-head, with a console CLI that built `Catalog.db`; the CLI was removed
 > and the project took its current name on 2026-06-11 (catalog-building → future **ISM**, sibling
