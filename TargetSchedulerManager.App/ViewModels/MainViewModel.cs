@@ -331,7 +331,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         _visibleLeafCount = leaves.Count;
 
         // The owner map for O(1) inline-edit re-aggregation (review N6). Detail lines under a rollup are
-        // deliberately absent — they aren't top-level leaves, exactly as the old scan never found them.
+        // deliberately absent — they aren't top-level leaves; a plan edit committed on one reaches its
+        // summary leaf (which IS mapped) through MirrorPlanEdit's plan-key sweep (obs b4d2).
         _ownerByRow.Clear();
         foreach (TargetGroupRow g in groups)
         {

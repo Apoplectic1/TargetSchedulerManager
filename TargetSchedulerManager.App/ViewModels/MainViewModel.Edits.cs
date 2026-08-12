@@ -142,7 +142,7 @@ public sealed partial class MainViewModel
             _gate.ApplyAsync(TsTable.ExposurePlan, key, "enabled", enabled ? 1 : 0, label));
         if (!ApplyOutcome(outcome, label))
             return false;
-        row.ApplyPlanEnabled(enabled);
+        MirrorPlanEdit(row, r => r.ApplyPlanEnabled(enabled));
         return true;
     }
 
@@ -157,8 +157,7 @@ public sealed partial class MainViewModel
         if (!ApplyOutcome(outcome, Format.Label(row.Target, row.Filter)))
             return false;
 
-        row.ApplyDesired(desired);
-        RecomputeOwners(row);
+        MirrorPlanEdit(row, r => r.ApplyDesired(desired));
         return true;
     }
 
@@ -181,10 +180,7 @@ public sealed partial class MainViewModel
 
         mirrorSeconds ??= await WithEditInFlightAsync(() => _gate.ReadPlanEffectiveSecondsAsync(key, label));
         if (mirrorSeconds is int seconds)
-        {
-            row.ApplyPlanSeconds(seconds);
-            RecomputeOwners(row);
-        }
+            MirrorPlanEdit(row, r => r.ApplyPlanSeconds(seconds));
         return true;
     }
 
@@ -308,13 +304,48 @@ public sealed partial class MainViewModel
 
     // Re-aggregate the header rows over an in-place-edited leaf (group always; panel when the leaf has
     // one) — O(1) via the owner map ApplyFilters maintains (review N6; was a groups × children scan per
-    // committed edit). A row not in the map (a rollup's detail line) is the same no-op the scan produced.
+    // committed edit). A row not in the map (a rollup's detail line) is a no-op here — MirrorPlanEdit
+    // reaches such a row's summary leaf, which IS in the map and carries the recompute.
     private void RecomputeOwners(ReconciliationRow row)
     {
         if (!_ownerByRow.TryGetValue(row, out (TargetGroupRow Group, PanelGroupRow? Panel) owner))
             return;
         owner.Group.Recompute();
         owner.Panel?.Recompute();
+    }
+
+    // A committed plan edit mirrors onto EVERY row rendering that plan — one plan can render at two
+    // levels at once (a disclosed rollup's summary leaf and its TS detail line share PlanTsKey), and the
+    // editor commits on whichever instance hosted the box (obs b4d2: a detail-line desired edit left the
+    // collapsed summary reading the old count). Mirrors over _allRows + their detail lines (the instances
+    // survive filter passes, so the mirror is durable until the next load), then re-aggregates each
+    // mirrored row's owners — detail lines no-op there; the summary leaf carries the group/panel recompute.
+    private void MirrorPlanEdit(ReconciliationRow edited, Action<ReconciliationRow> apply)
+    {
+        if (edited.PlanTsKey is not string planKey)
+        {
+            apply(edited);
+            RecomputeOwners(edited);
+            return;
+        }
+        foreach (ReconciliationRow row in RowsForPlan(planKey))
+        {
+            apply(row);
+            RecomputeOwners(row);
+        }
+    }
+
+    private IEnumerable<ReconciliationRow> RowsForPlan(string planKey)
+    {
+        foreach (ReconciliationRow leaf in _allRows)
+        {
+            if (planKey.Equals(leaf.PlanTsKey, StringComparison.OrdinalIgnoreCase))
+                yield return leaf;
+            if (leaf.Detail is { } detail)
+                foreach (ReconciliationRow line in detail)
+                    if (planKey.Equals(line.PlanTsKey, StringComparison.OrdinalIgnoreCase))
+                        yield return line;
+        }
     }
 
     /// <summary>

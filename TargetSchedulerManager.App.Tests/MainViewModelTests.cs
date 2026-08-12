@@ -158,6 +158,78 @@ public class MainViewModelTests
         Assert.Equal(25, vm.Rows.OfType<TargetGroupRow>().Single().Desired);
     }
 
+    // ---- plan-edit mirroring across levels (obs b4d2) ----------------------------------------------------
+
+    // One plan renders at two levels at once: the rollup summary leaf and its TS detail line share
+    // PlanTsKey. The editor commits on whichever instance hosted the box, and every other instance —
+    // plus the group header — must mirror in place (the field-observed failure: a detail-line desired
+    // edit left the collapsed summary reading the old count).
+    private static (MainViewModel Vm, ReconciliationRow Summary, ReconciliationRow TsLine) RollupVm()
+    {
+        var ed = new TsEditGateTests_Stub { Next = (new Astronomy.Catalog.TargetScheduler.FieldEditResult(true, "10", true),
+                                                     Astronomy.Catalog.TargetScheduler.RefusalReason.None) };
+        var gate = new TargetSchedulerManager.App.Shared.TsEditGate(SyncTestEnv.NewSync(out _), _ => ed);
+        var vm = new MainViewModel(gate);
+        ReconciliationRow tsLine = Make.Leaf(target: "A", plane: RowPlane.Ts, desired: 64, planSeconds: 300,
+            planTsKey: "ep-1", planEnabled: true, isDetail: true);
+        ReconciliationRow diskLine = Make.Leaf(target: "A", plane: RowPlane.Disk, desired: null, acquired: null,
+            accepted: null, isDetail: true);
+        ReconciliationRow summary = Make.Leaf(target: "A", desired: 64, planSeconds: 300,
+            planTsKey: "ep-1", planEnabled: true, detail: [tsLine, diskLine]);
+        vm.SetRowsForTest([summary]);
+        return (vm, summary, tsLine);
+    }
+
+    [Fact]
+    public async Task SetPlanDesired_OnDetailLine_MirrorsSummaryAndHeader()
+    {
+        (MainViewModel vm, ReconciliationRow summary, ReconciliationRow tsLine) = RollupVm();
+
+        Assert.True(await vm.SetPlanDesiredAsync(tsLine, 65));
+
+        Assert.Equal(65, tsLine.Desired);
+        Assert.Equal(65, summary.Desired);                      // the collapsed summary mirrors the plan
+        Assert.Equal("65", summary.DesiredText);
+        Assert.Equal(65, vm.Rows.OfType<TargetGroupRow>().Single().Desired);   // header re-aggregated
+    }
+
+    [Fact]
+    public async Task SetPlanEnabled_OnDetailLine_MirrorsSummaryCheckbox()
+    {
+        (MainViewModel vm, ReconciliationRow summary, ReconciliationRow tsLine) = RollupVm();
+
+        Assert.True(await vm.SetPlanEnabledAsync(tsLine, false));
+
+        Assert.False(tsLine.IsPlanEnabled);
+        Assert.False(summary.IsPlanEnabled);
+    }
+
+    [Fact]
+    public async Task SetPlanExposure_OnDetailLine_MirrorsSummarySeconds()
+    {
+        (MainViewModel vm, ReconciliationRow summary, ReconciliationRow tsLine) = RollupVm();
+
+        Assert.True(await vm.SetPlanExposureAsync(tsLine, 301, mirrorSeconds: 301));
+
+        Assert.Equal(301, tsLine.PlanSeconds);
+        Assert.Equal(301, summary.PlanSeconds);
+    }
+
+    [Fact]
+    public void ApplyDesired_RaisesTheDesiredCellBindings()
+    {
+        // The summary renders desired as read-only DesiredText (the edit box lives on the detail line),
+        // so the mirror is invisible without this raise.
+        ReconciliationRow row = Make.Leaf(desired: 64, planTsKey: "ep-1");
+        List<string> raised = [];
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName!);
+
+        row.ApplyDesired(65);
+
+        Assert.Contains(nameof(ReconciliationRow.DesiredText), raised);
+        Assert.Contains(nameof(ReconciliationRow.DesiredValue), raised);
+    }
+
     [Fact]
     public async Task SetPlanEnabled_AppliedWrite_MirrorsCheckboxInPlace()
     {

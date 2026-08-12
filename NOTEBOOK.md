@@ -6,6 +6,18 @@
 small finding-from-doing-the-work → here; a substantial standalone record (decision / review /
 design) → `docs/YYYY-MM-DD-<slug>.md`.
 
+**2026-08-12 — one plan renders at several grid levels; in-place mirrors must sweep by plan key
+(obs b4d2).** A disclosed rollup's summary leaf and its TS detail line share `PlanTsKey`, and the
+edit box lives on exactly one of them (`CanEditDesired` gates on `Detail is null`; the enable
+checkbox renders on *both*). The field failure: a detail-line desired edit (64→65, committed by the
+collapse click's focus loss) updated only the edited instance — the collapsed summary kept 64
+because (1) `ApplyDesired` never raised `DesiredText` (only Hours cells) and (2) nothing mirrored
+plan-sharing sibling instances (`RecomputeOwners` deliberately no-ops for detail lines). Data plane
+was never wrong — journal/local db held 65. Fix: `MirrorPlanEdit` sweeps `_allRows` + detail lines
+by plan key and re-aggregates owners, covering desired, exposure, and enable alike; `ApplyDesired`
+now raises the Desired cell bindings. Standing rule: **an in-place plan mirror addresses the plan,
+never the row instance** — any future per-plan inline edit routes through `MirrorPlanEdit`.
+
 **2026-08-05 — target enables vs project lifecycle are separate concepts (settled in
 `project-scoped-tonight`; expected to resurface).** The Visible-tonight pass originally skipped
 Draft/Closed projects wholesale; the user's clarified model: `target.active` is **sky truth** (every

@@ -267,8 +267,10 @@ public sealed class ReconciliationRow(
     public Visibility DesiredTextVisibility => CanEditDesired ? Visibility.Collapsed : Visibility.Visible;
 
     /// <summary>Applies a committed inline desired edit (after the TS write verified): updates the count and the
-    /// derived plan hours and refreshes the bound Hours cell — in place, no grid rebuild, so the scroll position
-    /// and any in-progress edit survive. The caller re-aggregates the owning group/panel.</summary>
+    /// derived plan hours and refreshes the bound Desired/Hours cells — in place, no grid rebuild, so the scroll
+    /// position and any in-progress edit survive. The caller mirrors every row sharing the plan and re-aggregates
+    /// the owners (obs b4d2: the read-only <see cref="DesiredText"/> renders on rollup summaries, so the raise
+    /// and the mirror are both load-bearing).</summary>
     public void ApplyDesired(int newDesired)
     {
         if (Desired == newDesired) return;
@@ -277,6 +279,8 @@ public sealed class ReconciliationRow(
         PlanRemainingHours = PlanSeconds > 0
             ? Math.Max(0, newDesired - (Acquired ?? 0)) * (double)PlanSeconds / 3600.0
             : null;
+        Raise(nameof(DesiredText));
+        Raise(nameof(DesiredValue));
         Raise(nameof(HoursText));
         Raise(nameof(HoursBackground));
     }
