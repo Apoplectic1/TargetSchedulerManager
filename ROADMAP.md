@@ -50,6 +50,19 @@ placed by user decision in **Library `ARCHITECTURE.md` → § Astronomy.Diagnost
 `docs/2026-07-29-maintain-report.md`; the 2026-08-03 audit's one report-only flag is also resolved
 (`docs/2026-08-03-audit-report.md`). Nothing open.
 
+### Queued — project-name clause parses back into min altitude (user, 2026-08-12)
+
+Make the name↔altitude coupling bidirectional on the surface where the "- N" clause convention
+lives: an edit of the **project Name field** (edit dialog) whose committed text carries a trailing
+altitude clause (`" - #"`; legacy `" - Above N"` recognized, same parse the Set press and the mosaic
+name-match use) SHALL also write `Project.minimumaltitude` with the parsed value, **range-checked**
+to the schema bounds (0–89.9 — TS's HorizonDefinition asserts < 90). A name without the clause is a
+name-only edit — **no altitude write**. Today only the inverse exists (Visible-Tonight **Set**
+writes `minimumaltitude` and rewrites the clause), so a hand-edited "… - 45" name leaves the
+altitude stale — exactly the inconsistency this closes. Surface decision (user, this date): the
+project Name field only — the target-rename verb stays clause-free (targets don't carry the
+convention).
+
 ### Deferred — the reconciliation dimensions `capture-config-keys` left on the table
 
 Of the dimensions deferred when gain/offset/binning became reconciliation keys (2026-07-27), one remains open;
