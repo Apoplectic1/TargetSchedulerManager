@@ -169,6 +169,8 @@ decisions 4–5). The phase's original premise — *`Catalog.db` is the derived 
 bridging lane was cancelled 2026-07-24. That was the **second** reversal: the phase first read *"IS owns
 `scheduler.db`"* before `Catalog.db`-as-hub replaced it. What survives:
 
+- *(Cross-repo program view for the TS-replacement effort: umbrella `..\ROADMAP.md`
+  § TS-replacement program.)*
 - **NEW 2026-08-12 — the Catalog.db export duty (TSM's one ISM-era work item).** The who-plans
   decision (`..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md`) settled the architecture:
   ISM plans from `Catalog.db`; NINA executes; no db on BIRDWATCHER. TSM's part: **update Catalog.db
