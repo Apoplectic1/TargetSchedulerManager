@@ -182,6 +182,14 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   Catalog.db; writer-side tests are file-level contract fixtures; *ingest-side* end-to-end
   verification waits for ISM's app — don't block on it. Mechanism detail: `SUBSYSTEMS.md` → *TS
   sync model*. Dies with TSM at TS retirement.
+  **Feed v2 requirement (user directive 2026-08-12): project settings must travel.** Field-hit
+  same day: a `Project.minimumaltitude 0→30` push reached TS but not Catalog.db — v1
+  `project-upsert` carries only name/state/priority, so ISM's planner reads import-seeded
+  settings (the D9 acceptance in ISM's `add-ism-scaffold-ingest` design, now promoted to a
+  requirement). Close = bilateral contract v-bump widening `project-upsert` with the settings
+  block; both emitters move together (candidates list: ISM
+  `docs\design\catalog-inbox-contract.md` § V2 candidates). Related lane: seeded change
+  `add-target-rename` (rename verb + pull-diff emission question).
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the
