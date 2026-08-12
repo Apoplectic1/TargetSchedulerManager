@@ -175,8 +175,9 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   whenever it writes TS**, so intent authored through TSM feeds ISM's target pool during
   coexistence. Queued as openspec change `add-catalog-export-duty` (proposal only — **unblocked 2026-08-12**:
   implement against ISM's `docs\design\catalog-inbox-contract.md`, the JSONL inbox — TSM never
-  opens Catalog.db; one v1 op-set question to resolve with ISM first, flagged in the proposal).
-  Dies with TSM at TS retirement.
+  opens Catalog.db; contract v1 finalized at four full-value-upsert ops, adoption emits
+  target + plan + template-mirror records, details in the proposal banner). Dies with TSM at TS
+  retirement.
 - **XFM is ruled out** as a consumer (went TS-free 2026-07-07, v1.9.0 — it never consumes `scheduler.db` or
   `Catalog.db`, and it already removed its own scheduler surface, so there is no XFM tab to cut over).
 - ~~Reconcile the IS design docs~~ — **moot 2026-07-08**: the docs it would reconcile describe the

@@ -3,15 +3,20 @@
 > **UNBLOCKED 2026-08-12 (same day):** the schema landed (ISM `docs\design\catalog-db-schema.md`)
 > and decided the write protocol — **inbox file** (decision D1). TSM implements against
 > **`..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md` only** (JSONL, TS-guid
-> identity, three full-value-upsert ops, rule-#16 abort semantics) — TSM never opens `Catalog.db`
-> and needs no schema knowledge, which shrinks this change below what the proposal sketched.
-> Specs/design/tasks: write when picked up. Origin: the who-plans decision,
-> `..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md` (consequences table → TSM row).
-> **Open v1 question flagged by IS-session review — resolve at spec time:** TSM's adoption verb
-> *creates* TS exposure plans (and can create projects/targets) whose guids are unknown to import
-> provenance; the contract's `desired-set` op cannot create an exposure plan (no template linkage
-> in its payload). Either the contract gains an `exposure-plan-upsert` op (v1 revision, ISM-side)
-> or this duty's scope excludes adoption-created rows — decide with ISM before implementing.
+> identity, **four full-value-upsert ops** as of contract revision `b7cafe4`, rule-#16 abort
+> semantics) — TSM never opens `Catalog.db` and needs no schema knowledge, which shrinks this
+> change below what the proposal sketched. Specs/design/tasks: write when picked up. Origin: the
+> who-plans decision, `..\IntervalScheduler\docs\2026-08-12-who-plans-decision.md` (consequences
+> table → TSM row).
+> **v1 op-set question RESOLVED 2026-08-12** (IS-session review → ISM contract revision, before
+> either side implemented): `exposure-plan-upsert` added with `desired-set` absorbed into it (a
+> count edit sends the same full-row shape as an adoption-create), and `exposure-template-upsert`
+> added as a **mirror-not-authoring** op — templates are still authored only in TS's UI (TSM never
+> creates/edits one, SUBSYSTEMS.md obs 3dfe), but TSM emits the mirror unconditionally with any
+> adoption so a template authored in TS *after* the one-time import gains provenance instead of
+> aborting the ingest. Implementation note for spec time: **the adoption path emits three records**
+> (target-upsert, exposure-plan-upsert, exposure-template-upsert; plus project-upsert if the dialog
+> touched project intent); repeats are free (idempotent upserts), so no sent-tracking.
 
 ## Why
 
