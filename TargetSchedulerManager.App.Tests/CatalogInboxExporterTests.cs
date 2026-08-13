@@ -25,7 +25,10 @@ public class CatalogInboxExporterTests
         InboxPlanRow? plan = null, InboxTemplateRow? template = null) => new(
         [project ?? Project()], [target ?? Target()], [plan ?? Plan()], [template ?? Template()]);
 
-    private static InboxProjectRow Project() => new(1, "p-g", "Orion Group", State: 1, Priority: 2);
+    private static InboxProjectRow Project() => new(1, "p-g", "Orion Group", State: 1, Priority: 2,
+        MinimumTimeMinutes: 90, MinimumAltitudeDeg: 30, MaximumAltitudeDeg: 0,   // max keeps TS's raw 0.0 sentinel
+        UseCustomHorizon: true, HorizonOffsetDeg: 0, MeridianWindowMinutes: null,
+        FilterSwitchFrequency: null, DitherEvery: 3, SmartExposureOrder: false, IsMosaic: false);
 
     private static InboxTargetRow Target() => new(
         10, "t-g", ProjectId: 1, "M 42", Enabled: true,
@@ -37,7 +40,8 @@ public class CatalogInboxExporterTests
     private static InboxTemplateRow Template() => new(
         20, "tpl-g", "Ha 300", "Ha", Gain: 100, Offset: 30, Bin: 1, ReadoutMode: 0,
         DefaultExposureSeconds: 300, TwilightLevel: 1, MoonAvoidanceEnabled: true,
-        MoonAvoidanceSeparationDeg: 60, MoonAvoidanceWidthDays: 7);
+        MoonAvoidanceSeparationDeg: 60, MoonAvoidanceWidthDays: 7,
+        MoonRelaxScale: 0, MoonRelaxMaxAltitudeDeg: 5, MoonRelaxMinAltitudeDeg: -15);
 
     private static TsJournalEntry Entry(
         TsEditKind kind, TsTable table, string key, string column, object? value,
@@ -59,7 +63,10 @@ public class CatalogInboxExporterTests
         c.Open();
         using SqliteCommand cmd = c.CreateCommand();
         cmd.CommandText = """
-            CREATE TABLE project (Id INTEGER PRIMARY KEY, guid TEXT, name TEXT, state INTEGER, priority INTEGER);
+            CREATE TABLE project (Id INTEGER PRIMARY KEY, guid TEXT, name TEXT, state INTEGER, priority INTEGER,
+                minimumtime INTEGER, minimumaltitude REAL, maximumAltitude REAL, usecustomhorizon INTEGER,
+                horizonoffset REAL, meridianwindow INTEGER, filterswitchfrequency INTEGER, ditherevery INTEGER,
+                smartexposureorder INTEGER, isMosaic INTEGER);
             CREATE TABLE target (Id INTEGER PRIMARY KEY, guid TEXT, projectid INTEGER, name TEXT, active INTEGER,
                 ra REAL, dec REAL, epochcode INTEGER, rotation REAL);
             CREATE TABLE exposureplan (Id INTEGER PRIMARY KEY, guid TEXT, targetid INTEGER,
@@ -67,11 +74,13 @@ public class CatalogInboxExporterTests
             CREATE TABLE exposuretemplate (Id INTEGER PRIMARY KEY, guid TEXT, name TEXT, filtername TEXT,
                 gain INTEGER, offset INTEGER, bin INTEGER, readoutmode INTEGER, defaultexposure REAL,
                 twilightlevel INTEGER, moonavoidanceenabled INTEGER, moonavoidanceseparation REAL,
-                moonavoidancewidth INTEGER);
-            INSERT INTO project VALUES (1, 'p-g', 'Orion Group', 1, 2);
+                moonavoidancewidth INTEGER, moonrelaxscale REAL, moonrelaxmaxaltitude REAL,
+                moonrelaxminaltitude REAL);
+            INSERT INTO project VALUES (1, 'p-g', 'Orion Group', 1, 2, 90, 30, 0, 1, 0, NULL, NULL, 3, 0, 0);
             INSERT INTO target VALUES (10, 't-g', 1, 'M 42', 1, 5.588, -5.39, 2, NULL);
             INSERT INTO exposureplan VALUES (30, 'pl-g', 10, 20, 300, 30, 1);
-            INSERT INTO exposuretemplate VALUES (20, 'tpl-g', 'Ha 300', 'Ha', 100, 30, 1, -1, 300, 1, 1, 60, 7);
+            INSERT INTO exposuretemplate VALUES (20, 'tpl-g', 'Ha 300', 'Ha', 100, 30, 1, -1, 300, 1, 1, 60, 7,
+                0, 5, -15);
             """;
         cmd.ExecuteNonQuery();
     }
@@ -92,7 +101,7 @@ public class CatalogInboxExporterTests
         Assert.Equal("exposure-plan-upsert", plan.GetProperty("op").GetString());
         foreach (JsonElement record in new[] { mirror, plan })
         {
-            Assert.Equal(1, record.GetProperty("v").GetInt32());
+            Assert.Equal(2, record.GetProperty("v").GetInt32());
             Assert.Equal(1_755_043_200, record.GetProperty("at").GetInt64());
             Assert.Equal("TSM", record.GetProperty("source").GetString());
         }
@@ -108,6 +117,9 @@ public class CatalogInboxExporterTests
         Assert.Equal("Ha", mirror.GetProperty("filter_name").GetString());
         Assert.Equal("astronomical", mirror.GetProperty("twilight_level").GetString());
         Assert.Equal(60, mirror.GetProperty("moon_avoidance_separation_deg").GetDouble());
+        Assert.Equal(0, mirror.GetProperty("moon_relax_scale").GetDouble());       // v2 relax triplet
+        Assert.Equal(5, mirror.GetProperty("moon_relax_max_altitude_deg").GetDouble());
+        Assert.Equal(-15, mirror.GetProperty("moon_relax_min_altitude_deg").GetDouble());
     }
 
     [Fact]
@@ -181,7 +193,7 @@ public class CatalogInboxExporterTests
     }
 
     [Fact]
-    public void ProjectEdit_EmitsProjectUpsert_WithContractVocabulary()
+    public void ProjectEdit_EmitsProjectUpsert_WithContractVocabulary_AndV2SettingsBlock()
     {
         IReadOnlyList<string> lines = CatalogInboxExporter.BuildLines(
             [Entry(TsEditKind.Manual, TsTable.Project, "p-g", "state", 1L, "0")], Rows(), CommitStamp);
@@ -191,6 +203,17 @@ public class CatalogInboxExporterTests
         Assert.Equal("p-g", project.GetProperty("ts_guid").GetString());
         Assert.Equal("active", project.GetProperty("state").GetString());
         Assert.Equal("high", project.GetProperty("priority").GetString());
+        // The v2 settings block — full committed values, altitude 0.0 sentinels as nulls.
+        Assert.Equal(90, project.GetProperty("minimum_time_minutes").GetInt64());
+        Assert.Equal(30, project.GetProperty("minimum_altitude_deg").GetDouble());
+        Assert.Equal(JsonValueKind.Null, project.GetProperty("maximum_altitude_deg").ValueKind);
+        Assert.True(project.GetProperty("use_custom_horizon").GetBoolean());
+        Assert.Equal(0, project.GetProperty("horizon_offset_deg").GetDouble());
+        Assert.Equal(JsonValueKind.Null, project.GetProperty("meridian_window_minutes").ValueKind);
+        Assert.Equal(JsonValueKind.Null, project.GetProperty("filter_switch_frequency").ValueKind);
+        Assert.Equal(3, project.GetProperty("dither_every").GetInt64());
+        Assert.False(project.GetProperty("smart_exposure_order").GetBoolean());
+        Assert.False(project.GetProperty("is_mosaic").GetBoolean());
     }
 
     [Fact]
@@ -362,14 +385,14 @@ public class CatalogInboxExporterTests
         Assert.False(Directory.Exists(vm.CatalogInboxDir));
     }
 
-    // ---- the observed-emission path (openspec delta add-target-rename) ------------------------------------
+    // ---- the observed-emission path (add-target-rename; project rows added by add-inbox-v2-emission) -------
 
     [Fact]
-    public void ObservedTargetGuids_TargetsOnly_ExistingRowsOnly_Deduped()
+    public void ObservedInboundGuids_TargetsAndProjects_ExistingRowsOnly_Deduped()
     {
-        // The scope filter: plan changes (actuals among them), project settings (the feed-v2 lane),
-        // template changes, and remotely-ADDED target rows all stay silent; two field changes on one
-        // target collapse to its one guid.
+        // The scope filter: plan changes (actuals among them), template changes, and remotely-ADDED
+        // rows all stay silent; target AND project field changes collect (v2); two field changes on one
+        // row collapse to its one guid.
         TsInboundChange[] arrived =
         [
             new(TsTable.Target, "t-g", "name", "Cygnus Loop P9", "CygnusLoop P9"),
@@ -377,20 +400,31 @@ public class CatalogInboxExporterTests
             new(TsTable.Target, "t-new", TsInboundDiff.NewRowColumn, null, "row"),
             new(TsTable.ExposurePlan, "30", "acquired", "35", "40"),
             new(TsTable.Project, "p-g", "minimumaltitude", "0", "30"),
+            new(TsTable.Project, "p-new", TsInboundDiff.NewRowColumn, null, "row"),
             new(TsTable.ExposureTemplate, "20", "gain", "100", "139"),
         ];
 
-        Assert.Equal(["t-g"], CatalogInboxExporter.ObservedTargetGuids(arrived));
+        ObservedGuids observed = CatalogInboxExporter.ObservedInboundGuids(arrived);
+        Assert.Equal(["t-g"], observed.TargetGuids);
+        Assert.Equal(["p-g"], observed.ProjectGuids);
     }
 
     [Fact]
-    public void BuildObservedLines_EmitsFullValueTargetUpsert_AtObservationTime()
+    public void BuildObservedLines_EmitsFullValueUpserts_ProjectBeforeTarget_AtObservationTime()
     {
-        IReadOnlyList<string> lines = CatalogInboxExporter.BuildObservedLines(["t-g"], Rows(), CommitStamp);
+        IReadOnlyList<string> lines = CatalogInboxExporter.BuildObservedLines(
+            new ObservedGuids(["t-g"], ["p-g"]), Rows(), CommitStamp);
 
-        JsonElement t = Parse(Assert.Single(lines));
+        Assert.Equal(2, lines.Count);
+        JsonElement p = Parse(lines[0]);                               // references first: project → target
+        JsonElement t = Parse(lines[1]);
+
+        Assert.Equal("project-upsert", p.GetProperty("op").GetString());
+        Assert.Equal("p-g", p.GetProperty("ts_guid").GetString());
+        Assert.Equal(30, p.GetProperty("minimum_altitude_deg").GetDouble());   // the v2 block travels
+
         Assert.Equal("target-upsert", t.GetProperty("op").GetString());
-        Assert.Equal(1, t.GetProperty("v").GetInt32());
+        Assert.Equal(2, t.GetProperty("v").GetInt32());
         Assert.Equal(1_755_043_200, t.GetProperty("at").GetInt64());   // the observing pull's time
         Assert.Equal("TSM", t.GetProperty("source").GetString());
         Assert.Equal("t-g", t.GetProperty("ts_guid").GetString());
@@ -405,7 +439,9 @@ public class CatalogInboxExporterTests
     {
         // The pull's diff just observed the row, so the fresh local copy MUST resolve it (rule #16).
         Assert.Throws<InvalidOperationException>(() =>
-            CatalogInboxExporter.BuildObservedLines(["no-such"], Rows(), CommitStamp));
+            CatalogInboxExporter.BuildObservedLines(new ObservedGuids(["no-such"], []), Rows(), CommitStamp));
+        Assert.Throws<InvalidOperationException>(() =>
+            CatalogInboxExporter.BuildObservedLines(new ObservedGuids([], ["no-such"]), Rows(), CommitStamp));
     }
 
     [Fact]
@@ -416,12 +452,13 @@ public class CatalogInboxExporterTests
         string inbox = Path.Combine(dir, "inbox");
         CreateTsDb(db);
 
-        Assert.Equal(0, CatalogInboxExporter.ExportObserved(db, [], CommitStamp, inbox));
+        Assert.Equal(0, CatalogInboxExporter.ExportObserved(db, new ObservedGuids([], []), CommitStamp, inbox));
         Assert.False(Directory.Exists(inbox));                       // a quiet pull writes nothing at all
 
-        Assert.Equal(1, CatalogInboxExporter.ExportObserved(db, ["t-g"], CommitStamp, inbox));
+        Assert.Equal(2, CatalogInboxExporter.ExportObserved(db, new ObservedGuids(["t-g"], ["p-g"]), CommitStamp, inbox));
         string file = Assert.Single(Directory.GetFiles(inbox, "*.jsonl"));
-        Assert.Equal("target-upsert", Parse(File.ReadAllLines(file).Single()).GetProperty("op").GetString());
+        Assert.Equal("project-upsert, target-upsert",
+            string.Join(", ", File.ReadAllLines(file).Select(l => Parse(l).GetProperty("op").GetString())));
     }
 
     [Fact]
@@ -473,7 +510,7 @@ public class CatalogInboxExporterTests
         TsInboundChange rename = Assert.Single(taken);
         Assert.Equal((TsTable.Target, "t-g", "name", "M 42", "M 42 LL"),
             (rename.Table, rename.Key, rename.Column, rename.Old, rename.New));
-        Assert.Equal(["t-g"], CatalogInboxExporter.ObservedTargetGuids(taken));
+        Assert.Equal(["t-g"], CatalogInboxExporter.ObservedInboundGuids(taken).TargetGuids);
 
         Assert.Empty(sync.TakeUntakenPullInbound());                 // take-and-clear: consumed exactly once
 

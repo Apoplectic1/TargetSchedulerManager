@@ -11,6 +11,22 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-13 — `add-inbox-v2-emission`: the feed speaks contract v2 (settings travel;
+observed emission covers project rows)** — TSM's half of the coordinated v-bump (paired ISM
+`add-inbox-contract-v2`; neither ships alone; live ceremony pending — drain inbox on the old pair,
+install both, real settings push verified into Catalog.db). Envelope `v: 2`; `project-upsert` widens
+with the settings block (`minimum_time_minutes`, both altitude bounds, horizon toggles, meridian
+window, filter-switch/dither policy, `smart_exposure_order`) + `is_mosaic`; the template mirror
+gains the moon-relax triplet. TS sentinels (`minimumaltitude`/`maximumAltitude` `0.0`) emit as null
+per the importer-pinned translation table — the same TS state now produces the same store values on
+either arrival path. **Observed emission widens to project rows** (`ObservedInboundGuids` replaces
+`ObservedTargetGuids`; project upserts emit before target upserts): a settings edit made in TS's UI
+on BIRDWATCHER now reaches the store at the next pull — closing the 2026-08-12 field-hit
+(`minimumaltitude 0→30` reached TS but not Catalog.db) from **both** authoring surfaces.
+Authored-by-construction verified for project columns (change design notes: TS writes them only from
+its Database Manager UI; TSM write-back is exposureplan-only), so the path keeps zero origin
+bookkeeping. 454 green, zero warnings.
+
 **▶ SHIPPED 2026-08-12 — `add-target-rename`: the rename verb + pull-observed emission (push no longer
 the sole emitter)** — two halves, one motivating case (the user's BIRDWATCHER-side `Cygnus Loop P9` →
 `CygnusLoop P9` rename that the feed stayed blind to). **(1) Rename verb:** `target.name` joins

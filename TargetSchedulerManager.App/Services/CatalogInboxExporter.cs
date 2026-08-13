@@ -8,8 +8,14 @@ using TargetSchedulerManager.App.Shared;
 
 namespace TargetSchedulerManager.App.Services;
 
-/// <summary>A local <c>project</c> row snapshot, the columns the inbox contract's ops project.</summary>
-internal sealed record InboxProjectRow(long Id, string? Guid, string Name, long State, long Priority);
+/// <summary>A local <c>project</c> row snapshot, the columns the inbox contract's ops project.
+/// Altitude bounds keep TS's raw 0.0 no-constraint sentinels — the mapping turns them into the
+/// contract's nulls (the importer's translation, mirrored).</summary>
+internal sealed record InboxProjectRow(
+    long Id, string? Guid, string Name, long State, long Priority,
+    long MinimumTimeMinutes, double? MinimumAltitudeDeg, double? MaximumAltitudeDeg,
+    bool UseCustomHorizon, double HorizonOffsetDeg, long? MeridianWindowMinutes,
+    long? FilterSwitchFrequency, long? DitherEvery, bool SmartExposureOrder, bool IsMosaic);
 
 /// <summary>A local <c>target</c> row snapshot. <c>RaHours</c>/<c>DecDegrees</c> are TS's own units
 /// (decimal hours / signed degrees — the contract's units, no conversion).</summary>
@@ -27,7 +33,16 @@ internal sealed record InboxPlanRow(
 internal sealed record InboxTemplateRow(
     long Id, string? Guid, string Name, string FilterName, long Gain, long Offset, long Bin, long ReadoutMode,
     double DefaultExposureSeconds, long TwilightLevel, bool MoonAvoidanceEnabled,
-    double? MoonAvoidanceSeparationDeg, double? MoonAvoidanceWidthDays);
+    double? MoonAvoidanceSeparationDeg, double? MoonAvoidanceWidthDays,
+    double? MoonRelaxScale, double? MoonRelaxMaxAltitudeDeg, double? MoonRelaxMinAltitudeDeg);
+
+/// <summary>An observed-emission batch's row identities: the distinct target and project guids whose
+/// fields a pull observed arriving changed (existing rows only — the scope filter already dropped
+/// <c>(new)</c> entries and plan/template rows).</summary>
+internal sealed record ObservedGuids(IReadOnlyCollection<string> TargetGuids, IReadOnlyCollection<string> ProjectGuids)
+{
+    public bool IsEmpty => TargetGuids.Count == 0 && ProjectGuids.Count == 0;
+}
 
 /// <summary>The four-table snapshot the mapping resolves rows from — read from the local working copy
 /// after the push (journal says <em>which</em> rows, this says <em>what</em> values), or built in-memory
@@ -40,7 +55,7 @@ internal sealed record CatalogExportRows(
 
 /// <summary>
 /// The catalog-export duty (openspec <c>catalog-export</c>): after a push commits, project the applied
-/// user-authored journal entries into ISM's catalog inbox as contract-v1 JSONL upserts
+/// user-authored journal entries into ISM's catalog inbox as contract-v2 JSONL upserts
 /// (<c>..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md</c>). TSM's one ISM-era duty;
 /// the writer side only — TSM never opens <c>Catalog.db</c>.
 /// <para>Structure mirrors the testing seams: <see cref="BuildLines"/> is the pure mapping
@@ -66,43 +81,55 @@ internal static class CatalogInboxExporter
         return lines.Count;
     }
 
-    /// <summary>The observed-emission half of the duty (openspec delta <c>add-target-rename</c>): project
-    /// pull-observed target-table changes into the inbox — one full-value <c>target-upsert</c> per existing
-    /// target row whose fields arrived changed from TS's side, values read from the fresh post-pull local
-    /// copy. Same records, same transport; <paramref name="observedAt"/> is the observing pull's completion
-    /// time (TS's own commit time is unknowable). Returns the record count (0 = no guids, no file).</summary>
+    /// <summary>The observed-emission half of the duty (openspec <c>add-target-rename</c>, scope widened to
+    /// project rows by <c>add-inbox-v2-emission</c>): project pull-observed target- and project-table changes
+    /// into the inbox — one full-value upsert per existing row whose fields arrived changed from TS's side,
+    /// values read from the fresh post-pull local copy. Same records, same transport;
+    /// <paramref name="observedAt"/> is the observing pull's completion time (TS's own commit time is
+    /// unknowable). Returns the record count (0 = no guids, no file).</summary>
     public static int ExportObserved(
-        string localDbPath, IReadOnlyCollection<string> targetGuids, DateTimeOffset observedAt, string inboxDir)
+        string localDbPath, ObservedGuids observed, DateTimeOffset observedAt, string inboxDir)
     {
-        if (targetGuids.Count == 0)
+        if (observed.IsEmpty)
             return 0;
-        IReadOnlyList<string> lines = BuildObservedLines(targetGuids, ReadRows(localDbPath), observedAt);
+        IReadOnlyList<string> lines = BuildObservedLines(observed, ReadRows(localDbPath), observedAt);
         string file = WriteInbox(lines, inboxDir, observedAt);
         Log.Info($"CATALOG EXPORT {lines.Count} observed record(s) -> {file}");
         return lines.Count;
     }
 
-    /// <summary>The observed-emission scope filter (spec: targets only, existing rows only): the distinct
-    /// target guids among a pull's inbound field changes — never <c>(new)</c> row entries (a remotely-added
-    /// target without its plans is half a family, an accepted residual), never plan/project/template rows
-    /// (plan columns include actuals; project settings are the feed-v2 lane).</summary>
-    public static string[] ObservedTargetGuids(IReadOnlyList<TsInboundChange> arrived) =>
+    /// <summary>The observed-emission scope filter (spec: target and project rows, existing rows only): the
+    /// distinct guids among a pull's inbound field changes — never <c>(new)</c> row entries (a remotely-added
+    /// row without its family is half a family, an accepted residual), never plan/template rows (plan columns
+    /// include actuals; the plan-push mirror keeps templates current).</summary>
+    public static ObservedGuids ObservedInboundGuids(IReadOnlyList<TsInboundChange> arrived) =>
+        new(GuidsOf(arrived, TsTable.Target), GuidsOf(arrived, TsTable.Project));
+
+    private static string[] GuidsOf(IReadOnlyList<TsInboundChange> arrived, TsTable table) =>
         [.. arrived
-            .Where(c => c.Table == TsTable.Target && c.Column != TsInboundDiff.NewRowColumn)
+            .Where(c => c.Table == table && c.Column != TsInboundDiff.NewRowColumn)
             .Select(c => c.Key)
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Maps observed target guids to full-value <c>target-upsert</c> lines against
-    /// <paramref name="rows"/>. A guid the fresh local copy cannot resolve is a contract violation (the
-    /// pull's diff just observed the row) — thrown loudly, never skipped (rule #16).</summary>
+    /// <summary>Maps observed guids to full-value upsert lines against <paramref name="rows"/> —
+    /// references first (project upserts before target upserts). A guid the fresh local copy cannot resolve
+    /// is a contract violation (the pull's diff just observed the row) — thrown loudly, never skipped
+    /// (rule #16).</summary>
     public static IReadOnlyList<string> BuildObservedLines(
-        IReadOnlyCollection<string> targetGuids, CatalogExportRows rows, DateTimeOffset observedAt)
+        ObservedGuids observed, CatalogExportRows rows, DateTimeOffset observedAt)
     {
+        Dictionary<string, InboxProjectRow> projectsByGuid = ByGuid(rows.Projects, p => p.Guid);
         Dictionary<string, InboxTargetRow> targetsByGuid = ByGuid(rows.Targets, t => t.Guid);
         Dictionary<long, InboxProjectRow> projectsById = rows.Projects.ToDictionary(p => p.Id);
         long at = observedAt.ToUnixTimeSeconds();
         List<string> lines = [];
-        foreach (string guid in targetGuids)
+        foreach (string guid in observed.ProjectGuids)
+            lines.Add(ProjectUpsertLine(
+                projectsByGuid.TryGetValue(guid, out InboxProjectRow? p) ? p
+                    : throw new InvalidOperationException(
+                        $"catalog export: observed project guid '{guid}' not found in the local db after pull"),
+                at));
+        foreach (string guid in observed.TargetGuids)
             lines.Add(TargetUpsertLine(
                 targetsByGuid.TryGetValue(guid, out InboxTargetRow? t) ? t
                     : throw new InvalidOperationException(
@@ -185,13 +212,7 @@ internal static class CatalogInboxExporter
         List<string> lines = [];
         // References first: project → template → target → plan.
         foreach (InboxProjectRow p in projects)
-            lines.Add(Serialize("project-upsert", at, new()
-            {
-                ["ts_guid"] = RequireGuid(p.Guid, "project", p.Name),
-                ["name"] = p.Name,
-                ["state"] = ProjectStateName(p),
-                ["priority"] = ProjectPriorityName(p),
-            }));
+            lines.Add(ProjectUpsertLine(p, at));
         foreach (InboxTemplateRow t in templates)
             lines.Add(Serialize("exposure-template-upsert", at, new()
             {
@@ -207,6 +228,9 @@ internal static class CatalogInboxExporter
                 ["moon_avoidance_enabled"] = t.MoonAvoidanceEnabled,
                 ["moon_avoidance_separation_deg"] = t.MoonAvoidanceSeparationDeg,
                 ["moon_avoidance_width_days"] = t.MoonAvoidanceWidthDays,
+                ["moon_relax_scale"] = t.MoonRelaxScale,
+                ["moon_relax_max_altitude_deg"] = t.MoonRelaxMaxAltitudeDeg,
+                ["moon_relax_min_altitude_deg"] = t.MoonRelaxMinAltitudeDeg,
             }));
         foreach (InboxTargetRow t in targets)
             lines.Add(TargetUpsertLine(t, projectsById, at));
@@ -252,6 +276,28 @@ internal static class CatalogInboxExporter
                         $"catalog export: write-back desired Old '{old}' on plan id {Row.Id} is not an integer")
                 : Row.DesiredCount);
     }
+
+    // The one project-upsert serialization — the push path and the observed-emission path emit the same
+    // full-value v2 record. Altitude 0.0 is TS's no-constraint sentinel on both bounds -> null, the
+    // importer's translation mirrored (contract v2 sentinel table).
+    private static string ProjectUpsertLine(InboxProjectRow p, long at) =>
+        Serialize("project-upsert", at, new()
+        {
+            ["ts_guid"] = RequireGuid(p.Guid, "project", p.Name),
+            ["name"] = p.Name,
+            ["state"] = ProjectStateName(p),
+            ["priority"] = ProjectPriorityName(p),
+            ["minimum_time_minutes"] = p.MinimumTimeMinutes,
+            ["minimum_altitude_deg"] = ZeroUnsentinel(p.MinimumAltitudeDeg),
+            ["maximum_altitude_deg"] = ZeroUnsentinel(p.MaximumAltitudeDeg),
+            ["use_custom_horizon"] = p.UseCustomHorizon,
+            ["horizon_offset_deg"] = p.HorizonOffsetDeg,
+            ["meridian_window_minutes"] = p.MeridianWindowMinutes,
+            ["filter_switch_frequency"] = p.FilterSwitchFrequency,
+            ["dither_every"] = p.DitherEvery,
+            ["smart_exposure_order"] = p.SmartExposureOrder,
+            ["is_mosaic"] = p.IsMosaic,
+        });
 
     // The one target-upsert serialization — the push path and the observed-emission path emit the same
     // full-value record.
@@ -309,6 +355,9 @@ internal static class CatalogInboxExporter
     /// <summary>TS's −1 defer-to-default sentinel → the contract's null.</summary>
     private static object? Unsentinel(long value) => value < 0 ? null : value;
 
+    /// <summary>TS's 0.0 no-constraint sentinel (altitude bounds) → the contract's null.</summary>
+    private static object? ZeroUnsentinel(double? value) => value is null or 0.0 ? null : value;
+
     // The contract's string vocabularies, from TS's own enum codes (TsEditableSchema's maps). An unknown
     // code cannot be projected — throw (rule #16), never guess a nearest value.
     private static string ProjectStateName(InboxProjectRow p) => p.State switch
@@ -337,7 +386,7 @@ internal static class CatalogInboxExporter
 
     private static string Serialize(string op, long at, Dictionary<string, object?> fields)
     {
-        Dictionary<string, object?> record = new() { ["v"] = 1, ["at"] = at, ["source"] = "TSM", ["op"] = op };
+        Dictionary<string, object?> record = new() { ["v"] = 2, ["at"] = at, ["source"] = "TSM", ["op"] = op };
         foreach ((string key, object? value) in fields)
             record[key] = value;
         return JsonSerializer.Serialize(record);
@@ -359,8 +408,13 @@ internal static class CatalogInboxExporter
         c.Open();
 
         List<InboxProjectRow> projects = [];
-        foreach (object?[] r in Rows(c, "SELECT Id, guid, name, state, priority FROM project"))
-            projects.Add(new((long)r[0]!, (string?)r[1], (string)r[2]!, (long)r[3]!, (long)r[4]!));
+        foreach (object?[] r in Rows(c,
+            "SELECT Id, guid, name, state, priority, minimumtime, minimumaltitude, maximumAltitude, " +
+            "usecustomhorizon, horizonoffset, meridianwindow, filterswitchfrequency, ditherevery, " +
+            "smartexposureorder, isMosaic FROM project"))
+            projects.Add(new((long)r[0]!, (string?)r[1], (string)r[2]!, (long)r[3]!, (long)r[4]!,
+                (long)r[5]!, AsDouble(r[6]), AsDouble(r[7]), (long)r[8]! != 0, AsDouble(r[9]) ?? 0,
+                (long?)r[10], (long?)r[11], (long?)r[12], (long)r[13]! != 0, (long)r[14]! != 0));
 
         List<InboxTargetRow> targets = [];
         foreach (object?[] r in Rows(c, "SELECT Id, guid, projectid, name, active, ra, dec, epochcode, rotation FROM target"))
@@ -375,10 +429,12 @@ internal static class CatalogInboxExporter
         List<InboxTemplateRow> templates = [];
         foreach (object?[] r in Rows(c,
             "SELECT Id, guid, name, filtername, gain, offset, bin, readoutmode, defaultexposure, " +
-            "twilightlevel, moonavoidanceenabled, moonavoidanceseparation, moonavoidancewidth FROM exposuretemplate"))
+            "twilightlevel, moonavoidanceenabled, moonavoidanceseparation, moonavoidancewidth, " +
+            "moonrelaxscale, moonrelaxmaxaltitude, moonrelaxminaltitude FROM exposuretemplate"))
             templates.Add(new((long)r[0]!, (string?)r[1], (string)r[2]!, (string)r[3]!,
                 (long)r[4]!, (long)r[5]!, (long)r[6]!, (long)r[7]!, AsDouble(r[8]) ?? 0,
-                (long)r[9]!, (long)r[10]! != 0, AsDouble(r[11]), AsDouble(r[12])));
+                (long)r[9]!, (long)r[10]! != 0, AsDouble(r[11]), AsDouble(r[12]),
+                AsDouble(r[13]), AsDouble(r[14]), AsDouble(r[15])));
 
         return new CatalogExportRows(projects, targets, plans, templates);
     }

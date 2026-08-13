@@ -349,11 +349,12 @@ public sealed partial class MainViewModel
     internal string CatalogInboxDir { get; set; } = DevDefaults.CatalogInbox;
 
     /// <summary>
-    /// The observed-emission half of the export duty (openspec delta <c>add-target-rename</c>): after any
-    /// operation that pulled, project the pull-observed TARGET-table field changes — existing rows only,
-    /// never <c>(new)</c> entries, never plan/project/template rows (plan columns include actuals; project
-    /// settings are the feed-v2 lane) — into the catalog inbox as full-value target-upserts, mirroring
-    /// TS-committed intent whichever surface authored it. Consumes each pull's fresh diff via take-and-clear
+    /// The observed-emission half of the export duty (openspec <c>add-target-rename</c>, scope widened to
+    /// project rows by <c>add-inbox-v2-emission</c>): after any operation that pulled, project the
+    /// pull-observed target- and project-table field changes — existing rows only, never <c>(new)</c>
+    /// entries, never plan/template rows (plan columns include actuals; the plan-push mirror keeps templates
+    /// current) — into the catalog inbox as full-value upserts, mirroring TS-committed intent whichever
+    /// surface authored it. Consumes each pull's fresh diff via take-and-clear
     /// (never the session-accumulated marks store). A fault leaves the pull applied, requeues the batch for
     /// the next pull-capable operation, and surfaces loudly (rule #16) — never a silent skip.
     /// </summary>
@@ -362,14 +363,14 @@ public sealed partial class MainViewModel
         IReadOnlyList<TsInboundChange> arrived = Sync.TakeUntakenPullInbound();
         if (arrived.Count == 0)
             return "";
-        string[] guids = CatalogInboxExporter.ObservedTargetGuids(arrived);
-        if (guids.Length == 0)
+        ObservedGuids observed = CatalogInboxExporter.ObservedInboundGuids(arrived);
+        if (observed.IsEmpty)
             return "";
         try
         {
             DateTimeOffset observedAt = new(Clock.UtcNow);
             int records = await Task.Run(() =>
-                CatalogInboxExporter.ExportObserved(Sync.LocalPath, guids, observedAt, CatalogInboxDir));
+                CatalogInboxExporter.ExportObserved(Sync.LocalPath, observed, observedAt, CatalogInboxDir));
             return $" · catalog inbox {records} observed record(s)";
         }
         catch (Exception ex)

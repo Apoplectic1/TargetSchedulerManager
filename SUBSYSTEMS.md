@@ -125,7 +125,10 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   it next push) + the commit stamp; `MainViewModel.PushAsync` then runs `Services\CatalogInboxExporter`,
   which maps **user-authored** entries (`Manual`/`Insert` — `WriteBack` never emits: the acquired/accepted
   stamps AND the desired ratchet, whose pre-push `Old` sources the authored `desired_count` on a co-edited
-  row) into inbox-contract v1 full-value upserts. Row values read from the local copy post-push (journal
+  row) into inbox-contract **v2** full-value upserts (2026-08-13, openspec `add-inbox-v2-emission`:
+  `project-upsert` carries the settings block + `is_mosaic`, the template mirror carries the moon-relax
+  triplet; TS sentinels — altitude `0.0` — translate to null per the importer-pinned table). Row values
+  read from the local copy post-push (journal
   says *which*, local db says *what*); references first (project → template → target → plan); the template
   mirror rides **every** plan upsert and a pushed template-manager edit refreshes it. One
   `tsm-<stamp>.jsonl` per push, published atomically (`.partial` → rename, so ISM's `*.jsonl` glob never
@@ -138,10 +141,12 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   the sole emitter).** Each pull's fresh inbound diff lands in a take-and-clear buffer on `TsSync`
   (distinct from the session-accumulated marks store); after any pull-capable operation (a load's
   open/forced/discard/heal pull, a push's closing pull) `MainViewModel.EmitObservedInboundAsync` filters
-  it to **target-table field changes on existing rows** (`CatalogInboxExporter.ObservedTargetGuids` —
-  never `(new)` row entries, never plan/project/template rows: plan columns include actuals, project
-  settings are the feed-v2 lane) and emits full-value `target-upsert`s from the fresh local copy —
-  mirroring TS-committed intent whichever surface authored it (the template-mirror posture). Target
+  it to **target- and project-table field changes on existing rows** (`CatalogInboxExporter.
+  ObservedInboundGuids` — widened from targets-only at contract v2, `add-inbox-v2-emission`, so
+  BIRDWATCHER-side settings edits flow too; never `(new)` row entries, never plan/template rows: plan
+  columns include actuals, the plan-push mirror keeps templates current) and emits full-value upserts
+  (project before target) from the fresh local copy — mirroring TS-committed intent whichever surface
+  authored it (the template-mirror posture). Target and project
   columns are all intent by construction, so *actuals never emit* holds with zero origin bookkeeping;
   local-first edits mean a closing pull can never echo the push's own changes. Envelope `at` = pull
   completion time; same transport (`WriteInbox`, which advances a taken same-second stamp to the next
