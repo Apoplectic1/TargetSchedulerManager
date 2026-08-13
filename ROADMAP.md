@@ -202,7 +202,12 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   requirement). Close = bilateral contract v-bump widening `project-upsert` with the settings
   block; both emitters move together (candidates list: ISM
   `docs\design\catalog-inbox-contract.md` § V2 candidates).
-  **Related lane SHIPPED 2026-08-12 (pending field verification): `add-target-rename`** — the rename
+  **Change SEEDED 2026-08-13: `add-inbox-v2-emission`** (paired ISM `add-inbox-contract-v2`;
+  neither ships alone): v2 envelope, `project-upsert` gains the settings block + `is_mosaic`,
+  the template mirror gains the moon-relax triplet, **and observed emission extends to project
+  rows** (user decision 2026-08-13 — the design gate met by `add-target-rename`), so
+  BIRDWATCHER-side settings edits flow to Catalog.db too.
+  **Related lane SHIPPED + FIELD-VERIFIED + ARCHIVED 2026-08-12: `add-target-rename`** — the rename
   verb (target `name` as a Guarded schema field; journal → push → `target-upsert`, no contract change)
   **plus pull-diff emission adopted, targets only**: every pull now emits full-value `target-upsert`s
   for externally-authored target changes it observes arriving (existing rows only; remotely-added
