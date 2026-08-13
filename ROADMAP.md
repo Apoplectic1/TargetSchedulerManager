@@ -202,13 +202,13 @@ bridging lane was cancelled 2026-07-24. That was the **second** reversal: the ph
   requirement). Close = bilateral contract v-bump widening `project-upsert` with the settings
   block; both emitters move together (candidates list: ISM
   `docs\design\catalog-inbox-contract.md` § V2 candidates).
-  **Change IMPLEMENTED 2026-08-13: `add-inbox-v2-emission`** (paired ISM `add-inbox-contract-v2`;
-  neither ships alone): v2 envelope, `project-upsert` gains the settings block + `is_mosaic`,
-  the template mirror gains the moon-relax triplet, **and observed emission extends to project
-  rows** (user decision 2026-08-13 — the design gate met by `add-target-rename`), so
-  BIRDWATCHER-side settings edits flow to Catalog.db too. 454 green; **live ceremony pending**
-  (drain inbox on old builds → run new pair → real settings push verified into Catalog.db), then
-  archive. Detail: CHANGELOG 2026-08-13.
+  **CLOSED 2026-08-13: `add-inbox-v2-emission` shipped, field-verified, archived** (paired ISM
+  `add-inbox-contract-v2`; spec `catalog-export` at v2): v2 envelope, `project-upsert` carries
+  the settings block + `is_mosaic`, the template mirror carries the moon-relax triplet, observed
+  emission covers project rows — BIRDWATCHER-side settings edits flow to Catalog.db too.
+  **Ceremony PASS** (real `Nebulea - 35` push: `minimum_altitude_deg` 30→35 landed in the store —
+  the settings gap closed from both authoring surfaces). 454 green. Detail: CHANGELOG 2026-08-13;
+  ISM NOTEBOOK holds the ceremony record. TSM is back to bed — the feed dies with TS retirement.
   **Related lane SHIPPED + FIELD-VERIFIED + ARCHIVED 2026-08-12: `add-target-rename`** — the rename
   verb (target `name` as a Guarded schema field; journal → push → `target-upsert`, no contract change)
   **plus pull-diff emission adopted, targets only**: every pull now emits full-value `target-upsert`s

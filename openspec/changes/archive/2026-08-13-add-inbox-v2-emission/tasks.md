@@ -35,7 +35,7 @@
 
 - [x] 4.1 Full TSM suite green, zero warnings;
       `openspec validate add-inbox-v2-emission --strict`.
-- [ ] 4.2 Live ceremony (paired with ISM — ISM task 5.2): drain inbox → install pair → real
+- [x] 4.2 Live ceremony (paired with ISM — ISM task 5.2): drain inbox → install pair → real
       push with a settings edit → verify arrival in Catalog.db.
-- [ ] 4.3 Docs: ROADMAP one-liner (the duty rider shipped; TSM back to bed), CHANGELOG entry,
+- [x] 4.3 Docs: ROADMAP one-liner (the duty rider shipped; TSM back to bed), CHANGELOG entry,
       SUBSYSTEMS export-duty section field list if it enumerates ops.

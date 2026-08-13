@@ -13,8 +13,8 @@ forward plan + current status and points here; git remains the commit-level back
 
 **▶ SHIPPED 2026-08-13 — `add-inbox-v2-emission`: the feed speaks contract v2 (settings travel;
 observed emission covers project rows)** — TSM's half of the coordinated v-bump (paired ISM
-`add-inbox-contract-v2`; neither ships alone; live ceremony pending — drain inbox on the old pair,
-install both, real settings push verified into Catalog.db). Envelope `v: 2`; `project-upsert` widens
+`add-inbox-contract-v2`; neither ships alone; **live ceremony PASS same day** — real
+`Nebulea - 35` push moved `minimum_altitude_deg` 30→35 in Catalog.db; both changes archived). Envelope `v: 2`; `project-upsert` widens
 with the settings block (`minimum_time_minutes`, both altitude bounds, horizon toggles, meridian
 window, filter-switch/dither policy, `smart_exposure_order`) + `is_mosaic`; the template mirror
 gains the moon-relax triplet. TS sentinels (`minimumaltitude`/`maximumAltitude` `0.0`) emit as null
