@@ -33,26 +33,23 @@ lane is strategic — the **IS transition** (intent store + lift/regenerate), wh
 
 ### Doc-system open items (from the 2026-08-16 maintain sweep — full rails in `docs/2026-08-16-maintain-report.md`)
 
-- **CB-1 · code bug, unadjudicated — the open-time "Push" path doesn't emit to ISM's inbox.**
-  `MainViewModel.Sync.cs:246` (the `OpenDirtyDecision.Push` branch of `PrepareTsForLoadAsync`) commits
-  the journal to BIRDWATCHER and returns without calling `ExportToCatalogInboxAsync` or
-  `EmitObservedInboundAsync` — only the toolbar Push path (`:319-321`) emits. The `catalog-export`
-  spec says emission happens "at exactly one point: after a successful push-as-replay commit"; there
-  are two such commits. Field shape: edit → close without pushing → reopen → choose **Push** at the
-  dirty prompt ⇒ the edits reach TS but never reach `Catalog.db`.
+- ~~**CB-1 · the open-time "Push" path doesn't emit to ISM's inbox.**~~ **FIXED 2026-08-16.** The
+  `OpenDirtyDecision.Push` branch replayed to BIRDWATCHER without exporting the applied authored
+  entries; since the push consumes the journal, that intent could never reach `Catalog.db` by any
+  later push (the *observed* half was always covered — `LoadAsync` emits it off the closing pull).
+  Both push surfaces now go through one `MainViewModel.PushAndExportAsync`, so the emission rides the
+  commit rather than the surface; spec wording widened from "exactly one point" to every committed
+  push, with a scenario for the dirty-prompt path, and a regression test pins it.
 - **CB-2 · code bug, unadjudicated — a rule-#16 silent default in the exporter.**
   `Services/CatalogInboxExporter.cs:416` reads `project.horizonoffset` as `AsDouble(r[9]) ?? 0`,
   fabricating `horizon_offset_deg: 0`, while the sibling required field `minimumtime` on the same line
   is hard-cast. Mitigating: TS declares `horizonOffset` as a non-nullable `double`
   (`Database/Schema/Project.cs:57`), so the `?? 0` can only fire on a corrupt or foreign row — it is
   rule-#16 cruft to delete rather than a live fabrication, but the asymmetry is the tell.
-- **Portfolio-level truth with no home — the AL-release payload realignment practice.** Every AL
-  release (including docs-only ones, and ones changing nothing the app consumes) triggers a same-day
-  re-cut of all three app installers purely so the embedded `Astronomy.*` stamps match — visible three
-  times in this window alone (TSM v1.4.1 / v1.5.2 / v1.5.4). It spans TP/TSM/XFM, so no TSM doc's
-  charter can own it, and the container (`..\`) has no portfolio `DOMAIN.md`. **Needs a placement
-  decision** (M15 forbids improvising one): a new portfolio `DOMAIN.md`, the container `CLAUDE.md`'s
-  existing *Cross-repo release ordering* section, or each app's own `RELEASING.md`.
+- ~~**Portfolio-level truth with no home — the AL-release payload realignment practice.**~~
+  **PLACED 2026-08-16**: the user created a portfolio `..\DOMAIN.md`, so the held graduate landed
+  there (§ *Releases* — every AL release re-cuts all three app installers the same day for stamp
+  alignment, even docs-only ones). The container `CLAUDE.md` now routes to it.
 
 ### Queued — project-name clause parses back into min altitude (user, 2026-08-12)
 

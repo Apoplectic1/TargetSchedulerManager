@@ -209,7 +209,9 @@ public sealed partial class MainViewModel
     // the SMB timeout, review N8), route a dirty journal through the user's push/discard decision BEFORE
     // any pull can overwrite local edits, then pull / skip per the baseline rule. Returns the status-line
     // fragment describing what happened.
-    private async Task<string> PrepareTsForLoadAsync(PullPolicy policy)
+    // internal, not private: the open-with-dirty routing (including its push) is driven directly by tests —
+    // LoadAsync's later phases scan the production library, which a unit test can't.
+    internal async Task<string> PrepareTsForLoadAsync(PullPolicy policy)
     {
         // Torn-local gate: runs before the skip decision can trust a baseline that never validates local
         // health, and before any reader touches the torn file. Overrides even Reload's no-pull contract —
@@ -243,10 +245,12 @@ public sealed partial class MainViewModel
             switch (decision)
             {
                 case OpenDirtyDecision.Push:
-                    PushResult push = await WithPullUiAsync((p, t) => Sync.Push(p, t));
-                    return push.Outcome == PushOutcome.Success
+                    // Same funnel the Push button uses — the export rides the commit, never the caller
+                    // (the observed half rides the closing pull and is emitted by LoadAsync).
+                    (PushResult push, string exported) = await PushAndExportAsync();
+                    return (push.Outcome == PushOutcome.Success
                         ? push.PulledFresh ? "pushed + pulled fresh" : "pushed (closing pull skipped)"
-                        : $"PUSH INCOMPLETE ({DescribePush(push)}) — kept local";
+                        : $"PUSH INCOMPLETE ({DescribePush(push)}) — kept local") + exported;
                 case OpenDirtyDecision.Discard:
                     // Pull-first: only the swap physically replacing the discarded values makes the
                     // discard true. A cancelled pull changes NOTHING — journal, baseline, badge, and
@@ -316,8 +320,7 @@ public sealed partial class MainViewModel
             if (ConfirmPushPrompt is not null && !await ConfirmPushPrompt(review))
                 return;
 
-            result = await WithPullUiAsync((p, t) => Sync.Push(p, t));
-            exportNote = await ExportToCatalogInboxAsync(result);
+            (result, exportNote) = await PushAndExportAsync();
             // The closing pull can carry externally-authored target changes — emit them now (the push's
             // own replayed changes were local-first and never diff, so nothing here echoes the push).
             exportNote += await EmitObservedInboundAsync();
@@ -342,6 +345,21 @@ public sealed partial class MainViewModel
         else
             RefreshAllMarks();   // partial failure / mid-push edits: the journal changed without a reload
         StatusText = DescribePush(result) + exportNote;
+    }
+
+    /// <summary>
+    /// The push funnel: replay the journal to BIRDWATCHER and, on a commit, project the applied
+    /// user-authored entries into the catalog inbox. **Every** push-as-replay goes through here — the Push
+    /// button and the open-with-dirty prompt's push alike — because the export belongs to the commit, not to
+    /// the surface that asked for it. Splitting them is how the open-time push silently stopped emitting
+    /// (found by the 2026-08-16 maintain sweep, CB-1): the authored intent reached TS, the journal was
+    /// consumed, and nothing was left to carry it to `Catalog.db`. Returns the push result and the status
+    /// fragment the export contributes (empty when it emitted nothing).
+    /// </summary>
+    private async Task<(PushResult Push, string Note)> PushAndExportAsync()
+    {
+        PushResult push = await WithPullUiAsync((p, t) => Sync.Push(p, t));
+        return (push, await ExportToCatalogInboxAsync(push) ?? "");
     }
 
     /// <summary>The catalog inbox directory the export duty publishes to — the contract-named path in

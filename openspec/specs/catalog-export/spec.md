@@ -10,10 +10,14 @@ One direction, contract-only: TSM never opens `Catalog.db`.
 ## Requirements
 ### Requirement: The push emits TSM-authored changes
 
-TSM SHALL emit inbox records for its own authored changes at exactly one point: after a successful
-push-as-replay commit — the single funnel where TS, the system of record, actually changes by TSM's
-hand. (Target changes TSM merely observes arriving from TS's side emit through the observed-emission
-path — see *Observed inbound target changes emit at pull*; no other emission point exists.) Each
+TSM SHALL emit inbox records for its own authored changes after **every** successful push-as-replay
+commit, whichever surface triggered it — the Push button and the open-with-dirty prompt's push
+alike. The push-as-replay commit is the single funnel where TS, the system of record, actually
+changes by TSM's hand, and the emission belongs to that commit rather than to the surface that asked
+for it: the commit consumes the journal, so a commit that does not emit leaves authored intent with
+no later push able to carry it. (Target changes TSM merely observes arriving from TS's side emit
+through the observed-emission path — see *Observed inbound target changes emit at pull*; no other
+emission point exists.) Each
 replayed intent change SHALL map to its full-value upsert op(s) as defined by the catalog inbox
 contract v2 (`..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`): desired-count and
 exposure-plan edits to `exposure-plan-upsert`, target-level intent (enable state, coordinates,
@@ -46,6 +50,13 @@ keep sent-tracking state.
 - **WHEN** a push replays a journaled target rename and commits
 - **THEN** TSM appends one `target-upsert` record carrying the target's full committed values, the
   new name among them
+
+#### Scenario: The open-with-dirty prompt's push emits like any other
+
+- **WHEN** the user reopens TSM with unpushed edits journaled and chooses **Push** at the
+  open-with-dirty prompt, and that push commits
+- **THEN** TSM appends the same records the Push button would have — the commit carries the
+  emission, not the surface
 
 #### Scenario: Local edits alone emit nothing
 

@@ -373,6 +373,30 @@ public class CatalogInboxExporterTests
     }
 
     [Fact]
+    public async Task OpenTimeDirtyPush_EmitsToo_ThePushFunnelIsShared()
+    {
+        // Regression, CB-1 (2026-08-16 maintain sweep): the open-with-dirty prompt's Push is a second
+        // push-as-replay commit. It used to replay to BIRDWATCHER without exporting, and since the push
+        // consumes the journal, the authored intent could never reach Catalog.db by any later push —
+        // silently, because the export's own loud-failure path was never entered. Both surfaces now go
+        // through PushAndExportAsync.
+        (MainViewModel vm, TsSync sync) = PushVm();
+        CreateTsDb(sync.LocalPath);
+        sync.RecordEdit(TsTable.ExposurePlan, "30", "desired", 30L, "20", "M 42 · Ha");
+        vm.OpenWithDirtyPrompt = _ => Task.FromResult(OpenDirtyDecision.Push);
+
+        string note = await vm.PrepareTsForLoadAsync(PullPolicy.IfChanged);
+
+        Assert.Contains("pushed", note);
+        Assert.Contains("catalog inbox 2 record(s)", note);
+        string file = Assert.Single(Directory.GetFiles(vm.CatalogInboxDir, "*.jsonl"));
+        string[] lines = File.ReadAllLines(file);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal("exposure-plan-upsert", Parse(lines[1]).GetProperty("op").GetString());
+        Assert.False(sync.IsDirty);                                  // the journal was consumed by the push
+    }
+
+    [Fact]
     public async Task PushAsync_RefusedPush_EmitsNothing()
     {
         (MainViewModel vm, TsSync sync) = PushVm();

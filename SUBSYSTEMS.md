@@ -122,7 +122,11 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
 - **Catalog export rides every committed push (2026-08-12, openspec `catalog-export` — TSM's one ISM-era
   duty; dies with TSM at TS retirement).** After `Journal.CommitPush`, `PushResult` exposes the applied
   collapsed entries (all kinds; any row with a failed entry excluded whole — its retained journal re-emits
-  it next push) + the commit stamp; `MainViewModel.PushAsync` then runs `Services\CatalogInboxExporter`,
+  it next push) + the commit stamp; `MainViewModel.PushAndExportAsync` — the **one funnel both push
+  surfaces go through**, the Push button and the open-with-dirty prompt's push alike, because the emission
+  belongs to the commit and not to the surface that asked for it (they were split until 2026-08-16, and the
+  open-time push silently emitted nothing while consuming the journal) — then runs
+  `Services\CatalogInboxExporter`,
   which maps **user-authored** entries (`Manual`/`Insert` — `WriteBack` never emits: the acquired/accepted
   stamps AND the desired ratchet, whose pre-push `Old` sources the authored `desired_count` on a co-edited
   row) into inbox-contract **v2** full-value upserts (2026-08-13, openspec `add-inbox-v2-emission`:

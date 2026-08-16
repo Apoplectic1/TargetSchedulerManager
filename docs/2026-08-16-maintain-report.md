@@ -63,6 +63,10 @@ the parameter `p`; not standing truth.
 
 ## Held — needs a decision, NOT applied
 
+> **RESOLVED same day.** The user created a portfolio `..\DOMAIN.md`, which is exactly the home M15 names.
+> The graduate below landed there under § *Releases* (with the container `CLAUDE.md` routing to the new
+> file, one-way). Kept as the record of why it was held rather than improvised into the container router.
+
 ### M15 · portfolio-level: the AL-release payload-realignment practice
 
 - **standing-claim:** when AL publishes a release — *including a docs-only one, and one that changes nothing
@@ -85,6 +89,8 @@ the parameter `p`; not standing truth.
 **MAINTAIN never edits code.** Both were found by the Opus contract-vs-code worker and independently
 verified at the cited lines before being written here.
 
+> **CB-1 FIXED same day** (see the closing note under it). CB-2 remains open.
+
 ### CB-1 — the open-time "Push" path never emits to ISM's inbox *(high)*
 
 - **contract:** `openspec/specs/catalog-export/spec.md` — TSM "SHALL emit … at exactly one point: after a
@@ -98,7 +104,20 @@ verified at the cited lines before being written here.
 - **failure shape:** edit → close without pushing → reopen → choose **Push** at the dirty prompt. The edits
   reach TS; nothing reaches `Catalog.db`, and because the journal is consumed there is no later push to
   carry them. Silent — the feed's own rule-#16 loud-failure path never runs, since it is never reached.
-- **fix shape (not applied):** hoist the emission to where the commit is, so the funnel is genuinely single.
+- **correction to the flag as first written:** the *observed* half was never missing on this path —
+  `LoadAsync:153` calls `EmitObservedInboundAsync` after `PrepareTsForLoadAsync` returns, and its comment
+  names this case ("or a dirty-open push's closing pull"). Only the **authored** emission
+  (`ExportToCatalogInboxAsync`, which projects `PushResult.AppliedEntries`) was absent. That narrows the
+  blast radius but not the severity: the user's own intent is the half that was lost.
+- **FIXED 2026-08-16** (same session, user-directed): both surfaces now go through one
+  `MainViewModel.PushAndExportAsync` — the emission rides the commit, not the caller. The
+  `catalog-export` spec's "at exactly one point" was the wording that made two commit sites look legal;
+  it now reads "after **every** successful push-as-replay commit, whichever surface triggered it," with a
+  new scenario for the dirty-prompt path. Regression test
+  `CatalogInboxExporterTests.OpenTimeDirtyPush_EmitsToo_ThePushFunnelIsShared` drives
+  `PrepareTsForLoadAsync` directly (LoadAsync's later phases scan the production library, which a unit
+  test can't) and was **verified to fail against the un-welded code** before the fix was restored.
+  Suite 455 green.
 
 ### CB-2 — a rule-#16 silent default in the exporter *(low)*
 
