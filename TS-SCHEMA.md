@@ -57,6 +57,17 @@ TS publishes no range for most columns (`minutesOffset` ±720 is invented), so a
 is a one-line reference change, never a schema violation (openspec `template-manager`; per-column derivation
 in `openspec/changes/archive/2026-07-06-template-manager/design.md` D1).
 
+**Which tables the TS *runtime* writes vs which are authored-only** (verified 2026-08-13 against the TS
+reference clone, `release`/`nightly-3.3`): the scheduler writes `acquiredimage`, `imagedata`,
+`filtercadenceitem`, `flathistory` and the `exposureplan` counters while it images — and **nothing in
+`project`**. Every `project` column change originates in the Database Manager editing UI
+(`Controls\DatabaseManager\`), i.e. from a person. That is why the catalog export can treat a project row as
+**authored by construction** and emit it with zero origin bookkeeping (TSM's own write-back is
+exposureplan-only, so it can't forge one either) — see
+`openspec/changes/archive/2026-08-13-add-inbox-v2-emission/design.md`. If a future TS release starts writing
+a `project` column from the planner, that assumption breaks and the export needs origin tracking — worth
+re-checking as part of the drift recipe below.
+
 ### project — 10 rows · FK: `target.projectid → project.Id`
 `Id` PK · `profileId` · `name` ✎ · `description` · `state` ✎ · `priority` ✎ · `createdate` · `activedate` ·
 `inactivedate` · `minimumtime` ✎ · `minimumaltitude` ✎ · `usecustomhorizon` ✎ · `horizonoffset` ✎ · `meridianwindow` ✎ ·
@@ -75,7 +86,7 @@ TSM write can create that state. **Exception:** `minimumaltitude` ≥ 90 THROWS 
 (`Assert.isTrue(< 90)`) — one of the few TS-enforced bounds; the TSM schema clamps to 89.9 for it.
 
 ### target — 102 rows
-`Id` PK · `name` · `active` ✎ · `ra` · `dec` · `epochcode` · `rotation` ✎(guarded) · `roi` · `projectid` ·
+`Id` PK · `name` ✎(guarded, 2026-08-12) · `active` ✎ · `ra` · `dec` · `epochcode` · `rotation` ✎(guarded) · `roi` · `projectid` ·
 `unusedOEO` · `guid` · `priority` ✎
 TSM: the coordinate anchor for disk matching (ra hours / dec degrees, 0.5° tolerance); `epochcode` is
 harden-rule coerced if unknown; `guid` is the write-back/edit address retained as `imported_from_ts_guid`.
@@ -84,6 +95,11 @@ in `TsEditableSchema.EnumValues`; never reuse `Astronomy.Catalog`'s enums for ed
 deliberately coerces priority away under the harden rule (`SafeTargetPriority`). Why:
 `openspec/changes/archive/2026-07-06-field-editor-flyout/design.md` D3. **`project.priority` is a different
 enum** — `ProjectPriority`, 0 Low / 1 Normal / 2 High, with **no −1 Default**.
+**What an adopted target row carries in the columns the user never sees** (the adoption verb mints the row
+from a plate-solved disk centroid, so every other column takes a fixed default): `epochcode` = **2**
+(NINA `Epoch.J2000` — disk plate solves are J2000, so this is a fact about the source, not a preference),
+`roi` = **100.0** (TS's own default: the full frame), `active` = **1**, `priority` = **−1**
+(`TargetPriority.Default`). Derivation: `openspec/changes/archive/2026-08-03-adopt-disk-rows/design.md` D6.
 
 ### exposureplan — 658 rows · FK: `targetid → target.Id`, `exposureTemplateId → exposuretemplate.Id`
 `Id` PK · `profileId` · `exposure` ✎ (−1 sentinel) · `desired` ✎⚙ · `acquired` ⚙ · `accepted` ⚙ ·

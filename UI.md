@@ -315,9 +315,17 @@ not a bug — don't "fix" it into showing `0`, which would break mirror == reloa
   re-aggregation. Row **positions hold** even when the edit changes a sort key (order refreshes on the next
   reload/filter pass; rows never jump mid-edit). When a mirror value isn't locally derivable (reverting an
   overridden exposure to the template sentinel), it is **resolved from the db** (plan→template join via
-  `ReadPlanEffectiveSecondsAsync`), not left stale. **Cell-keying edits re-reconcile on editor close**
-  (obs 4798, 2026-08-03): plan exposure, template gain/offset/bin/default-exposure/filter/name, and target
-  rotation re-key reconciliation cells — the mirror holds while the dialog is open, then closing it runs a
+  `ReadPlanEffectiveSecondsAsync`), not left stale. **An in-place mirror addresses the *plan*, never the row
+  instance** (obs b4d2, 2026-08-12): one plan renders at several grid levels — a disclosed rollup's summary
+  leaf and its TS detail line share `PlanTsKey`, and the edit box lives on exactly one of them while the
+  enable checkbox renders on both — so a commit must sweep every rendered instance of that plan by plan key
+  and re-aggregate owners (`MirrorPlanEdit` over `_allRows` + detail lines; it covers desired, exposure and
+  enable alike). Any future per-plan inline edit routes through it; mirroring only the edited instance leaves
+  a collapsed sibling asserting the old value while the data plane holds the new one. **Cell-keying edits
+  re-reconcile on editor close**
+  (obs 4798, 2026-08-03): plan exposure, template gain/offset/bin/default-exposure/filter/name, target
+  rotation, and — since the 2026-08-12 rename verb — target `name` (group identity: header, sort, name
+  claims, mosaic parent grouping) re-key reconciliation cells — the mirror holds while the dialog is open, then closing it runs a
   no-pull reload so a merged row never keeps asserting a pairing the edit broke (`IsPairingKey` in
   `MainWindow.Flyouts`).
 - **Integer edit boxes are sized to their digit budget.** Real/decimal fields are exempt — they need room
@@ -393,6 +401,11 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
 - **Filter bar:** search (target / project / filter) · source filter · flagged-only · sort picker ·
   Expand/Collapse all.
 - **Status bar:** library path + sync/write-back notes + load time.
+- **Window title = app name + version, nothing else** (2026-08-02). It carries the MinVer informational
+  version and no sync-status suffix (the old one was removed when the sync badge took that job — status
+  belongs to the badge and the status bar, which update live; a title doesn't). The version is there to
+  answer *which build am I looking at* — the dev-vs-installed disambiguator once the Velopack installer
+  ships side-by-side with a dev run.
 - **Ctrl+N** opens the Diagnostics window (notes + screenshot into `tsm.log`); the floating accelerator
   hover-hint is suppressed. **Capture in 5 s** hides the window for the countdown so transient light-dismiss UI
   (context menus, pickers) can be opened and survives into the shot — plain Capture can never contain one
@@ -486,6 +499,13 @@ screenshots the app to confirm visual fixes; the build only proves the code comp
 - **`NumberBox`/`TextBox` vertical centering** breaks under a fixed `Height` (the inner ScrollViewer top-aligns).
   Give the box **no fixed `Height`** (let it auto-size; center the box with `VerticalAlignment`) — or template the
   `ContentElement` ScrollViewer to `VerticalAlignment=Center`.
+- **A row template's root `Background="Transparent"` is hit-test surface, not decoration** — it is what makes
+  a row's empty cells raise the pointer events that reveal the edit glyph, so **never repaint the template
+  root to carry a full-row visual**. Any row-spanning fill (the filter wash; a future banding or highlight)
+  goes in a **`Border` underlay placed behind the cells and spanning the intended columns**, leaving the root
+  transparent (2026-08-05, `openspec/changes/archive/2026-08-05-filter-colored-rows/design.md` D4). Painting
+  the root instead kills hover on every empty cell in the row — a silent editability regression, not a
+  visual one.
 
 ## When you add a UI element — checklist
 

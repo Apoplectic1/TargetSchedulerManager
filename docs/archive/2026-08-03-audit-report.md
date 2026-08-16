@@ -1,5 +1,12 @@
 # 2026-08-03 — Docs-architecture audit report
 
+> **ARCHIVED 2026-08-16 — cycle terminal.** All ten doc-fix groups (G1–G9) were applied the day this was
+> written, and the sole report-only finding **RP-1** was resolved the same day by user directive (option (b):
+> `VERIFICATION.md` now states the xUnit1051 `NoWarn` as the standing decision — verified live at
+> `VERIFICATION.md` → *Tests* against `TargetSchedulerManager.App.Tests.csproj`). Nothing here is open.
+> Kept as the method + coverage record for the 2026-08-03 audit (the fan-out shape the 2026-08-16 maintain
+> sweep reused) — read it as history, not as a list.
+
 Multi-agent audit of the reference tier (CLAUDE.md router + ARCHITECTURE · SUBSYSTEMS · CONVENTIONS ·
 DOMAIN · ROADMAP · TS-SCHEMA · VERIFICATION · README), two axes: **placement** (section vs charter) and
 **currency** (claim vs live code). 60 workers (Sonnet 5 at high effort, rounds 1–4 loop-until-dry; Opus 5

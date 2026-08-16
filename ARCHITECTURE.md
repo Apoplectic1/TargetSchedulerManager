@@ -81,10 +81,19 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
 - **Catalog DB location (when built):** `E:\Photography\Astro Photography\Processing\Catalog\Catalog.db`
   (co-located with the data it indexes). Currently unbuilt — nothing consumes it yet; ISM will own it.
 - **Catalog export (2026-08-12, TSM's one ISM-era duty):** every committed push also projects the applied
-  **user-authored** entries into ISM's catalog inbox (`…\Catalog\inbox\`, JSONL contract-v1 upserts —
-  "authored intent as committed to TS"; write-back origin never emits). TSM never opens `Catalog.db`, and
-  the feed dies with TSM at TS retirement. Mechanism: `SUBSYSTEMS.md` → *TS sync model*; contract
-  `openspec/specs/catalog-export/`.
+  **user-authored** entries into ISM's catalog inbox (`…\Catalog\inbox\`, JSONL upserts —
+  "authored intent as committed to TS"; write-back origin never emits). **Push is no longer the sole
+  emitter** (2026-08-12 `add-target-rename`, widened 2026-08-13): every pull also emits the
+  externally-authored target- and project-row changes it *observes arriving* as full-value upserts, so
+  intent authored in TS's own UI on BIRDWATCHER reaches the store too (existing rows only — remotely-added
+  rows and inbound plan/template changes stay silent). The contract is at **v2** (2026-08-13
+  `add-inbox-v2-emission`, bilateral with ISM — neither half ships alone): envelope `v: 2`,
+  `project-upsert` carries the full settings block + `is_mosaic`, the template mirror carries the
+  moon-relax triplet, and TS's altitude sentinels emit as null per the importer-pinned translation table.
+  TSM never opens `Catalog.db`, and the feed dies with TSM at TS retirement. Mechanism: `SUBSYSTEMS.md` →
+  *TS sync model*; contract `openspec/specs/catalog-export/`; shipped rationale (including why the path
+  keeps zero origin bookkeeping) → `openspec/changes/archive/2026-08-12-add-catalog-export-duty/design.md`
+  + `…/2026-08-13-add-inbox-v2-emission/design.md`.
 - **Reconciliation:** coordinate-primary, scope-equal — every disk unit (a top-level dir OR one mosaic panel)
   carries a *scope key* (the default scope for top-level units; the mosaic's normalized name for its panels;
   none for a mosaic parent, which matches by project name — tolerating a trailing `- Above N` altitude
@@ -139,9 +148,10 @@ Tom Palmer's TS database; its grid replaces XFM's Target Scheduler tab (already 
   stories (a non-serving cell on the surgical path surfaces as a `FramingMismatch` note, never a silent
   skip). Tolerances are constants on `FramingCluster`, not settings (measured: real framings ≥ 9° apart,
   jitter ≤ 0.2°). Editing a target's `rotation` re-keys pairing AND re-credits write-back — the first edit
-  that changes row *identity*. Since 2026-08-03 a pairing-key edit (rotation; plan `exposure`; template
-  `gain`/`offset`/`bin`/`defaultexposure`/`filtername`/`name`) ends the editor session with a no-pull
-  re-reconcile, so reshaped rows appear when the dialog closes, not on the next manual reload.
+  that changes row *identity*. Since 2026-08-03 a pairing-key edit (rotation; target `name`, which is group
+  identity rather than a capture-configuration key — added 2026-08-12 with the rename verb; plan `exposure`;
+  template `gain`/`offset`/`bin`/`defaultexposure`/`filtername`/`name`) ends the editor session with a
+  no-pull re-reconcile, so reshaped rows appear when the dialog closes, not on the next manual reload.
 - **The badge prices itself: `framing 57%`** (2026-07-29, openspec `framing-overlap-column`) — the share of
   a cluster's own footprint landing inside the plan's, both rectangles the **cluster's own sensor** (so no
   neighbouring framing's camera can move the number), centered/rotated per plane on a tangent plane with

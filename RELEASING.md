@@ -69,6 +69,13 @@ git push origin main vX.Y.Z
   directory* with no repo/package cross-check — a wrong cwd uploads another app's payload
   (2026-08-06: a drifted shell published TP 1.3.3 assets as XFM v2.2.1; caught and deleted in
   a minute). `release.ps1` is immune — it pins the repo root.
+- **A stale build directory is structurally unshippable** (2026-08-10, after v1.5.3 shipped a payload
+  built from the wrong path). `release.ps1` derives the publish path from the csproj's own
+  `TargetFramework` rather than repeating it as a literal — so a TFM bump can't leave the script
+  packing yesterday's folder — and then **gates the packed exe's MinVer stamp against the release
+  tag**, aborting when they disagree. Between them the two checks make "packed something that isn't
+  this tag" a failed release instead of a published one. Don't hand-edit a path around either gate;
+  if one fires, the build tree is what's wrong.
 
 ## README = storefront
 

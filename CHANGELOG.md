@@ -11,6 +11,21 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ DECIDED 2026-08-16 — docs-architecture MAINTAIN sweep: 12 graduates landed, 4 prunes cut, 2 code bugs
+raised.** Fourth TSM maintain sweep (13 workers over three rounds — Sonnet 5 high, Opus 5 diversification —
+across the 13 openspec changes archived 2026-08-02 → 08-13, both new NOTEBOOK entries, ~30 CHANGELOG
+entries, and the older live journal re-judged). 132 items classified, **109 keep** — the shift-left rule
+working. Landed: the `MirrorPlanEdit` plan-not-instance mirror rule (UI); catalog-export at **v2** + *pulls
+also emit* (ARCHITECTURE + router); target `name` as a re-reconcile trigger (ARCHITECTURE + UI); the
+transparent-root-is-hit-test-surface gotcha (UI); TS's runtime-never-writes-`project` verification and the
+adopted-target column defaults (TS-SCHEMA); the **clock seam / zero ambient reads** convention and the
+Ctrl+N-window-is-the-Library's boundary (CONVENTIONS); mechanical-rotation-is-a-flag (DOMAIN); window-title
+and release-script-gate rules (UI, RELEASING). Cut: ROADMAP's clock-seam and doc-system-closed sections
+struck, the °(M) deferred bullet condensed, and the 2026-08-03 audit report archived. **Two report-only code
+bugs** raised, unadjudicated — the open-time Push path never emits to ISM's inbox, and a rule-#16 `?? 0` in
+the exporter — plus one held portfolio-level truth (the AL-release payload realignment practice) awaiting a
+placement decision. Report: `docs/2026-08-16-maintain-report.md`; open items in ROADMAP.
+
 **▶ SHIPPED 2026-08-13 — `add-inbox-v2-emission`: the feed speaks contract v2 (settings travel;
 observed emission covers project rows)** — TSM's half of the coordinated v-bump (paired ISM
 `add-inbox-contract-v2`; neither ships alone; **live ceremony PASS same day** — real
@@ -242,7 +257,7 @@ like the per-cell verb was.
 60-worker audit's 10 adjudicated groups landed (`344233d` — adoption-verb absolutes, acquired-basis
 `remaining`, centered-columns rules, the flyout→dialog terminology sweep, `CLAUDE.md` invariants trimmed to
 names + hooks with `ARCHITECTURE.md` → *Key facts* as single source, ROADMAP Status condensed, R28 count
-de-values; report: `docs/2026-08-03-audit-report.md`). Same session: the audit's one report-only flag
+de-values; report: `docs/archive/2026-08-03-audit-report.md`, archived 2026-08-16). Same session: the audit's one report-only flag
 resolved (VERIFICATION now states the xUnit1051 NoWarn as the standing decision) and the held **`DOMAIN.md`
 split executed** — **`UI.md`** (new) carries the UI design language (grid idiom → checklist, TS sync
 display, WinUI gotchas), `DOMAIN.md` keeps the domain conventions (*What TSM is for* + *TS authoring

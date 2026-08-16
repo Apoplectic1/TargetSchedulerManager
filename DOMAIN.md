@@ -36,6 +36,12 @@ Four standing truths follow, and they settle most arguments about the grid:
   camera is remounted (measured drifting 19–35° across sessions, precisely on the multi-framing targets), so
   a conversion would silently mislabel the exact rows the framing key exists to expose. Mechanical rotation
   is shown marked (`°(M)`), clusters frames disk-side, and never enters the plan comparison.
+  **It is a flag, not data** (user, 2026-08-07): TSM *detects* mechanical-only rotation — the `°(M)` marker,
+  the `no-rotation` badge, one Info line per affected target in the ambiguity report — and builds **no solver
+  integration and no mechanical→sky machinery**. The remedy is always external: run XFM (its checked browse
+  solves and stamps `OBJCTROT`), rescan, flag clears. That is why the ASTAP-assisted seed sketched in 2026-08-04
+  was dropped rather than deferred. When TSM does consume solved sky angles, it reads them through AL's
+  `WcsOrientation`, never raw `OBJCTROT` — the PA ≡ PA+180 fold is a named property in AL, not hand math here.
 - **TS's `acquired` counts only frames that serve the plan's framing** (user decision 2026-07-29, after the
   Tulip confusion: TS said 32/80 acquired while zero captured frames matched the re-framed 160° plan).
   Write-back credits by the same serving rule the pairing test uses, so a re-framed target stamps its true

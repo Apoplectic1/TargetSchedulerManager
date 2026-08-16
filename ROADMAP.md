@@ -5,7 +5,7 @@ shipped history (every unit, newest-first) lives in `CHANGELOG.md` (git is the c
 
 Phased build. Each phase stands on its own. See `ARCHITECTURE.md` for the design.
 
-## Status — pick up here (2026-08-06)
+## Status — pick up here (2026-08-16)
 
 TSM is the WinUI **TS-database manager**, app-only (CLI removed 2026-06-11): a reconciliation grid of TS plan vs
 disk-ACTUAL — fresh in-memory scan each load (no `Catalog.db`), rows keyed by the **capture-configuration cell**
@@ -20,35 +20,39 @@ dialog, one atomic insert batch; specs `disk-row-adoption` + `target-and-plan-fl
 Actual-only, with mosaics resolved per panel; live counts show in the app + `tsm.log` (not pinned here — they
 move with every edit and every imaging night). Match tolerance **0.5°** (validated 2026-06-04).
 
-**Where things stand:** everything through 2026-08-06 (`project-scoped-tonight` — the toolbar as a
-read/write window onto a project's TS constraints, Set writes + scoped enable pass, name tracks the
-"- N" altitude clause — plus `dialog-behaviors-on-type` and `filter-rank-row-order`) has shipped, been
-field-verified, and archived — 16 capability specs
-under `openspec/specs/`; current release **TSM v1.4.0 on AL v1.4.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
+**Where things stand:** everything through 2026-08-13 (`add-inbox-v2-emission` — the ISM catalog feed at
+contract v2, project settings and observed inbound changes travelling; preceded by `add-target-rename`,
+`add-catalog-export-duty`, and the 2026-08-06 `project-scoped-tonight` toolbar window) has shipped, been
+field-verified, and archived — one capability spec per shipped capability
+under `openspec/specs/`; current release **TSM v1.5.5 on AL v1.9.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
 change `velopack-self-update`, formal contract → spec `self-update`; the current version is the latest tag —
 rules in `RELEASING.md`). The load-split idea stays **retired** (2026-07-08: the ~2 s fresh scan is acceptable,
 so the grid can never show stale ACTUAL). The dated unit-by-unit history — every SHIPPED/DECIDED entry this
 section used to narrate — lives in **`CHANGELOG.md`**; this section deliberately doesn't repeat it. The next
 lane is strategic — the **IS transition** (intent store + lift/regenerate), which is *not* TSM work.
 
-### Clock-seam migration — CLOSED 2026-08-11 (same day, two passes)
+### Doc-system open items (from the 2026-08-16 maintain sweep — full rails in `docs/2026-08-16-maintain-report.md`)
 
-AL's `IClock` is the portfolio's single clock source (AL `CONSUMERS.md` clock convention).
-`MainViewModel` adopted it first (settable `Clock` property, all four `Reports.cs` reads); the
-service-layer residue followed the same day — `TsJournal` / `TsSync` grew an optional
-`IClock? clock = null` ctor parameter (sync threads its clock down into the journal it owns),
-`ReconciliationLoader.ResolveAsync` an optional trailing parameter. **TSM now has zero ambient
-clock reads** (grep-verified); provenance timestamps (journal entries, sync baselines, scan
-stamp) are all seam-routed — which ISM inherits when it copies the sync/journal shapes.
-
-### Doc-system open items
-
-**All closed 2026-08-03.** Both 2026-07-29 maintain-sweep held graduates landed: the `DOMAIN.md` split
-(→ `UI.md`, carrying held graduate H2 — the deliberate `PlanSeconds == 0` em-dash conflation — in its
-*em-dash convention*), and H1 — the `Astronomy.Diagnostics` ≠ `Astronomy.Catalog` boundary rationale —
-placed by user decision in **Library `ARCHITECTURE.md` → § Astronomy.Diagnostics**. Rails in
-`docs/2026-07-29-maintain-report.md`; the 2026-08-03 audit's one report-only flag is also resolved
-(`docs/2026-08-03-audit-report.md`). Nothing open.
+- **CB-1 · code bug, unadjudicated — the open-time "Push" path doesn't emit to ISM's inbox.**
+  `MainViewModel.Sync.cs:246` (the `OpenDirtyDecision.Push` branch of `PrepareTsForLoadAsync`) commits
+  the journal to BIRDWATCHER and returns without calling `ExportToCatalogInboxAsync` or
+  `EmitObservedInboundAsync` — only the toolbar Push path (`:319-321`) emits. The `catalog-export`
+  spec says emission happens "at exactly one point: after a successful push-as-replay commit"; there
+  are two such commits. Field shape: edit → close without pushing → reopen → choose **Push** at the
+  dirty prompt ⇒ the edits reach TS but never reach `Catalog.db`.
+- **CB-2 · code bug, unadjudicated — a rule-#16 silent default in the exporter.**
+  `Services/CatalogInboxExporter.cs:416` reads `project.horizonoffset` as `AsDouble(r[9]) ?? 0`,
+  fabricating `horizon_offset_deg: 0`, while the sibling required field `minimumtime` on the same line
+  is hard-cast. Mitigating: TS declares `horizonOffset` as a non-nullable `double`
+  (`Database/Schema/Project.cs:57`), so the `?? 0` can only fire on a corrupt or foreign row — it is
+  rule-#16 cruft to delete rather than a live fabrication, but the asymmetry is the tell.
+- **Portfolio-level truth with no home — the AL-release payload realignment practice.** Every AL
+  release (including docs-only ones, and ones changing nothing the app consumes) triggers a same-day
+  re-cut of all three app installers purely so the embedded `Astronomy.*` stamps match — visible three
+  times in this window alone (TSM v1.4.1 / v1.5.2 / v1.5.4). It spans TP/TSM/XFM, so no TSM doc's
+  charter can own it, and the container (`..\`) has no portfolio `DOMAIN.md`. **Needs a placement
+  decision** (M15 forbids improvising one): a new portfolio `DOMAIN.md`, the container `CLAUDE.md`'s
+  existing *Cross-repo release ordering* section, or each app's own `RELEASING.md`.
 
 ### Queued — project-name clause parses back into min altitude (user, 2026-08-12)
 
@@ -77,14 +81,12 @@ in `CHANGELOG.md` and pinned in `ARCHITECTURE.md` → *Key facts*.
   mechanical→sky machinery.** *(Original sketch kept for the record: plate-solve a representative
   frame of the serving framing cluster to seed the true sky angle, with design questions on ASTAP
   detection, frame choice, offer-vs-auto-seed, and timing.)*
-- **°(M)/mechanical rotation is a flag, not data (user, 2026-08-07)** — mechanical-only rotation is
-  detected (the existing ambiguity report already surfaces it — also the verification tool for the
-  next point) and shown as a simple flag whose remedy is always external: **run XFM** (checked
-  browse solves + stamps `OBJCTROT`) → rescan → flag clears. Background: the user manually removed
-  the °(M) backlog from the image library on 2026-08-07, and XFM's solve-on-browse should prevent
-  recurrence from their own captures — the flag guards the residual cases (XFM not yet run, other
-  capture programs, third-party images). The solved-rotation read constraint (previous bullet)
-  is unchanged: framings consume solved angles only, through AL's `WcsOrientation`.
+- ~~**°(M)/mechanical rotation**~~ — **decided and shipped, not deferred**: it is a flag, not data
+  (user, 2026-08-07; the ambiguity-report enumeration shipped in v1.5.0). The standing rule now lives in
+  `DOMAIN.md` → *What TSM is for*. Background kept here because it explains the bullet above's death: the
+  user manually cleared the °(M) backlog on 2026-08-07 and XFM's solve-on-browse prevents recurrence from
+  their own captures, so the flag only guards residual cases (XFM not yet run, other capture programs,
+  third-party images) — not enough to justify a solver in TSM.
 - **Constraint on any solved-rotation consumption (2026-08-07):** when TSM starts reading plate-solved sky
   angles for framings — the XFM-stamped `OBJCTROT` backlog rescan, or the ASTAP-assisted seed above — read
   orientation **through AL's `WcsOrientation`** (`PositionAngleDegrees` true 0–360 / `FramingAngleDegrees`

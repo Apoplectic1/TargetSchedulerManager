@@ -139,6 +139,19 @@ like removing a duplicate and actually breaks one of the two callers:
 
 Both are written as comments at the enforcement point, per the rule above. If you find a third, add it here.
 
+## Time comes through the clock seam — no ambient reads
+
+TSM reads **no** ambient clock: every time value comes from an injected `Astronomy.Core` `IClock`
+(`DateTime.UtcNow`/`Now` appear nowhere in app code — grep-verified at the 2026-08-11 migration, and the
+count stays 0). That covers journal entry stamps, sync baseline `RecordedAt`, the resolve's scan stamp, the
+Visible-Tonight planning input, and report "generated at" stamps and filenames. The seam is plumbed as an
+**optional trailing parameter** so no call site is forced to care: `MainViewModel` exposes a settable
+`Clock`; `TsJournal`/`TsSync` take `IClock? clock = null` (sync threads its clock down into the journal it
+owns); `ReconciliationLoader.ResolveAsync` takes one likewise. New code that needs *now* takes the clock the
+same way rather than reaching for the static — the point is that every provenance stamp is testable and that
+ISM inherits a clean seam when it copies the sync/journal shapes. The clock convention itself is AL's
+(`..\Library\CONSUMERS.md`); this is TSM's adoption of it.
+
 ## A note on long methods
 
 `TargetResolver.Resolve` is ~310 lines of sequential phases and is **deliberately not decomposed**: 28 locals
@@ -159,3 +172,11 @@ object exists to remove (`openspec/changes/archive/2026-07-24-row-param-objects/
 No-migration / no-back-compat, and fail-fast on input-contract violations, are **global** rules that apply to
 every project in this portfolio — they live in `~/.claude/CLAUDE.md` (rules 15 and 16) and are not restated
 here. UI look-and-feel conventions are `UI.md`'s; domain conventions are `DOMAIN.md`'s. Build and test mechanics are `VERIFICATION.md`'s.
+
+**The Ctrl+N diagnostics window is not this repo's code** (graduated to the Library 2026-08-10,
+`diagnostics-portable-core`). The window, the capture / delayed-capture / checkpoint flow, its
+`UiTask.FireAndLog` wrap and the observation session all live in
+`..\Library\Astronomy.Diagnostics.WinUI` (`DiagnosticsWindow.ShowOrFocus`); TSM supplies only the icon path
+and the accelerator wiring, and `ObservationSession.Begin` is no longer called app-side. The app-side
+`Support\DiagnosticsWindow.cs` was deleted — don't reintroduce a local copy or patch behavior here; fix it in
+the Library so TP and every other consumer gets the same window.

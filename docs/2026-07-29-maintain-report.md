@@ -30,6 +30,12 @@ repeatedly found their candidate already sitting in a spec or reference doc with
 
 ## Held graduates — recorded, NOT applied
 
+> **BOTH CLOSED 2026-08-03** (annotated by the 2026-08-16 maintain sweep, which found them still reading as
+> open). **H1** landed by user decision in the **Library's** `ARCHITECTURE.md` → § `Astronomy.Diagnostics`.
+> **H2** landed with the `DOMAIN.md` split the same day: the display half became **`UI.md`**, and the
+> deliberate `PlanSeconds == 0` conflation sits in its *em-dash convention* section. The rails below are kept
+> as the record of why each was held rather than applied in place — read them as history, not as a queue.
+
 ### H1 — `Astronomy.Diagnostics` is deliberately not `Astronomy.Catalog` *(portfolio-level, M15)*
 
 - **standing-claim:** Shared app-observation tooling (logging, screen capture) stays out of
