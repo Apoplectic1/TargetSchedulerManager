@@ -138,7 +138,12 @@ two sidecars beside the local db (`*.tsm-sync.json` baseline, `*.tsm-edits.jsonl
   `tsm-<stamp>.jsonl` per push, published atomically (`.partial` → rename, so ISM's `*.jsonl` glob never
   sees a torn file) into `DevDefaults.CatalogInbox` (created if missing). An export fault never touches
   the push outcome or the journal: loud log + `CATALOG EXPORT FAILED` status suffix (rule #16); idempotent
-  upserts make redo-and-re-push the whole recovery story. Writer side of
+  upserts make redo-and-re-push the whole recovery story. The row read takes the same posture on the columns
+  TS declares non-nullable (`horizonoffset`, `exposure`, `defaultexposure`): a null **aborts naming the row
+  and column** rather than defaulting — a fabricated `0` would reach ISM as an authored value
+  indistinguishable from a real one, and 0 seconds is a *literal* exposure here (the `?? 0`/`?? -1` defaults
+  were removed 2026-08-16, maintain-sweep CB-2). Sentinel translation is a different thing and still
+  happens: a real `0.0` altitude bound or `-1` exposure maps to the contract's null. Writer side of
   `..\IntervalSchedulerManager\docs\design\catalog-inbox-contract.md`; spec
   `openspec/specs/catalog-export/`; **TSM never opens `Catalog.db`** — in code or tests.
 - **Observed emission rides every pull (2026-08-12, openspec `add-target-rename` — the push is no longer

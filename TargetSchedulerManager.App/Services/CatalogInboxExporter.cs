@@ -413,7 +413,8 @@ internal static class CatalogInboxExporter
             "usecustomhorizon, horizonoffset, meridianwindow, filterswitchfrequency, ditherevery, " +
             "smartexposureorder, isMosaic FROM project"))
             projects.Add(new((long)r[0]!, (string?)r[1], (string)r[2]!, (long)r[3]!, (long)r[4]!,
-                (long)r[5]!, AsDouble(r[6]), AsDouble(r[7]), (long)r[8]! != 0, AsDouble(r[9]) ?? 0,
+                (long)r[5]!, AsDouble(r[6]), AsDouble(r[7]), (long)r[8]! != 0,
+                Required(r[9], "project", r[2], "horizonoffset"),
                 (long?)r[10], (long?)r[11], (long?)r[12], (long)r[13]! != 0, (long)r[14]! != 0));
 
         List<InboxTargetRow> targets = [];
@@ -424,7 +425,7 @@ internal static class CatalogInboxExporter
         List<InboxPlanRow> plans = [];
         foreach (object?[] r in Rows(c, "SELECT Id, guid, targetid, exposureTemplateId, exposure, desired, enabled FROM exposureplan"))
             plans.Add(new((long)r[0]!, (string?)r[1], (long)r[2]!, (long)r[3]!,
-                AsDouble(r[4]) ?? -1, (long)r[5]!, (long)r[6]! != 0));
+                Required(r[4], "exposure plan", r[1] ?? r[0], "exposure"), (long)r[5]!, (long)r[6]! != 0));
 
         List<InboxTemplateRow> templates = [];
         foreach (object?[] r in Rows(c,
@@ -432,7 +433,8 @@ internal static class CatalogInboxExporter
             "twilightlevel, moonavoidanceenabled, moonavoidanceseparation, moonavoidancewidth, " +
             "moonrelaxscale, moonrelaxmaxaltitude, moonrelaxminaltitude FROM exposuretemplate"))
             templates.Add(new((long)r[0]!, (string?)r[1], (string)r[2]!, (string)r[3]!,
-                (long)r[4]!, (long)r[5]!, (long)r[6]!, (long)r[7]!, AsDouble(r[8]) ?? 0,
+                (long)r[4]!, (long)r[5]!, (long)r[6]!, (long)r[7]!,
+                Required(r[8], "exposure template", r[2], "defaultexposure"),
                 (long)r[9]!, (long)r[10]! != 0, AsDouble(r[11]), AsDouble(r[12]),
                 AsDouble(r[13]), AsDouble(r[14]), AsDouble(r[15])));
 
@@ -456,6 +458,16 @@ internal static class CatalogInboxExporter
     // SQLite column affinity can hand back INTEGER for whole REAL values — box both to double.
     private static double? AsDouble(object? value) =>
         value is null ? null : Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
+    // A required real column. TS declares every one of these non-nullable (`exposure` is even [Required]),
+    // so a null here is a broken input, never a case to default: a fabricated 0 would travel to ISM as an
+    // authored value indistinguishable from a real one — a 0° horizon offset, a 0-second exposure — and
+    // exposure 0 is *literal* in this domain. Abort naming the row and column (rule #16), never `?? 0`.
+    // Not a plain `(double)` cast: the affinity note above is exactly why the coercion has to stay.
+    private static double Required(object? value, string table, object? identity, string column) =>
+        AsDouble(value) ?? throw new InvalidOperationException(
+            $"catalog export: {table} \"{identity}\" has NULL {column} — TS declares that column " +
+            "non-nullable, so the local copy is broken; refusing to fabricate an authored value");
 
     // ---- the atomic file publish --------------------------------------------------------------------------
 

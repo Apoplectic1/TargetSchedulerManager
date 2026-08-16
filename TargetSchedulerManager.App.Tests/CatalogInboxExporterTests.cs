@@ -458,6 +458,38 @@ public class CatalogInboxExporterTests
         Assert.Equal("J2000", t.GetProperty("epoch").GetString());
     }
 
+    [Theory]
+    [InlineData("UPDATE project SET horizonoffset = NULL", "horizonoffset")]
+    [InlineData("UPDATE exposureplan SET exposure = NULL", "exposure")]
+    [InlineData("UPDATE exposuretemplate SET defaultexposure = NULL", "defaultexposure")]
+    public void ReadRows_NullInARequiredColumn_AbortsNamingIt_NeverFabricates(string nullOut, string column)
+    {
+        // CB-2 (2026-08-16 maintain sweep): these three columns are non-nullable in TS's own schema
+        // (`exposure` is [Required]), so the old `?? 0` / `?? -1` defaults could only ever fire on a broken
+        // local copy — and would have shipped a fabricated authored value to ISM indistinguishable from a
+        // real one (a 0° horizon offset; a 0-second exposure, which is LITERAL in this domain; an
+        // inherit-the-template exposure plan). Rule #16: abort naming the row and column.
+        string dir = SyncTestEnv.NewDir();
+        string db = Path.Combine(dir, "local.sqlite");
+        CreateTsDb(db);
+        Exec(db, nullOut);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => CatalogInboxExporter.ReadRows(db));
+
+        Assert.Contains(column, ex.Message);
+        Assert.Contains("refusing to fabricate", ex.Message);
+    }
+
+    private static void Exec(string dbPath, string sql)
+    {
+        using SqliteConnection c = new(new SqliteConnectionStringBuilder { DataSource = dbPath, Pooling = false }.ToString());
+        c.Open();
+        using SqliteCommand cmd = c.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
     [Fact]
     public void BuildObservedLines_GuidMissingFromLocalDb_ThrowsLoudly()
     {

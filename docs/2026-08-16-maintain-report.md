@@ -89,7 +89,7 @@ the parameter `p`; not standing truth.
 **MAINTAIN never edits code.** Both were found by the Opus contract-vs-code worker and independently
 verified at the cited lines before being written here.
 
-> **CB-1 FIXED same day** (see the closing note under it). CB-2 remains open.
+> **BOTH FIXED same day** (see the closing note under each).
 
 ### CB-1 — the open-time "Push" path never emits to ISM's inbox *(high)*
 
@@ -131,6 +131,19 @@ verified at the cited lines before being written here.
   (`TargetScheduler/…/Database/Schema/Project.cs:57`), so the `?? 0` can only fire on a corrupt or foreign
   row. It is rule-#16 cruft to delete rather than a live fabrication — but the asymmetry with its neighbour
   is the tell, and a fabricated authored value is the one thing the inbox contract must never carry.
+- **FIXED 2026-08-16** (same session, user-directed). Fixing it surfaced **two more of the same class** in
+  the adjacent reads — `exposure` as `?? -1` (line 427) and `defaultexposure` as `?? 0` (line 435) — both
+  also non-nullable in TS (`exposure` carries `[Required]`), and both worse in consequence: `-1` is the
+  *inherit-the-template* sentinel and `0` is a **literal** zero-second exposure in this domain, so either
+  default would have published a plausible authored value rather than an obviously broken one. Rule #16's
+  "when you meet an EXISTING such fallback during related work, remove it and route to the abort path"
+  makes fixing the set the correct scope, not scope creep. One shared `Required(value, table, identity,
+  column)` helper now aborts naming the row and the column; the `AsDouble` coercion stays inside it,
+  because SQLite affinity can hand back INTEGER for a whole REAL and a plain `(double)` cast would throw
+  `InvalidCastException` on a legitimate value. Checked before landing: TSM's own adoption insert always
+  writes `exposure` explicitly (`AdoptionPlanner.cs:399` — the `-1.0` sentinel or the disk seconds), so no
+  TSM-created row can trip the new abort. Test
+  `ReadRows_NullInARequiredColumn_AbortsNamingIt_NeverFabricates` covers all three columns. Suite 458 green.
 
 Both are tracked as one line each in `ROADMAP.md` → *Doc-system open items* (M13).
 

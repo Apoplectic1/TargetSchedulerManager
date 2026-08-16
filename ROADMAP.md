@@ -40,12 +40,13 @@ lane is strategic — the **IS transition** (intent store + lift/regenerate), wh
   Both push surfaces now go through one `MainViewModel.PushAndExportAsync`, so the emission rides the
   commit rather than the surface; spec wording widened from "exactly one point" to every committed
   push, with a scenario for the dirty-prompt path, and a regression test pins it.
-- **CB-2 · code bug, unadjudicated — a rule-#16 silent default in the exporter.**
-  `Services/CatalogInboxExporter.cs:416` reads `project.horizonoffset` as `AsDouble(r[9]) ?? 0`,
-  fabricating `horizon_offset_deg: 0`, while the sibling required field `minimumtime` on the same line
-  is hard-cast. Mitigating: TS declares `horizonOffset` as a non-nullable `double`
-  (`Database/Schema/Project.cs:57`), so the `?? 0` can only fire on a corrupt or foreign row — it is
-  rule-#16 cruft to delete rather than a live fabrication, but the asymmetry is the tell.
+- ~~**CB-2 · a rule-#16 silent default in the exporter.**~~ **FIXED 2026-08-16.** `horizonoffset`
+  read as `?? 0` — and, found with it, `exposure` as `?? -1` and `defaultexposure` as `?? 0`. All
+  three columns are non-nullable in TS's schema (`exposure` is `[Required]`), so the defaults could
+  only fire on a broken local copy and would have shipped a fabricated authored value to ISM. One
+  shared `Required(...)` read now aborts naming the row and column (rule #16); the coercion stays,
+  since SQLite affinity can hand back INTEGER for a whole REAL. Verified TSM's own adoption insert
+  always supplies `exposure`, so the abort can't fire on a row TSM creates.
 - ~~**Portfolio-level truth with no home — the AL-release payload realignment practice.**~~
   **PLACED 2026-08-16**: the user created a portfolio `..\DOMAIN.md`, so the held graduate landed
   there (§ *Releases* — every AL release re-cuts all three app installers the same day for stamp
