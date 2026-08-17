@@ -11,6 +11,14 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ RELEASED 2026-08-16 — TSM `v1.6.0` on AL `v1.11.0`** — three behavior changes since v1.5.5, all
+field-verified: the shared push funnel (`PushAndExportAsync` — the open-time dirty-prompt push now
+emits to ISM's inbox; maintain-sweep CB-1), required-column aborts in the exporter (`?? 0`/`?? -1`
+removed on `horizonoffset`/`exposure`/`defaultexposure`; CB-2), and the definitional altitude clause
+(below). AL v1.11.0 published first (intent/plan write surfaces + the clause grammar; the Contracts
+suite's stale `target.name`-is-non-editable example fixed en route — the rename verb made it editable
+2026-08-12). Payload stamps clean per the AL gate.
+
 **▶ SHIPPED 2026-08-16 — `project-name-altitude-clause`: the derived project name (base + definitional
 altitude clause)** — user decree: every project name IS `base - N` mirroring `minimumaltitude` (projects
 only, mosaics included; `- 0` = "as low as the horizon allows"; measured same day: all 10 live projects

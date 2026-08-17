@@ -24,7 +24,7 @@ move with every edit and every imaging night). Match tolerance **0.5°** (valida
 contract v2, project settings and observed inbound changes travelling; preceded by `add-target-rename`,
 `add-catalog-export-duty`, and the 2026-08-06 `project-scoped-tonight` toolbar window) has shipped, been
 field-verified, and archived — one capability spec per shipped capability
-under `openspec/specs/`; current release **TSM v1.5.5 on AL v1.9.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
+under `openspec/specs/`; current release **TSM v1.6.0 on AL v1.11.0**; distribution is live on GitHub Releases as a self-updating Velopack installer (openspec
 change `velopack-self-update`, formal contract → spec `self-update`; the current version is the latest tag —
 rules in `RELEASING.md`). The load-split idea stays **retired** (2026-07-08: the ~2 s fresh scan is acceptable,
 so the grid can never show stale ACTUAL). The dated unit-by-unit history — every SHIPPED/DECIDED entry this
