@@ -345,13 +345,17 @@ unreachable; `UI.md` → *WinUI gotchas*) — Floor uses its `DecimalPlaces=1` m
   the project (only-if-changed, compared against the fill snapshot the window holds), then runs both
   stages scoped to that project. *Settings flow down* (TS cascades project constraints to member
   targets at plan time), *state rolls up* (stage 2 derives `project.state` from what the sky left
-  enabled). All mode never writes a constraint. **The name tracks the clause**: a landed
-  `minimumaltitude` write rewrites an existing trailing altitude clause to match — short form "- N"
-  (user 2026-08-06, UI space; legacy "- Above N" recognized and migrated on first write; dash required,
-  end-of-name only) — (its own journaled
-  rename, gated on the altitude outcome — a refused write never renames; clause-less names are never
-  touched; `VisibleTonightPass.RenameForAltitude`). Safe for mosaics because the mosaic name-match
-  strips the clause (2026-08-06). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
+  enabled). All mode never writes a constraint. **The name is composed, not tracked** (openspec
+  `project-name-altitude-clause`, 2026-08-16 — the clause is definitional; supersedes the 2026-08-06
+  rewrite-only rule): after the constraint writes settle, a scoped press journals a rename whenever the
+  stored name differs from `Compose(base, stored minimumaltitude)` — clause-less names gain the clause,
+  legacy "- Above N" names heal, stale clauses rewrite, altitude change or not — making the press a
+  nonconformance remedy (its own journaled rename; a refused altitude write never renames, because
+  composition only uses the value actually stored; `VisibleTonightPass.ComposeRename` over the AL
+  grammar `MosaicConvention.ComposeAltitudeName`/`ExtractBaseName`). The project dialog composes the
+  same way on its name/altitude commits (`ProjectNameComposition` — the Name field edits the *base*;
+  an altitude commit journals the recomposed name as a second write). Safe for mosaics because the
+  mosaic name-match strips the clause (2026-08-06; grammar tightened to the spaced form 2026-08-16). The knob was called **Horizon** until 2026-07-26; renamed **Floor** because the word
 collided with two unrelated "horizon"s in the same files (TS's `usecustomhorizon`/`horizonoffset` columns
 and `Astronomy.Core.Horizons`), and because floor is what the code always called it internally.
 

@@ -301,25 +301,29 @@ public class VisibleTonightPassTests
         Assert.Equal(1, overThirty.Unchanged);   // active stays 0 — no edit under the 30° floor
     }
 
-    // ---- the altitude-clause rename (obs ff07 follow-up: the name must not lie) --------------------
+    // ---- the definitional-clause composition (openspec project-name-altitude-clause: every name is
+    // base + " - N" mirroring the stored altitude; the old never-invent rule is superseded) -----------
 
     [Theory]
-    [InlineData("Nebulae - 45", 30, "Nebulae - 30")]                          // the short authoring form
-    [InlineData("Nebulae - Above 45", 30, "Nebulae - 30")]                    // legacy form migrates to short
+    [InlineData("Nebulae - 45", 30, "Nebulae - 30")]                          // stale clause rewrites
+    [InlineData("Nebulae - Above 45", 30, "Nebulae - 30")]                    // legacy form heals to short
     [InlineData("Mosaic - Clamshell  - 30", 25, "Mosaic - Clamshell - 25")]   // normalizes the stray double space
-    [InlineData("Nebulea - 0", 40, "Nebulea - 40")]                           // 0 ("Off") clause still rewrites
+    [InlineData("Nebulea - 0", 40, "Nebulea - 40")]                           // 0 clause rewrites like any other
     [InlineData("Galaxies - 45", 37.5, "Galaxies - 37.5")]                    // decimal altitude
-    [InlineData("Galaxies - 45", 0, "Galaxies - 0")]                          // writing Off keeps the convention
-    public void RenameForAltitude_RewritesTheClause_ShortForm(string name, double alt, string expected) =>
-        Assert.Equal(expected, VisibleTonightPass.RenameForAltitude(name, alt));
+    [InlineData("Galaxies - 45", 0, "Galaxies - 0")]                          // zero floor composes ("as low as possible")
+    [InlineData("Galaxies", 45, "Galaxies - 45")]                             // clause-less GAINS its clause (definitional)
+    [InlineData("Above the Clouds", 30, "Above the Clouds - 30")]             // "Above" inside a name is base text
+    [InlineData("Abell 2218", 30, "Abell 2218 - 30")]                         // bare-number base composes verbatim
+    [InlineData("Sh2-155", 30, "Sh2-155 - 30")]                               // hyphen-digit base never mis-strips
+    public void ComposeRename_ComposesTheDefinitionalClause(string name, double alt, string expected) =>
+        Assert.Equal(expected, VisibleTonightPass.ComposeRename(name, alt));
 
     [Theory]
-    [InlineData("Galaxies", 30)]                 // no clause — never invent one
-    [InlineData("Above the Clouds", 30)]         // "Above" inside a name is not a clause
-    [InlineData("Abell 2218", 30)]               // space-number without the dash is a NAME, never a clause
-    [InlineData("Nebulae - 30", 30)]             // already accurate — no edit
-    public void RenameForAltitude_YieldsNoEditWhenNoneIsDue(string name, double alt) =>
-        Assert.Null(VisibleTonightPass.RenameForAltitude(name, alt));
+    [InlineData("Nebulae - 30", 30)]             // already composed — no edit
+    [InlineData("Nebulae - 37.5", 37.5)]         // decimal, already composed
+    [InlineData("Nebulea - 0", 0)]               // zero floor, already composed
+    public void ComposeRename_YieldsNoEditWhenAlreadyComposed(string name, double alt) =>
+        Assert.Null(VisibleTonightPass.ComposeRename(name, alt));
 
     // ---- builders ----------------------------------------------------------------------------------
 

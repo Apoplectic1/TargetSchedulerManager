@@ -11,6 +11,27 @@ forward plan + current status and points here; git remains the commit-level back
 
 ---
 
+**▶ SHIPPED 2026-08-16 — `project-name-altitude-clause`: the derived project name (base + definitional
+altitude clause)** — user decree: every project name IS `base - N` mirroring `minimumaltitude` (projects
+only, mosaics included; `- 0` = "as low as the horizon allows"; measured same day: all 10 live projects
+already conformed — zero migration). The name is **derived, never parsed**: the project dialog's Name
+field edits the *base* and composes on commit; an altitude commit journals the recomposed name as a
+second guarded write (two push-review lines); the scoped Set press composes from the stored floor even
+without an altitude change (`ComposeRename` replaces `RenameForAltitude` — the "never invent" branch is
+superseded), so both surfaces are nonconformance remedies. AL side: `MosaicConvention` gains
+`ComposeAltitudeName`/`TryReadAltitudeClause`/`ExtractBaseName` and the clause grammar **tightens to the
+spaced `" - N"` form** (the loose dashed match was only safe while stripping was symmetric; composed
+names make it asymmetric, so `Sh2-155` must never strip on the bare side) — legacy `" - Above N"` no
+longer parses as a clause; base extraction alone strips it, so recomposition heals rather than nests.
+New tripwire: nonconforming project names (clause missing / disagreeing / NULL altitude) are ambiguity-
+report action items with the dialog-or-Set remedy — detect, never auto-rename. Project `name` +
+`minimumaltitude` join the close-time no-pull re-reconcile trigger (grouping identity + the mosaic
+parent's match key; no live mirror — `add-target-rename` D2 extended). Supersedes the queued 2026-08-12
+parse-back unit (no parsing exists to build). New 18th capability spec `project-name-clause`; deltas to
+`schema-driven-field-editor` · `visible-tonight-toggle` · `ts-ambiguity-report` · `target-and-plan-flyouts`.
+Pure sibling `ProjectNameComposition` carries the dialog bookkeeping. Tests AL 345 / App 472, zero
+warnings. Display + push-review verification pending (user).
+
 **▶ DECIDED 2026-08-16 — docs-architecture MAINTAIN sweep: 12 graduates landed, 4 prunes cut, 2 code bugs
 raised.** Fourth TSM maintain sweep (13 workers over three rounds — Sonnet 5 high, Opus 5 diversification —
 across the 13 openspec changes archived 2026-08-02 → 08-13, both new NOTEBOOK entries, ~30 CHANGELOG

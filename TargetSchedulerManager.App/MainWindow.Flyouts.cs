@@ -328,6 +328,20 @@ public sealed partial class MainWindow
     {
         IReadOnlyDictionary<string, object?>? seed = await ViewModel.ReadTsFieldsAsync(table, key, title);
 
+        // The definitional altitude clause (openspec project-name-altitude-clause): a project's stored
+        // name IS base + " - N" derived from minimumaltitude — the dialog edits base and altitude as
+        // separate facts and composes the stored name at commit; typed text is never parsed for an
+        // altitude. All bookkeeping lives in the pure sibling (ProjectNameComposition); this wiring only
+        // reseeds the name field with the base and forwards commits.
+        ProjectNameComposition? composition = table == TsTable.Project && seed is not null
+            ? ProjectNameComposition.TryCreate(seed)
+            : null;
+        if (composition is not null)
+            seed = new Dictionary<string, object?>(seed!, StringComparer.OrdinalIgnoreCase)
+            {
+                ["name"] = composition.BaseName,
+            };
+
         // Live resolver behind the exposure sentinel: the row's effective seconds. The commit path mirrors the
         // row before the control re-consults this (SetPlanExposureAsync resolves the template default via the
         // plan→template join), so after a revert-to-default the box/label show the real default immediately —
@@ -360,7 +374,31 @@ public sealed partial class MainWindow
         UIElement content = TsFieldsEditor.Create(table, title, seed, async (column, value) =>
         {
             bool applied;
-            if (TryCommitMirroredField(group, row, column, value) is { } mirrored)
+            if (composition is not null && column.Equals("name", StringComparison.OrdinalIgnoreCase))
+            {
+                // Base-name commit: compose with the stored altitude — the control holds the base, the
+                // db holds the composition.
+                string composed = composition.ComposeForBase((string)value!);
+                applied = await ViewModel.SetTsFieldAsync(table, key, "name", composed, title);
+                if (applied)
+                    composition.NameApplied(composed);
+            }
+            else if (composition is not null && column.Equals("minimumaltitude", StringComparison.OrdinalIgnoreCase))
+            {
+                // Altitude commit: the write itself, then the recomposed name as its own guarded write
+                // (two push-review lines — the Set-press precedent).
+                applied = await ViewModel.SetTsFieldAsync(table, key, column, value, title);
+                if (applied)
+                {
+                    current[column] = value;
+                    if (composition.AltitudeApplied(
+                            Convert.ToDouble(value!, System.Globalization.CultureInfo.InvariantCulture))
+                        is string composed
+                        && await ViewModel.SetTsFieldAsync(table, key, "name", composed, title))
+                        composition.NameApplied(composed);
+                }
+            }
+            else if (TryCommitMirroredField(group, row, column, value) is { } mirrored)
                 applied = await mirrored;
             else
             {
@@ -447,7 +485,9 @@ public sealed partial class MainWindow
     // in-place mirror can't express — the editor session ends with a no-pull reload instead (obs 4798).
     // Target NAME rides the same trigger for a different reason: not a pairing key but group identity
     // (group header, sort order, name claims, mosaic parent grouping) — only a re-reconcile can move all
-    // of it. Every other column keeps the mirror-only model.
+    // of it. PROJECT name rides it for the same reason (grouping identity + the mosaic parent's match
+    // key), and project minimumaltitude joins because its commit recomposes the name (the definitional
+    // clause — openspec project-name-altitude-clause). Every other column keeps the mirror-only model.
     private static bool IsPairingKey(TsTable table, string column) => table switch
     {
         TsTable.ExposurePlan => column.Equals("exposure", StringComparison.OrdinalIgnoreCase),
@@ -461,6 +501,9 @@ public sealed partial class MainWindow
         TsTable.Target =>
             column.Equals("rotation", StringComparison.OrdinalIgnoreCase)
             || column.Equals("name", StringComparison.OrdinalIgnoreCase),
+        TsTable.Project =>
+            column.Equals("name", StringComparison.OrdinalIgnoreCase)
+            || column.Equals("minimumaltitude", StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 

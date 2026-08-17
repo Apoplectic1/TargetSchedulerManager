@@ -380,9 +380,11 @@ remembering cross-session state (replaced the LIVE/LOCAL radios 2026-07-06).
   are a viewport, switching selections refills over edits), and **Set is the only write gesture** (the button, relabeled from Tonight 2026-08-05): changed
   values journal onto the project before the scoped enable pass runs. Knob ranges are the TS schema's
   (Duration 0–999 whole minutes; Floor 0–89.9° with tenths — `UpDownBox` `DecimalPlaces=1`; TS asserts a
-  minimum altitude below 90), so a fill never silently clamps a stored value. A landed Floor write also
-  rewrites an existing trailing "- N" altitude clause in the project name (legacy "- Above N" migrates;
-  never invented, never on a refused write).
+  minimum altitude below 90), so a fill never silently clamps a stored value. A scoped press also
+  **composes the project name's definitional altitude clause** from the stored floor (openspec
+  `project-name-altitude-clause`, 2026-08-16 — every project name is `base - N`, so clause-less and
+  legacy "- Above N" names gain/heal their clause even without an altitude change; a refused altitude
+  write never renames).
   Mechanics → `SUBSYSTEMS.md` → *Visible-tonight pass*. Ambiguities…
   (enabled once a load exists) writes a dated printable Markdown report of every
   TS/disk ambiguity — what · why · the hand fix in NINA's TS UI — to `%APPDATA%\TargetSchedulerManager\Reports\`

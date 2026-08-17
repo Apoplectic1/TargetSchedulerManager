@@ -112,11 +112,15 @@ internal static class AmbiguityReport
         List<string> duplicates = BuildDuplicateSection(report, graph, ProjectOf, toleranceDegrees, NameInScope, DirInScope);
         List<string> plans = BuildPlanSection(plan, graph, targetById, templateById, PlanLabel, PlanLocation, ProjectOf, IdInScope);
         List<string> templates = BuildTemplateSection(graph, IdInScope, scoped: scope is not null);
+        // Project-in-scope mirrors the other checks' rule: attributable to a visible target.
+        List<string> projectNames = BuildProjectNameSection(ts,
+            pid => scopeNames is null || ts.Targets.Any(t => t.ProjectId == pid && NameInScope(t.Name)));
         List<string> unreadable = BuildUnreadableSection(skippedFiles, PathInScope);
         List<string> info = BuildInfoSection(plan, NameInScope);
         info.AddRange(BuildFramingInfo(graph, report, ProjectOf, IdInScope));
 
-        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count + unreadable.Count;
+        int actionCount = identity.Count + duplicates.Count + plans.Count + templates.Count
+            + projectNames.Count + unreadable.Count;
 
         StringBuilder sb = new();
         sb.AppendLine($"# TS / disk ambiguity report — {generatedAtLocal.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
@@ -142,6 +146,7 @@ internal static class AmbiguityReport
         Section(sb, "Fix in TS — duplicates & twins", duplicates);
         Section(sb, "Fix in TS — exposure plans", plans);
         Section(sb, "Fix in TS — exposure templates", templates);
+        Section(sb, "Fix in TSM — project names (altitude clause)", projectNames);
         Section(sb, "Fix on disk — unreadable files", unreadable);
         Section(sb, "Info (no action needed)", info, clean: "✓ nothing to note");
 
@@ -152,6 +157,41 @@ internal static class AmbiguityReport
     }
 
     // ---- section builders (review N9): one per report section, bodies verbatim from Build ------------------
+
+    /// <summary>The definitional project-name convention (openspec <c>project-name-altitude-clause</c>):
+    /// every project name is base + " - N" mirroring <c>minimumaltitude</c>. Detection compares the
+    /// stored name against its own re-composition — the clause value is READ only to display what the
+    /// wrong name says, never as a write source. Remedy is a TSM gesture (any project-dialog commit, or a
+    /// scoped Set press); the report never renames.</summary>
+    private static List<string> BuildProjectNameSection(TsPlanData ts, Func<long, bool> projectInScope)
+    {
+        List<string> lines = [];
+        foreach (TsProject p in ts.Projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!projectInScope(p.Id)) continue;
+            if (p.MinimumAltitude is not double alt)
+            {
+                // TS declares the column non-nullable — a null is a broken row the report exists to
+                // surface (aborting the report on the defect it reports would be self-defeating).
+                lines.Add(
+                    $"**{p.Name}** — `minimumaltitude` is NULL (TS declares it non-nullable), so the name " +
+                    "cannot be composed.\n  → Repair the project row in NINA's TS UI.");
+                continue;
+            }
+            string expected = Astronomy.Catalog.Scan.MosaicConvention.ComposeAltitudeName(
+                Astronomy.Catalog.Scan.MosaicConvention.ExtractBaseName(p.Name), alt);
+            if (expected == p.Name) continue;
+            string clause = Astronomy.Catalog.Scan.MosaicConvention.TryReadAltitudeClause(p.Name, out double read)
+                ? $"clause says {read.ToString("0.#", CultureInfo.InvariantCulture)}°"
+                : "no altitude clause";
+            lines.Add(
+                $"**{p.Name}** — {clause}; stored minimum altitude is " +
+                $"{alt.ToString("0.#", CultureInfo.InvariantCulture)}°; the convention expects " +
+                $"**{expected}**.\n  → Commit any edit in the project's edit dialog, or press Set with the " +
+                "project selected — either recomposes the name.");
+        }
+        return lines;
+    }
 
     /// <summary>Fix-in-TS identity items: name mismatches (with held-cell notes and the panel-claim
     /// variant), ambiguous coordinate matches, unanchored and invalid TS targets.</summary>

@@ -85,18 +85,31 @@ planning intent — TSM never adds or removes it unasked; TS's *facts about memb
   it for the decision; don't decide for them.
 - **One exposure plan per (filter, purpose, whole-second exposure) per target.** Same filter at *different*
   seconds is fine (different cells, auto-resolve); a same-key second plan makes disk-credit undecidable.
-- **Project names may carry a trailing altitude clause — `… - 30` (short form, 2026-08-06 for UI
-  space; legacy `… - Above 30` still recognized) — and the mosaic name-match tolerates it** (decided 2026-08-06, obs ff07: renaming the mosaic projects to the portfolio's
-  `- Above N` convention silently unmatched every mosaic, because the matcher demanded the bare disk
+- **Every project name IS `base - N` — the altitude clause is definitional** (user decree 2026-08-16,
+  openspec `project-name-altitude-clause`; supersedes the 2026-08-06 may-carry model): the trailing
+  clause mirrors `Project.minimumaltitude` exactly, on every project including mosaics, and `- 0` is a
+  real clause meaning "image as low as the horizon allows" (TS planner: `max(horizon + offset, minAlt)` —
+  0 leaves the horizon governing). The name is **derived, never parsed**: editing surfaces treat base
+  name and altitude as separate facts and compose the stored name on commit (the project dialog's Name
+  field shows the base; an altitude edit journals the recomposed name as a second write; the scoped Set
+  press composes even without an altitude change). The grammar is exactly the spaced `" - N"` — a
+  hyphen-digit designation (`Sh2-155`) is never a clause, and the retired legacy `… - Above N` no longer
+  parses (base extraction alone strips it, so recomposition heals a legacy name rather than nesting it).
+  Nonconforming names (inbound from TS's own UI) are **detected, never auto-renamed** — an
+  ambiguity-report item names the expected composition; the remedy is a dialog commit or a Set press.
+  Measured at the decree: all 10 live projects already conformed — the rule ratified practice.
+  **The mosaic name-match tolerates the clause** (decided 2026-08-06, obs ff07: renaming the mosaic projects to a clause
+  convention silently unmatched every mosaic, because the matcher demanded the bare disk
   directory name). The library strips one trailing clause (`MosaicConvention.StripAltitudeClause` —
-  case/spacing-tolerant, integer or decimal) from BOTH sides before comparing, so
-  `Mosaic - Cygnus Loop - Above 25` matches the `Mosaic - Cygnus Loop` capture directory; the panels'
+  spaced form only since the 2026-08-16 tightening: the loose dashed match was only safe while both sides
+  stripped symmetrically, and composed names make stripping asymmetric) from BOTH sides before comparing, so
+  `Mosaic - Cygnus Loop - 25` matches the `Mosaic - Cygnus Loop` capture directory; the panels'
   coordinate scope keys strip identically (a raw-name scope would pass the parent match yet orphan
-  every panel). Capture directories stay bare — the clause is TS-side authoring metadata only. **The clause is kept
-  true by the scoped Set press** (project-scoped-tonight): a landed `minimumaltitude` write rewrites an
-  existing clause to the new value in the short form ("- 0" = constraint Off, per the TS UI's 0 =
-  "Off"; the dash is required and the clause sits only at the end — "Abell 2218" is a name, not a
-  clause); names without a clause are never renamed.
+  every panel). Capture directories stay bare — the clause is TS-side authoring metadata only. **The clause is
+  kept true by both writing surfaces**: the project dialog composes on every name/altitude commit, and the
+  scoped Set press composes after its constraint writes settle — clause-less and legacy names included
+  (`- 0` composes like any other value; a refused altitude write never renames, since composition only
+  ever uses the value actually stored).
 - **Every TS target carries a rotation (sky angle)** (decided 2026-08-04, obs 7c5e). A TS-backed target
   with NULL rotation — typically adopted from mechanical-only disk framing, which never converts to sky —
   is badged `no-rotation` (warning, target scope; distinct from `framing` = rotation present, frames

@@ -23,8 +23,62 @@ public class AmbiguityReportTests
 
         Assert.Equal(0, r.ActionCount);
         Assert.Contains("All checks clean — 0 action items", r.Markdown);
-        Assert.Equal(5, CountOf(r.Markdown, "✓ none"));           // identity, duplicates, plans, templates, unreadable
+        Assert.Equal(6, CountOf(r.Markdown, "✓ none"));           // identity, duplicates, plans, templates, project names, unreadable
         Assert.Contains("✓ nothing to note", r.Markdown);         // info section's clean marker
+    }
+
+    // ---- the project-name convention tripwire (openspec project-name-altitude-clause) ----------------------
+
+    private static TsProject Project(long id, string name, double? minAlt) =>
+        new(id, "profile", name, 1, Priority: 1, minAlt, IsMosaic: 0, TsGuid: null);
+
+    [Fact]
+    public void ClauseLessProjectName_Flags_WithExpectedComposition()
+    {
+        AmbiguityReportResult r = Build(Graph(),
+            ts: new TsPlanData([Project(1, "Widefield", 30)], [], [], []));
+
+        Assert.Equal(1, r.ActionCount);                            // rides the same tripwire total
+        Assert.Contains("no altitude clause", r.Markdown);
+        Assert.Contains("**Widefield - 30**", r.Markdown);         // the expected composition
+        Assert.Contains("press Set", r.Markdown);                  // the dialog-or-Set remedy
+    }
+
+    [Fact]
+    public void DisagreeingClause_Flags_ShowingBothValues()
+    {
+        AmbiguityReportResult r = Build(Graph(),
+            ts: new TsPlanData([Project(1, "Nebulae - 45", 30)], [], [], []));
+
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("clause says 45°", r.Markdown);            // display-read only — never a write source
+        Assert.Contains("30°", r.Markdown);
+        Assert.Contains("**Nebulae - 30**", r.Markdown);
+    }
+
+    [Fact]
+    public void ConformingProjects_AddNothing()
+    {
+        AmbiguityReportResult r = Build(Graph(),
+            ts: new TsPlanData(
+                [Project(1, "Nebulae - 45", 45), Project(2, "Nebulea - 0", 0),
+                 Project(3, "Mosaic - Pleiades - 50", 50), Project(4, "Galaxies - 37.5", 37.5)],
+                [], [], []));
+
+        Assert.Equal(0, r.ActionCount);
+    }
+
+    [Fact]
+    public void NullMinimumAltitude_FlagsTheBrokenRow_InsteadOfAborting()
+    {
+        // TS declares the column non-nullable — the report surfaces the broken row (aborting the report
+        // on the defect it exists to report would be self-defeating).
+        AmbiguityReportResult r = Build(Graph(),
+            ts: new TsPlanData([Project(1, "Nebulae - 45", null)], [], [], []));
+
+        Assert.Equal(1, r.ActionCount);
+        Assert.Contains("NULL", r.Markdown);
+        Assert.Contains("NINA's TS UI", r.Markdown);
     }
 
     // ---- unreadable files + framing info (openspec framing-overlap-column) ---------------------------------

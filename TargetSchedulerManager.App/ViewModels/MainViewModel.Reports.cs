@@ -199,19 +199,25 @@ public sealed partial class MainViewModel
                 : [];
             constraintsWritten = constraintOutcomes.Count(o => o is EditOutcome.Applied);
 
-            // The name tracks the altitude clause (obs ff07 follow-up: the "- Above N" suffix must not
-            // lie about the constraint it encodes). Renamed only AFTER the altitude write verifiably
-            // landed — a refused constraint must not leave a name asserting it — and only when the name
-            // already carries a clause (the press never invents the convention). Its own tiny batch so
-            // the gating is on the real outcome, not batch position.
-            if (scope is not null && altEditIndex >= 0
-                && constraintOutcomes[altEditIndex] is EditOutcome.Applied
-                && VisibleTonightPass.RenameForAltitude(scope.Name, scope.NewMinimumAltitude!.Value) is string newName)
+            // The name clause is definitional (openspec project-name-altitude-clause): after the
+            // constraint writes settle, a scoped press composes the name from the STORED altitude —
+            // clause-less names gain the clause, legacy/stale clauses rewrite, an already-composed name
+            // is a no-op — so the press is a nonconformance remedy with or without an altitude change.
+            // A refused altitude write skips the rename entirely (compose only from values that actually
+            // landed); with no altitude edit the Floor box IS the stored value (the fill snapshot). Its
+            // own tiny batch so the gating is on the real outcome, not batch position.
+            if (scope is not null)
             {
-                IReadOnlyList<EditOutcome> renameOutcome = await _gate.ApplyManyAsync(
-                    [new TsFieldEdit(TsTable.Project, scope.EditKey, "name", newName, $"{scope.Name} — project")]);
-                constraintsWritten += renameOutcome.Count(o => o is EditOutcome.Applied);
-                renameFailed = renameOutcome.Count(o => o is not EditOutcome.Applied);
+                bool altApplied = altEditIndex >= 0 && constraintOutcomes[altEditIndex] is EditOutcome.Applied;
+                bool altRefused = altEditIndex >= 0 && !altApplied;
+                double storedAlt = altApplied ? scope.NewMinimumAltitude!.Value : floorAltitudeDeg;
+                if (!altRefused && VisibleTonightPass.ComposeRename(scope.Name, storedAlt) is string newName)
+                {
+                    IReadOnlyList<EditOutcome> renameOutcome = await _gate.ApplyManyAsync(
+                        [new TsFieldEdit(TsTable.Project, scope.EditKey, "name", newName, $"{scope.Name} — project")]);
+                    constraintsWritten += renameOutcome.Count(o => o is EditOutcome.Applied);
+                    renameFailed = renameOutcome.Count(o => o is not EditOutcome.Applied);
+                }
             }
 
             try

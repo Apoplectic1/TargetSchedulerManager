@@ -150,21 +150,19 @@ internal static class VisibleTonightPass
         return new VisibleTonightProjectPlan(projectEdits, activated, deactivated);
     }
 
-    /// <summary>The name a project should carry after its <c>minimumaltitude</c> is written to
-    /// <paramref name="newAltitudeDeg"/>, or null when no rename is due: names carrying a trailing
-    /// altitude clause — short "… - 30" or legacy "… - Above 30" — track the field (the clause is
-    /// authoring metadata — the name must not lie about the constraint); a name WITHOUT the clause is
-    /// left alone (the press never invents a naming convention), and an already-accurate name yields
-    /// no edit. Rewrites always emit the SHORT form (user 2026-08-06 — UI space), so a press also
-    /// migrates legacy names and normalizes stray spacing. Stripping rides
-    /// <see cref="MosaicConvention.StripAltitudeClause"/>.</summary>
-    public static string? RenameForAltitude(string name, double newAltitudeDeg)
+    /// <summary>The name a project should carry given its stored <c>minimumaltitude</c>, or null when
+    /// it is already composed. The clause is DEFINITIONAL (openspec <c>project-name-altitude-clause</c>,
+    /// 2026-08-16 — supersedes the never-invent rule): every project name is base + " - N", so a
+    /// clause-less name gains its clause, a legacy "… - Above N" name heals (base extraction strips the
+    /// retired form), and a stale clause rewrites. Composition always derives from the STORED altitude —
+    /// callers must never pass an attempted-but-refused write's value, and nothing ever parses a name to
+    /// obtain an altitude. Grammar rides <see cref="MosaicConvention.ComposeAltitudeName"/> /
+    /// <see cref="MosaicConvention.ExtractBaseName"/>.</summary>
+    public static string? ComposeRename(string name, double storedAltitudeDeg)
     {
-        string baseName = MosaicConvention.StripAltitudeClause(name);
-        if (baseName == name.TrimEnd())
-            return null;   // no clause — never invent one
-        string renamed = $"{baseName} - {newAltitudeDeg.ToString("0.#", CultureInfo.InvariantCulture)}";
-        return renamed == name ? null : renamed;
+        string composed = MosaicConvention.ComposeAltitudeName(
+            MosaicConvention.ExtractBaseName(name), storedAltitudeDeg);
+        return composed == name ? null : composed;
     }
 
     // Stage 1's universe: every project (enables are sky truth), scoped when a press selects one.

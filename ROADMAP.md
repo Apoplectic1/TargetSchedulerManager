@@ -52,18 +52,15 @@ lane is strategic — the **IS transition** (intent store + lift/regenerate), wh
   there (§ *Releases* — every AL release re-cuts all three app installers the same day for stamp
   alignment, even docs-only ones). The container `CLAUDE.md` now routes to it.
 
-### Queued — project-name clause parses back into min altitude (user, 2026-08-12)
+### ~~Queued — project-name clause parses back into min altitude (user, 2026-08-12)~~ SUPERSEDED 2026-08-16
 
-Make the name↔altitude coupling bidirectional on the surface where the "- N" clause convention
-lives: an edit of the **project Name field** (edit dialog) whose committed text carries a trailing
-altitude clause (`" - #"`; legacy `" - Above N"` recognized, same parse the Set press and the mosaic
-name-match use) SHALL also write `Project.minimumaltitude` with the parsed value, **range-checked**
-to the schema bounds (0–89.9 — TS's HorizonDefinition asserts < 90). A name without the clause is a
-name-only edit — **no altitude write**. Today only the inverse exists (Visible-Tonight **Set**
-writes `minimumaltitude` and rewrites the clause), so a hand-edited "… - 45" name leaves the
-altitude stale — exactly the inconsistency this closes. Surface decision (user, this date): the
-project Name field only — the target-rename verb stays clause-free (targets don't carry the
-convention).
+Superseded by openspec **`project-name-altitude-clause`** (user decree: the clause is *definitional* —
+every project name is `base - N` mirroring `minimumaltitude`). The parse-back direction this unit
+described was inverted into **derivation**: the dialog edits base name and altitude as separate fields
+and the stored name is composed at commit, so the write direction contains no parsing at all — which
+also dissolves the unit's whole hazard analysis (a decorative "- 3" misread as a 3° floor). The staleness
+it aimed to close is closed the other way: nonconforming names are tripwired in the ambiguity report,
+and either surface (dialog commit or Set press) recomposes. Targets stay clause-free, as decided.
 
 ### Deferred — the reconciliation dimensions `capture-config-keys` left on the table
 
