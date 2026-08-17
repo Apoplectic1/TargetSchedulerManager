@@ -69,7 +69,6 @@ SHALL be evaluated individually like any other target row.
 - **WHEN** Set is pressed with one project selected while another project contains a target judged not visible tonight with `active = 1`
 - **THEN** that other project's target keeps `active = 1` and no edit is journaled for it
 
-
 ### Requirement: Project state derived from applied target enables
 After the target-flip batch has been applied, the system SHALL recompute effective target enables from
 what actually landed — an applied flip contributes its new value, a refused or failed flip contributes
@@ -101,7 +100,6 @@ target batch applies, and no project outside the universe SHALL have its `state`
 - **WHEN** Set is pressed with one project selected and a different Active project happens to have zero enabled targets
 - **THEN** only the selected project's `state` can change; the other project's `state` is untouched
 
-
 ### Requirement: The pass never writes Draft or Closed project state
 Target enables and project lifecycle are separate concepts: the pass SHALL flip a Draft or Closed
 project's targets like any other project's, but SHALL NOT write such a project's `state` in either
@@ -116,7 +114,6 @@ constraint write like any other project.
 #### Scenario: Draft project accepts a constraint write
 - **WHEN** a Draft project is selected, Floor is changed, and Set is pressed
 - **THEN** the project's `minimumaltitude` is journaled with the new value and its targets flip per the sky, while its `state` stays Draft
-
 
 ### Requirement: Flips are ordinary journaled edits
 All writes SHALL go through the existing schema-driven edit path (`target.active`, `project.state`) so
@@ -171,7 +168,6 @@ user did not choose.
 - **WHEN** the user edits Duration after selecting project A, then selects project B without pressing Set
 - **THEN** the boxes refill from project B and nothing was written for project A
 
-
 ### Requirement: One press, applied summary
 The Tonight button SHALL apply without a confirmation dialog and, on completion, report on the status
 line a summary of targets enabled, targets disabled, targets unchanged, and projects flipped.
@@ -203,6 +199,7 @@ after the exclusion is released.
 - **THEN** the remaining flips in that batch still apply, and the status summary reports the combined failure count
 
 ### Requirement: A scoped press writes the project's constraints before enabling
+
 With a single project selected, the Set press SHALL first journal the project's `minimumtime` from
 Duration and `minimumaltitude` from Floor — each only when the box value differs from the stored value
 — through the ordinary journaled edit path, then run the enable pass using the box values. Settings
@@ -210,39 +207,53 @@ flow down (the write applies to every member target at TS plan time by TS's own 
 up (the enable stage derives project `state` from what the sky left enabled). With All projects
 selected the press SHALL write no project constraint.
 
-The project name SHALL track its altitude clause: when the `minimumaltitude` write verifiably lands
-and the name ends with a trailing altitude clause — the short form "… - N", or the legacy
-"… - Above N" — the press SHALL journal a rename rewriting the clause to the written value in the
-SHORT form (normalizing stray spacing; legacy names migrate on their first write). The clause requires
-the dash and sits only at the end of the name — a name merely ending in a number ("Abell 2218") is
-never a clause. A name without a clause SHALL be left untouched (the press never invents the
-convention); an already-accurate name yields no edit; and a refused or failed altitude write SHALL NOT
-rename — the name must never assert a constraint that did not land.
+The project name SHALL be composed, not tracked: after the press's constraint writes settle, when the
+stored name differs from the composition of its base and the stored `minimumaltitude` (the shared
+grammar; base = name minus any trailing spaced clause), the press SHALL journal a rename to the
+composed form. The clause is definitional (capability `project-name-clause`), so a clause-less name
+gains its clause and a stale or legacy-form (`… - Above N`) name is rewritten — the press is a
+nonconformance remedy, altitude change or not. An already-composed name yields no edit, and a refused
+or failed altitude write SHALL NOT rename — composition always uses the value actually stored, so the
+name never asserts a constraint that did not land.
 
 #### Scenario: Changed values are journaled then applied
+
 - **WHEN** a project fills Duration 60 / Floor 30, the user sets Floor to 40, and presses Set
 - **THEN** `minimumaltitude = 40` is journaled for that project (no `minimumtime` edit), and the enable pass runs with Duration 60 / Floor 40 over that project's targets
 
 #### Scenario: Unchanged values write nothing
-- **WHEN** a project is selected and Set is pressed with both boxes untouched
-- **THEN** no constraint edit is journaled and only the enable pass runs
+
+- **WHEN** a project is selected and Set is pressed with both boxes untouched and the name already composed
+- **THEN** no constraint edit and no rename are journaled — only the enable pass runs
 
 #### Scenario: All mode never writes constraints
+
 - **WHEN** All projects is selected and Set is pressed with any Duration/Floor values
 - **THEN** no project's `minimumtime` or `minimumaltitude` is written
 
 #### Scenario: The name clause follows the altitude write
-- **WHEN** a project named "Nebulae - 45" has its Floor written to 40
-- **THEN** a rename to "Nebulae - 40" is journaled alongside the `minimumaltitude` edit
 
-#### Scenario: A legacy clause migrates to the short form
-- **WHEN** a project named "Nebulae - Above 45" has its Floor written to 40
-- **THEN** the journaled rename reads "Nebulae - 40"
+- **WHEN** a project named `Nebulae - 45` has its Floor written to 40
+- **THEN** a rename to `Nebulae - 40` is journaled alongside the `minimumaltitude` edit
+
+#### Scenario: A clause-less name gains its clause
+
+- **WHEN** a project named `Galaxies` (stored altitude 45) is selected and Set is pressed, Floor untouched
+- **THEN** a rename to `Galaxies - 45` is journaled — the press composes from the stored value
 
 #### Scenario: A clause-less name is never renamed
-- **WHEN** a project named "Galaxies" has its Floor written to 40
-- **THEN** `minimumaltitude` is journaled and the name stays "Galaxies"
+
+- **WHEN** All projects is selected and Set is pressed while a clause-less project exists
+- **THEN** no rename is journaled — only a *scoped* press composes; the All press writes no
+  project constraint and no name
+
+#### Scenario: A legacy clause migrates to the short form
+
+- **WHEN** a project named `Nebulae - Above 45` has its Floor written to 40
+- **THEN** the journaled rename reads `Nebulae - 40` — base extraction strips the retired legacy
+  suffix (capability `project-name-clause`), so composition heals the name rather than nesting it
 
 #### Scenario: A refused altitude write leaves the name alone
+
 - **WHEN** a scoped press's `minimumaltitude` write is refused
 - **THEN** no rename is journaled and the name keeps asserting the value still stored

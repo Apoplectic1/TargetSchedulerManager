@@ -7,7 +7,9 @@ by hand in NINA's TS UI). One report gathers every detected TS/disk ambiguity wi
 hand fix, in rig vocabulary; the status line carries the action count after each load. (The original
 alias-fold informational handling was removed before this capability archived — a multi-claim is always a
 flagged duplicate; see `archive/2026-07-23-remove-alias-fold`.)
+
 ## Requirements
+
 ### Requirement: One printable report rolls up every detected ambiguity
 The app SHALL generate, on the user's demand, a single dated Markdown report containing every ambiguity known
 to the current load — the build report's target issues (name-mismatch, ambiguous match, duplicate fold,
@@ -165,3 +167,28 @@ not a slipped authoring convention.
 - **WHEN** a target's framings all express sky rotation
 - **THEN** no mechanical-rotation line appears for it
 
+### Requirement: Nonconforming project names are report action items
+
+The report SHALL list every project detected as nonconforming under the definitional name convention
+(capability `project-name-clause`) — the stored name lacks the altitude clause, or the clause value
+disagrees with the stored `minimumaltitude`. Each item SHALL state the stored name, the stored altitude,
+the composed name the convention expects, and the hand fix: commit any edit in the project's edit dialog,
+or press Set with the project selected — either recomposes the name. The count SHALL ride the same
+tripwire total as every other action item.
+
+#### Scenario: A clause-less project reports with its expected composition
+
+- **WHEN** a load finds project `Widefield` with `minimumaltitude` 30
+- **THEN** the report carries an action item showing `Widefield`, altitude 30, expected `Widefield - 30`,
+  and the dialog-or-Set remedy, and the status-line tripwire count includes it
+
+#### Scenario: A disagreeing clause reports both values
+
+- **WHEN** a load finds project `Nebulae - 45` with `minimumaltitude` 30
+- **THEN** the report's action item shows the stored clause 45 against the stored altitude 30 and the
+  expected composition `Nebulae - 30`
+
+#### Scenario: Conforming projects add nothing
+
+- **WHEN** every project's name equals its composition
+- **THEN** the report carries no name-convention items and the tripwire count is unchanged

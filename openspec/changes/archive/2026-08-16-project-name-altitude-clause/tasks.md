@@ -38,7 +38,7 @@
 ## 4. Verify + docs (same commit as code)
 
 - [x] 4.1 Full suites green (AL + App), `openspec validate --strict` passes.
-- [ ] 4.2 Display verification (user): grouping headers + VT dropdown show composed names; dialog shows
+- [x] 4.2 Display verification (user): grouping headers + VT dropdown show composed names; dialog shows
   base + altitude; an altitude edit's push review shows both lines; report lists a fabricated
   nonconforming case if convenient.
 - [x] 4.3 Docs: ROADMAP — Queued parse-back unit marked superseded by this change; DOMAIN.md — the
